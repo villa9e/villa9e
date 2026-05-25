@@ -40,7 +40,7 @@ export default function SkillsOnboarding() {
         rating: s.rating,
       })));
     }
-    router.push('/village/map');
+    router.push('/onboarding/profile');
   }
 
   return (

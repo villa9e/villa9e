@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import { BottomNav } from '@/components/village/BottomNav';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -8,6 +9,7 @@ export const metadata: Metadata = {
   title: 'villa9e — It takes a village.',
   description: 'A GPS system for your goals. Powered by Legaci Jackson.',
   themeColor: '#1877F2',
+  manifest: '/manifest.json',
   openGraph: {
     title: 'villa9e',
     description: 'It takes a village.',
@@ -19,7 +21,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={`${inter.className} pb-20`}>
+        {children}
+        <BottomNav />
+      </body>
     </html>
   );
 }
