@@ -1,0 +1,137 @@
+export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: {
+        Row: {
+          id: string;
+          username: string;
+          display_name: string | null;
+          bio: string | null;
+          avatar_url: string | null;
+          avatar_glb_url: string | null;
+          gender: string | null;
+          date_of_birth: string | null;
+          location_city: string | null;
+          location_country: string | null;
+          occupation: string | null;
+          personality_type: string | null;
+          village_score: number;
+          force_rate: number;
+          success_ratio: number;
+          data_consent: string;
+          vlg_balance: number;
+          nebu_balance: number;
+          tribe_balance: number;
+          wallet_address: string | null;
+          stripe_customer_id: string | null;
+          is_verified: boolean;
+          is_creator: boolean;
+          onboarding_complete: boolean;
+          onboarding_step: number;
+          last_active_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id: string; username: string };
+        Update: Partial<Database['public']['Tables']['profiles']['Row']>;
+      };
+      goals: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string | null;
+          goal_type: 'short_term' | 'long_term' | null;
+          status: 'draft' | 'active' | 'paused' | 'completed' | 'abandoned';
+          category: string | null;
+          is_public: boolean;
+          start_date: string | null;
+          target_date: string | null;
+          estimated_weeks: number | null;
+          weekly_hours: number;
+          probability_score: number;
+          progress_percentage: number;
+          current_step_index: number;
+          total_steps: number;
+          medal: string | null;
+          ai_analysis: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['goals']['Row']> & { user_id: string; title: string };
+        Update: Partial<Database['public']['Tables']['goals']['Row']>;
+      };
+      dream_line_posts: {
+        Row: {
+          id: string;
+          user_id: string;
+          goal_id: string | null;
+          step_id: string | null;
+          content: string;
+          visibility: 'public' | 'tribe' | 'anonymous' | 'private';
+          media_urls: string[];
+          oowhop_count: number;
+          comment_count: number;
+          is_milestone: boolean;
+          is_validated: boolean;
+          medal_at_post: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['dream_line_posts']['Row']> & { user_id: string; content: string };
+        Update: Partial<Database['public']['Tables']['dream_line_posts']['Row']>;
+      };
+      oowhops: {
+        Row: {
+          id: string;
+          post_id: string;
+          giver_id: string;
+          receiver_id: string;
+          goal_id: string | null;
+          step_id: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['oowhops']['Row']> & { post_id: string; giver_id: string; receiver_id: string };
+        Update: never;
+      };
+      spirit_configs: {
+        Row: {
+          id: string;
+          user_id: string;
+          spiritual_system: string;
+          topics: string[];
+          coaching_tone: string;
+          do_not_disturb: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['spirit_configs']['Row']> & { user_id: string };
+        Update: Partial<Database['public']['Tables']['spirit_configs']['Row']>;
+      };
+      user_skills: {
+        Row: {
+          id: string;
+          user_id: string;
+          skill_name: string;
+          rating: number;
+          rating_category: 'pain_point' | 'neutral' | 'skillset';
+          years_experience: number;
+          is_monetizable: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database['public']['Tables']['user_skills']['Row']> & { user_id: string; skill_name: string; rating: number };
+        Update: Partial<Database['public']['Tables']['user_skills']['Row']>;
+      };
+    };
+    Views: Record<string, never>;
+    Functions: {
+      award_village_score: {
+        Args: { p_user_id: string; p_points: number; p_reason: string; p_reference_id?: string };
+        Returns: void;
+      };
+    };
+    Enums: Record<string, never>;
+  };
+}

@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+    --border: 220 14% 91%;
+    --input: 220 14% 91%;
+    --primary: 214 89% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 240 10% 10%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 220 14% 96%;
+    --accent-foreground: 240 10% 10%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring: 214 89% 52%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-village-bg text-foreground font-sans antialiased; }
+}
+
+/* village9e custom utilities */
+.village-card {
+  @apply bg-white rounded-2xl shadow-[0_2px_8px_rgba(24,119,242,0.08)] border border-gray-100 p-4;
+}
+
+.village-btn-primary {
+  @apply bg-village-blue text-white rounded-full px-6 py-3 font-semibold hover:bg-village-blueDark transition-colors;
+}
+
+.village-gradient {
+  background: linear-gradient(135deg, #1877F2 0%, #42A5F5 100%);
+}
