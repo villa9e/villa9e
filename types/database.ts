@@ -72,7 +72,7 @@ export interface Database {
           content: string;
           visibility: 'public' | 'tribe' | 'anonymous' | 'private';
           media_urls: string[];
-          oowhop_count: number;
+          oowop_count: number;
           comment_count: number;
           is_milestone: boolean;
           is_validated: boolean;
@@ -83,7 +83,7 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['dream_line_posts']['Row']> & { user_id: string; content: string };
         Update: Partial<Database['public']['Tables']['dream_line_posts']['Row']>;
       };
-      oowhops: {
+      oowops: {
         Row: {
           id: string;
           post_id: string;
@@ -93,7 +93,7 @@ export interface Database {
           step_id: string | null;
           created_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['oowhops']['Row']> & { post_id: string; giver_id: string; receiver_id: string };
+        Insert: Partial<Database['public']['Tables']['oowops']['Row']> & { post_id: string; giver_id: string; receiver_id: string };
         Update: never;
       };
       spirit_configs: {

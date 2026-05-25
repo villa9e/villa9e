@@ -46,11 +46,11 @@ export default function DreamLinePage() {
     setPosting(false);
   }
 
-  async function giveOoWhop(postId: string, receiverId: string) {
+  async function giveOoWop(postId: string, receiverId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('oowhops').insert({ post_id: postId, giver_id: user.id, receiver_id: receiverId });
-    setPosts(prev => prev.map(p => p.id === postId ? { ...p, oowhop_count: (p.oowhop_count || 0) + 1 } : p));
+    await supabase.from('oowops').insert({ post_id: postId, giver_id: user.id, receiver_id: receiverId });
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, oowop_count: (p.oowop_count || 0) + 1 } : p));
   }
 
   return (
@@ -93,9 +93,9 @@ export default function DreamLinePage() {
             </div>
             <p className="text-gray-700 text-sm mb-3">{post.content}</p>
             <div className="flex items-center gap-4">
-              <button onClick={() => giveOoWhop(post.id, post.user_id)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-purple-600 transition-colors">
+              <button onClick={() => giveOoWop(post.id, post.user_id)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-purple-600 transition-colors">
                 <span>🙌</span>
-                <span>{post.oowhop_count || 0} OoWhops</span>
+                <span>{post.oowop_count || 0} OoWops</span>
               </button>
               <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-village-blue transition-colors">
                 <span>💬</span>
