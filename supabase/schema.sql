@@ -892,42 +892,42 @@ ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE data_locker_settings ENABLE ROW LEVEL SECURITY;
 
 -- RLS POLICIES
-CREATE POLICY IF NOT EXISTS "profiles_public_view" ON profiles FOR SELECT USING (TRUE);
-CREATE POLICY IF NOT EXISTS "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
-CREATE POLICY IF NOT EXISTS "profiles_own_insert" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+CREATE POLICY "profiles_public_view" ON profiles FOR SELECT USING (TRUE);
+CREATE POLICY "profiles_own_update" ON profiles FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "profiles_own_insert" ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
 
-CREATE POLICY IF NOT EXISTS "goals_public_view" ON goals FOR SELECT USING (is_public = TRUE OR user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "goals_own_all" ON goals FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "goals_public_view" ON goals FOR SELECT USING (is_public = TRUE OR user_id = auth.uid());
+CREATE POLICY "goals_own_all" ON goals FOR ALL USING (user_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "posts_public_view" ON dream_line_posts FOR SELECT USING (visibility = 'public' OR user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "posts_own_all" ON dream_line_posts FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "posts_public_view" ON dream_line_posts FOR SELECT USING (visibility = 'public' OR user_id = auth.uid());
+CREATE POLICY "posts_own_all" ON dream_line_posts FOR ALL USING (user_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "oowops_view_all" ON oowops FOR SELECT USING (TRUE);
-CREATE POLICY IF NOT EXISTS "oowops_own_insert" ON oowops FOR INSERT WITH CHECK (giver_id = auth.uid());
+CREATE POLICY "oowops_view_all" ON oowops FOR SELECT USING (TRUE);
+CREATE POLICY "oowops_own_insert" ON oowops FOR INSERT WITH CHECK (giver_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "spirit_own" ON spirit_configs FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "hut_own" ON hut_configs FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "skills_own" ON user_skills FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "interests_own" ON user_interests FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "restrictions_own" ON user_restrictions FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "intentions_own" ON user_intentions FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "mindful_own" ON mindful_moments FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "zen_own" ON zen_sessions FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "journal_own" ON journal_entries FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "wallet_own" ON village_wallets FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "wallet_tx_own" ON wallet_transactions FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "data_locker_own" ON data_locker_settings FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "spirit_own" ON spirit_configs FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "hut_own" ON hut_configs FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "skills_own" ON user_skills FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "interests_own" ON user_interests FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "restrictions_own" ON user_restrictions FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "intentions_own" ON user_intentions FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "mindful_own" ON mindful_moments FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "zen_own" ON zen_sessions FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "journal_own" ON journal_entries FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "wallet_own" ON village_wallets FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "wallet_tx_own" ON wallet_transactions FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "notifications_own" ON notifications FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "data_locker_own" ON data_locker_settings FOR ALL USING (user_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "listings_public_view" ON trading_post_listings FOR SELECT USING (is_active = TRUE);
-CREATE POLICY IF NOT EXISTS "listings_own_all" ON trading_post_listings FOR ALL USING (user_id = auth.uid());
+CREATE POLICY "listings_public_view" ON trading_post_listings FOR SELECT USING (is_active = TRUE);
+CREATE POLICY "listings_own_all" ON trading_post_listings FOR ALL USING (user_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "deals_parties_view" ON deals FOR SELECT USING (requester_id = auth.uid() OR provider_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "deals_requester_insert" ON deals FOR INSERT WITH CHECK (requester_id = auth.uid());
+CREATE POLICY "deals_parties_view" ON deals FOR SELECT USING (requester_id = auth.uid() OR provider_id = auth.uid());
+CREATE POLICY "deals_requester_insert" ON deals FOR INSERT WITH CHECK (requester_id = auth.uid());
 
-CREATE POLICY IF NOT EXISTS "tribes_public_view" ON tribes FOR SELECT USING (is_public = TRUE OR creator_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "tribe_members_view" ON tribe_members FOR SELECT USING (tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
-CREATE POLICY IF NOT EXISTS "tribe_tasks_view" ON tribe_tasks FOR SELECT USING (tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
+CREATE POLICY "tribes_public_view" ON tribes FOR SELECT USING (is_public = TRUE OR creator_id = auth.uid());
+CREATE POLICY "tribe_members_view" ON tribe_members FOR SELECT USING (tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
+CREATE POLICY "tribe_tasks_view" ON tribe_tasks FOR SELECT USING (tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
 
 -- ============================================================
 -- TRIGGERS & FUNCTIONS
