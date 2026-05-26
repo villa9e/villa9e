@@ -58,10 +58,12 @@ export async function POST(req: NextRequest) {
   }
 
   // Award giver for giving
-  await admin.rpc('award_village_score', {
-    p_user_id: giver_id, p_points: 1, p_vlg: 5,
-    p_reason: 'GIVE_OOWOP', p_reference_id: post_id ?? step_id,
-  }).catch(() => {});
+  try {
+    await admin.rpc('award_village_score', {
+      p_user_id: giver_id, p_points: 1, p_vlg: 5,
+      p_reason: 'GIVE_OOWOP', p_reference_id: post_id ?? step_id,
+    });
+  } catch { /* non-critical */ }
 
   // Push notification
   fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {

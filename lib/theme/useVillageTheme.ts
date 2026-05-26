@@ -62,9 +62,28 @@ export const NIGHT = {
   glow:         'rgba(255, 107, 43, 0.12)',
 } as const;
 
-export type ThemeTokens = typeof DAY;
+// Use a plain string-keyed type so DAY and NIGHT both satisfy it
+export type ThemeTokens = {
+  bg:           string;
+  surface:      string;
+  card:         string;
+  cardHover:    string;
+  text:         string;
+  textMuted:    string;
+  textSubtle:   string;
+  border:       string;
+  accent:       string;
+  accentText:   string;
+  accentBg:     string;
+  header:       string;
+  headerText:   string;
+  pill:         string;
+  input:        string;
+  divider:      string;
+  glow:         string;
+};
 
 export function useThemeTokens(): ThemeTokens {
   const theme = useVillageTheme(s => s.theme);
-  return theme === 'day' ? DAY : NIGHT;
+  return (theme === 'day' ? DAY : NIGHT) as ThemeTokens;
 }
