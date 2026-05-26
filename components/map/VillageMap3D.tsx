@@ -334,6 +334,24 @@ function Building({ location, onClick, onHover, onLeave }: any) {
   );
 }
 
+// ─── Globally diverse indigenous NPC cultures ─────────────────────────────────
+// Each entry: skin, hair, garment color, cultural accent color, headpiece
+// Representing: West African, Kemetic, Native American, South Asian, Pacific Islander,
+// Aboriginal Australian, Mayan/Aztec, Nordic/Celtic, Southeast Asian, Siberian, East African
+const NPC_CULTURES = [
+  { skin: '#3B1506', hair: '#1A0A00', garment: '#8B0000', accent: '#FFD700',  label: 'Kemetic'       },
+  { skin: '#6B3A2A', hair: '#1A0A00', garment: '#D97706', accent: '#16A34A',  label: 'West African'  },
+  { skin: '#C68642', hair: '#1A0A00', garment: '#7C3AED', accent: '#06B6D4',  label: 'Mayan'         },
+  { skin: '#F0C27F', hair: '#2D1600', garment: '#DC2626', accent: '#FFD700',  label: 'Native Amer.'  },
+  { skin: '#8B6347', hair: '#1A0A00', garment: '#059669', accent: '#F59E0B',  label: 'South Asian'   },
+  { skin: '#C4A882', hair: '#1A0A00', garment: '#1877F2', accent: '#E8770A',  label: 'Pacific Isl.'  },
+  { skin: '#4A2800', hair: '#1A0A00', garment: '#BE185D', accent: '#FFD700',  label: 'Aboriginal'    },
+  { skin: '#F5DEB3', hair: '#8B4513', garment: '#2D7D46', accent: '#C4A882',  label: 'Celtic'        },
+  { skin: '#D2B48C', hair: '#1A0A00', garment: '#FF6B2B', accent: '#7C3AED',  label: 'SE Asian'      },
+  { skin: '#5C3A1E', hair: '#1A0A00', garment: '#0D9488', accent: '#FFD700',  label: 'East African'  },
+  { skin: '#C68642', hair: '#1A0A00', garment: '#3B1506', accent: '#D97706',  label: 'Siberian'      },
+];
+
 // ─── NPC — lower poly count, bold silhouette ──────────────────────────────────
 // Smooth where it matters (head, limbs) but poly-efficient
 function NPC({ pos, color = '#C68642', accentColor = '#E8770A' }: { pos: [number,number,number]; color?: string; accentColor?: string }) {
@@ -582,10 +600,23 @@ function Scene({ onNavigate, onHover, onLeave, isNight, weatherMood }:
       {TREE_POSITIONS.map((pos, i) => <Tree key={i} pos={pos} scale={0.72 + Math.sin(i * 1.4) * 0.22} />)}
       <FireCircle pos={[0, 0, 0]} />
 
-      {/* NPC wanderers — low poly ambient characters */}
-      <NPC pos={[2.2, 0, 1.8]}  color="#C68642" accentColor="#E8770A" />
-      <NPC pos={[-2.0, 0, 1.6]} color="#8D5524" accentColor="#7C3AED" />
-      <NPC pos={[1.5, 0, -2.0]} color="#5C2A0E" accentColor="#059669" />
+      {/* Globally diverse NPC villagers — scattered near the fire circle */}
+      {[
+        { pos: [2.2,   0,  1.8],  cIdx: 0 },  // Kemetic — near hut
+        { pos: [-2.0,  0,  1.6],  cIdx: 1 },  // West African — near trading post path
+        { pos: [1.5,   0, -2.0],  cIdx: 2 },  // Mayan — near workshop path
+        { pos: [-1.6,  0, -1.8],  cIdx: 3 },  // Native American — near zen path
+        { pos: [2.8,   0,  0.2],  cIdx: 4 },  // South Asian — near tribes path
+        { pos: [-2.5,  0,  0.4],  cIdx: 5 },  // Pacific Islander — near zen
+        { pos: [0.8,   0,  2.8],  cIdx: 6 },  // Aboriginal — near hut
+        { pos: [-0.6,  0, -2.8],  cIdx: 7 },  // Celtic — near hospital
+      ].map(({ pos, cIdx }) => {
+        const c = NPC_CULTURES[cIdx % NPC_CULTURES.length];
+        return (
+          <NPC key={cIdx} pos={pos as [number,number,number]}
+            color={c.skin} accentColor={c.garment} />
+        );
+      })}
 
       {LOCATIONS.map(loc => (
         <Building key={loc.id} location={loc}

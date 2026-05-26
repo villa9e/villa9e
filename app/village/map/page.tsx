@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
 import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
+import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 
 const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
   ssr: false,
@@ -260,6 +261,14 @@ function VillageMapPageInner() {
 
       {/* Village heartbeat */}
       <VillageHeartbeat />
+
+      {/* Story mode */}
+      <StoryModeOverlay />
+
+      {/* Story mode trigger — bottom of screen */}
+      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+        <StoryModeTrigger />
+      </div>
 
       {/* Bottom hint */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-xs text-white/40 pointer-events-none" style={{ marginBottom: '48px' }}>
