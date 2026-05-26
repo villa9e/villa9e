@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import { useWeather, classifyWeather, WEATHER_PALETTES } from '@/lib/theme/useWeather';
+import { useWeather, classifyWeather, WEATHER_PALETTES, type WeatherMood } from '@/lib/theme/useWeather';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { createClient } from '@/lib/supabase/client';
 
@@ -18,12 +18,22 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
     const isNightTime = hour < 6 || hour >= 20;
     setTheme(isNightTime ? 'night' : 'day');
 
+    // Detect season-based mood when no location shared
+    function getSeasonalMood(): WeatherMood {
+      const month = new Date().getMonth(); // 0-11
+      // Northern hemisphere assumption (most users)
+      if (month >= 2 && month <= 4)  return 'spring';
+      if (month >= 5 && month <= 7)  return isNightTime ? 'night_clear' : 'sunny';
+      if (month >= 8 && month <= 10) return 'autumn';
+      return isNightTime ? 'night_clear' : 'cold';
+    }
+
     async function tryWeather() {
       // Check if user has enabled location sharing in Data Locker
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setWeather({ mood: 'default', loaded: true });
+        setWeather({ mood: getSeasonalMood(), loaded: true });
         return;
       }
 
@@ -33,9 +43,9 @@ export function WeatherProvider({ children }: { children: React.ReactNode }) {
         .eq('user_id', user.id)
         .single();
 
-      // If user hasn't enabled location sharing, don't request geolocation
+      // No location sharing — use seasonal mood instead of plain 'default'
       if (!locker?.share_location) {
-        setWeather({ mood: 'default', loaded: true });
+        setWeather({ mood: getSeasonalMood(), loaded: true });
         return;
       }
 
