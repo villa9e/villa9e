@@ -81,13 +81,13 @@ Return JSON ONLY:
   }).eq('id', post_id);
 
   // Load admin config to check thresholds
-  const { data: config } = await admin.from('dreamline_config').select('auto_hide_below, mission_score_minimum').eq('id', 1).single();
+  const { data: config } = await (admin as any).from('dreamline_config').select('auto_hide_below, mission_score_minimum').eq('id', 1).single();
   const autoHideBelow = config?.auto_hide_below ?? 20;
 
   if (score < autoHideBelow) {
     // Auto-hide and send to review queue
     await admin.from('dream_line_posts').update({ is_hidden: true, hidden_reason: `Auto-hidden: mission score ${score}% below threshold` }).eq('id', post_id);
-    await admin.from('content_review_queue').insert({
+    await (admin as any).from('content_review_queue').insert({
       post_id,
       mission_score: score,
       reason: `${reason}${flags.length ? ` · Flags: ${flags.join(', ')}` : ''}`,
@@ -95,7 +95,7 @@ Return JSON ONLY:
     });
   } else if (score < (config?.mission_score_minimum ?? 50)) {
     // Below minimum but above auto-hide — visible to author only (is_hidden stays false, but score filters it from feed)
-    await admin.from('content_review_queue').insert({
+    await (admin as any).from('content_review_queue').insert({
       post_id,
       mission_score: score,
       reason: `Low mission alignment: ${reason}`,

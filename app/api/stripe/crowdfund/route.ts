@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   const session = await res.json();
 
   // Pre-create contribution record (will be confirmed via webhook)
-  await admin.from('crowdfunding_contributions').insert({
+  await (admin as any).from('crowdfunding_contributions').insert({
     campaign_id,
     backer_id: user.id,
     amount: amount_cents / 100,

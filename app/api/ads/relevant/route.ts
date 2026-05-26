@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   // Log impression
   const now = new Date().toISOString();
-  await supabase.from('ad_impressions').insert(
+  await (supabase as any).from('ad_impressions').insert(
     ads.map(ad => ({ ad_id: ad.id, user_id: user.id, goal_category, step_title, step_index, shown_at: now }))
   );
 

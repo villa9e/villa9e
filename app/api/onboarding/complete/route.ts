@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (referrerUsername) {
     const { data: referrer } = await admin.from('profiles').select('id').eq('username', referrerUsername).single();
     if (referrer) {
-      const { error: refError } = await admin.from('referrals').insert({
+      const { error: refError } = await (admin as any).from('referrals').insert({
         referrer_id: referrer.id,
         referred_id: user.id,
         vlg_awarded: false,
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
             p_user_id: user.id, p_points: 10, p_vlg: 100, p_reason: 'JOIN_VIA_REFERRAL', p_reference_id: referrer.id,
           }),
         ]);
-        await admin.from('referrals').update({ vlg_awarded: true }).eq('referred_id', user.id);
+        await (admin as any).from('referrals').update({ vlg_awarded: true }).eq('referred_id', user.id);
 
         // Notify referrer
         await admin.from('notifications').insert({

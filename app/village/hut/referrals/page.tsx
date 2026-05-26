@@ -18,7 +18,7 @@ export default function ReferralsPage() {
 
       const [{ data: p }, { data: r }, { data: txns }] = await Promise.all([
         supabase.from('profiles').select('username, village_score').eq('id', user.id).single(),
-        supabase.from('referrals').select('*, profiles!referred_id(username, village_score, created_at, score_tier)').eq('referrer_id', user.id).order('created_at', { ascending: false }),
+        (supabase as any).from('referrals').select('*, profiles!referred_id(username, village_score, created_at, score_tier)').eq('referrer_id', user.id).order('created_at', { ascending: false }),
         supabase.from('wallet_transactions').select('amount').eq('user_id', user.id).ilike('reason', '%REFER%'),
       ]);
 

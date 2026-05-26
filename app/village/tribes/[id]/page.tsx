@@ -36,7 +36,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
     const [{ data: t }, { data: m }, { data: msgs }, { data: tk }] = await Promise.all([
       supabase.from('tribes').select('*').eq('id', params.id).single(),
       supabase.from('tribe_members').select('*, profiles(username, village_score, score_tier)').eq('tribe_id', params.id),
-      supabase.from('tribe_messages').select('*, profiles(username)').eq('tribe_id', params.id).order('created_at').limit(50),
+      (supabase as any).from('tribe_messages').select('*, profiles(username)').eq('tribe_id', params.id).order('created_at').limit(50),
       supabase.from('tribe_tasks').select('*').eq('tribe_id', params.id).order('created_at', { ascending: false }).limit(20),
     ]);
 
@@ -46,7 +46,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
   async function sendMessage() {
     if (!newMsg.trim() || sending || !userId) return;
     setSending(true);
-    await supabase.from('tribe_messages').insert({
+    await (supabase as any).from('tribe_messages').insert({
       tribe_id: params.id, user_id: userId, content: newMsg.trim(),
     });
     setNewMsg('');

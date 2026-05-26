@@ -36,8 +36,8 @@ export default function DreamLineAdminPage() {
 
   async function loadData() {
     const [{ data: cfg }, { data: q }, { data: posts }] = await Promise.all([
-      supabase.from('dreamline_config').select('*').eq('id', 1).single(),
-      supabase.from('content_review_queue').select('*, dream_line_posts(content, user_id, mission_score, profiles(username))').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
+      (supabase as any).from('dreamline_config').select('*').eq('id', 1).single(),
+      (supabase as any).from('content_review_queue').select('*, dream_line_posts(content, user_id, mission_score, profiles(username))').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
       supabase.from('dream_line_posts').select('mission_score, is_hidden, created_at').limit(500),
     ]);
     setConfig(cfg ?? {
@@ -57,14 +57,14 @@ export default function DreamLineAdminPage() {
 
   async function saveConfig() {
     setSaving(true);
-    await supabase.from('dreamline_config').upsert({ ...config, id: 1, updated_at: new Date().toISOString() });
+    await (supabase as any).from('dreamline_config').upsert({ ...config, id: 1, updated_at: new Date().toISOString() });
     setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
   async function reviewPost(queueId: string, postId: string, action: 'approved' | 'rejected') {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('content_review_queue').update({ status: action, reviewed_by: user.id, reviewed_at: new Date().toISOString() }).eq('id', queueId);
+    await (supabase as any).from('content_review_queue').update({ status: action, reviewed_by: user.id, reviewed_at: new Date().toISOString() }).eq('id', queueId);
     if (action === 'rejected') {
       await supabase.from('dream_line_posts').update({ is_hidden: true, hidden_reason: 'Admin review: rejected' }).eq('id', postId);
     } else {

@@ -40,10 +40,10 @@ export default function DiscoverEventsPage() {
   async function rsvp(eventId: string) {
     if (!userId) return;
     if (rsvped.has(eventId)) {
-      await supabase.from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', userId);
+      await (supabase as any).from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', userId);
       setRsvped(prev => { const s = new Set(prev); s.delete(eventId); return s; });
     } else {
-      await supabase.from('event_rsvps').insert({ event_id: eventId, user_id: userId, status: 'going' });
+      await (supabase as any).from('event_rsvps').insert({ event_id: eventId, user_id: userId, status: 'going' });
       setRsvped(prev => new Set([...prev, eventId]));
     }
   }
