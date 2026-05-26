@@ -166,6 +166,7 @@ export default function ZenSpacePage() {
                   {ZEN_ACTIVITIES.map(act => {
                     const href = act.label === 'Journal' ? '/village/zen/journal'
                       : act.label === 'Breathwork' ? '/village/zen/breathwork'
+                      : act.label === 'Affirmation' ? '/village/zen/affirmation'
                       : act.label === 'Telehealth' ? '/village/hospital/providers'
                       : null;
                     const El = href ? Link : motion.button as any;
