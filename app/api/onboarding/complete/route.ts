@@ -79,12 +79,12 @@ export async function POST(req: NextRequest) {
 
   // Send welcome email
   const { data: userRecord } = await admin.auth.admin.getUserById(user.id);
-  const { data: profile } = await admin.from('profiles').select('username, founding_villager_number').eq('id', user.id).single();
-  if (userRecord?.user?.email && profile?.username) {
+  const { data: welcomeProfile } = await admin.from('profiles').select('username, founding_villager_number').eq('id', user.id).single();
+  if (userRecord?.user?.email && welcomeProfile?.username) {
     await sendEmail({
       to: userRecord.user.email,
-      subject: isFoundingVillager ? `👑 Welcome to villa9e, Founding Villager #${profile.founding_villager_number}!` : 'Welcome to villa9e — Your village is ready',
-      html: welcomeEmail(profile.username, isFoundingVillager, profile.founding_villager_number ?? undefined),
+      subject: isFoundingVillager ? `👑 Welcome to villa9e, Founding Villager #${welcomeProfile.founding_villager_number}!` : 'Welcome to villa9e — Your village is ready',
+      html: welcomeEmail(welcomeProfile.username, isFoundingVillager, welcomeProfile.founding_villager_number ?? undefined),
     });
   }
 
