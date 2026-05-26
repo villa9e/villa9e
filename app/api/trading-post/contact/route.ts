@@ -20,15 +20,14 @@ export async function POST(req: NextRequest) {
   const { data: existing } = await supabase
     .from('conversations')
     .select('id')
-    .or(`and(participant_1.eq.${user.id},participant_2.eq.${listing.user_id}),and(participant_1.eq.${listing.user_id},participant_2.eq.${user.id})`)
+    .contains('participant_ids', [user.id, listing.user_id])
     .single();
 
   let conversationId = existing?.id;
 
   if (!conversationId) {
     const { data: conv } = await supabase.from('conversations').insert({
-      participant_1: user.id,
-      participant_2: listing.user_id,
+      participant_ids: [user.id, listing.user_id],
       listing_id: listing_id,
     }).select().single();
     conversationId = conv?.id;
