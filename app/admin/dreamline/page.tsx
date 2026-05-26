@@ -38,7 +38,7 @@ export default function DreamLineAdminPage() {
     const [{ data: cfg }, { data: q }, { data: posts }] = await Promise.all([
       (supabase as any).from('dreamline_config').select('*').eq('id', 1).single(),
       (supabase as any).from('content_review_queue').select('*, dream_line_posts(content, user_id, mission_score, profiles(username))').eq('status', 'pending').order('created_at', { ascending: false }).limit(20),
-      supabase.from('dream_line_posts').select('mission_score, is_hidden, created_at').limit(500),
+      (supabase as any).from('dream_line_posts').select('mission_score, is_hidden, created_at').limit(500),
     ]);
     setConfig(cfg ?? {
       algorithm: 'mission_scored', mission_score_minimum: 50, auto_hide_below: 20,
