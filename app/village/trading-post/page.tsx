@@ -14,6 +14,9 @@ export default function TradingPostPage() {
   const [form, setForm] = useState({ title: '', description: '', skill_offered: '', category: 'Creative', hourly_rate: '', deal_types: ['trade','pay'] });
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [contacting, setContacting] = useState<any>(null);
+  const [contactMsg, setContactMsg] = useState('');
+  const [contacted, setContacted] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -52,6 +55,16 @@ export default function TradingPostPage() {
     setSaving(false);
   }
 
+  async function sendContact() {
+    if (!contacting || !contactMsg.trim()) return;
+    const res = await fetch('/api/trading-post/contact', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listing_id: contacting.id, message: contactMsg }),
+    });
+    if (res.ok) { setContacted(true); setTimeout(() => { setContacting(null); setContactMsg(''); setContacted(false); }, 2500); }
+  }
+
   const dealColor = (type: string) => type === 'trade' ? 'bg-green-100 text-green-700' : type === 'pay' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
 
   return (
@@ -67,6 +80,44 @@ export default function TradingPostPage() {
           + List Skill
         </button>
       </div>
+
+      {/* Contact modal */}
+      {contacting && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+            className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4">
+            {contacted ? (
+              <div className="text-center py-6 space-y-2">
+                <div className="text-5xl animate-float">💬</div>
+                <h2 className="text-xl font-bold text-green-600">Message Sent!</h2>
+                <p className="text-sm text-gray-500">@{contacting.profiles?.username} will receive your inquiry.</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-bold">Contact @{contacting.profiles?.username}</h2>
+                  <button onClick={() => { setContacting(null); setContactMsg(''); }} className="text-gray-400 text-2xl">×</button>
+                </div>
+                <div className="bg-green-50 rounded-2xl p-3 text-xs text-green-700">
+                  <p className="font-bold">{contacting.title}</p>
+                  {contacting.hourly_rate && <p className="mt-0.5">${contacting.hourly_rate}/hr · {(contacting.deal_types ?? []).join(', ')}</p>}
+                </div>
+                <textarea value={contactMsg} onChange={e => setContactMsg(e.target.value)}
+                  placeholder="Introduce yourself. What do you need? What can you offer in return?"
+                  rows={4} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
+                <div className="flex gap-3">
+                  <button onClick={() => { setContacting(null); setContactMsg(''); }}
+                    className="flex-1 border border-gray-200 rounded-full py-3 text-gray-500 text-sm">Cancel</button>
+                  <button onClick={sendContact} disabled={!contactMsg.trim()}
+                    className="flex-1 bg-green-600 text-white rounded-full py-3 font-bold text-sm disabled:opacity-50">
+                    Send Inquiry
+                  </button>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </div>
+      )}
 
       {/* Create listing modal */}
       {showCreate && (
@@ -148,11 +199,17 @@ export default function TradingPostPage() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 mt-3">
-              {l.deal_types?.includes('trade') && <button className="flex-1 bg-green-50 text-green-700 rounded-full py-2 text-xs font-bold hover:bg-green-100">🤝 Barter</button>}
-              {l.deal_types?.includes('pay') && <button className="flex-1 bg-blue-50 text-village-blue rounded-full py-2 text-xs font-bold hover:bg-blue-100">💳 Hire</button>}
-              <button className="flex-1 bg-purple-50 text-purple-700 rounded-full py-2 text-xs font-bold hover:bg-purple-100">💬 Network</button>
-            </div>
+            {l.user_id !== userId && (
+              <div className="flex gap-2 mt-3">
+                {l.deal_types?.includes('trade') && (
+                  <button onClick={() => setContacting(l)} className="flex-1 bg-green-50 text-green-700 rounded-full py-2 text-xs font-bold hover:bg-green-100">🤝 Barter</button>
+                )}
+                {l.deal_types?.includes('pay') && (
+                  <button onClick={() => setContacting(l)} className="flex-1 bg-blue-50 text-village-blue rounded-full py-2 text-xs font-bold hover:bg-blue-100">💳 Hire</button>
+                )}
+                <button onClick={() => setContacting(l)} className="flex-1 bg-purple-50 text-purple-700 rounded-full py-2 text-xs font-bold hover:bg-purple-100">💬 Network</button>
+              </div>
+            )}
           </motion.div>
         ))}
 
