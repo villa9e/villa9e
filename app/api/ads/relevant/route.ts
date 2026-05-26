@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   const { goal_category, step_title, step_index } = await req.json();
 
   // Fetch active ads matching this step's context
-  const { data: ads } = await supabase
+  const { data: ads } = await (supabase as any)
     .from('ad_placements')
     .select('*')
     .eq('is_active', true)

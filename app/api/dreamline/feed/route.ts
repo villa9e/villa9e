@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(searchParams.get('offset') ?? '0');
 
   // Load algorithm config
-  const { data: config } = await supabase
+  const { data: config } = await (supabase as any)
     .from('dreamline_config')
     .select('*')
     .eq('id', 1)
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const minScore = config?.mission_score_minimum ?? 50;
 
   // Base query — always exclude hidden posts
-  let q = supabase
+  let q = (supabase as any)
     .from('dream_line_posts')
     .select('*, profiles(username, avatar_url, village_score, score_tier)')
     .eq('visibility', 'public')
