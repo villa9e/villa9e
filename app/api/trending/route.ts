@@ -1,17 +1,8 @@
 import { NextResponse } from 'next/server';
+import { createAdminClient } from '@/lib/supabase/server';
 import { callClaude } from '@/lib/claude/client';
 
-// Curated trending goal categories with real-world alignment
-const GOAL_CATEGORIES = [
-  'Start a business', 'Learn to code', 'Get fit and lose weight',
-  'Pay off debt', 'Learn a new skill', 'Travel more',
-  'Write a book', 'Invest in stocks', 'Eat healthier',
-  'Quit a bad habit', 'Start a podcast', 'Build an emergency fund',
-  'Go back to school', 'Get a promotion', 'Learn a language',
-  'Buy a house', 'Start freelancing', 'Meditate daily',
-];
-
-// Cache for 6 hours to avoid hitting Claude too frequently
+// Cache for 6 hours
 let cachedTrending: any[] | null = null;
 let cacheTime = 0;
 const CACHE_TTL = 6 * 60 * 60 * 1000;
@@ -23,32 +14,73 @@ export async function GET() {
   }
 
   try {
+    const admin = createAdminClient();
+
+    // Pull from seeded trending_goals table first
+    const { data: seeded } = await (admin as any)
+      .from('trending_goals')
+      .select('title, category, emoji, momentum, search_volume')
+      .gt('expires_at', new Date().toISOString())
+      .order('search_volume', { ascending: false })
+      .limit(10);
+
+    if (seeded?.length >= 6) {
+      const result = seeded.map((g: any) => ({
+        title:    g.title,
+        category: g.category,
+        emoji:    g.emoji ?? '📍',
+        momentum: g.momentum ?? 'steady',
+        context:  '',
+      }));
+      cachedTrending = result;
+      cacheTime = now;
+      return NextResponse.json(result);
+    }
+
+    // Fallback: generate with Claude if DB is empty
     const month = new Date().toLocaleString('en-US', { month: 'long' });
     const year  = new Date().getFullYear();
 
-    const prompt = `It's ${month} ${year}. Based on current real-world trends, cultural moments, and what people are actually working toward right now, generate 8 trending goal topics.
+    const prompt = `It's ${month} ${year}. Generate 8 specific, trending goal topics people are actually working toward right now.
 
-Each should be specific (not generic), timely, and feel relevant to someone in their 20s–40s building a better life.
-
-Return JSON array only:
-[
-  {"title": "...", "category": "...", "emoji": "...", "momentum": "rising|hot|steady", "context": "one short sentence on why it's trending now"},
-  ...
-]
+Return JSON array:
+[{"title":"...", "category":"...", "emoji":"...", "momentum":"rising|hot|steady", "context":"one sentence"}]
 
 Categories: Business, Health, Finance, Education, Creative, Personal, Career, Relationships`;
 
     const result = await callClaude(prompt);
-    const trending = Array.isArray(result) ? result : GOAL_CATEGORIES.slice(0, 8).map((t, i) => ({
-      title: t, category: 'Personal', emoji: '📍', momentum: 'steady', context: 'A perennial goal people work toward.',
-    }));
+    const trending = Array.isArray(result) ? result.slice(0, 8) : [];
+
+    // Seed into DB for next time (24h TTL)
+    if (trending.length > 0) {
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      await (admin as any).from('trending_goals').insert(
+        trending.map((t: any) => ({
+          category:    t.category ?? 'Personal',
+          trend_source:'claude_generated',
+          search_volume: 1000,
+          region:      'us',
+          emoji:       t.emoji ?? '📍',
+          title:       t.title,
+          momentum:    t.momentum ?? 'steady',
+          expires_at:  expires,
+        }))
+      ).catch(() => {});
+    }
 
     cachedTrending = trending;
     cacheTime = now;
     return NextResponse.json(trending);
   } catch {
-    return NextResponse.json(GOAL_CATEGORIES.slice(0, 8).map(t => ({
-      title: t, category: 'Personal', emoji: '📍', momentum: 'steady', context: '',
-    })));
+    return NextResponse.json([
+      { title: 'Launch my first side income stream',    emoji: '🚀', momentum: 'hot',    category: 'Business' },
+      { title: 'Record and release my first EP',        emoji: '🎵', momentum: 'hot',    category: 'Creative' },
+      { title: 'Pay off $10,000 in debt',               emoji: '💰', momentum: 'rising', category: 'Finance'  },
+      { title: 'Build a daily meditation practice',     emoji: '🧘', momentum: 'rising', category: 'Wellness' },
+      { title: 'Learn to code in 3 months',             emoji: '💻', momentum: 'hot',    category: 'Education'},
+      { title: 'Start investing with $100/month',       emoji: '📈', momentum: 'rising', category: 'Finance'  },
+      { title: 'Create 30 days of consistent content',  emoji: '🎬', momentum: 'hot',    category: 'Creative' },
+      { title: 'Get in the best shape of my life',      emoji: '💪', momentum: 'hot',    category: 'Health'   },
+    ]);
   }
 }
