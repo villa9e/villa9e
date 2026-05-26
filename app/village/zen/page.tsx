@@ -167,6 +167,7 @@ export default function ZenSpacePage() {
                     const href = act.label === 'Journal' ? '/village/zen/journal'
                       : act.label === 'Breathwork' ? '/village/zen/breathwork'
                       : act.label === 'Affirmation' ? '/village/zen/affirmation'
+                      : act.label === 'Zen Music' ? '/village/zen/music'
                       : act.label === 'Telehealth' ? '/village/hospital/providers'
                       : null;
                     const cardCls = `village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow block`;
