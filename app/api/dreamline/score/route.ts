@@ -76,7 +76,7 @@ Return JSON ONLY:
   } catch { /* use defaults */ }
 
   // Update the post with mission score
-  await admin.from('dream_line_posts').update({
+  await (admin as any).from('dream_line_posts').update({
     mission_score: score,
   }).eq('id', post_id);
 
@@ -86,7 +86,7 @@ Return JSON ONLY:
 
   if (score < autoHideBelow) {
     // Auto-hide and send to review queue
-    await admin.from('dream_line_posts').update({ is_hidden: true, hidden_reason: `Auto-hidden: mission score ${score}% below threshold` }).eq('id', post_id);
+    await (admin as any).from('dream_line_posts').update({ is_hidden: true, hidden_reason: `Auto-hidden: mission score ${score}% below threshold` }).eq('id', post_id);
     await (admin as any).from('content_review_queue').insert({
       post_id,
       mission_score: score,

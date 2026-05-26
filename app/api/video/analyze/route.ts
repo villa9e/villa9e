@@ -151,7 +151,7 @@ Return JSON ONLY:
 
   // Update post with video analysis results
   if (post_id) {
-    await supabase.from('dream_line_posts').update({
+    await (supabase as any).from('dream_line_posts').update({
       video_url: videoUrl,
       video_analyzed: true,
       mission_labels: allLabels,

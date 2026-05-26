@@ -66,9 +66,9 @@ export default function DreamLineAdminPage() {
     if (!user) return;
     await (supabase as any).from('content_review_queue').update({ status: action, reviewed_by: user.id, reviewed_at: new Date().toISOString() }).eq('id', queueId);
     if (action === 'rejected') {
-      await supabase.from('dream_line_posts').update({ is_hidden: true, hidden_reason: 'Admin review: rejected' }).eq('id', postId);
+      await (supabase as any).from('dream_line_posts').update({ is_hidden: true, hidden_reason: 'Admin review: rejected' }).eq('id', postId);
     } else {
-      await supabase.from('dream_line_posts').update({ is_hidden: false }).eq('id', postId);
+      await (supabase as any).from('dream_line_posts').update({ is_hidden: false }).eq('id', postId);
     }
     setQueue(prev => prev.filter(q => q.id !== queueId));
     setStats((s: any) => ({ ...s, queue: Math.max(0, (s.queue ?? 1) - 1) }));
