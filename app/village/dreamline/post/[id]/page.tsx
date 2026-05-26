@@ -12,6 +12,9 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [hasGiven, setHasGiven] = useState(false);
   const [celebration, setCelebration] = useState(false);
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [commenting, setCommenting] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
@@ -31,9 +34,29 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
         const { data: ow } = await supabase.from('oowops').select('id').eq('post_id', params.id).eq('giver_id', user.id).single();
         setHasGiven(!!ow);
       }
+
+      // Load comments
+      const commentsRes = await fetch(`/api/posts/comment?post_id=${params.id}`);
+      if (commentsRes.ok) setComments(await commentsRes.json());
     }
     load();
   }, [params.id]);
+
+  async function submitComment() {
+    if (!currentUserId || !newComment.trim() || commenting) return;
+    setCommenting(true);
+    const res = await fetch('/api/posts/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: params.id, content: newComment }),
+    });
+    if (res.ok) {
+      const { comment } = await res.json();
+      if (comment) setComments(prev => [...prev, comment]);
+      setNewComment('');
+    }
+    setCommenting(false);
+  }
 
   async function handleOoWop() {
     if (!currentUserId || !post || hasGiven) return;
@@ -147,6 +170,55 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
             </span>
           </div>
         </motion.div>
+
+        {/* Comments */}
+        <div className="village-card space-y-4">
+          <h2 className="font-bold text-sm flex items-center gap-2">
+            <span>💬</span> Comments ({comments.length})
+          </h2>
+
+          {/* Comment thread */}
+          {comments.map(c => (
+            <div key={c.id} className="flex gap-3">
+              <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-xs font-bold text-purple-600 flex-shrink-0">
+                {(c.profiles?.username?.[0] ?? '?').toUpperCase()}
+              </div>
+              <div className="flex-1 bg-gray-50 rounded-2xl px-3 py-2">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Link href={`/villager/${c.profiles?.username}`} className="text-xs font-bold hover:text-purple-600">
+                    @{c.profiles?.username}
+                  </Link>
+                  <span className="text-xs text-gray-400">
+                    {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-700">{c.content}</p>
+              </div>
+            </div>
+          ))}
+
+          {comments.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-2">Be the first to comment.</p>
+          )}
+
+          {/* Add comment */}
+          {currentUserId && (
+            <div className="flex gap-2 pt-2 border-t border-gray-50">
+              <input
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && submitComment()}
+                placeholder="Add a comment…"
+                maxLength={500}
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <button onClick={submitComment} disabled={!newComment.trim() || commenting}
+                className="bg-purple-600 text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-purple-700">
+                {commenting ? '…' : 'Post'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

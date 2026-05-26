@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { sendEmail, welcomeEmail } from '@/lib/email/send';
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
@@ -75,6 +76,17 @@ export async function POST(req: NextRequest) {
     p_reason:       'COMPLETE_ONBOARDING',
     p_reference_id: null,
   });
+
+  // Send welcome email
+  const { data: userRecord } = await admin.auth.admin.getUserById(user.id);
+  const { data: profile } = await admin.from('profiles').select('username, founding_villager_number').eq('id', user.id).single();
+  if (userRecord?.user?.email && profile?.username) {
+    await sendEmail({
+      to: userRecord.user.email,
+      subject: isFoundingVillager ? `👑 Welcome to villa9e, Founding Villager #${profile.founding_villager_number}!` : 'Welcome to villa9e — Your village is ready',
+      html: welcomeEmail(profile.username, isFoundingVillager, profile.founding_villager_number ?? undefined),
+    });
+  }
 
   return NextResponse.json({ ok: true, isFoundingVillager });
 }

@@ -15,7 +15,8 @@ export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'account' | 'sent'>('account');
+  const [step, setStep] = useState<'account' | 'sent' | 'too_young'>('account');
+  const [dob, setDob] = useState('');
 
   useEffect(() => {
     if (ref) localStorage.setItem('villa9e_referrer', ref);
@@ -28,6 +29,11 @@ export default function SignupPage() {
 
     if (username.length < 3) { setError('Username must be at least 3 characters.'); setLoading(false); return; }
     if (password.length < 8) { setError('Password must be at least 8 characters.'); setLoading(false); return; }
+    // COPPA: enforce minimum age 13
+    if (dob) {
+      const age = Math.floor((Date.now() - new Date(dob).getTime()) / (365.25 * 24 * 3600 * 1000));
+      if (age < 13) { setStep('too_young'); setLoading(false); return; }
+    }
 
     // Check username availability
     const { data: existing } = await supabase.from('profiles').select('id').eq('username', username.toLowerCase()).single();
@@ -57,6 +63,22 @@ export default function SignupPage() {
       provider: 'google',
       options: { redirectTo: `${location.origin}/auth/callback` },
     });
+  }
+
+  if (step === 'too_young') {
+    return (
+      <div className="min-h-screen village-gradient flex items-center justify-center p-4">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 text-center">
+          <div className="text-6xl mb-4">🏕️</div>
+          <h2 className="text-2xl font-bold mb-2">Come back when you&apos;re older</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            villa9e is for ages 13 and up. We&apos;ll be here when you&apos;re ready.
+          </p>
+          <Link href="/" className="text-village-blue text-sm hover:underline">← Back to home</Link>
+        </motion.div>
+      </div>
+    );
   }
 
   if (step === 'sent') {
@@ -126,6 +148,12 @@ export default function SignupPage() {
             <label className="text-xs font-medium text-gray-500">Password (8+ characters)</label>
             <input type="password" value={password} onChange={e => setPassword(e.target.value)}
               placeholder="Choose a strong password" required minLength={8}
+              className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-village-blue" />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Date of Birth (must be 13+)</label>
+            <input type="date" value={dob} onChange={e => setDob(e.target.value)} required
+              max={new Date(Date.now() - 13 * 365.25 * 24 * 3600 * 1000).toISOString().split('T')[0]}
               className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-village-blue" />
           </div>
           {error && <p className="text-red-500 text-sm">{error}</p>}

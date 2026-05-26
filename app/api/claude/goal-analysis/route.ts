@@ -1,7 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callClaude } from '@/lib/claude/client';
+import { createServerClient } from '@/lib/supabase/server';
+import { rateLimit, rateLimitResponse } from '@/lib/ratelimit';
 
 export async function POST(req: NextRequest) {
+  const supabase = createServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  // Rate limit: 5 goal analyses per minute per user
+  if (!rateLimit(`goal-analysis:${user.id}`, 5, 60_000)) return rateLimitResponse();
+
   const { goal, user_skills = [], budget = null } = await req.json();
 
   const prompt = `Analyze this goal and return a detailed GPS plan as JSON.
