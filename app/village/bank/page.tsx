@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { getScoreTier } from '@/lib/village/score';
+import { PlaidConnect } from '@/components/bank/PlaidConnect';
 
 export default function BankPage() {
   const [wallet, setWallet] = useState<any>(null);
@@ -66,6 +67,17 @@ export default function BankPage() {
             </div>
           </div>
         </motion.div>
+
+        {/* Bank connection */}
+        <div className="village-card border border-blue-100 bg-blue-50">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-bold text-sm">Connect Your Bank</p>
+              <p className="text-xs text-gray-500 mt-0.5">Verify income and check balance for goal budgeting. Powered by Plaid.</p>
+            </div>
+            <PlaidConnect onSuccess={(inst) => console.log('Connected:', inst)} />
+          </div>
+        </div>
 
         {/* Score tier & credit eligibility */}
         <div className="village-card">
