@@ -125,10 +125,115 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['user_skills']['Row']>;
       };
     };
+      dreamline_config: {
+        Row: {
+          id: number;
+          algorithm: string;
+          mission_score_minimum: number;
+          boost_keywords: string[];
+          suppress_keywords: string[];
+          auto_hide_below: number;
+          require_video_check: boolean;
+          oowop_weight: number;
+          recency_weight: number;
+          mission_weight: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: Partial<Database['public']['Tables']['dreamline_config']['Row']>;
+        Update: Partial<Database['public']['Tables']['dreamline_config']['Row']>;
+      };
+      content_review_queue: {
+        Row: {
+          id: string;
+          post_id: string;
+          mission_score: number;
+          reason: string | null;
+          status: string;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['content_review_queue']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['content_review_queue']['Row']>;
+      };
+      tribe_messages: {
+        Row: {
+          id: string;
+          tribe_id: string;
+          user_id: string;
+          content: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['tribe_messages']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['tribe_messages']['Row']>;
+      };
+      referrals: {
+        Row: {
+          id: string;
+          referrer_id: string;
+          referred_id: string;
+          vlg_awarded: boolean;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['referrals']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['referrals']['Row']>;
+      };
+      crowdfunding_contributions: {
+        Row: {
+          id: string;
+          campaign_id: string;
+          backer_id: string;
+          amount: number;
+          currency: string;
+          perk_tier: string | null;
+          stripe_charge_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['crowdfunding_contributions']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['crowdfunding_contributions']['Row']>;
+      };
+      ad_placements: {
+        Row: {
+          id: string;
+          advertiser_id: string | null;
+          title: string;
+          body: string;
+          cta: string;
+          url: string;
+          icon: string;
+          target_categories: string[];
+          bid_amount: number;
+          budget: number | null;
+          spent: number;
+          is_active: boolean;
+          starts_at: string | null;
+          ends_at: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['ad_placements']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['ad_placements']['Row']>;
+      };
+      ad_impressions: {
+        Row: {
+          id: string;
+          ad_id: string;
+          user_id: string;
+          goal_category: string | null;
+          step_title: string | null;
+          step_index: number | null;
+          clicked: boolean;
+          clicked_at: string | null;
+          shown_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['ad_impressions']['Row'], 'id' | 'shown_at'>;
+        Update: Partial<Database['public']['Tables']['ad_impressions']['Row']>;
+      };
+    };
     Views: Record<string, never>;
     Functions: {
       award_village_score: {
-        Args: { p_user_id: string; p_points: number; p_reason: string; p_reference_id?: string };
+        Args: { p_user_id: string; p_points: number; p_vlg?: number; p_reason: string; p_reference_id?: string | null };
         Returns: void;
       };
     };
