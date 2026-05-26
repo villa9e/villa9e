@@ -75,13 +75,20 @@ export interface Database {
           oowop_count: number;
           comment_count: number;
           is_milestone: boolean;
+          milestone_type: string | null;
           is_validated: boolean;
           medal_at_post: string | null;
+          mission_score: number | null;
+          mission_labels: string[] | null;
+          is_hidden: boolean;
+          hidden_reason: string | null;
+          video_url: string | null;
+          video_analyzed: boolean;
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['dream_line_posts']['Row']> & { user_id: string; content: string };
-        Update: Partial<Database['public']['Tables']['dream_line_posts']['Row']>;
+        Insert: { user_id: string; content: string; goal_id?: string | null; step_id?: string | null; visibility?: string; is_milestone?: boolean; milestone_type?: string | null; mission_score?: number | null };
+        Update: { content?: string; oowop_count?: number; is_validated?: boolean; mission_score?: number | null; mission_labels?: string[] | null; is_hidden?: boolean; hidden_reason?: string | null; video_url?: string | null; video_analyzed?: boolean; progress_percentage?: number; current_step_index?: number; status?: string; completed_at?: string | null; medal_type?: string | null };
       };
       oowops: {
         Row: {
