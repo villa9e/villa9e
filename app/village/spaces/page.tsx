@@ -133,6 +133,7 @@ export default function SpacesPage() {
           <h1 className="text-xl font-bold leading-tight">Spaces</h1>
           <p className="text-indigo-200 text-xs">Every event is a full experience</p>
         </div>
+        <Link href="/village/spaces/discover" className="text-indigo-200 text-sm mr-1">🌍 Public</Link>
         <button onClick={() => setShowCreate(true)} className="bg-white text-indigo-700 rounded-full px-3 py-1.5 text-sm font-bold">
           + Event
         </button>

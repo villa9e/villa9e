@@ -214,6 +214,17 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['ad_placements']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['ad_placements']['Row']>;
       };
+      event_rsvps: {
+        Row: {
+          id: string;
+          event_id: string;
+          user_id: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['event_rsvps']['Row'], 'id' | 'created_at'>;
+        Update: Partial<Database['public']['Tables']['event_rsvps']['Row']>;
+      };
       ad_impressions: {
         Row: {
           id: string;

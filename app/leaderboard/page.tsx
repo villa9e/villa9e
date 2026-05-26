@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { getScoreTier } from '@/lib/village/score';
 
-const TABS = ['village Score', 'OoWops Given', 'Goals Completed'] as const;
+const TABS = ['village Score', '$VLG Earned', 'Goals Completed'] as const;
 type Tab = typeof TABS[number];
 
 export default function LeaderboardPage() {
@@ -21,9 +21,38 @@ export default function LeaderboardPage() {
   }, [tab]);
 
   async function loadLeaders() {
-    let q = supabase.from('profiles').select('id,username,display_name,village_score,score_tier,personality_type,is_founding_villager').gt('village_score', 0);
-    q = q.order('village_score', { ascending: false }).limit(50);
-    const { data } = await q;
+    if (tab === '$VLG Earned') {
+      // Join wallets to get VLG earned
+      const { data } = await supabase
+        .from('village_wallets')
+        .select('user_id, total_earned_vlg, profiles(id, username, score_tier, personality_type, is_founding_villager, village_score)')
+        .gt('total_earned_vlg', 0)
+        .order('total_earned_vlg', { ascending: false })
+        .limit(50);
+      setLeaders((data ?? []).map((w: any) => ({ ...w.profiles, vlg: parseFloat(w.total_earned_vlg ?? 0) })));
+      return;
+    }
+    if (tab === 'Goals Completed') {
+      const { data } = await supabase
+        .from('goals')
+        .select('user_id, profiles(id, username, score_tier, personality_type, is_founding_villager, village_score)')
+        .eq('status', 'completed');
+      // Count per user
+      const counts: Record<string, any> = {};
+      (data ?? []).forEach((g: any) => {
+        const uid = g.user_id;
+        if (!counts[uid]) counts[uid] = { ...g.profiles, goals_done: 0 };
+        counts[uid].goals_done++;
+      });
+      setLeaders(Object.values(counts).sort((a: any, b: any) => b.goals_done - a.goals_done).slice(0, 50));
+      return;
+    }
+    const { data } = await supabase
+      .from('profiles')
+      .select('id,username,display_name,village_score,score_tier,personality_type,is_founding_villager')
+      .gt('village_score', 0)
+      .order('village_score', { ascending: false })
+      .limit(50);
     setLeaders(data ?? []);
   }
 
@@ -109,8 +138,22 @@ export default function LeaderboardPage() {
                 <p className={`text-xs font-medium ${tier.color}`}>{tier.label}</p>
               </div>
               <div className="text-right">
-                <p className="font-bold text-village-blue">{l.village_score?.toLocaleString()}</p>
-                <p className="text-xs text-gray-400">pts</p>
+                {tab === '$VLG Earned' ? (
+                  <>
+                    <p className="font-bold text-green-600">{parseFloat(l.vlg ?? 0).toFixed(0)}</p>
+                    <p className="text-xs text-gray-400">$VLG</p>
+                  </>
+                ) : tab === 'Goals Completed' ? (
+                  <>
+                    <p className="font-bold text-orange-500">{l.goals_done ?? 0}</p>
+                    <p className="text-xs text-gray-400">goals</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-village-blue">{l.village_score?.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">pts</p>
+                  </>
+                )}
               </div>
             </motion.div>
           );

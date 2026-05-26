@@ -17,6 +17,10 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [shared, setShared] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [recalcResult, setRecalcResult] = useState<any>(null);
+  const [inviteUsername, setInviteUsername] = useState('');
+  const [inviting, setInviting] = useState(false);
+  const [inviteSent, setInviteSent] = useState('');
+  const [teamMembers, setTeamMembers] = useState<any[]>([]);
   const supabase = createClient();
 
   useEffect(() => { loadGoal(); }, [params.id]);
@@ -25,10 +29,12 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     const { data: { user } } = await supabase.auth.getUser();
     setUserId(user?.id ?? null);
 
-    const [{ data: g }, { data: s }] = await Promise.all([
+    const [{ data: g }, { data: s }, { data: team }] = await Promise.all([
       supabase.from('goals').select('*').eq('id', params.id).single(),
       supabase.from('goal_steps').select('*').eq('goal_id', params.id).order('step_number'),
+      supabase.from('goal_team_members').select('*, profiles(username, village_score)').eq('goal_id', params.id),
     ]);
+    setTeamMembers(team ?? []);
     setGoal(g); setSteps(s ?? []);
 
     // Which steps has this user OoWop'd?
@@ -80,6 +86,26 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({ step_id: step.id, giver_id: userId, receiver_id: step.user_id, oowop_count: newCount }),
       }).catch(() => {});
     }
+  }
+
+  async function inviteToGoal() {
+    if (!inviteUsername.trim() || inviting) return;
+    setInviting(true);
+    const res = await fetch('/api/goals/invite-team', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ goal_id: params.id, invitee_username: inviteUsername.trim() }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setInviteSent(`@${data.invitee} invited!`);
+      setInviteUsername('');
+      setTimeout(() => setInviteSent(''), 3000);
+    } else {
+      setInviteSent(data.error ?? 'Error sending invite');
+      setTimeout(() => setInviteSent(''), 3000);
+    }
+    setInviting(false);
   }
 
   async function recalculateProbability() {
@@ -267,9 +293,47 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         )}
 
         {/* Roles needed */}
+        {/* Team members */}
+        <div className="village-card">
+          <h2 className="font-bold mb-3">👥 Goal Team</h2>
+          {teamMembers.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {teamMembers.map(m => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center text-xs font-bold text-purple-600">
+                    {(m.profiles?.username?.[0] ?? '?').toUpperCase()}
+                  </div>
+                  <Link href={`/villager/${m.profiles?.username}`} className="text-sm font-medium hover:text-village-blue">
+                    @{m.profiles?.username}
+                  </Link>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ml-auto ${
+                    m.status === 'accepted' ? 'bg-green-100 text-green-700' :
+                    m.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'
+                  }`}>{m.role} · {m.status}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {isOwner && (
+            <div className="flex gap-2">
+              <input value={inviteUsername} onChange={e => setInviteUsername(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && inviteToGoal()}
+                placeholder="@username to invite…"
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+              <button onClick={inviteToGoal} disabled={inviting || !inviteUsername.trim()}
+                className="bg-purple-600 text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-purple-700">
+                {inviting ? '…' : 'Invite'}
+              </button>
+            </div>
+          )}
+          {inviteSent && (
+            <p className={`text-xs mt-2 ${inviteSent.includes('!') ? 'text-green-600' : 'text-red-500'}`}>{inviteSent}</p>
+          )}
+        </div>
+
         {goal.ai_analysis?.roles_needed?.length > 0 && (
           <div className="village-card">
-            <h2 className="font-bold mb-3">👥 Find These Villagers</h2>
+            <h2 className="font-bold mb-3">🔍 Roles Needed</h2>
             <div className="flex flex-wrap gap-2">
               {goal.ai_analysis.roles_needed.map((role: string, i: number) => (
                 <Link key={i} href="/village/trading-post" className="bg-purple-50 text-purple-700 text-sm px-3 py-1.5 rounded-full border border-purple-100 hover:bg-purple-100 transition-colors">
