@@ -185,7 +185,9 @@ export default function DreamLinePage() {
               )}
             </div>
 
-            <p className="text-gray-700 text-sm mb-4 leading-relaxed">{post.content}</p>
+            <Link href={`/village/dreamline/post/${post.id}`}>
+              <p className="text-gray-700 text-sm mb-4 leading-relaxed hover:text-gray-900 cursor-pointer">{post.content}</p>
+            </Link>
 
             <div className="flex items-center justify-between">
               <OoWopButton
