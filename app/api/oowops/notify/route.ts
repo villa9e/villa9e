@@ -39,5 +39,19 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Send push notification
+  const pushUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`;
+  const oowopCount = oowop_count ?? 1;
+  fetch(pushUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      external_user_ids: [receiver_id],
+      title: `${giverName} OoWop'd you! ✊`,
+      body: oowopCount >= 3 ? 'Your step is validated — the village believes in you! 🔥' : `${oowopCount}/3 OoWops received — keep going!`,
+      url: step_id ? `/village/workshop` : `/village/dreamline`,
+    }),
+  }).catch(() => {});
+
   return NextResponse.json({ ok: true });
 }

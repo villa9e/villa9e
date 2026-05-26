@@ -11,9 +11,13 @@ export default function WorkshopPage() {
   const [analysis, setAnalysis] = useState<any>(null);
   const [goals, setGoals] = useState<any[]>([]);
   const [savedMsg, setSavedMsg] = useState('');
+  const [trending, setTrending] = useState<any[]>([]);
   const supabase = createClient();
 
-  useEffect(() => { loadGoals(); }, []);
+  useEffect(() => {
+    loadGoals();
+    fetch('/api/trending').then(r => r.json()).then(setTrending).catch(() => {});
+  }, []);
 
   async function loadGoals() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -84,6 +88,26 @@ export default function WorkshopPage() {
             </div>
           </motion.div>
         </Link>
+
+        {/* Trending goals */}
+        {trending.length > 0 && !analysis && (
+          <div className="village-card">
+            <h2 className="font-bold text-sm mb-3 flex items-center gap-2">
+              <span>🔥</span> Trending Goals in the Village
+            </h2>
+            <div className="flex flex-wrap gap-2">
+              {trending.map((t, i) => (
+                <button key={i} onClick={() => setGoalInput(t.title)}
+                  className="flex items-center gap-1.5 bg-orange-50 border border-orange-100 text-orange-800 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-orange-100 transition-colors">
+                  <span>{t.emoji}</span>
+                  {t.title}
+                  {t.momentum === 'hot' && <span className="text-red-500">🔥</span>}
+                  {t.momentum === 'rising' && <span className="text-green-500">↑</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Active goals */}
         {goals.length > 0 && (
