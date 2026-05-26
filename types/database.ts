@@ -34,8 +34,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['profiles']['Row']> & { id: string; username: string };
-        Update: Partial<Database['public']['Tables']['profiles']['Row']>;
+        Insert: { id: string; username: string; display_name?: string | null; bio?: string | null; avatar_url?: string | null; village_score?: number; onboarding_complete?: boolean; onboarding_step?: number };
+        Update: { username?: string; display_name?: string | null; bio?: string | null; avatar_url?: string | null; village_score?: number; score_tier?: string; is_founding_villager?: boolean; founding_villager_number?: number | null; onboarding_complete?: boolean; onboarding_step?: number; personality_type?: string | null; language?: string | null; last_active_at?: string; is_minor?: boolean; occupation?: string | null; education_level?: string | null; communication_style?: string | null; date_of_birth?: string | null; location_city?: string | null; location_country?: string | null };
       };
       goals: {
         Row: {
@@ -60,8 +60,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['goals']['Row']> & { user_id: string; title: string };
-        Update: Partial<Database['public']['Tables']['goals']['Row']>;
+        Insert: { user_id: string; title: string; description?: string | null; goal_type?: string | null; status?: string; category?: string | null; is_public?: boolean; target_date?: string | null; estimated_weeks?: number | null; weekly_hours?: number; probability_score?: number; ai_analysis?: Json; source_template_id?: string | null };
+        Update: { status?: string; probability_score?: number; progress_percentage?: number; current_step_index?: number; completed_at?: string | null; medal_type?: string | null; ai_analysis?: Json; is_public?: boolean; target_date?: string | null };
       };
       dream_line_posts: {
         Row: {
@@ -100,8 +100,8 @@ export interface Database {
           step_id: string | null;
           created_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['oowops']['Row']> & { post_id: string; giver_id: string; receiver_id: string };
-        Update: never;
+        Insert: { post_id: string; giver_id: string; receiver_id: string; goal_id?: string | null; step_id?: string | null };
+        Update: Record<string, never>;
       };
       spirit_configs: {
         Row: {
@@ -114,8 +114,8 @@ export interface Database {
           created_at: string;
           updated_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['spirit_configs']['Row']> & { user_id: string };
-        Update: Partial<Database['public']['Tables']['spirit_configs']['Row']>;
+        Insert: { user_id: string; spiritual_system?: string; topics?: string[]; coaching_tone?: string; do_not_disturb?: boolean; morning_check_in_time?: string; evening_check_in_time?: string };
+        Update: { spiritual_system?: string; topics?: string[]; coaching_tone?: string; do_not_disturb?: boolean; morning_check_in_time?: string; evening_check_in_time?: string };
       };
       user_skills: {
         Row: {
@@ -128,8 +128,8 @@ export interface Database {
           is_monetizable: boolean;
           created_at: string;
         };
-        Insert: Partial<Database['public']['Tables']['user_skills']['Row']> & { user_id: string; skill_name: string; rating: number };
-        Update: Partial<Database['public']['Tables']['user_skills']['Row']>;
+        Insert: { user_id: string; skill_name: string; rating: number; rating_category?: string; years_experience?: number; is_monetizable?: boolean };
+        Update: { rating?: number; rating_category?: string; years_experience?: number; is_monetizable?: boolean };
       };
       dreamline_config: {
         Row: { id: number; algorithm: string; mission_score_minimum: number; boost_keywords: string[]; suppress_keywords: string[]; auto_hide_below: number; require_video_check: boolean; oowop_weight: number; recency_weight: number; mission_weight: number; updated_at: string; updated_by: string | null };
