@@ -10,13 +10,14 @@ export async function POST(req: NextRequest) {
   const { goal_category, step_title, step_index } = await req.json();
 
   // Fetch active ads matching this step's context
-  const { data: ads } = await (supabase as any)
+  const adsResult = await (supabase as any)
     .from('ad_placements')
     .select('*')
     .eq('is_active', true)
     .or(`target_categories.cs.{${goal_category}},target_categories.cs.{All}`)
     .order('bid_amount', { ascending: false })
     .limit(3);
+  const ads = adsResult.data as any[] | null;
 
   if (!ads || ads.length === 0) {
     // Return curated house ads if no paid placements
