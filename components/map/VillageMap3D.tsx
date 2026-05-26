@@ -14,6 +14,7 @@ const LOCATIONS = [
   { id: 'tribes',       label: 'Tribes',       emoji: '👥', href: '/village/tribes',        pos: [6, 0, 0],    color: '#EC4899', height: 1.7 },
   { id: 'hospital',     label: 'Hospital',     emoji: '🏥', href: '/village/hospital',      pos: [0, 0, -4],   color: '#22C55E', height: 1.9 },
   { id: 'hut',          label: 'Your Hut',     emoji: '🏠', href: '/village/hut',           pos: [0, 0, 3.5],  color: '#F59E0B', height: 1.5 },
+  { id: 'spirit',       label: 'Spirit',       emoji: '🌀', href: '/village/spirit',        pos: [0, 0, 0],    color: '#1877F2', height: 1.2 },
 ];
 
 function Building({ location, onHover, onLeave, onClick }: any) {

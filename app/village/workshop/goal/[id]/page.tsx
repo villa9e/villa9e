@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
 import { awardScore } from '@/lib/village/score';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [goal, setGoal] = useState<any>(null);
@@ -17,6 +18,12 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [shared, setShared] = useState(false);
   const [recalculating, setRecalculating] = useState(false);
   const [recalcResult, setRecalcResult] = useState<any>(null);
+  const [verifying, setVerifying] = useState<string | null>(null);   // step_id being verified
+  const [verifyResult, setVerifyResult] = useState<Record<string, any>>({});
+  const [showVerify, setShowVerify] = useState<string | null>(null);  // step_id showing verify panel
+  const [verifyNotes, setVerifyNotes] = useState('');
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
   const [inviteUsername, setInviteUsername] = useState('');
   const [inviting, setInviting] = useState(false);
   const [inviteSent, setInviteSent] = useState('');
@@ -45,18 +52,60 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     setLoading(false);
   }
 
+  // Spirit verifies first, then completes
+  async function verifyStep(step: any) {
+    if (step.status === 'completed' || step.user_id !== userId) return;
+    setVerifying(step.id);
+    try {
+      const res = await fetch('/api/goals/verify-step', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_id: step.id, goal_id: params.id, notes: verifyNotes }),
+      });
+      const data = await res.json();
+      setVerifyResult(prev => ({ ...prev, [step.id]: data }));
+
+      if (data.verified) {
+        // Proceed with completion
+        await completeStep(step);
+        setShowVerify(null);
+        setVerifyNotes('');
+      }
+    } catch { /* silent */ }
+    setVerifying(null);
+  }
+
   async function completeStep(step: any) {
     if (step.status === 'completed' || step.user_id !== userId) return;
-    await supabase.from('goal_steps').update({ status: 'completed', completed_date: new Date().toISOString() }).eq('id', step.id);
-    setSteps(prev => prev.map(s => s.id === step.id ? { ...s, status: 'completed' } : s));
 
-    // Update goal progress
-    const totalSteps = steps.length;
-    const doneSteps  = steps.filter(s => s.status === 'completed').length + 1;
-    const pct = Math.round((doneSteps / totalSteps) * 100);
-    await supabase.from('goals').update({ progress_percentage: pct, current_step_index: doneSteps }).eq('id', params.id);
+    // Call the full complete-step API (awards VLG, posts to Dream Line, etc.)
+    await fetch('/api/goals/complete-step', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ step_id: step.id, goal_id: params.id }),
+    });
+
+    setSteps(prev => prev.map(s => s.id === step.id ? { ...s, status: 'completed' } : s));
+    const doneSteps = steps.filter(s => s.status === 'completed').length + 1;
+    const pct = Math.round((doneSteps / steps.length) * 100);
     setGoal((g: any) => g ? { ...g, progress_percentage: pct } : g);
-    await awardScore('COMPLETE_GOAL_STEP', step.id);
+  }
+
+  // GPS Recalibration
+  async function recalibrate() {
+    if (recalculating) return;
+    setRecalculating(true);
+    try {
+      const res = await fetch('/api/goals/recalibrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_id: params.id, reason: 'user_request' }),
+      });
+      const data = await res.json();
+      setRecalcResult(data);
+      if (data.new_probability_score) setGoal((g: any) => g ? { ...g, probability_score: data.new_probability_score } : g);
+    } catch { /* silent */ }
+    setRecalculating(false);
   }
 
   async function handleOoWop(step: any) {
@@ -109,19 +158,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   }
 
   async function recalculateProbability() {
-    if (recalculating) return;
-    setRecalculating(true);
-    try {
-      const res = await fetch('/api/claude/probability-score', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal_id: params.id }),
-      });
-      const data = await res.json();
-      setRecalcResult(data);
-      setGoal((g: any) => g ? { ...g, probability_score: data.probability_score } : g);
-    } catch { /* silent */ }
-    setRecalculating(false);
+    return recalibrate();
   }
 
   async function shareGoalToDreamLine() {
@@ -191,10 +228,25 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
             </div>
           </div>
           {isOwner && (
-            <button onClick={recalculateProbability} disabled={recalculating}
-              className="text-xs text-village-blue font-medium hover:underline disabled:opacity-50">
-              {recalculating ? '⟳ Recalculating with Spirit…' : '📡 Recalculate GPS Score'}
-            </button>
+            <div>
+              <button onClick={recalculateProbability} disabled={recalculating}
+                className="text-xs font-medium hover:underline disabled:opacity-50" style={{ color: '#1877F2' }}>
+                {recalculating ? '🌀 Spirit recalibrating…' : '🗺️ Recalibrate GPS'}
+              </button>
+              {recalcResult?.spirit_message && (
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 rounded-2xl p-3 text-sm"
+                  style={{ background: isNight ? '#0D1020' : '#EEF2FF', border: `1px solid ${isNight ? '#1E2240' : '#C7D2FE'}` }}>
+                  <p className="font-bold text-xs mb-1" style={{ color: '#6366F1' }}>🌀 Spirit recalibrated your GPS:</p>
+                  <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{recalcResult.spirit_message}</p>
+                  {recalcResult.momentum_action && (
+                    <p className="mt-2 font-semibold text-xs" style={{ color: '#6366F1' }}>
+                      Today: {recalcResult.momentum_action}
+                    </p>
+                  )}
+                </motion.div>
+              )}
+            </div>
           )}
           <div className="w-full bg-gray-100 rounded-full h-3">
             <div className="h-3 rounded-full village-gradient transition-all" style={{ width: `${goal.progress_percentage ?? 0}%` }} />
@@ -253,11 +305,49 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       </div>
                     )}
 
-                    {/* Complete button — only owner, only next step */}
+                    {/* Spirit verification before completion */}
                     {isOwner && isNext && (
-                      <button onClick={() => completeStep(step)} className="mt-2 bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full font-semibold hover:bg-orange-600 transition-colors">
-                        Mark Complete ✓
-                      </button>
+                      <div className="mt-2">
+                        {showVerify === step.id ? (
+                          <div className="space-y-2">
+                            <textarea
+                              value={verifyNotes}
+                              onChange={e => setVerifyNotes(e.target.value)}
+                              placeholder="Tell Spirit what you did — even one sentence. Spirit verifies and logs it."
+                              rows={2}
+                              className="w-full text-xs rounded-xl px-3 py-2 resize-none focus:outline-none"
+                              style={{ background: isNight ? '#0A0B12' : '#FFF8EE', border: `1px solid ${isNight ? '#1E2240' : '#FED7AA'}`, color: isNight ? '#F0EBE0' : '#2D1F0E' }}
+                            />
+                            <div className="flex gap-2">
+                              <button onClick={() => { setShowVerify(null); setVerifyNotes(''); }}
+                                className="text-xs px-3 py-1.5 rounded-full" style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: isNight ? '#7A7FA8' : '#6B7280' }}>
+                                Cancel
+                              </button>
+                              <button onClick={() => verifyStep(step)} disabled={verifying === step.id}
+                                className="flex-1 text-xs px-3 py-1.5 rounded-full font-bold text-white transition-colors disabled:opacity-50"
+                                style={{ background: '#FF6B2B' }}>
+                                {verifying === step.id ? '🌀 Spirit verifying…' : '✓ Verify with Spirit'}
+                              </button>
+                            </div>
+                            {/* Spirit verification response */}
+                            {verifyResult[step.id] && (
+                              <div className="rounded-xl p-3 text-xs" style={{ background: isNight ? '#0D1F1A' : '#ECFDF5', border: `1px solid ${isNight ? '#1A3D2F' : '#A7F3D0'}` }}>
+                                <p className="font-bold mb-1" style={{ color: '#059669' }}>🌀 Spirit:</p>
+                                <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{verifyResult[step.id].spirit_message}</p>
+                                {verifyResult[step.id].next_step_hint && (
+                                  <p className="mt-1 opacity-70">{verifyResult[step.id].next_step_hint}</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <button onClick={() => setShowVerify(step.id)}
+                            className="mt-1 text-xs px-3 py-1.5 rounded-full font-bold text-white"
+                            style={{ background: '#FF6B2B' }}>
+                            ✓ Mark Complete
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                 </motion.li>
