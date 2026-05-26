@@ -12,6 +12,8 @@ export default function SettingsPage() {
   const [form, setForm] = useState({ username: '', bio: '', language: 'en', morning_check_in_time: '08:00', evening_check_in_time: '20:00', do_not_disturb: false });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const supabase = createClient();
 
   useEffect(() => {
@@ -55,6 +57,21 @@ export default function SettingsPage() {
     setSaving(false);
   }
 
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
+    setUploading(true);
+    const fd = new FormData();
+    fd.append('avatar', file);
+    const res = await fetch('/api/profile/avatar', { method: 'POST', body: fd });
+    if (res.ok) {
+      const { url } = await res.json();
+      setProfile((p: any) => p ? { ...p, avatar_url: url } : p);
+    }
+    setUploading(false);
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     window.location.href = '/login';
@@ -86,6 +103,27 @@ export default function SettingsPage() {
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         <Section title="Profile">
+          {/* Avatar upload */}
+          <div className="flex items-center gap-4">
+            <label className="cursor-pointer relative group">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 overflow-hidden flex items-center justify-center">
+                {(avatarPreview || profile?.avatar_url) ? (
+                  <img src={avatarPreview || profile.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
+                ) : (
+                  <span className="text-3xl">👤</span>
+                )}
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity">
+                  <span className="text-white text-xs font-bold">{uploading ? '…' : 'Edit'}</span>
+                </div>
+              </div>
+              <input type="file" accept="image/*" onChange={uploadAvatar} className="hidden" disabled={uploading} />
+            </label>
+            <div>
+              <p className="font-medium text-sm">@{profile?.username}</p>
+              <p className="text-xs text-gray-400">Tap photo to change avatar</p>
+            </div>
+          </div>
+
           <Field label="Username">
             <input value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} className={inputCls} placeholder="@username" />
           </Field>
