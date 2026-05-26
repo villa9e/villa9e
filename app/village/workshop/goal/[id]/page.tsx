@@ -13,6 +13,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [givenOoWops, setGivenOoWops] = useState<Set<string>>(new Set());
   const [celebration, setCelebration] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sharing, setSharing] = useState(false);
+  const [shared, setShared] = useState(false);
   const supabase = createClient();
 
   useEffect(() => { loadGoal(); }, [params.id]);
@@ -60,15 +62,34 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     });
     if (!error) {
       setGivenOoWops(prev => new Set([...prev, step.id]));
+      let newCount = 0;
       setSteps(prev => prev.map(s => {
         if (s.id !== step.id) return s;
-        const newCount = (s.oowops_received || 0) + 1;
-        const validated = newCount >= s.oowops_needed;
+        newCount = (s.oowops_received || 0) + 1;
+        const validated = newCount >= (s.oowops_needed ?? 3);
         if (validated) setCelebration(true);
         return { ...s, oowops_received: newCount, is_validated: validated };
       }));
       await awardScore('GIVE_OOWOP', step.id);
+      // Notify receiver
+      fetch('/api/oowops/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ step_id: step.id, giver_id: userId, receiver_id: step.user_id, oowop_count: newCount }),
+      }).catch(() => {});
     }
+  }
+
+  async function shareGoalToDreamLine() {
+    if (!userId || sharing) return;
+    setSharing(true);
+    const doneCount = steps.filter(s => s.status === 'completed').length;
+    const content = `📍 Working on my goal: "${goal.title}" — ${doneCount}/${steps.length} steps done (${goal.probability_score ?? 0}% GPS score). Manifesting this. ✊`;
+    const { error } = await supabase.from('dream_line_posts').insert({
+      user_id: userId, content, visibility: 'public', goal_id: params.id,
+    });
+    if (!error) { setShared(true); setTimeout(() => setShared(false), 3000); }
+    setSharing(false);
   }
 
   if (loading) return (
@@ -193,6 +214,14 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Share to Dream Line */}
+        {isOwner && (
+          <button onClick={shareGoalToDreamLine} disabled={sharing}
+            className="w-full border border-purple-200 text-purple-700 rounded-2xl py-3 text-sm font-medium hover:bg-purple-50 transition-colors disabled:opacity-50">
+            {shared ? '✅ Shared to Dream Line!' : sharing ? 'Sharing…' : '✨ Share Progress to Dream Line'}
+          </button>
         )}
 
         {/* Roles needed */}

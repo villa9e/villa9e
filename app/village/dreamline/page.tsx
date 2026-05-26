@@ -72,11 +72,18 @@ export default function DreamLinePage() {
       post_id: post.id, giver_id: currentUserId, receiver_id: post.user_id,
     });
     if (!error) {
+      const newCount = (post.oowop_count || 0) + 1;
       setGivenOoWops(prev => new Set([...prev, post.id]));
-      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, oowop_count: (p.oowop_count || 0) + 1 } : p));
+      setPosts(prev => prev.map(p => p.id === post.id ? { ...p, oowop_count: newCount } : p));
       await awardScore('GIVE_OOWOP', post.id);
+      // Notify receiver
+      fetch('/api/oowops/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, giver_id: currentUserId, receiver_id: post.user_id, oowop_count: newCount }),
+      }).catch(() => {});
       // Check if this was the 3rd OoWop
-      if ((post.oowop_count + 1) >= 3) {
+      if (newCount >= 3) {
         setCelebration(post.id);
       }
     }
