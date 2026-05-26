@@ -152,16 +152,32 @@ export default function AdminPage() {
           </div>
         </div>
 
+        {/* Admin tools */}
+        <div className="bg-white rounded-2xl shadow-sm p-5">
+          <h2 className="font-bold mb-3">Admin Tools</h2>
+          <div className="flex flex-wrap gap-3">
+            {[
+              { label: '✨ Dream Line Controls', url: '/admin/dreamline', internal: true },
+            ].map(tool => (
+              <a key={tool.label} href={tool.url}
+                className="text-sm bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-4 py-2 rounded-xl transition-colors font-medium">
+                {tool.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
         {/* Quick actions */}
         <div className="bg-white rounded-2xl shadow-sm p-5">
-          <h2 className="font-bold mb-3">Quick Links</h2>
+          <h2 className="font-bold mb-3">External Links</h2>
           <div className="flex flex-wrap gap-3">
             {[
               { label: 'Supabase Dashboard', url: 'https://app.supabase.com/project/zjhsggnmwvwlhiocmfrn' },
               { label: 'GitHub Repo', url: 'https://github.com/villa9e/villa9e' },
-              { label: 'PostHog Analytics', url: 'https://app.posthog.com' },
+              { label: 'PostHog Analytics', url: 'https://us.posthog.com/project/440359' },
               { label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com' },
               { label: 'Vercel Deploy', url: 'https://vercel.com' },
+              { label: 'OneSignal', url: 'https://dashboard.onesignal.com' },
             ].map(link => (
               <a key={link.label} href={link.url} target="_blank" rel="noreferrer"
                 className="text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl transition-colors">

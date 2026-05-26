@@ -1,30 +1,28 @@
 'use client';
-import posthog from 'posthog-js';
-import { PostHogProvider as PHProvider } from 'posthog-js/react';
 import { useEffect } from 'react';
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
-    posthog.init(key, {
-      api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://app.posthog.com',
-      capture_pageview: true,
-      capture_pageleave: true,
-      session_recording: { maskAllInputs: true },
-      autocapture: false,
-    });
+    if (!key || typeof window === 'undefined') return;
+
+    import('posthog-js').then(({ default: posthog }) => {
+      if (posthog.__loaded) return;
+      posthog.init(key, {
+        api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+        capture_pageview: true,
+        capture_pageleave: true,
+        autocapture: false,
+      });
+    }).catch(() => {});
   }, []);
 
-  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-  if (!key) return <>{children}</>;
-
-  return <PHProvider client={posthog}>{children}</PHProvider>;
+  return <>{children}</>;
 }
 
-// Typed track helper
 export function track(event: string, props?: Record<string, any>) {
-  if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_POSTHOG_KEY) {
-    posthog.capture(event, props);
-  }
+  if (typeof window === 'undefined') return;
+  import('posthog-js').then(({ default: posthog }) => {
+    if (posthog.__loaded) posthog.capture(event, props);
+  }).catch(() => {});
 }

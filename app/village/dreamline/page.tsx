@@ -43,9 +43,16 @@ export default function DreamLinePage() {
         .eq('user_id', user.id).gte('created_at', today.toISOString());
       setPostCount(count ?? 0);
     }
+    // Use algorithm-aware feed endpoint
+    const feedRes = await fetch('/api/dreamline/feed?limit=30');
+    if (feedRes.ok) {
+      const data = await feedRes.json();
+      if (Array.isArray(data) && data.length > 0) { setPosts(data); return; }
+    }
+    // Fallback to direct query if API fails
     const { data } = await supabase.from('dream_line_posts')
       .select('*, profiles(username, avatar_url, village_score, score_tier)')
-      .eq('visibility', 'public').order('created_at', { ascending: false }).limit(30);
+      .eq('visibility', 'public').eq('is_hidden', false).order('created_at', { ascending: false }).limit(30);
     if (data) setPosts(data);
   }
 
@@ -54,13 +61,29 @@ export default function DreamLinePage() {
     setPosting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { error } = await supabase.from('dream_line_posts').insert({
+      const { data: post, error } = await supabase.from('dream_line_posts').insert({
         user_id: user.id, content: newPost, visibility: 'public',
-      });
-      if (!error) {
+      }).select('id').single();
+
+      if (!error && post) {
         setNewPost('');
         setPostCount(c => c + 1);
         await awardScore('DREAM_LINE_POST');
+        // Background: score the post for mission alignment
+        fetch('/api/dreamline/score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ post_id: post.id, content: newPost }),
+        }).catch(() => {});
+        // Background: check for video URLs and analyze
+        const hasVideo = /youtube\.com|youtu\.be|vimeo\.com/i.test(newPost);
+        if (hasVideo) {
+          fetch('/api/video/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ post_id: post.id, content: newPost }),
+          }).catch(() => {});
+        }
       }
     }
     setPosting(false);
