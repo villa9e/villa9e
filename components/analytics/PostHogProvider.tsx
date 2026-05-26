@@ -7,6 +7,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     if (!key || typeof window === 'undefined') return;
 
     import('posthog-js').then(({ default: posthog }) => {
+      // @ts-expect-error — __loaded is a runtime property
       if (posthog.__loaded) return;
       posthog.init(key, {
         api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
@@ -23,6 +24,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
 export function track(event: string, props?: Record<string, any>) {
   if (typeof window === 'undefined') return;
   import('posthog-js').then(({ default: posthog }) => {
-    if (posthog.__loaded) posthog.capture(event, props);
+    // @ts-expect-error — __loaded is a runtime property
+    if ((posthog as any).__loaded) posthog.capture(event, props);
   }).catch(() => {});
 }

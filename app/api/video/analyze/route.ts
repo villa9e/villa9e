@@ -1,24 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { callClaude } from '@/lib/claude/client';
+import { getGoogleAccessToken } from '@/lib/google/auth';
 
-// Extract video URL from post content (YouTube, Vimeo, etc.)
+const VILLA9E_MISSION_SUMMARY = `villa9e helps people achieve goals through community, accountability, wellness, financial empowerment, skill development, and entrepreneurship.`;
+
 function extractVideoUrl(content: string): string | null {
   const patterns = [
-    /(?:https?:\/\/)?(?:www\.)?youtube\.com\/watch\?v=([\w-]+)/,
-    /(?:https?:\/\/)?youtu\.be\/([\w-]+)/,
-    /(?:https?:\/\/)?vimeo\.com\/(\d+)/,
+    /https?:\/\/(?:www\.)?youtube\.com\/watch\?v=[\w-]+/,
+    /https?:\/\/youtu\.be\/[\w-]+/,
+    /https?:\/\/vimeo\.com\/\d+/,
   ];
-  for (const pattern of patterns) {
-    const match = content.match(pattern);
-    if (match) return match[0];
+  for (const p of patterns) {
+    const m = content.match(p);
+    if (m) return m[0];
   }
   return null;
 }
 
 function getYouTubeId(url: string): string | null {
-  const match = url.match(/(?:v=|youtu\.be\/)([\w-]+)/);
-  return match ? match[1] : null;
+  const m = url.match(/(?:v=|youtu\.be\/)([\w-]+)/);
+  return m ? m[1] : null;
+}
+
+async function fetchYouTubeMetadata(videoId: string) {
+  const apiKey = process.env.YOUTUBE_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${videoId}&key=${apiKey}`,
+      { next: { revalidate: 3600 } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const video = data.items?.[0];
+    if (!video) return null;
+
+    return {
+      title: video.snippet?.title ?? '',
+      description: (video.snippet?.description ?? '').slice(0, 800),
+      channel: video.snippet?.channelTitle ?? '',
+      tags: (video.snippet?.tags ?? []).slice(0, 15) as string[],
+      category_id: video.snippet?.categoryId ?? '',
+      views: video.statistics?.viewCount ?? '0',
+      duration: video.contentDetails?.duration ?? '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function analyzeWithVideoIntelligence(videoId: string, accessToken: string) {
+  // Video Intelligence API requires a GCS URI or public video file URL
+  // YouTube URLs are not directly supported — use for GCS-hosted videos only
+  // This stub is ready for when users upload videos directly
+  const gsUri = `gs://villa9e-uploads/${videoId}`;
+
+  try {
+    const res = await fetch('https://videointelligence.googleapis.com/v1/videos:annotate', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputUri: gsUri,
+        features: ['LABEL_DETECTION', 'EXPLICIT_CONTENT_DETECTION'],
+        videoContext: {
+          labelDetectionConfig: { labelDetectionMode: 'SHOT_AND_FRAME_MODE' },
+        },
+      }),
+    });
+
+    if (!res.ok) return null;
+    // Returns an operation name — would need to poll for completion
+    const op = await res.json();
+    return op.name ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -30,76 +91,61 @@ export async function POST(req: NextRequest) {
 
   const videoUrl = explicitUrl ?? extractVideoUrl(content ?? '');
   if (!videoUrl) {
-    return NextResponse.json({ error: 'No video URL found', labels: [], mission_aligned: true, score: 75 });
+    return NextResponse.json({ score: 75, labels: [], mission_aligned: true, reason: 'No video found in post' });
   }
 
   const youtubeId = getYouTubeId(videoUrl);
+  let meta: Awaited<ReturnType<typeof fetchYouTubeMetadata>> = null;
   let labels: string[] = [];
-  let title = '';
-  let description = '';
 
-  // Step 1: Fetch YouTube video metadata if it's a YouTube video
+  // Step 1: Fetch YouTube metadata
   if (youtubeId) {
-    const ytApiKey = process.env.YOUTUBE_API_KEY;
-    if (ytApiKey) {
-      try {
-        const res = await fetch(
-          `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails&id=${youtubeId}&key=${ytApiKey}`
-        );
-        const data = await res.json();
-        const video = data.items?.[0];
-        if (video) {
-          title = video.snippet?.title ?? '';
-          description = (video.snippet?.description ?? '').slice(0, 500);
-          const tags = video.snippet?.tags ?? [];
-          labels = [...tags.slice(0, 10)];
-        }
-      } catch { /* continue without YT metadata */ }
-    }
+    meta = await fetchYouTubeMetadata(youtubeId);
+    if (meta) labels = [...meta.tags];
   }
 
-  // Step 2: Try Cloud Video Intelligence API if service account is configured
-  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY;
-  const serviceAccountEmail = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+  // Step 2: Attempt Video Intelligence (for GCS videos; YouTube not supported directly)
+  const accessToken = await getGoogleAccessToken('https://www.googleapis.com/auth/cloud-platform');
+  // Reserved for user-uploaded videos stored in GCS
 
-  if (serviceAccountKey && serviceAccountEmail && youtubeId) {
-    try {
-      // Get access token via service account JWT
-      const now = Math.floor(Date.now() / 1000);
-      const header = Buffer.from(JSON.stringify({ alg: 'RS256', typ: 'JWT' })).toString('base64url');
-      const payload = Buffer.from(JSON.stringify({
-        iss: serviceAccountEmail,
-        scope: 'https://www.googleapis.com/auth/cloud-platform',
-        aud: 'https://oauth2.googleapis.com/token',
-        exp: now + 3600,
-        iat: now,
-      })).toString('base64url');
+  // Step 3: Claude mission alignment scoring from all available metadata
+  const context = [
+    meta?.title && `Title: ${meta.title}`,
+    meta?.channel && `Channel: ${meta.channel}`,
+    meta?.description && `Description: ${meta.description}`,
+    labels.length && `Tags: ${labels.join(', ')}`,
+  ].filter(Boolean).join('\n');
 
-      // Note: Full JWT signing requires crypto — using Claude as fallback instead
-    } catch { /* fall through to Claude analysis */ }
-  }
+  const prompt = `You are the content moderator for villa9e — a goal GPS platform where community members share progress toward their personal, professional, and wellness goals.
 
-  // Step 3: Use Claude to assess mission alignment from available metadata
-  const analysisPrompt = `Analyze this video for alignment with villa9e's mission (helping people achieve goals through community, wellness, and empowerment).
+villa9e mission: ${VILLA9E_MISSION_SUMMARY}
+
+Rate this video for mission alignment (0-100).
 
 Video URL: ${videoUrl}
-${title ? `Title: ${title}` : ''}
-${description ? `Description: ${description}` : ''}
-${labels.length ? `Tags/Labels: ${labels.join(', ')}` : ''}
+${context || 'No metadata available — score conservatively.'}
 
-Rate 0-100 how well this content aligns with villa9e's mission. Be strict.
-Return JSON: {"score": 80, "labels": ["goal-setting", "motivation"], "safe": true, "reason": "one sentence", "mission_aligned": true}`;
+HIGH scores (70-100): Goal content, entrepreneurship, skill building, wellness, motivation, financial growth, creative pursuits, personal development.
+MEDIUM scores (40-69): General entertainment, lifestyle, educational — not harmful but not mission-focused.
+LOW scores (0-39): Content that conflicts with personal growth, community values, or is potentially harmful.
 
-  let finalScore = 75;
+Return JSON ONLY:
+{"score": 80, "labels": ["goal-setting", "entrepreneurship"], "mission_aligned": true, "safe": true, "reason": "one sentence", "recommendation": "approve | review | hide"}`;
+
+  let finalScore = 72;
   let missionAligned = true;
-  let analysisReason = 'Video content appears appropriate';
+  let safe = true;
+  let reason = 'Video content appears appropriate for the community';
+  let recommendation = 'approve';
   let allLabels = labels;
 
   try {
-    const result = await callClaude(analysisPrompt);
-    finalScore = result.score ?? 75;
+    const result = await callClaude(prompt);
+    finalScore = result.score ?? 72;
     missionAligned = result.mission_aligned ?? (finalScore >= 50);
-    analysisReason = result.reason ?? analysisReason;
+    safe = result.safe ?? true;
+    reason = result.reason ?? reason;
+    recommendation = result.recommendation ?? 'approve';
     allLabels = [...new Set([...labels, ...(result.labels ?? [])])];
   } catch { /* use defaults */ }
 
@@ -110,15 +156,21 @@ Return JSON: {"score": 80, "labels": ["goal-setting", "motivation"], "safe": tru
       video_analyzed: true,
       mission_labels: allLabels,
       mission_score: finalScore,
-    }).eq('id', post_id);
+      ...(recommendation === 'hide' ? { is_hidden: true, hidden_reason: `Video analysis: ${reason}` } : {}),
+    }).eq('id', post_id).eq('user_id', user.id);
   }
 
   return NextResponse.json({
     score: finalScore,
     labels: allLabels,
     mission_aligned: missionAligned,
-    reason: analysisReason,
+    safe,
+    reason,
+    recommendation,
     video_url: videoUrl,
-    title,
+    title: meta?.title ?? '',
+    channel: meta?.channel ?? '',
+    views: meta?.views ?? '0',
+    google_auth_available: !!accessToken,
   });
 }

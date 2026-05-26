@@ -55,7 +55,7 @@ export function OoWopButton({ count, hasGiven = false, onGive, size = 'md', show
         >
           ✊
         </motion.span>
-        <span>{given ? 'OoWop'd!' : 'OoWop!'}</span>
+        <span>{given ? "OoWop’d!" : 'OoWop!'}</span>
 
         {/* Burst particles */}
         <AnimatePresence>
