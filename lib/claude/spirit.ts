@@ -96,14 +96,10 @@ export interface SpiritUserContext {
 export async function fetchSpiritContext(userId: string, query?: string): Promise<SpiritUserContext> {
   const admin = createAdminClient();
 
+  // Use allSettled so missing tables don't crash the whole context fetch
   const [
-    { data: profile },
-    { data: spirit },
-    { data: goals },
-    { data: patterns },
-    { data: collective },
-    { data: memories },
-  ] = await Promise.all([
+    profileRes, spiritRes, goalsRes, patternsRes, collectiveRes, memoriesRes,
+  ] = await Promise.allSettled([
     (admin as any).from('profiles')
       .select('username, display_name, personality_type, communication_style, village_score, score_tier, streak_days')
       .eq('id', userId).single(),
@@ -126,7 +122,15 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
       .limit(12),
   ]);
 
-  const activeGoals = (goals ?? []).map((g: any) => {
+  // Safely extract data from allSettled results — missing tables return null
+  const profile   = profileRes.status   === 'fulfilled' ? profileRes.value.data   : null;
+  const spirit    = spiritRes.status    === 'fulfilled' ? spiritRes.value.data    : null;
+  const goals     = goalsRes.status     === 'fulfilled' ? goalsRes.value.data     : [];
+  const patterns  = patternsRes.status  === 'fulfilled' ? patternsRes.value.data  : null;
+  const collective = collectiveRes.status === 'fulfilled' ? collectiveRes.value.data : [];
+  const memories  = memoriesRes.status  === 'fulfilled' ? memoriesRes.value.data  : [];
+
+  const activeGoals = ((goals ?? []) as any[]).map((g: any) => {
     const steps = g.goal_steps ?? [];
     const done  = steps.filter((s: any) => s.status === 'completed').length;
     return {
@@ -147,12 +151,12 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
     topics:             spirit?.topics ?? [],
     activeGoals,
     recentCompletions:  [],
-    memories:           (memories ?? []).map((m: any) => m.content),
+    memories:           ((memories ?? []) as any[]).map((m: any) => m.content),
     patterns,
     villageScore:       profile?.village_score ?? 0,
     scoreTier:          profile?.score_tier ?? 'seedling',
     streakDays:         profile?.streak_days ?? 0,
-    collectiveWisdom:   (collective ?? []).map((c: any) => c.insight),
+    collectiveWisdom:   ((collective ?? []) as any[]).map((c: any) => c.insight),
   };
 }
 

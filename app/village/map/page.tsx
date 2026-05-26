@@ -9,6 +9,7 @@ import { WeatherProvider, useWeatherAmbient } from '@/components/village/Weather
 import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
+import VillageIllustration from '@/components/map/VillageIllustration';
 
 const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
   ssr: false,
@@ -62,6 +63,7 @@ function VillageMapPageInner() {
   const [unreadCount, setUnreadCount]   = useState(0);
   const [showWelcome, setShowWelcome]   = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [mapMode, setMapMode]           = useState<'illustrated'|'3d'>('illustrated');
   const searchParams = useSearchParams();
   const supabase     = createClient();
 
@@ -251,12 +253,30 @@ function VillageMapPageInner() {
         </div>
       </div>
 
-      {/* Weather ambient overlay */}
-      <WeatherAmbientLayer />
+      {/* Map mode toggle */}
+      <div className="absolute top-14 right-4 z-10 flex items-center gap-1 rounded-full p-0.5"
+        style={{ background: 'rgba(0,0,0,0.3)', backdropFilter: 'blur(8px)' }}>
+        {(['illustrated', '3d'] as const).map(mode => (
+          <button key={mode} onClick={() => setMapMode(mode)}
+            className="px-3 py-1 rounded-full text-xs font-bold transition-all"
+            style={{
+              background: mapMode === mode ? 'rgba(255,255,255,0.25)' : 'transparent',
+              color: '#fff',
+            }}>
+            {mode === 'illustrated' ? '🖼' : '🌐'}
+          </button>
+        ))}
+      </div>
 
-      {/* 3D Map */}
-      <div className="flex-1" style={{ height: 'calc(100vh - 52px)' }}>
-        <VillageMap3D />
+      {/* Weather ambient overlay */}
+      {mapMode === '3d' && <WeatherAmbientLayer />}
+
+      {/* Map — illustrated (default) or 3D */}
+      <div className="flex-1" style={{ height: 'calc(100vh - 52px)', position: 'relative' }}>
+        {mapMode === 'illustrated'
+          ? <VillageIllustration />
+          : <VillageMap3D />
+        }
       </div>
 
       {/* Village heartbeat */}

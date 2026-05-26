@@ -16,13 +16,15 @@ export async function GET() {
   try {
     const admin = createAdminClient();
 
-    // Pull from seeded trending_goals table first
-    const { data: seeded } = await (admin as any)
+    // Pull from seeded trending_goals table first (graceful if columns missing)
+    const { data: seeded, error: seededErr } = await (admin as any)
       .from('trending_goals')
       .select('title, category, emoji, momentum, search_volume')
       .gt('expires_at', new Date().toISOString())
       .order('search_volume', { ascending: false })
       .limit(10);
+
+    if (seededErr) throw new Error('trending_goals query failed');
 
     if (seeded?.length >= 6) {
       const result = seeded.map((g: any) => ({
