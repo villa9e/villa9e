@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
   if (team?.length) {
     await admin.from('notifications').insert(
-      team.map(m => ({
+      team.map((m: any) => ({
         user_id: m.user_id,
         type: 'medal',
         title: `🏆 Goal Completed!`,

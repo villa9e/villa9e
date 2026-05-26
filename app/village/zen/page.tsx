@@ -169,14 +169,17 @@ export default function ZenSpacePage() {
                       : act.label === 'Affirmation' ? '/village/zen/affirmation'
                       : act.label === 'Telehealth' ? '/village/hospital/providers'
                       : null;
-                    const El = href ? Link : motion.button as any;
-                    return (
-                      <El key={act.label} href={href ?? undefined} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className={`village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow block`}>
-                        <span className="text-2xl mb-1 block">{act.emoji}</span>
-                        <p className="font-semibold text-sm">{act.label}</p>
-                        <p className="text-xs text-gray-500">{act.desc}</p>
-                      </El>
+                    const cardCls = `village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow block`;
+                    const inner = (<>
+                      <span className="text-2xl mb-1 block">{act.emoji}</span>
+                      <p className="font-semibold text-sm">{act.label}</p>
+                      <p className="text-xs text-gray-500">{act.desc}</p>
+                    </>);
+                    return href ? (
+                      <Link key={act.label} href={href} className={cardCls}>{inner}</Link>
+                    ) : (
+                      <motion.button key={act.label} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className={cardCls}>{inner}</motion.button>
                     );
                   })}
                 </div>

@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
   const { data: teamMembers } = await admin.from('goal_team_members').select('user_id').eq('goal_id', goal_id).neq('user_id', user.id).eq('status', 'accepted');
   if (teamMembers?.length) {
     await admin.from('notifications').insert(
-      teamMembers.map(m => ({
+      teamMembers.map((m: any) => ({
         user_id:        m.user_id,
         type:           'goal_step',
         title:          'Teammate completed a step!',

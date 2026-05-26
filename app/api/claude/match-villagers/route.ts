@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const { data: goal }    = goal_id ? await admin.from('goals').select('*, goal_steps(required_skill)').eq('id', goal_id).single() : { data: null };
 
   const userContext = {
-    skills: skills?.map(s => `${s.skill_name} (${s.rating}/9 — ${s.rating_category})`).join(', ') ?? 'none',
+    skills: skills?.map((s: any) => `${s.skill_name} (${s.rating}/9 — ${s.rating_category})`).join(', ') ?? 'none',
     goal: goal?.title ?? 'finding general matches',
     rolesNeeded: goal?.ai_analysis?.roles_needed?.join(', ') ?? 'any',
     stepSkills: goal?.goal_steps?.map((s: any) => s.required_skill).filter(Boolean).join(', ') ?? 'any',

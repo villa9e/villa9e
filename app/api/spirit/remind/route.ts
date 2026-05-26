@@ -39,7 +39,7 @@ Under 100 words. Return plain text only.`;
   } catch { /* use default */ }
 
   // Send push to eligible users
-  const userIds = configs.map(c => c.user_id);
+  const userIds = configs.map((c: any) => c.user_id);
   const onesignalKey = process.env.ONESIGNAL_REST_API_KEY;
   const onesignalApp = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
 
