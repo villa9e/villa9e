@@ -7,13 +7,23 @@
   "env": {
     "NEXT_PUBLIC_APP_URL": "https://villa9e.app"
   },
+  "crons": [
+    {
+      "path": "/api/spirit/remind",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/spirit/remind",
+      "schedule": "0 1 * * *"
+    }
+  ],
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "https://villa9e.app" },
         { "key": "Access-Control-Allow-Methods", "value": "GET,POST,PUT,DELETE,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization" }
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type,Authorization,x-cron-secret" }
       ]
     }
   ]

@@ -109,10 +109,18 @@ export default function SkillStreamPage() {
                 )}
                 <div className="p-3">
                   <p className="font-medium text-xs line-clamp-2">{v.title}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{v.channel} · {v.views}</p>
-                  <button className="mt-2 text-xs text-orange-500 font-medium hover:underline">
-                    ✊ Triple-tap to request mentor
-                  </button>
+                  <p className="text-xs text-gray-400 mt-0.5">{v.channel}{v.views ? ` · ${v.views}` : ''}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <a href={`https://www.youtube.com/watch?v=${v.id}`} target="_blank" rel="noreferrer"
+                      className="text-xs text-orange-500 font-medium hover:underline">
+                      Open on YouTube ↗
+                    </a>
+                    {v.mission_score != null && (
+                      <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${v.mission_score >= 70 ? 'bg-green-100 text-green-700' : v.mission_score >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {v.mission_score}%
+                      </span>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
