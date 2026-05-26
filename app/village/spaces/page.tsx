@@ -26,22 +26,70 @@ export default function SpacesPage() {
   const [agendaLoading, setAgendaLoading] = useState(false);
   const [gcalSyncing, setGcalSyncing] = useState(false);
   const [gcalSynced, setGcalSynced] = useState(false);
+  const [myRsvps, setMyRsvps] = useState<Record<string, string>>({});  // event_id → status
+  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
   const supabase = createClient();
 
   useEffect(() => { loadEvents(); loadWeather(); }, []);
+
+  async function loadRsvps(eventIds: string[], userId: string) {
+    if (!eventIds.length) return;
+    const { data: mine } = await (supabase as any)
+      .from('event_rsvps').select('event_id, status').eq('user_id', userId).in('event_id', eventIds);
+    const myMap: Record<string, string> = {};
+    (mine ?? []).forEach((r: any) => { myMap[r.event_id] = r.status; });
+    setMyRsvps(myMap);
+    // Count "going" RSVPs per event
+    const counts: Record<string, number> = {};
+    await Promise.all(eventIds.map(async id => {
+      const { count } = await (supabase as any)
+        .from('event_rsvps').select('id', { count: 'exact', head: true })
+        .eq('event_id', id).eq('status', 'going');
+      counts[id] = count ?? 0;
+    }));
+    setRsvpCounts(counts);
+  }
+
+  async function rsvp(eventId: string, status: 'going'|'maybe'|'not_going') {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const current = myRsvps[eventId];
+    if (current === status) {
+      // Undo RSVP
+      await (supabase as any).from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id);
+      setMyRsvps(prev => { const n = { ...prev }; delete n[eventId]; return n; });
+      if (status === 'going') setRsvpCounts(prev => ({ ...prev, [eventId]: Math.max(0, (prev[eventId] ?? 1) - 1) }));
+    } else {
+      await (supabase as any).from('event_rsvps').upsert(
+        { event_id: eventId, user_id: user.id, status },
+        { onConflict: 'event_id,user_id' }
+      );
+      const waGoing = current === 'going';
+      const nowGoing = status === 'going';
+      setMyRsvps(prev => ({ ...prev, [eventId]: status }));
+      setRsvpCounts(prev => ({
+        ...prev,
+        [eventId]: (prev[eventId] ?? 0) + (nowGoing ? 1 : 0) - (waGoing ? 1 : 0),
+      }));
+    }
+  }
 
   async function loadEvents() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const now = new Date().toISOString();
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .from('calendar_events')
       .select('*')
       .eq('creator_id', user.id)
       .gte('end_time', now)
       .order('start_time')
       .limit(30);
-    setEvents(data ?? []);
+    const evs = data ?? [];
+    setEvents(evs);
+    if (evs.length > 0) {
+      loadRsvps(evs.map((e: any) => e.id), user.id);
+    }
   }
 
   async function loadWeather() {
@@ -342,6 +390,21 @@ export default function SpacesPage() {
                         {ev.location && ` · ${ev.location}`}
                       </p>
                       {ev.description && <p className="text-xs text-gray-400 mt-1 line-clamp-1">{ev.description}</p>}
+                      {/* RSVP buttons for public/tribe events */}
+                      {ev.event_type !== 'personal' && (
+                        <div className="flex gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
+                          {(['going', 'maybe', 'not_going'] as const).map(s => (
+                            <button key={s} onClick={() => rsvp(ev.id, s)}
+                              className="text-xs px-2.5 py-1 rounded-full font-medium transition-all"
+                              style={{
+                                background: myRsvps[ev.id] === s ? (s === 'going' ? '#059669' : s === 'maybe' ? '#D97706' : '#DC2626') : (isNight ? '#1E2240' : '#F3F4F6'),
+                                color:      myRsvps[ev.id] === s ? '#fff' : textMute,
+                              }}>
+                              {s === 'going' ? `✓ Going${rsvpCounts[ev.id] ? ` (${rsvpCounts[ev.id]})` : ''}` : s === 'maybe' ? '? Maybe' : '✕ No'}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </motion.div>
