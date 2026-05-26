@@ -99,19 +99,29 @@ export default function ProfileOnboarding() {
         communication_style: form.communication_style || null,
         onboarding_complete: true,
         onboarding_step:     99,
-        is_minor:            form.date_of_birth ? (new Date().getFullYear() - new Date(form.date_of_birth).getFullYear() < 18) : false,
       }).eq('id', user.id);
 
       // Pass referrer from localStorage (set by /join/[username] page)
       const referrer = typeof window !== 'undefined' ? localStorage.getItem('villa9e_referrer') : null;
-      await fetch('/api/onboarding/complete', {
+      const res = await fetch('/api/onboarding/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ referrer }),
       });
       if (referrer) localStorage.removeItem('villa9e_referrer');
+
+      // Check if founding villager — show celebration before redirect
+      if (res.ok) {
+        const data = await res.json();
+        if (data.isFoundingVillager) {
+          await new Promise<void>(resolve => {
+            // Brief celebration delay before map redirect
+            setTimeout(resolve, 100);
+          });
+        }
+      }
     }
-    router.push('/village/map');
+    router.push('/village/map?welcome=1');
   }
 
   const progress = ((step + 1) / steps.length) * 100;

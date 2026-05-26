@@ -2,6 +2,8 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
 // Dynamic import — Three.js only loads client-side
@@ -20,9 +22,16 @@ const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
 export default function VillageMapPage() {
   const [profile, setProfile] = useState<any>(null);
   const [foundingCount, setFoundingCount] = useState(0);
+  const [showWelcome, setShowWelcome] = useState(false);
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
+    if (searchParams.get('welcome') === '1') {
+      setShowWelcome(true);
+      setTimeout(() => setShowWelcome(false), 5000);
+    }
+
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -40,6 +49,35 @@ export default function VillageMapPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Welcome overlay for new villagers */}
+      <AnimatePresence>
+        {showWelcome && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6"
+            onClick={() => setShowWelcome(false)}>
+            <motion.div initial={{ scale: 0.8, y: 30 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.8, opacity: 0 }}
+              className="bg-white rounded-3xl p-8 text-center max-w-sm w-full shadow-2xl"
+              onClick={e => e.stopPropagation()}>
+              <div className="text-6xl mb-4 animate-float">
+                {profile?.is_founding_villager ? '👑' : '⛺'}
+              </div>
+              <h2 className="text-2xl font-bold text-village-blue mb-2">
+                {profile?.is_founding_villager ? 'Founding Villager!' : 'Welcome to the Village!'}
+              </h2>
+              <p className="text-gray-500 text-sm mb-4">
+                {profile?.is_founding_villager
+                  ? `You are Founding Villager #${profile.founding_villager_number}. You'll receive 500 $VLG bonus + NFT badge at Phase 3. The village is yours.`
+                  : 'Your village is ready. Set your first goal, give an OoWop, and start building something great.'}
+              </p>
+              <p className="text-green-600 text-sm font-medium mb-4">+50 $VLG added to your wallet ✓</p>
+              <button onClick={() => setShowWelcome(false)} className="village-btn-primary w-full">
+                Enter the Village →
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-3 bg-white/80 backdrop-blur-sm border-b border-gray-100 z-10">
         <div className="flex items-center gap-2">
