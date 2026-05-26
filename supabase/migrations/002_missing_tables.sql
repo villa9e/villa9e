@@ -58,6 +58,19 @@ ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS estimated_weeks INT;
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS steps_count INT;
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS probability_score INT DEFAULT 70;
 
+-- Tribe chat messages
+CREATE TABLE IF NOT EXISTS tribe_messages (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  tribe_id   UUID NOT NULL REFERENCES tribes(id) ON DELETE CASCADE,
+  user_id    UUID NOT NULL REFERENCES profiles(id),
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE tribe_messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Tribe members see messages" ON tribe_messages FOR SELECT USING (tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
+CREATE POLICY "Tribe members send messages" ON tribe_messages FOR INSERT WITH CHECK (user_id = auth.uid() AND tribe_id IN (SELECT tribe_id FROM tribe_members WHERE user_id = auth.uid()));
+
 -- Referrals tracking
 CREATE TABLE IF NOT EXISTS referrals (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

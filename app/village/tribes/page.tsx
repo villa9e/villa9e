@@ -68,24 +68,27 @@ export default function TribesPage() {
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         {tribes.map((tribe, i) => (
-          <motion.div key={tribe.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="village-card hover:shadow-md transition-shadow cursor-pointer">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center text-2xl">👥</div>
-              <div className="flex-1">
-                <p className="font-bold">{tribe.name}</p>
-                {tribe.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{tribe.description}</p>}
-                <div className="flex items-center gap-3 mt-2">
-                  <span className="text-xs text-gray-400">{tribe.tribe_members?.length ?? 0} members</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${tribe.project_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{tribe.project_status}</span>
+          <Link key={tribe.id} href={`/village/tribes/${tribe.id}`}>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }} className="village-card hover:shadow-md transition-shadow cursor-pointer">
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-pink-100 flex items-center justify-center text-2xl">👥</div>
+                <div className="flex-1">
+                  <p className="font-bold">{tribe.name}</p>
+                  {tribe.description && <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{tribe.description}</p>}
+                  <div className="flex items-center gap-3 mt-2">
+                    <span className="text-xs text-gray-400">{tribe.tribe_members?.length ?? 0} members</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${tribe.project_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{tribe.project_status ?? 'active'}</span>
+                  </div>
                 </div>
+                <span className="text-gray-300 text-xl">›</span>
               </div>
-            </div>
-            <div className="flex gap-2 mt-3">
-              <button className="flex-1 bg-pink-50 text-pink-700 rounded-full py-2 text-xs font-bold hover:bg-pink-100">📋 Tasks</button>
-              <button className="flex-1 bg-blue-50 text-village-blue rounded-full py-2 text-xs font-bold hover:bg-blue-100">📹 Meet</button>
-              <button className="flex-1 bg-gray-50 text-gray-600 rounded-full py-2 text-xs font-bold hover:bg-gray-100">💬 Chat</button>
-            </div>
-          </motion.div>
+              <div className="flex gap-2 mt-3">
+                <span className="flex-1 text-center bg-pink-50 text-pink-700 rounded-full py-2 text-xs font-bold">📋 Tasks</span>
+                <span className="flex-1 text-center bg-blue-50 text-village-blue rounded-full py-2 text-xs font-bold">💬 Chat</span>
+                <span className="flex-1 text-center bg-gray-50 text-gray-600 rounded-full py-2 text-xs font-bold">👥 Members</span>
+              </div>
+            </motion.div>
+          </Link>
         ))}
 
         {tribes.length === 0 && (
