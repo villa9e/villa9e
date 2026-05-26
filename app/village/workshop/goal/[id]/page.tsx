@@ -15,6 +15,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true);
   const [sharing, setSharing] = useState(false);
   const [shared, setShared] = useState(false);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalcResult, setRecalcResult] = useState<any>(null);
   const supabase = createClient();
 
   useEffect(() => { loadGoal(); }, [params.id]);
@@ -80,6 +82,22 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     }
   }
 
+  async function recalculateProbability() {
+    if (recalculating) return;
+    setRecalculating(true);
+    try {
+      const res = await fetch('/api/claude/probability-score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_id: params.id }),
+      });
+      const data = await res.json();
+      setRecalcResult(data);
+      setGoal((g: any) => g ? { ...g, probability_score: data.probability_score } : g);
+    } catch { /* silent */ }
+    setRecalculating(false);
+  }
+
   async function shareGoalToDreamLine() {
     if (!userId || sharing) return;
     setSharing(true);
@@ -121,6 +139,11 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
             <div>
               <p className="text-xs text-gray-500 uppercase tracking-wide">GPS Probability</p>
               <p className="text-3xl font-bold text-village-blue">{goal.probability_score ?? 0}%</p>
+              {recalcResult?.delta !== undefined && (
+                <p className={`text-xs font-medium mt-0.5 ${recalcResult.delta >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                  {recalcResult.delta >= 0 ? '+' : ''}{recalcResult.delta}% · {recalcResult.reasoning}
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-gray-500">Progress</p>
@@ -128,6 +151,12 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               <p className="text-xs text-gray-400">steps done</p>
             </div>
           </div>
+          {isOwner && (
+            <button onClick={recalculateProbability} disabled={recalculating}
+              className="text-xs text-village-blue font-medium hover:underline disabled:opacity-50">
+              {recalculating ? '⟳ Recalculating with Spirit…' : '📡 Recalculate GPS Score'}
+            </button>
+          )}
           <div className="w-full bg-gray-100 rounded-full h-3">
             <div className="h-3 rounded-full village-gradient transition-all" style={{ width: `${goal.progress_percentage ?? 0}%` }} />
           </div>
