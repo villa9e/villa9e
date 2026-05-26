@@ -7,3 +7,4 @@ dist/
 *.tsbuildinfo
 .DS_Store
 scripts/add-vercel-env.sh
+VERCEL_ENV_VARS.md
