@@ -98,5 +98,73 @@ DROP POLICY IF EXISTS "engagement_read_own" ON post_engagement_signals;
 CREATE POLICY "engagement_read_own" ON post_engagement_signals
   FOR SELECT USING (user_id = auth.uid());
 
+-- ── MIGRATION 007: Spirit Intelligence Tables ───────────────
+
+CREATE TABLE IF NOT EXISTS spirit_memories (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  memory_type  TEXT NOT NULL,
+  content      TEXT NOT NULL,
+  metadata     JSONB DEFAULT '{}',
+  importance   INT DEFAULT 5 CHECK (importance BETWEEN 1 AND 10),
+  recalled_at  TIMESTAMPTZ,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_spirit_mem_user   ON spirit_memories(user_id);
+CREATE INDEX IF NOT EXISTS idx_spirit_mem_import ON spirit_memories(user_id, importance DESC);
+ALTER TABLE spirit_memories ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "spirit_mem_own" ON spirit_memories;
+CREATE POLICY "spirit_mem_own" ON spirit_memories FOR ALL USING (user_id = auth.uid());
+
+CREATE TABLE IF NOT EXISTS spirit_patterns (
+  user_id               UUID PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+  goals_set             INT DEFAULT 0,
+  goals_completed       INT DEFAULT 0,
+  oowops_given          INT DEFAULT 0,
+  oowops_received       INT DEFAULT 0,
+  avg_morning_mood      DECIMAL(3,1) DEFAULT 0,
+  avg_evening_mood      DECIMAL(3,1) DEFAULT 0,
+  streak_days           INT DEFAULT 0,
+  spirit_calls_total    INT DEFAULT 0,
+  last_spirit_call_at   TIMESTAMPTZ,
+  preferred_time        TEXT DEFAULT 'morning',
+  growth_velocity       DECIMAL(5,2) DEFAULT 0,
+  primary_struggle      TEXT,
+  primary_strength      TEXT,
+  updated_at            TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE spirit_patterns ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "spirit_pat_own" ON spirit_patterns;
+CREATE POLICY "spirit_pat_own" ON spirit_patterns FOR ALL USING (user_id = auth.uid());
+
+CREATE TABLE IF NOT EXISTS spirit_collective (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  insight_type TEXT NOT NULL,
+  archetype    TEXT,
+  category     TEXT,
+  insight      TEXT NOT NULL,
+  confidence   DECIMAL(4,2),
+  sample_size  INT DEFAULT 0,
+  updated_at   TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE spirit_collective ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "collective_read" ON spirit_collective;
+CREATE POLICY "collective_read" ON spirit_collective FOR SELECT USING (TRUE);
+
+CREATE TABLE IF NOT EXISTS spirit_checkin_log (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id      UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  checkin_type TEXT NOT NULL,
+  mood         TEXT,
+  mood_score   INT,
+  spirit_text  TEXT,
+  sent_push    BOOLEAN DEFAULT FALSE,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_checkin_user ON spirit_checkin_log(user_id);
+ALTER TABLE spirit_checkin_log ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "spirit_log_own" ON spirit_checkin_log;
+CREATE POLICY "spirit_log_own" ON spirit_checkin_log FOR ALL USING (user_id = auth.uid());
+
 -- ── DONE ────────────────────────────────────────────────────
-SELECT 'All pending migrations applied successfully.' AS status;
+SELECT 'All pending migrations (003–007) applied successfully.' AS status;

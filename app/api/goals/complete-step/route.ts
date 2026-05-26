@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { storeMemory, updateSpiritPatterns } from '@/lib/claude/spirit';
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
@@ -81,6 +82,20 @@ export async function POST(req: NextRequest) {
         reference_type: 'goal',
       }))
     );
+  }
+
+  // Store step completion as Spirit memory (non-blocking)
+  storeMemory(
+    user.id,
+    'step_completed',
+    `Completed step "${step.title}" in goal (${pct}% progress)`,
+    { step_id, goal_id, progress: pct },
+    pct === 100 ? 9 : 7
+  ).catch(() => {});
+
+  // Update Spirit patterns after completion (non-blocking)
+  if (pct === 100) {
+    updateSpiritPatterns(user.id).catch(() => {});
   }
 
   return NextResponse.json({ ok: true, post_id: postId, progress: pct });

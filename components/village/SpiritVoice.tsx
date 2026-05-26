@@ -3,12 +3,13 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 interface SpiritVoiceProps {
-  text: string;
+  text:      string;
   autoPlay?: boolean;
-  label?: string;
+  label?:    string;
+  compact?:  boolean;
 }
 
-export function SpiritVoice({ text, autoPlay = false, label = 'Listen to Spirit' }: SpiritVoiceProps) {
+export function SpiritVoice({ text, autoPlay = false, label = 'Listen to Spirit', compact = false }: SpiritVoiceProps) {
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState('');
@@ -40,6 +41,16 @@ export function SpiritVoice({ text, autoPlay = false, label = 'Listen to Spirit'
       setPlaying(true);
     } catch (e: any) { setError(e.message); }
     setLoading(false);
+  }
+
+  if (compact) {
+    return (
+      <button onClick={handlePlay} disabled={loading || !text}
+        className="flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100 transition-opacity disabled:opacity-20">
+        {loading ? '⟳' : playing ? '🔊' : '🎙️'}
+        <span>{loading ? 'Loading…' : playing ? 'Playing…' : 'Hear Spirit'}</span>
+      </button>
+    );
   }
 
   return (
