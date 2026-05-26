@@ -1,8 +1,5 @@
-import { createServerClient as createSSRServerClient } from '@supabase/ssr';
+import { createServerClient as createSSRServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-
-// Untyped Supabase clients — avoids TypeScript errors from migration tables
-// not yet in the auto-generated Database type
 
 export function createServerClient() {
   const cookieStore = cookies();
@@ -12,7 +9,7 @@ export function createServerClient() {
     {
       cookies: {
         getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
@@ -32,7 +29,7 @@ export function createAdminClient() {
     {
       cookies: {
         getAll() { return cookieStore.getAll(); },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: CookieOptions }[]) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)

@@ -99,6 +99,7 @@ export default function DiscoverPage() {
           <h1 className="text-xl font-bold">Discover Villagers</h1>
           <p className="text-blue-100 text-xs">Find your people</p>
         </div>
+        <Link href="/village/discover/connections" className="text-blue-200 text-sm mr-1">🤝 Connections</Link>
         <button onClick={runMatching} disabled={matching} className="bg-white/20 rounded-full px-3 py-1 text-xs font-bold hover:bg-white/30 disabled:opacity-50">
           {matching ? '⟳ Matching…' : '🤖 AI Match'}
         </button>
