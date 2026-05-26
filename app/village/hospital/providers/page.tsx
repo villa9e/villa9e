@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 const SPECIALTIES = ['All','Therapy & Counseling','Meditation','Energy Healing','Nutrition','Physical Therapy','Spiritual Guidance','Alternative Medicine','Life Coaching'];
@@ -15,7 +16,9 @@ const MOCK_PROVIDERS = [
 ];
 
 export default function HospitalProvidersPage() {
-  const [specialty, setSpecialty] = useState('All');
+  const searchParams = useSearchParams();
+  const initialSpecialty = searchParams.get('specialty') ?? 'All';
+  const [specialty, setSpecialty] = useState(initialSpecialty);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
   const [bookingStep, setBookingStep] = useState<'select' | 'confirm' | 'done'>('select');
