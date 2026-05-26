@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -15,7 +15,7 @@ const MOCK_PROVIDERS = [
   { id: '4', name: 'Dr. James Rivera', specialty: 'Nutrition', verified: true, npi_verified: true, rate: 95, rating: 4.9, reviews: 63, bio: 'Registered dietitian. Holistic approach to nutrition for high-achievers.', availability: 'Mon, Wed, Fri', accepts_insurance: true },
 ];
 
-export default function HospitalProvidersPage() {
+function HospitalProvidersPageInner() {
   const searchParams = useSearchParams();
   const initialSpecialty = searchParams.get('specialty') ?? 'All';
   const [specialty, setSpecialty] = useState(initialSpecialty);
@@ -151,4 +151,8 @@ export default function HospitalProvidersPage() {
       </div>
     </div>
   );
+}
+
+export default function HospitalProvidersPage() {
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-4xl animate-float">🏥</div></div>}><HospitalProvidersPageInner /></Suspense>;
 }

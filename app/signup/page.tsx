@@ -1,11 +1,11 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
-export default function SignupPage() {
+function SignupPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const ref = searchParams.get('ref');
@@ -173,4 +173,8 @@ export default function SignupPage() {
       </motion.div>
     </div>
   );
+}
+
+export default function SignupPage() {
+  return <Suspense fallback={<div className="min-h-screen village-gradient flex items-center justify-center"><div className="text-6xl animate-float">⛺</div></div>}><SignupPageInner /></Suspense>;
 }

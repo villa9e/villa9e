@@ -1,7 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
@@ -19,7 +19,7 @@ const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
   ),
 });
 
-export default function VillageMapPage() {
+function VillageMapPageInner() {
   const [profile, setProfile] = useState<any>(null);
   const [foundingCount, setFoundingCount] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -122,4 +122,9 @@ export default function VillageMapPage() {
       </div>
     </div>
   );
+}
+
+
+export default function VillageMapPage() {
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="text-6xl animate-float">⛺</div></div>}><VillageMapPageInner /></Suspense>;
 }
