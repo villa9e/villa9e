@@ -3,345 +3,515 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { awardScore } from '@/lib/village/score';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { VillageSound } from '@/lib/sounds/village';
+import { VIDEO_TEMPLATES, type TemplateId } from '@/lib/studio/videoTemplates';
 
-const TEMPLATES = [
-  { id: 'goal_progress', emoji: '📍', name: 'Goal Progress', desc: 'Show your journey', platform: ['Dream Line', 'Instagram', 'TikTok'] },
-  { id: 'oowop_celebration', emoji: '✊', name: 'OoWop Moment', desc: 'Step validated celebration', platform: ['Dream Line', 'Instagram Stories'] },
-  { id: 'quote_reel', emoji: '✨', name: 'Quote Card', desc: 'Inspiration + your story', platform: ['All platforms'] },
-  { id: 'milestone', emoji: '🏆', name: 'Milestone Drop', desc: 'Big achievement post', platform: ['Dream Line', 'TikTok'] },
-];
+type StudioTab = 'create' | 'tips' | 'affiliates' | 'my-content';
 
-const FORMATS = [
-  { id: 'square', label: '1:1 Square', desc: 'Instagram feed', icon: '⬜' },
-  { id: 'story', label: '9:16 Story', desc: 'TikTok/Reels/Stories', icon: '📱' },
-  { id: 'landscape', label: '16:9 Wide', desc: 'YouTube/Twitter', icon: '🖥️' },
-];
-
-export default function CreatorStudioPage() {
-  const [tab, setTab] = useState<'create' | 'tips' | 'my-content'>('create');
-  const [selectedTemplate, setSelectedTemplate] = useState(TEMPLATES[0]);
-  const [selectedFormat, setSelectedFormat] = useState(FORMATS[1]);
-  const [text, setText] = useState('');
-  const [generating, setGenerating] = useState(false);
-  const [generatedVideo, setGeneratedVideo] = useState<any>(null);
-  const [videoStatus, setVideoStatus] = useState<string>('');
-  const [tips, setTips] = useState<any>(null);
-  const [tipsLoading, setTipsLoading] = useState(false);
-  const [engagementData, setEngagementData] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const supabase = createClient();
-
-  // Accelerometer engagement sensing
-  const engagementRef = useRef({ motionEvents: 0, startTime: Date.now() });
+// ─── In-browser video preview (Framer Motion composition) ────────────────────
+function VideoPreview({
+  templateId, data, aspectRatio,
+}: { templateId: TemplateId; data: Record<string, any>; aspectRatio: '9:16' | '1:1' | '16:9' }) {
+  const template = VIDEO_TEMPLATES[templateId];
+  const [frame, setFrame] = useState(0);
 
   useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: p } = await supabase.from('profiles').select('username, personality_type, village_score').eq('id', user.id).single();
-      setProfile(p);
+    const interval = setInterval(() => setFrame(f => f + 1), 100);
+    return () => clearInterval(interval);
+  }, []);
 
-      // Load engagement data from recent posts
-      const { data: posts } = await supabase.from('dream_line_posts')
-        .select('oowop_count, comment_count, created_at')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+  const dims = aspectRatio === '9:16'
+    ? { w: 180, h: 320 }
+    : aspectRatio === '1:1'
+    ? { w: 240, h: 240 }
+    : { w: 320, h: 180 };
 
-      if (posts?.length) {
-        const avgOoWops = posts.reduce((s, p) => s + (p.oowop_count ?? 0), 0) / posts.length;
-        const avgComments = posts.reduce((s, p) => s + (p.comment_count ?? 0), 0) / posts.length;
-        setEngagementData({ oowop_rate: Math.round(avgOoWops * 10), comment_rate: Math.round(avgComments * 10), avg_watch_time: 0 });
-      }
-    }
-    load();
+  const t = frame / 10;  // seconds elapsed
 
-    // Listen for device motion (engagement proxy)
+  return (
+    <div className="relative rounded-2xl overflow-hidden flex-shrink-0 mx-auto"
+      style={{ width: dims.w, height: dims.h, background: '#0A0B12' }}>
+
+      {/* Background glow */}
+      <motion.div className="absolute inset-0"
+        animate={{ opacity: [0.4, 0.7, 0.4] }}
+        transition={{ duration: 3, repeat: Infinity }}
+        style={{ background: `radial-gradient(circle at 50% 40%, ${template.accentColor}20 0%, transparent 70%)` }} />
+
+      {/* Scan lines */}
+      <div className="absolute inset-0 pointer-events-none opacity-5"
+        style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.3) 2px, rgba(255,255,255,0.3) 3px)' }} />
+
+      {/* Animated content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center px-3 text-center">
+        <motion.div
+          animate={{ scale: [1, 1.05, 1], rotate: [0, 2, -2, 0] }}
+          transition={{ duration: 2.5, repeat: Infinity }}
+          className="text-4xl mb-2"
+        >
+          {template.emoji}
+        </motion.div>
+
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="font-black text-white text-xs leading-tight mb-1"
+          style={{ fontSize: '11px' }}
+        >
+          {data[template.fields[0]?.key] || template.fields[0]?.placeholder || template.name}
+        </motion.p>
+
+        {template.fields[1] && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="text-xs"
+            style={{ color: template.accentColor, fontSize: '10px' }}
+          >
+            {data[template.fields[1].key] || template.fields[1].placeholder}
+          </motion.p>
+        )}
+      </div>
+
+      {/* Brand bar */}
+      <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5"
+        style={{ background: 'rgba(0,0,0,0.6)' }}>
+        <span className="text-white/70 font-bold" style={{ fontSize: '9px' }}>⛺ villa9e</span>
+        <motion.div
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 1.5, repeat: Infinity }}
+          className="w-1.5 h-1.5 rounded-full bg-red-500"
+        />
+      </div>
+    </div>
+  );
+}
+
+export default function CreatorStudioPage() {
+  const [tab, setTab]                   = useState<StudioTab>('create');
+  const [selectedTemplateId, setSelectedTemplateId] = useState<TemplateId>('goal_recap');
+  const [templateData, setTemplateData] = useState<Record<string, any>>({});
+  const [generating, setGenerating]     = useState(false);
+  const [generatedVideo, setGeneratedVideo] = useState<any>(null);
+  const [videoStatus, setVideoStatus]   = useState('');
+  const [tips, setTips]                 = useState<any>(null);
+  const [tipsLoading, setTipsLoading]   = useState(false);
+  const [affiliates, setAffiliates]     = useState<any[]>([]);
+  const [myContent, setMyContent]       = useState<any[]>([]);
+  const [profile, setProfile]           = useState<any>(null);
+  const [engagementData, setEngagementData] = useState<any>(null);
+  const engagementRef = useRef({ motionEvents: 0 });
+  const supabase = createClient();
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+
+  const bg       = isNight ? '#0A0B12' : '#F5F0FF';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#E9D5FF';
+  const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
+  const textMute = isNight ? '#4A4F72' : '#6D28D9';
+  const accent   = '#7C3AED';
+
+  const selectedTemplate = VIDEO_TEMPLATES[selectedTemplateId];
+
+  useEffect(() => {
+    loadProfile();
+    // Accelerometer for engagement sensing
     if (typeof window !== 'undefined' && 'DeviceMotionEvent' in window) {
-      const handleMotion = () => { engagementRef.current.motionEvents++; };
-      window.addEventListener('devicemotion', handleMotion, { passive: true });
-      return () => window.removeEventListener('devicemotion', handleMotion);
+      const handler = () => { engagementRef.current.motionEvents++; };
+      window.addEventListener('devicemotion', handler, { passive: true });
+      return () => window.removeEventListener('devicemotion', handler);
     }
   }, []);
 
+  async function loadProfile() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const [{ data: p }, { data: posts }] = await Promise.all([
+      (supabase as any).from('profiles').select('username, personality_type, village_score, avatar_config').eq('id', user.id).single(),
+      (supabase as any).from('dream_line_posts').select('oowop_count, comment_count, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+    ]);
+    setProfile(p);
+
+    if (posts?.length) {
+      const avgOoWops  = posts.reduce((a: number, p: any) => a + (p.oowop_count || 0), 0) / posts.length;
+      const avgComments = posts.reduce((a: number, p: any) => a + (p.comment_count || 0), 0) / posts.length;
+      setEngagementData({ posts: posts.length, avg_oowops: avgOoWops.toFixed(1), avg_comments: avgComments.toFixed(1) });
+    }
+
+    // Load my content
+    const { data: myPosts } = await (supabase as any).from('dream_line_posts')
+      .select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(6);
+    setMyContent(myPosts ?? []);
+  }
+
   async function generateVideo() {
-    if (!text.trim()) { alert('Add your message first.'); return; }
+    if (!Object.values(templateData).some(v => v)) return;
     setGenerating(true);
     setGeneratedVideo(null);
-    setVideoStatus('Generating your video…');
+    setVideoStatus('Sending to JSON2Video…');
 
-    const res = await fetch('/api/studio/generate-video', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        template: selectedTemplate.id,
-        content: {
-          text,
-          username: profile?.username ?? 'villager',
-          goal_title: text,
-          metric: '75',
-          duration: selectedFormat.id === 'story' ? 15 : 10,
-        },
-      }),
-    });
-
-    if (res.ok) {
+    try {
+      const payload = selectedTemplate.json2video(templateData);
+      const res = await fetch('/api/studio/generate-video', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template: payload, template_id: selectedTemplateId }),
+      });
       const data = await res.json();
-      setVideoStatus('Video is processing…');
-
-      // Poll for completion
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        if (attempts > 20) { clearInterval(poll); setVideoStatus('Taking longer than expected. Check back soon.'); return; }
-
-        const statusRes = await fetch(`/api/studio/video-status?id=${data.movie_id}`);
-        if (statusRes.ok) {
-          const status = await statusRes.json();
-          if (status.url) {
-            clearInterval(poll);
-            setGeneratedVideo(status);
-            setVideoStatus('Ready! Download or share.');
-            await awardScore('DREAM_LINE_POST'); // Award VLG for creating content
-          }
-        }
-      }, 5000);
-    } else {
-      setVideoStatus('Generation failed. Try again.');
+      if (data.id || data.movie) {
+        setGeneratedVideo(data);
+        setVideoStatus('Rendering…');
+        VillageSound.notification();
+        // Poll for completion
+        pollVideo(data.id ?? data.movie?.id);
+      } else {
+        setVideoStatus('Error — try again');
+      }
+    } catch {
+      setVideoStatus('Error generating video');
     }
     setGenerating(false);
   }
 
-  async function getTips() {
+  async function pollVideo(id: string) {
+    const interval = setInterval(async () => {
+      const res = await fetch(`/api/studio/video-status?id=${id}`);
+      const data = await res.json();
+      if (data.status === 'done' || data.url) {
+        setGeneratedVideo(data);
+        setVideoStatus('');
+        clearInterval(interval);
+        VillageSound.stepComplete();
+      } else if (data.status === 'error') {
+        setVideoStatus('Render failed');
+        clearInterval(interval);
+      }
+    }, 3000);
+  }
+
+  async function fetchTips() {
     setTipsLoading(true);
-    setTips(null);
-    const res = await fetch('/api/studio/content-tips', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        content_type: 'dream_line_post',
-        goal_category: 'general',
-        engagement_data: engagementData,
-        platform: 'dream_line',
-      }),
-    });
-    if (res.ok) setTips(await res.json());
+    try {
+      const res = await fetch('/api/studio/content-tips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          archetype: profile?.personality_type,
+          engagement_data: engagementData,
+          motion_events: engagementRef.current.motionEvents,
+        }),
+      });
+      const data = await res.json();
+      setTips(data);
+    } catch { /* silent */ }
     setTipsLoading(false);
   }
 
-  const PRIORITY_COLOR: Record<string, string> = { high: 'text-red-600 bg-red-50', medium: 'text-amber-600 bg-amber-50', low: 'text-green-600 bg-green-50' };
+  async function fetchAffiliates() {
+    // Load affiliate content recommendations based on this user's goals and engagement
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: goals } = await (supabase as any).from('goals')
+      .select('title, category').eq('user_id', user.id).eq('status', 'active').limit(3);
+
+    // Get affiliate-eligible providers from Trading Post
+    const { data: providers } = await (supabase as any).from('provider_profiles')
+      .select('*, profiles(username)')
+      .eq('verification_status', 'approved')
+      .eq('is_active', true)
+      .limit(8);
+
+    setAffiliates(providers ?? []);
+  }
+
+  useEffect(() => {
+    if (tab === 'affiliates') fetchAffiliates();
+    if (tab === 'tips') fetchTips();
+  }, [tab]);
+
+  const TABS: [StudioTab, string, string][] = [
+    ['create',     '🎬', 'Create'],
+    ['tips',       '💡', 'AI Tips'],
+    ['affiliates', '🤝', 'Affiliates'],
+    ['my-content', '📊', 'My Content'],
+  ];
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-gradient-to-r from-purple-700 to-village-blue text-white px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <Link href="/village/workshop" className="text-xl">←</Link>
+    <div className="min-h-screen" style={{ background: bg }}>
+      {/* Header */}
+      <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
+        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        <Link href="/village/workshop" className="text-xl text-white">←</Link>
         <span className="text-2xl">🎬</span>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Creator Studio</h1>
-          <p className="text-purple-200 text-xs">Make content that moves people</p>
+          <h1 className="font-black text-white text-base">Creator Studio</h1>
+          <p className="text-white/60 text-xs">Make content · Get AI tips · Track your impact</p>
         </div>
-        {profile?.village_score >= 500 && (
-          <span className="text-xs bg-white/20 rounded-full px-2 py-0.5">Pro Creator</span>
-        )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex bg-white border-b border-gray-100 sticky top-[72px] z-10">
-        {([['create', '🎬 Create'], ['tips', '💡 AI Tips'], ['my-content', '📊 My Content']] as const).map(([t, label]) => (
-          <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-sm font-medium transition-colors ${tab === t ? 'border-b-2 border-purple-600 text-purple-600' : 'text-gray-500'}`}>
-            {label}
+      {/* Tab bar */}
+      <div className="flex border-b" style={{ background: cardBg, borderColor: border }}>
+        {TABS.map(([id, icon, label]) => (
+          <button key={id} onClick={() => setTab(id)}
+            className="flex-1 py-3 text-sm font-bold transition-all flex flex-col items-center gap-0.5"
+            style={{
+              color: tab === id ? accent : textMute,
+              borderBottom: tab === id ? `2px solid ${accent}` : '2px solid transparent',
+            }}>
+            <span>{icon}</span>
+            <span className="text-xs">{label}</span>
           </button>
         ))}
       </div>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* CREATE TAB */}
+      <div className="max-w-2xl mx-auto px-4 py-4 pb-8">
+
+        {/* ── CREATE TAB ── */}
         {tab === 'create' && (
-          <>
-            <div className="village-card">
-              <h2 className="font-bold mb-3">Choose Template</h2>
-              <div className="grid grid-cols-2 gap-2">
-                {TEMPLATES.map(t => (
-                  <button key={t.id} onClick={() => setSelectedTemplate(t)}
-                    className={`p-3 rounded-2xl text-left border-2 transition-all ${selectedTemplate.id === t.id ? 'border-purple-500 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}>
-                    <p className="text-2xl mb-1">{t.emoji}</p>
-                    <p className="font-bold text-sm">{t.name}</p>
-                    <p className="text-xs text-gray-500">{t.desc}</p>
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {t.platform.map(p => <span key={p} className="text-xs bg-gray-100 rounded-full px-2 py-0.5">{p}</span>)}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="village-card">
-              <h2 className="font-bold mb-3">Format</h2>
+          <div className="space-y-4">
+            {/* Template picker */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: textMute }}>Choose Template</p>
               <div className="grid grid-cols-3 gap-2">
-                {FORMATS.map(f => (
-                  <button key={f.id} onClick={() => setSelectedFormat(f)}
-                    className={`p-3 rounded-xl text-center border-2 transition-all ${selectedFormat.id === f.id ? 'border-purple-500 bg-purple-50' : 'border-gray-100 hover:border-purple-200'}`}>
-                    <p className="text-xl mb-1">{f.icon}</p>
-                    <p className="font-bold text-xs">{f.label}</p>
-                    <p className="text-xs text-gray-400">{f.desc}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="village-card">
-              <h2 className="font-bold mb-2">Your Message</h2>
-              <textarea value={text} onChange={e => setText(e.target.value)}
-                placeholder="What's your story? Goal update, milestone, insight..."
-                rows={3} maxLength={200}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none" />
-              <p className="text-xs text-gray-400 mt-1 text-right">{text.length}/200</p>
-            </div>
-
-            <button onClick={generateVideo} disabled={generating || !text.trim()}
-              className="w-full bg-gradient-to-r from-purple-700 to-village-blue text-white rounded-2xl py-4 font-bold text-lg disabled:opacity-50 hover:opacity-90 transition-opacity">
-              {generating ? '⏳ Generating…' : '🎬 Generate Video'}
-            </button>
-
-            {videoStatus && (
-              <div className="village-card bg-purple-50 border border-purple-200">
-                <p className="text-sm text-purple-700 font-medium">{videoStatus}</p>
-              </div>
-            )}
-
-            {generatedVideo?.url && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="village-card">
-                <p className="font-bold mb-3">🎬 Your Video is Ready!</p>
-                <video src={generatedVideo.url} controls className="w-full rounded-2xl mb-3" />
-                <div className="flex gap-3">
-                  <a href={generatedVideo.url} download className="flex-1 bg-village-blue text-white rounded-full py-2.5 text-sm font-bold text-center hover:bg-blue-700">
-                    ⬇ Download
-                  </a>
-                  <button onClick={() => {
-                    navigator.clipboard.writeText(generatedVideo.url);
-                  }} className="flex-1 border border-gray-200 text-gray-600 rounded-full py-2.5 text-sm font-medium hover:bg-gray-50">
-                    📋 Copy Link
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </>
-        )}
-
-        {/* TIPS TAB */}
-        {tab === 'tips' && (
-          <>
-            <div className="village-card bg-gradient-to-br from-purple-50 to-blue-50">
-              <div className="flex items-start gap-3">
-                <span className="text-3xl">🤖</span>
-                <div>
-                  <p className="font-bold text-purple-700">AI Creator Coach</p>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    Analyzes your recent posts and village score to give you specific, actionable content tips.
-                  </p>
-                </div>
-              </div>
-              {engagementData && (
-                <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-white rounded-xl p-2 text-center">
-                    <p className="font-bold text-village-blue">{engagementData.oowop_rate ?? 0}%</p>
-                    <p className="text-gray-400">OoWop Rate</p>
-                  </div>
-                  <div className="bg-white rounded-xl p-2 text-center">
-                    <p className="font-bold text-purple-600">{engagementData.comment_rate ?? 0}%</p>
-                    <p className="text-gray-400">Comment Rate</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button onClick={getTips} disabled={tipsLoading}
-              className="w-full bg-gradient-to-r from-purple-700 to-village-blue text-white rounded-2xl py-4 font-bold disabled:opacity-50">
-              {tipsLoading ? '🤖 Analyzing your content…' : '💡 Get My Content Tips'}
-            </button>
-
-            {tips && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-                <div className="village-card">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="font-bold">Content Health</p>
-                    <span className={`text-sm font-bold ${(tips.score ?? 0) >= 70 ? 'text-green-600' : (tips.score ?? 0) >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
-                      {tips.score ?? 0}/100
+                {(Object.values(VIDEO_TEMPLATES)).map(tmpl => (
+                  <motion.button key={tmpl.id} whileTap={{ scale: 0.95 }}
+                    onClick={() => { setSelectedTemplateId(tmpl.id); setTemplateData({}); VillageSound.tap(); }}
+                    className="rounded-2xl p-3 flex flex-col items-center gap-1 transition-all text-center"
+                    style={{
+                      background: selectedTemplateId === tmpl.id ? `${tmpl.accentColor}18` : cardBg,
+                      border: `2px solid ${selectedTemplateId === tmpl.id ? tmpl.accentColor : border}`,
+                    }}>
+                    <span className="text-2xl">{tmpl.emoji}</span>
+                    <span className="text-xs font-bold leading-tight" style={{ color: selectedTemplateId === tmpl.id ? tmpl.accentColor : textMute }}>
+                      {tmpl.name}
                     </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{tips.summary}</p>
-                  <p className={`text-xs mt-1 font-medium ${tips.trend === 'rising' ? 'text-green-600' : tips.trend === 'declining' ? 'text-red-500' : 'text-gray-500'}`}>
-                    {tips.trend === 'rising' ? '↑ Rising' : tips.trend === 'declining' ? '↓ Needs attention' : '→ Steady'}
-                  </p>
-                </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
 
-                {(tips.tips ?? []).map((tip: any, i: number) => (
-                  <div key={i} className="village-card">
-                    <div className="flex items-start gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold mt-0.5 flex-shrink-0 ${PRIORITY_COLOR[tip.priority] ?? PRIORITY_COLOR.low}`}>
-                        {tip.priority}
-                      </span>
-                      <div>
-                        <p className="font-bold text-sm">{tip.title}</p>
-                        <p className="text-xs text-gray-600 mt-1">{tip.body}</p>
-                        {tip.example && (
-                          <div className="mt-2 bg-gray-50 rounded-xl px-3 py-2 text-xs text-gray-700 italic">
-                            "{tip.example}"
-                          </div>
-                        )}
-                      </div>
-                    </div>
+            {/* Template form + preview side by side */}
+            <div className="flex gap-4 items-start">
+              {/* Form */}
+              <div className="flex-1 space-y-3">
+                <p className="text-xs font-bold uppercase tracking-wider" style={{ color: textMute }}>
+                  {selectedTemplate.name} — {selectedTemplate.duration}s · {selectedTemplate.aspectRatio}
+                </p>
+                {selectedTemplate.fields.map(field => (
+                  <div key={field.key}>
+                    <label className="text-xs font-semibold block mb-1" style={{ color: textMute }}>
+                      {field.label}{field.required && ' *'}
+                    </label>
+                    {field.type === 'select' ? (
+                      <select
+                        value={templateData[field.key] ?? ''}
+                        onChange={e => setTemplateData(d => ({ ...d, [field.key]: e.target.value }))}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                        style={{ background: isNight ? '#0A0B12' : '#F5F0FF', border: `1px solid ${border}`, color: textMain }}>
+                        <option value="">Select…</option>
+                        {field.options?.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    ) : field.type === 'number' ? (
+                      <input type="number"
+                        value={templateData[field.key] ?? ''}
+                        onChange={e => setTemplateData(d => ({ ...d, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                        style={{ background: isNight ? '#0A0B12' : '#F5F0FF', border: `1px solid ${border}`, color: textMain }} />
+                    ) : (
+                      <input type="text"
+                        value={templateData[field.key] ?? ''}
+                        onChange={e => setTemplateData(d => ({ ...d, [field.key]: e.target.value }))}
+                        placeholder={field.placeholder}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                        style={{ background: isNight ? '#0A0B12' : '#F5F0FF', border: `1px solid ${border}`, color: textMain }} />
+                    )}
                   </div>
                 ))}
+              </div>
 
-                {tips.next_best_content && (
-                  <div className="village-card bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200">
-                    <p className="text-xs font-bold text-amber-700 mb-1">🎯 Create This Next</p>
-                    <p className="text-sm text-gray-800">{tips.next_best_content}</p>
-                  </div>
-                )}
+              {/* Preview */}
+              <div className="flex-shrink-0">
+                <p className="text-xs font-bold text-center mb-2" style={{ color: textMute }}>Preview</p>
+                <VideoPreview
+                  templateId={selectedTemplateId}
+                  data={templateData}
+                  aspectRatio={selectedTemplate.aspectRatio}
+                />
+              </div>
+            </div>
+
+            {/* Generate button */}
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={generateVideo}
+              disabled={generating}
+              className="w-full py-4 rounded-2xl font-black text-white text-base transition-all disabled:opacity-50"
+              style={{ background: `linear-gradient(135deg, ${accent}, #1877F2)` }}>
+              {generating ? '⟳ Generating…' : '🎬 Render Video'}
+            </motion.button>
+            {videoStatus && <p className="text-center text-sm" style={{ color: textMute }}>{videoStatus}</p>}
+
+            {/* Generated video result */}
+            {generatedVideo?.url && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl p-4 space-y-3"
+                style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <p className="font-black text-sm" style={{ color: textMain }}>✅ Video Ready!</p>
+                <video src={generatedVideo.url} controls className="w-full rounded-xl" />
+                <div className="flex gap-2">
+                  <a href={generatedVideo.url} download
+                    className="flex-1 text-center py-2.5 rounded-full font-bold text-white text-sm"
+                    style={{ background: accent }}>
+                    Download MP4
+                  </a>
+                  <button onClick={async () => {
+                    // Share to Dream Line
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if (user) {
+                      await (supabase as any).from('dream_line_posts').insert({
+                        user_id: user.id,
+                        content: `🎬 New ${selectedTemplate.name} — ${templateData[selectedTemplate.fields[0]?.key] ?? ''}`,
+                        visibility: 'public',
+                        media_url: generatedVideo.url,
+                      });
+                      VillageSound.post();
+                    }
+                  }}
+                    className="flex-1 text-center py-2.5 rounded-full font-bold text-sm"
+                    style={{ background: isNight ? '#1E2240' : '#EDE9FE', color: accent }}>
+                    Share to Dream Line
+                  </button>
+                </div>
               </motion.div>
             )}
-          </>
+          </div>
         )}
 
-        {/* MY CONTENT TAB */}
-        {tab === 'my-content' && (
-          <div className="space-y-3">
-            <div className="village-card bg-gradient-to-br from-purple-50 to-blue-50">
-              <p className="text-sm text-gray-600">
-                Your Dream Line posts + engagement data. Create consistently to build your audience in the village.
-              </p>
-            </div>
-            <Link href="/village/dreamline" className="village-card flex items-center gap-3 hover:shadow-md transition-shadow block">
-              <span className="text-2xl">✨</span>
-              <div>
-                <p className="font-bold text-sm">Dream Line</p>
-                <p className="text-xs text-gray-400">View and manage your posts</p>
-              </div>
-              <span className="text-gray-300 text-xl ml-auto">›</span>
-            </Link>
-            <Link href="/village/workshop/skill-stream" className="village-card flex items-center gap-3 hover:shadow-md transition-shadow block">
-              <span className="text-2xl">📺</span>
-              <div>
-                <p className="font-bold text-sm">Skill Stream</p>
-                <p className="text-xs text-gray-400">Learn from top creators in your niche</p>
-              </div>
-              <span className="text-gray-300 text-xl ml-auto">›</span>
-            </Link>
-            <div className="village-card">
-              <p className="font-bold text-sm mb-2">📈 Content Stats</p>
+        {/* ── AI TIPS TAB ── */}
+        {tab === 'tips' && (
+          <div className="space-y-4">
+            <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+              <p className="font-black text-sm mb-1" style={{ color: textMain }}>Your Engagement Stats</p>
               {engagementData ? (
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between"><span className="text-gray-500">Avg OoWops/post</span><span className="font-bold">{(engagementData.oowop_rate / 10).toFixed(1)}</span></div>
-                  <div className="flex justify-between"><span className="text-gray-500">Avg Comments/post</span><span className="font-bold">{(engagementData.comment_rate / 10).toFixed(1)}</span></div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  {[
+                    { label: 'Posts', value: engagementData.posts },
+                    { label: 'Avg OoWops', value: engagementData.avg_oowops },
+                    { label: 'Avg Comments', value: engagementData.avg_comments },
+                  ].map(s => (
+                    <div key={s.label} className="rounded-xl py-2" style={{ background: isNight ? '#0A0B12' : '#F5F0FF' }}>
+                      <p className="font-black text-lg" style={{ color: accent }}>{s.value}</p>
+                      <p className="text-xs" style={{ color: textMute }}>{s.label}</p>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-400">Post on the Dream Line to see your stats.</p>
+                <p className="text-sm" style={{ color: textMute }}>Post to Dream Line to see your stats.</p>
               )}
             </div>
+
+            {tipsLoading ? (
+              <div className="text-center py-8" style={{ color: textMute }}>
+                <div className="text-3xl mb-2 animate-pulse">💡</div>
+                <p className="text-sm">Spirit is analyzing your content…</p>
+              </div>
+            ) : tips ? (
+              <div className="space-y-3">
+                {(tips.tips ?? [tips]).map((tip: any, i: number) => (
+                  <div key={i} className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                    <p className="font-bold text-sm mb-1" style={{ color: accent }}>{tip.title ?? `Tip ${i + 1}`}</p>
+                    <p className="text-sm leading-relaxed" style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{tip.body ?? tip}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <button onClick={fetchTips}
+                className="w-full py-4 rounded-2xl font-black text-white"
+                style={{ background: `linear-gradient(135deg, ${accent}, #1877F2)` }}>
+                💡 Get Spirit's Content Tips
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── AFFILIATES TAB ── */}
+        {tab === 'affiliates' && (
+          <div className="space-y-4">
+            <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+              <p className="font-black text-sm mb-1" style={{ color: textMain }}>Content + Service Recommendations</p>
+              <p className="text-xs leading-relaxed" style={{ color: textMute }}>
+                Based on your goals and engagement, these verified providers offer services that could accelerate your journey. Feature them in your content and earn affiliate credits.
+              </p>
+            </div>
+
+            {affiliates.length === 0 ? (
+              <div className="text-center py-10" style={{ color: textMute }}>
+                <p className="text-3xl mb-2">🤝</p>
+                <p className="text-sm">Loading affiliate recommendations…</p>
+              </div>
+            ) : affiliates.map((prov, i) => (
+              <motion.div key={prov.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
+                className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ background: isNight ? '#1E2240' : '#EDE9FE' }}>
+                    🩺
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-bold text-sm" style={{ color: textMain }}>{prov.display_name}</p>
+                    <p className="text-xs" style={{ color: textMute }}>{prov.specialty ?? prov.credential_type}</p>
+                    {prov.session_rate && (
+                      <p className="text-xs mt-0.5 font-semibold" style={{ color: accent }}>${prov.session_rate}/session</p>
+                    )}
+                  </div>
+                  <Link href={`/villager/${prov.profiles?.username}`}
+                    className="text-xs px-3 py-1.5 rounded-full font-bold"
+                    style={{ background: accent, color: '#fff' }}>
+                    Feature
+                  </Link>
+                </div>
+              </motion.div>
+            ))}
+
+            <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+              <p className="font-bold text-sm mb-2" style={{ color: textMain }}>Are you a professional?</p>
+              <p className="text-xs mb-3" style={{ color: textMute }}>Get verified and open your storefront in the Trading Post. Creators can feature your services to their audience.</p>
+              <Link href="/village/hospital/join"
+                className="block text-center py-2.5 rounded-full font-bold text-white text-sm"
+                style={{ background: accent }}>
+                Apply as a Verified Professional →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* ── MY CONTENT TAB ── */}
+        {tab === 'my-content' && (
+          <div className="space-y-3">
+            {myContent.length === 0 ? (
+              <div className="text-center py-10" style={{ color: textMute }}>
+                <p className="text-3xl mb-2">📊</p>
+                <p className="text-sm">No content yet. Post to Dream Line or create a video.</p>
+              </div>
+            ) : myContent.map((post, i) => (
+              <div key={post.id} className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <p className="text-sm line-clamp-2 mb-2" style={{ color: textMain }}>{post.content}</p>
+                <div className="flex items-center gap-3 text-xs" style={{ color: textMute }}>
+                  <span>✊ {post.oowop_count || 0} OoWops</span>
+                  <span>💬 {post.comment_count || 0} Comments</span>
+                  <span className="ml-auto">{new Date(post.created_at).toLocaleDateString()}</span>
+                </div>
+                {/* Engagement bar */}
+                <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: isNight ? '#1E2240' : '#EDE9FE' }}>
+                  <div className="h-full rounded-full" style={{ width: `${Math.min(100, ((post.oowop_count || 0) / 10) * 100)}%`, background: accent }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
