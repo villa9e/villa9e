@@ -163,14 +163,21 @@ export default function ZenSpacePage() {
               <div>
                 <p className="font-bold mb-3 text-gray-700">What would you like to do?</p>
                 <div className="grid grid-cols-2 gap-3">
-                  {ZEN_ACTIVITIES.map(act => (
-                    <motion.button key={act.label} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                      className={`village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow`}>
-                      <span className="text-2xl mb-1 block">{act.emoji}</span>
-                      <p className="font-semibold text-sm">{act.label}</p>
-                      <p className="text-xs text-gray-500">{act.desc}</p>
-                    </motion.button>
-                  ))}
+                  {ZEN_ACTIVITIES.map(act => {
+                    const href = act.label === 'Journal' ? '/village/zen/journal'
+                      : act.label === 'Breathwork' ? '/village/zen/breathwork'
+                      : act.label === 'Telehealth' ? '/village/hospital/providers'
+                      : null;
+                    const El = href ? Link : motion.button as any;
+                    return (
+                      <El key={act.label} href={href ?? undefined} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                        className={`village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow block`}>
+                        <span className="text-2xl mb-1 block">{act.emoji}</span>
+                        <p className="font-semibold text-sm">{act.label}</p>
+                        <p className="text-xs text-gray-500">{act.desc}</p>
+                      </El>
+                    );
+                  })}
                 </div>
               </div>
 
