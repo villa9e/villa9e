@@ -1,29 +1,70 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { getScoreTier } from '@/lib/village/score';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { VillageSound } from '@/lib/sounds/village';
+
+const ARCHETYPE_EMOJI: Record<string, string> = {
+  architect:'🏗️', spark:'⚡', anchor:'⚓', compass:'🧭',
+  pioneer:'🏔️', sage:'📚', weaver:'🕸️', flame:'🔥',
+};
+
+const LEVEL_NAMES: Record<number, string> = {
+  1:'Seedling', 2:'Sprout', 3:'Grower', 4:'Builder', 5:'Maker',
+  6:'Achiever', 7:'Champion', 8:'Elder', 9:'Legend', 10:'Godlike',
+};
+
+const HUT_LINKS = [
+  { href: '/village/hut/avatar',      emoji: '🎭', label: 'Build Avatar',      desc: 'Customize your village character' },
+  { href: '/village/hut/settings',    emoji: '⚙️', label: 'Settings',           desc: 'Profile, Spirit, language' },
+  { href: '/village/hut/vlg-wallet',  emoji: '🪙', label: '$VLG Wallet',        desc: 'Balance, transactions, earning' },
+  { href: '/village/hut/data-locker', emoji: '🔒', label: 'Data Locker',        desc: 'Control your data & earnings' },
+  { href: '/village/hut/referrals',   emoji: '🤝', label: 'Referrals',          desc: 'Invite villagers, earn VLG' },
+  { href: '/village/hospital/join',   emoji: '✅', label: 'Get Verified',        desc: 'Open your professional storefront' },
+  { href: '/village/hut/avatar',      emoji: '🏆', label: 'Achievements',       desc: 'Medals, milestones, badges' },
+];
 
 export default function HutPage() {
-  const [profile, setProfile] = useState<any>(null);
-  const [skills, setSkills] = useState<any[]>([]);
-  const [goals, setGoals] = useState<any[]>([]);
-  const [wallet, setWallet] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile]  = useState<any>(null);
+  const [xp, setXp]            = useState<any>(null);
+  const [skills, setSkills]    = useState<any[]>([]);
+  const [goals, setGoals]      = useState<any[]>([]);
+  const [wallet, setWallet]    = useState<any>(null);
+  const [provider, setProvider]= useState<any>(null);
+  const [loading, setLoading]  = useState(true);
   const supabase = createClient();
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+
+  const bg       = isNight ? '#0A0B12' : '#FFF8EE';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#FED7AA';
+  const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
+  const textMute = isNight ? '#4A4F72' : '#8B6F47';
+  const accent   = isNight ? '#FFB84D' : '#D97706';
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const [{ data: p }, { data: s }, { data: g }, { data: w }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', user.id).single(),
-        supabase.from('user_skills').select('*').eq('user_id', user.id).order('rating', { ascending: false }),
-        supabase.from('goals').select('id,title,probability_score,status,progress_percentage').eq('user_id', user.id).eq('status', 'active').limit(5),
-        supabase.from('village_wallets').select('vlg_balance,total_earned_vlg,total_data_earnings').eq('user_id', user.id).single(),
+
+      const [
+        { data: p }, { data: s }, { data: g },
+        { data: w }, { data: xpData }, { data: prov },
+      ] = await Promise.all([
+        (supabase as any).from('profiles').select('*').eq('id', user.id).single(),
+        (supabase as any).from('user_skills').select('*').eq('user_id', user.id).order('rating', { ascending: false }).limit(6),
+        (supabase as any).from('goals').select('id,title,probability_score,status,progress_percentage,goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(4),
+        (supabase as any).from('village_wallets').select('vlg_balance,total_earned_vlg,total_data_earnings').eq('user_id', user.id).single(),
+        (supabase as any).from('user_xp').select('*').eq('user_id', user.id).single(),
+        (supabase as any).from('provider_profiles').select('verification_status,specialty,credential_type').eq('user_id', user.id).single(),
       ]);
-      setProfile(p); setSkills(s ?? []); setGoals(g ?? []); setWallet(w);
+
+      setProfile(p); setSkills(s ?? []); setGoals(g ?? []);
+      setWallet(w); setXp(xpData); setProvider(prov);
       setLoading(false);
     }
     load();
@@ -31,166 +72,201 @@ export default function HutPage() {
 
   async function signOut() {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    window.location.href = '/';
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-4xl animate-float">🏠</div>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}>
+      <motion.div animate={{ y: [0,-8,0] }} transition={{ duration: 2, repeat: Infinity }}>
+        <span className="text-5xl">🏠</span>
+      </motion.div>
     </div>
   );
 
-  const tier = getScoreTier(profile?.village_score ?? 0);
-  const tierToNext = tier.next === Infinity ? null : tier.next - (profile?.village_score ?? 0);
+  const tier       = getScoreTier(profile?.village_score ?? 0);
+  const score      = profile?.village_score ?? 0;
+  const xpLevel    = xp?.current_level ?? 1;
+  const xpTotal    = xp?.total_xp ?? 0;
+  const xpToNext   = xp?.xp_to_next_level ?? 100;
+  const xpThisLevel = xpTotal % xpToNext;
+  const xpPct      = Math.round((xpThisLevel / xpToNext) * 100);
+  const levelName  = LEVEL_NAMES[xpLevel] ?? 'Villager';
+  const archEmoji  = ARCHETYPE_EMOJI[profile?.personality_type ?? ''] ?? '⛺';
+  const vlg        = parseFloat(wallet?.vlg_balance ?? 0);
+  const vlgDisplay = vlg >= 1000 ? `${(vlg/1000).toFixed(1)}K` : vlg.toFixed(0);
+
+  const avatarCfg  = profile?.avatar_config;
+  const skinColors: Record<string, string> = { s1:'#FDDBB4', s2:'#F0C27F', s3:'#C68642', s4:'#8D5524', s5:'#5C2A0E', s6:'#3B1506' };
+  const skinColor  = skinColors[avatarCfg?.skin_id ?? 's4'] ?? '#8D5524';
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-amber-500 text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/map" className="text-xl">←</Link>
+    <div className="min-h-screen" style={{ background: bg }}>
+      {/* Header */}
+      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
+        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        <Link href="/village/map" className="text-xl text-white">←</Link>
         <span className="text-2xl">🏠</span>
-        <div>
-          <h1 className="text-xl font-bold leading-tight">The Hut</h1>
-          <p className="text-amber-100 text-xs">Your home base</p>
+        <div className="flex-1">
+          <h1 className="font-black text-white text-base">The Hut</h1>
+          <p className="text-white/60 text-xs">@{profile?.username}</p>
         </div>
+        <button onClick={signOut} className="text-xs text-white/50 hover:text-white/80 transition-colors">Sign out</button>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-4">
-        {/* Profile card */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="village-card">
+      <div className="max-w-lg mx-auto p-4 space-y-3">
+
+        {/* Profile hero card */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-5 relative overflow-hidden"
+          style={{ background: isNight ? 'linear-gradient(135deg,#1A1200,#2D1F00)' : 'linear-gradient(135deg,#F59E0B,#FCD34D)', }}>
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-village-blue/10 flex items-center justify-center text-2xl flex-shrink-0">
-              {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" /> : '👤'}
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold">@{profile?.username}</h2>
+            {/* Avatar preview */}
+            <Link href="/village/hut/avatar">
+              <div className="w-18 h-18 rounded-2xl flex items-center justify-center flex-shrink-0 relative"
+                style={{ background: 'rgba(0,0,0,0.2)', width: 72, height: 72 }}>
+                {/* Simple avatar preview — circle face */}
+                <svg width="48" height="60" viewBox="0 0 48 60">
+                  <circle cx="24" cy="18" r="14" fill={skinColor} />
+                  <rect x="12" y="28" width="24" height="20" rx="8" fill={isNight ? '#1877F2' : '#E8770A'} />
+                  <circle cx="18" cy="16" r="3" fill="#fff" opacity="0.8" />
+                  <circle cx="30" cy="16" r="3" fill="#fff" opacity="0.8" />
+                  <circle cx="19" cy="17" r="1.5" fill="#111" />
+                  <circle cx="31" cy="17" r="1.5" fill="#111" />
+                  <path d="M18,24 Q24,28 30,24" stroke="#111" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                </svg>
+                <div className="absolute -bottom-1 -right-1 text-lg">{archEmoji}</div>
+              </div>
+            </Link>
+
+            <div className="flex-1 text-white">
+              <p className="font-black text-lg">{profile?.display_name || `@${profile?.username}`}</p>
+              <p className="text-white/70 text-sm">{profile?.occupation || 'Villager'}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(255,255,255,0.2)' }}>
+                  {tier.label}
+                </span>
+                <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>{score} pts</span>
                 {profile?.is_founding_villager && (
-                  <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium border border-amber-200">
-                    👑 Founding Villager #{profile.founding_villager_number}
-                  </span>
+                  <span className="text-xs font-bold" style={{ color: '#FFD700' }}>👑 Founder #{profile.founding_villager_number}</span>
                 )}
               </div>
-              <p className="text-gray-500 text-sm">{profile?.display_name}</p>
-              {profile?.bio && <p className="text-xs text-gray-400 mt-1">{profile.bio}</p>}
+            </div>
+
+            {/* VLG balance */}
+            <div className="text-right">
+              <p className="font-black text-2xl" style={{ color: isNight ? '#FFB84D' : '#fff' }}>{vlgDisplay}</p>
+              <p className="text-xs text-white/60">$VLG</p>
             </div>
           </div>
 
-          {/* Score + tier */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-2xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className={`font-bold text-sm ${tier.color}`}>{tier.label}</span>
-              <span className="text-2xl font-bold text-village-blue">{profile?.village_score ?? 0}</span>
+          {/* XP Bar */}
+          <div className="mt-4">
+            <div className="flex justify-between text-xs mb-1">
+              <span className="text-white/70">Lv {xpLevel} · {levelName}</span>
+              <span className="text-white/50">{xpToNext - xpThisLevel} XP to {LEVEL_NAMES[xpLevel + 1] ?? 'Max'}</span>
             </div>
-            {tierToNext && (
-              <>
-                <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-                  <div
-                    className="h-2 rounded-full village-gradient"
-                    style={{ width: `${Math.min(100, ((profile?.village_score ?? 0) / tier.next) * 100)}%` }}
-                  />
-                </div>
-                <p className="text-xs text-gray-400">{tierToNext} pts to next tier</p>
-              </>
-            )}
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3 mt-4">
-            <div className="text-center">
-              <p className="text-xl font-bold text-village-blue">{goals.length}</p>
-              <p className="text-xs text-gray-400">Active Goals</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold text-green-600">{skills.filter(s => s.rating >= 7).length}</p>
-              <p className="text-xs text-gray-400">Skillsets</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl font-bold text-amber-600">{Math.floor(wallet?.vlg_balance ?? 0)}</p>
-              <p className="text-xs text-gray-400">$VLG Earned</p>
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.2)' }}>
+              <motion.div className="h-full rounded-full"
+                initial={{ width: 0 }} animate={{ width: `${xpPct}%` }} transition={{ duration: 1.2, ease: 'easeOut' }}
+                style={{ background: 'linear-gradient(90deg,#FFFFFF,#FFD700)' }} />
             </div>
           </div>
         </motion.div>
 
-        {/* VLG Wallet */}
-        {wallet && (
-          <div className="village-card bg-gradient-to-br from-village-blue to-blue-700 text-white">
-            <p className="text-blue-200 text-xs font-medium uppercase tracking-wide mb-1">village Wallet · Phase 1</p>
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold">{parseFloat(wallet.vlg_balance ?? 0).toFixed(2)}</span>
-              <span className="text-blue-200">$VLG</span>
-            </div>
-            <p className="text-blue-200 text-xs mt-1">Earned from goals, OoWops, and contributions. Converts to real $VLG at Phase 3.</p>
-          </div>
-        )}
-
         {/* Active goals */}
         {goals.length > 0 && (
-          <div className="village-card">
-            <h3 className="font-bold mb-3 flex items-center gap-2">
-              <span>📍</span> Active Goals
-            </h3>
-            <div className="space-y-3">
-              {goals.map(g => (
-                <Link key={g.id} href={`/village/workshop/goal/${g.id}`} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm truncate">{g.title}</p>
-                    <div className="w-full bg-gray-100 rounded-full h-1.5 mt-1.5">
-                      <div className="h-1.5 rounded-full bg-orange-400" style={{ width: `${g.progress_percentage ?? 0}%` }} />
+          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-black text-sm" style={{ color: textMain }}>Active GPS Goals</p>
+              <Link href="/village/workshop" className="text-xs font-bold" style={{ color: accent }}>View all →</Link>
+            </div>
+            <div className="space-y-2.5">
+              {goals.map(goal => {
+                const done  = goal.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
+                const total = goal.goal_steps?.length ?? 0;
+                const pct   = total ? Math.round((done / total) * 100) : goal.progress_percentage ?? 0;
+                return (
+                  <Link key={goal.id} href={`/village/workshop/goal/${goal.id}`}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold truncate" style={{ color: textMain }}>{goal.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-1.5 rounded-full" style={{ background: isNight ? '#1E2240' : '#FED7AA' }}>
+                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: accent }} />
+                          </div>
+                          <span className="text-xs flex-shrink-0" style={{ color: textMute }}>{done}/{total}</span>
+                        </div>
+                      </div>
+                      <span className="font-black text-sm flex-shrink-0" style={{ color: '#1877F2' }}>{goal.probability_score ?? 0}%</span>
                     </div>
-                  </div>
-                  <span className="text-sm font-bold text-village-blue flex-shrink-0">{g.probability_score}%</span>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Skills */}
         {skills.length > 0 && (
-          <div className="village-card">
-            <h3 className="font-bold mb-3">⚡ Skills</h3>
-            <div className="space-y-2">
-              {skills.slice(0, 6).map(skill => (
-                <div key={skill.id} className="flex items-center gap-3">
-                  <span className={`w-2 h-2 rounded-full flex-shrink-0 ${skill.rating >= 7 ? 'bg-green-500' : skill.rating >= 4 ? 'bg-yellow-400' : 'bg-red-400'}`} />
-                  <span className="text-sm flex-1 truncate">{skill.skill_name}</span>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 bg-gray-100 rounded-full h-1.5">
-                      <div className="h-1.5 rounded-full village-gradient" style={{ width: `${(skill.rating / 9) * 100}%` }} />
-                    </div>
-                    <span className="text-xs text-gray-400 w-4 text-right">{skill.rating}</span>
-                  </div>
-                </div>
+          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <p className="font-black text-sm mb-2" style={{ color: textMain }}>Your Skills</p>
+            <div className="flex flex-wrap gap-2">
+              {skills.slice(0, 6).map(s => (
+                <span key={s.id} className="text-xs px-3 py-1.5 rounded-full font-medium"
+                  style={{
+                    background: s.rating >= 7 ? (isNight ? '#0D2D1A' : '#DCFCE7') : (isNight ? '#1E2240' : '#EDE9FE'),
+                    color:      s.rating >= 7 ? '#16A34A' : (isNight ? '#7A7FA8' : '#6D28D9'),
+                  }}>
+                  {s.skill_name} {s.rating >= 7 ? '✓' : ''}
+                </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Quick links */}
-        <div className="village-card space-y-1">
-          {[
-            { href: '/village/hut/vlg-wallet',   icon: '💰', label: '$VLG Wallet',        desc: 'Balance & transactions' },
-            { href: '/village/hut/data-locker',  icon: '🔐', label: 'Data Locker',        desc: 'Control your data & earnings' },
-            { href: '/village/hut/referrals',    icon: '👥', label: 'Referrals',          desc: 'Invite villagers · earn $VLG' },
-            { href: '/village/discover',          icon: '🔍', label: 'Discover Villagers', desc: 'AI-matched villagers' },
-            { href: '/village/personality-maze',  icon: '🏰', label: 'Personality Maze',  desc: 'Find your archetype' },
-            { href: '/leaderboard',               icon: '🏆', label: 'Leaderboard',        desc: 'Top villagers' },
-            { href: '/messages',                  icon: '💬', label: 'Messages',           desc: 'Direct messages' },
-            { href: '/village/hut/settings',      icon: '⚙️', label: 'Settings',          desc: 'Profile, Spirit, language' },
-          ].map(item => (
-            <Link key={item.href} href={item.href} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
-              <span className="text-xl">{item.icon}</span>
-              <div className="flex-1">
-                <p className="font-medium text-sm">{item.label}</p>
-                <p className="text-xs text-gray-400">{item.desc}</p>
-              </div>
-              <span className="text-gray-300 text-lg">›</span>
-            </Link>
-          ))}
+        {/* Provider status */}
+        {provider && (
+          <div className="rounded-2xl p-4 flex items-center gap-3"
+            style={{ background: provider.verification_status === 'auto_verified' || provider.verification_status === 'approved'
+              ? (isNight ? '#0D2D1A' : '#ECFDF5')
+              : cardBg,
+              border: `1px solid ${provider.verification_status === 'auto_verified' || provider.verification_status === 'approved' ? '#16A34A40' : border}` }}>
+            <span className="text-2xl">{provider.verification_status === 'auto_verified' || provider.verification_status === 'approved' ? '✅' : '⏳'}</span>
+            <div className="flex-1">
+              <p className="font-bold text-sm" style={{ color: textMain }}>
+                {provider.verification_status === 'auto_verified' || provider.verification_status === 'approved'
+                  ? 'Verified Professional' : 'Verification Pending'}
+              </p>
+              <p className="text-xs" style={{ color: textMute }}>{provider.specialty ?? provider.credential_type}</p>
+            </div>
+            <Link href="/village/trading-post" className="text-xs font-bold" style={{ color: '#1877F2' }}>Storefront →</Link>
+          </div>
+        )}
+
+        {/* Quick links grid */}
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider mb-2 px-1" style={{ color: textMute }}>Your Hut</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            {HUT_LINKS.map(link => (
+              <Link key={link.href + link.label} href={link.href}>
+                <motion.div whileTap={{ scale: 0.97 }}
+                  className="rounded-2xl p-4 flex flex-col gap-1 transition-all"
+                  style={{ background: cardBg, border: `1px solid ${border}` }}>
+                  <span className="text-2xl">{link.emoji}</span>
+                  <p className="font-bold text-sm" style={{ color: textMain }}>{link.label}</p>
+                  <p className="text-xs" style={{ color: textMute }}>{link.desc}</p>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
         </div>
 
-        <button onClick={signOut} className="w-full border border-gray-200 rounded-xl py-3 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors text-sm">
-          Sign out
+        {/* Sign out */}
+        <button onClick={signOut}
+          className="w-full py-3 rounded-2xl text-sm font-semibold transition-colors mt-2"
+          style={{ background: isNight ? '#1E2240' : '#FFF8EE', color: textMute, border: `1px solid ${border}` }}>
+          Sign Out
         </button>
       </div>
     </div>

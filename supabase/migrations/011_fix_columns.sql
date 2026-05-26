@@ -62,23 +62,6 @@ ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar_config JSONB DEFAULT '{
   "accessory_id": "a0"
 }'::jsonb;
 
--- provider_profiles (credential system)
--- (safe to re-run — uses CREATE TABLE IF NOT EXISTS)
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'provider_profiles') THEN
-    CREATE TYPE IF NOT EXISTS credential_type AS ENUM (
-      'npi_medical','npi_mental_health','npi_allied_health',
-      'bar_license','paralegal','mediator',
-      'finra_broker','cfa','cfp','fiduciary_ria','cpa_accountant',
-      'insurance_producer','insurance_adjuster',
-      'real_estate_agent','real_estate_broker','mortgage_broker',
-      'reiki_master','herbalist','sound_healer','yoga_therapist',
-      'naturopath','homeopath','acupuncturist',
-      'personal_trainer','life_coach','nutritionist','dietitian',
-      'social_worker','cpa_accountant','other'
-    );
-  END IF;
-END $$;
+-- provider_profiles table (credential system — uses TEXT, no enum types)
 
 SELECT 'Migration 011 complete — all missing columns added.' AS status;
