@@ -102,8 +102,14 @@ export default function ProfileOnboarding() {
         is_minor:            form.date_of_birth ? (new Date().getFullYear() - new Date(form.date_of_birth).getFullYear() < 18) : false,
       }).eq('id', user.id);
 
-      // Award onboarding bonus + check founding villager
-      await fetch('/api/onboarding/complete', { method: 'POST' });
+      // Pass referrer from localStorage (set by /join/[username] page)
+      const referrer = typeof window !== 'undefined' ? localStorage.getItem('villa9e_referrer') : null;
+      await fetch('/api/onboarding/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referrer }),
+      });
+      if (referrer) localStorage.removeItem('villa9e_referrer');
     }
     router.push('/village/map');
   }

@@ -58,6 +58,16 @@ ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS estimated_weeks INT;
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS steps_count INT;
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS probability_score INT DEFAULT 70;
 
+-- Referrals tracking
+CREATE TABLE IF NOT EXISTS referrals (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  referrer_id UUID NOT NULL REFERENCES profiles(id),
+  referred_id UUID NOT NULL REFERENCES profiles(id),
+  vlg_awarded BOOLEAN DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE(referred_id)
+);
+
 -- RLS policies
 ALTER TABLE crowdfunding_contributions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ad_placements ENABLE ROW LEVEL SECURITY;
@@ -68,3 +78,7 @@ CREATE POLICY "Anyone can contribute" ON crowdfunding_contributions FOR INSERT W
 CREATE POLICY "Anyone can see active ads" ON ad_placements FOR SELECT USING (is_active = true);
 CREATE POLICY "Users see own impressions" ON ad_impressions FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "System logs impressions" ON ad_impressions FOR INSERT WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE referrals ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Referrers see own" ON referrals FOR SELECT USING (referrer_id = auth.uid());
+CREATE POLICY "System can insert referrals" ON referrals FOR INSERT WITH CHECK (true);

@@ -169,13 +169,14 @@ export default function HutPage() {
         {/* Quick links */}
         <div className="village-card space-y-1">
           {[
-            { href: '/village/hut/vlg-wallet',  icon: '💰', label: '$VLG Wallet',        desc: 'Balance & transactions' },
-            { href: '/village/hut/data-locker', icon: '🔐', label: 'Data Locker',        desc: 'Control your data & earnings' },
-            { href: '/village/discover',         icon: '🔍', label: 'Discover Villagers', desc: 'AI-matched villagers' },
-            { href: '/village/personality-maze', icon: '🏰', label: 'Personality Maze',  desc: 'Find your archetype' },
-            { href: '/leaderboard',              icon: '🏆', label: 'Leaderboard',        desc: 'Top villagers' },
-            { href: '/messages',                 icon: '💬', label: 'Messages',           desc: 'Direct messages' },
-            { href: '/village/hut/settings',     icon: '⚙️', label: 'Settings',          desc: 'Profile, Spirit, language' },
+            { href: '/village/hut/vlg-wallet',   icon: '💰', label: '$VLG Wallet',        desc: 'Balance & transactions' },
+            { href: '/village/hut/data-locker',  icon: '🔐', label: 'Data Locker',        desc: 'Control your data & earnings' },
+            { href: '/village/hut/referrals',    icon: '👥', label: 'Referrals',          desc: 'Invite villagers · earn $VLG' },
+            { href: '/village/discover',          icon: '🔍', label: 'Discover Villagers', desc: 'AI-matched villagers' },
+            { href: '/village/personality-maze',  icon: '🏰', label: 'Personality Maze',  desc: 'Find your archetype' },
+            { href: '/leaderboard',               icon: '🏆', label: 'Leaderboard',        desc: 'Top villagers' },
+            { href: '/messages',                  icon: '💬', label: 'Messages',           desc: 'Direct messages' },
+            { href: '/village/hut/settings',      icon: '⚙️', label: 'Settings',          desc: 'Profile, Spirit, language' },
           ].map(item => (
             <Link key={item.href} href={item.href} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
               <span className="text-xl">{item.icon}</span>
