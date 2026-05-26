@@ -35,7 +35,7 @@ export interface Database {
           updated_at: string;
         };
         Insert: { id: string; username: string; display_name?: string | null; bio?: string | null; avatar_url?: string | null; village_score?: number; onboarding_complete?: boolean; onboarding_step?: number };
-        Update: { username?: string; display_name?: string | null; bio?: string | null; avatar_url?: string | null; village_score?: number; score_tier?: string; is_founding_villager?: boolean; founding_villager_number?: number | null; onboarding_complete?: boolean; onboarding_step?: number; personality_type?: string | null; language?: string | null; last_active_at?: string; is_minor?: boolean; occupation?: string | null; education_level?: string | null; communication_style?: string | null; date_of_birth?: string | null; location_city?: string | null; location_country?: string | null };
+        Update: { username?: string; display_name?: string | null; bio?: string | null; avatar_url?: string | null; village_score?: number; score_tier?: string; is_founding_villager?: boolean; founding_villager_number?: number | null; onboarding_complete?: boolean; onboarding_step?: number; personality_type?: string | null; language?: string | null; last_active_at?: string; is_minor?: boolean; occupation?: string | null; education_level?: string | null; communication_style?: string | null; date_of_birth?: string | null; location_city?: string | null; location_country?: string | null; mindful_moment_done?: boolean; last_mindful_date?: string | null };
       };
       goals: {
         Row: {
