@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { VillageHeader } from '@/components/village/VillageHeader';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const CATEGORIES = ['All','Creative','Technical','Business','Trades','Wellness','Education','Spiritual'];
 
@@ -65,27 +67,43 @@ export default function TradingPostPage() {
     if (res.ok) { setContacted(true); setTimeout(() => { setContacting(null); setContactMsg(''); setContacted(false); }, 2500); }
   }
 
-  const dealColor = (type: string) => type === 'trade' ? 'bg-green-100 text-green-700' : type === 'pay' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700';
+  const { theme } = useVillageTheme();
+  const isNight  = theme === 'night';
+  const bg       = isNight ? '#0A0B12' : '#F0FDF4';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#BBF7D0';
+  const textMain = isNight ? '#F0EBE0' : '#052E16';
+  const textMute = isNight ? '#4A4F72' : '#166534';
+  const accent   = isNight ? '#4ADE80' : '#16A34A';
+
+  const dealColor = (type: string): React.CSSProperties => ({
+    background: type === 'trade' ? (isNight ? '#0D2D1A' : '#DCFCE7') : type === 'pay' ? (isNight ? '#0D1A2D' : '#DBEAFE') : (isNight ? '#1A0D2D' : '#F3E8FF'),
+    color: type === 'trade' ? '#16A34A' : type === 'pay' ? '#1D4ED8' : '#7C3AED',
+  });
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-green-600 text-white px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <Link href="/village/map" className="text-xl">←</Link>
+    <div className="min-h-screen" style={{ background: bg }}>
+      <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3 border-b"
+        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        <Link href="/village/map" className="text-xl" style={{ color: '#fff' }}>←</Link>
         <span className="text-2xl">🏪</span>
         <div className="flex-1">
-          <h1 className="text-xl font-bold leading-tight">Trading Post</h1>
-          <p className="text-green-100 text-xs">Skills marketplace — trade, hire, or network</p>
+          <h1 className="text-lg font-black text-white">Trading Post</h1>
+          <p className="text-xs text-white/60">Skills marketplace — trade, hire, or network</p>
         </div>
-        <button onClick={() => setShowCreate(true)} className="bg-white text-green-700 rounded-full px-3 py-1 text-sm font-bold hover:bg-green-50">
+        <button onClick={() => setShowCreate(true)}
+          className="rounded-full px-3 py-1 text-sm font-bold"
+          style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
           + List Skill
         </button>
       </div>
 
       {/* Contact modal */}
       {contacting && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
           <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4">
+            className="w-full max-w-sm p-6 space-y-4 rounded-3xl"
+            style={{ background: cardBg, border: `1px solid ${border}` }}>
             {contacted ? (
               <div className="text-center py-6 space-y-2">
                 <div className="text-5xl animate-float">💬</div>
@@ -121,8 +139,10 @@ export default function TradingPostPage() {
 
       {/* Create listing modal */}
       {showCreate && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white rounded-3xl w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
+          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
+            className="w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto rounded-3xl"
+            style={{ background: cardBg, border: `1px solid ${border}` }}>
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">List Your Skill</h2>
               <button onClick={() => setShowCreate(false)} className="text-gray-400 text-2xl">×</button>
@@ -159,42 +179,46 @@ export default function TradingPostPage() {
       )}
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Search */}
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search skills (e.g. video editing, bookkeeping, music…)"
-          className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 bg-white shadow-sm" />
+          placeholder="Search skills (e.g. video editing, music production…)"
+          className="w-full rounded-2xl px-4 py-3 text-sm focus:outline-none"
+          style={{ background: cardBg, border: `1px solid ${border}`, color: textMain }} />
 
-        {/* Categories */}
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
           {CATEGORIES.map(cat => (
             <button key={cat} onClick={() => setCategory(cat)}
-              className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${category === cat ? 'bg-green-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:border-green-400'}`}>
+              className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
+              style={{
+                background: category === cat ? accent : cardBg,
+                color:      category === cat ? '#fff'  : textMute,
+                border:     `1px solid ${category === cat ? accent : border}`,
+              }}>
               {cat}
             </button>
           ))}
         </div>
 
-        {/* Listings */}
         {listings.map((l, i) => (
-          <motion.div key={l.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} className="village-card hover:shadow-md transition-shadow">
+          <motion.div key={l.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+            className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-green-100 flex items-center justify-center text-xl flex-shrink-0">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
+                style={{ background: isNight ? '#1E2240' : '#DCFCE7' }}>
                 {l.profiles?.avatar_url ? <img src={l.profiles.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" /> : '👤'}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-bold text-sm">{l.title}</p>
-                    <p className="text-xs text-gray-500">@{l.profiles?.username} · {l.skill_offered}</p>
+                    <p className="font-bold text-sm" style={{ color: textMain }}>{l.title}</p>
+                    <p className="text-xs" style={{ color: textMute }}>@{l.profiles?.username} · {l.skill_offered}</p>
                   </div>
-                  {l.hourly_rate && <span className="text-village-blue font-bold text-sm flex-shrink-0">${l.hourly_rate}/h</span>}
+                  {l.hourly_rate && <span className="font-bold text-sm flex-shrink-0" style={{ color: '#1877F2' }}>${l.hourly_rate}/h</span>}
                 </div>
-                {l.description && <p className="text-xs text-gray-600 mt-1.5 line-clamp-2">{l.description}</p>}
+                {l.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: textMute }}>{l.description}</p>}
                 <div className="flex items-center gap-2 mt-2 flex-wrap">
                   {(l.deal_types ?? []).map((dt: string) => (
-                    <span key={dt} className={`text-xs px-2 py-0.5 rounded-full font-medium ${dealColor(dt)}`}>{dt}</span>
+                    <span key={dt} className="text-xs px-2 py-0.5 rounded-full font-medium" style={dealColor(dt)}>{dt}</span>
                   ))}
-                  {l.category && <span className="text-xs text-gray-400">{l.category}</span>}
                   {l.average_rating > 0 && <span className="text-xs text-amber-500">★ {l.average_rating.toFixed(1)}</span>}
                 </div>
               </div>
@@ -202,12 +226,15 @@ export default function TradingPostPage() {
             {l.user_id !== userId && (
               <div className="flex gap-2 mt-3">
                 {l.deal_types?.includes('trade') && (
-                  <button onClick={() => setContacting(l)} className="flex-1 bg-green-50 text-green-700 rounded-full py-2 text-xs font-bold hover:bg-green-100">🤝 Barter</button>
+                  <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
+                    style={{ background: isNight ? '#0D2D1A' : '#DCFCE7', color: '#16A34A' }}>🤝 Barter</button>
                 )}
                 {l.deal_types?.includes('pay') && (
-                  <button onClick={() => setContacting(l)} className="flex-1 bg-blue-50 text-village-blue rounded-full py-2 text-xs font-bold hover:bg-blue-100">💳 Hire</button>
+                  <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
+                    style={{ background: isNight ? '#0D1A2D' : '#DBEAFE', color: '#1877F2' }}>💳 Hire</button>
                 )}
-                <button onClick={() => setContacting(l)} className="flex-1 bg-purple-50 text-purple-700 rounded-full py-2 text-xs font-bold hover:bg-purple-100">💬 Network</button>
+                <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
+                  style={{ background: isNight ? '#1A0D2D' : '#F3E8FF', color: '#7C3AED' }}>💬 Network</button>
               </div>
             )}
           </motion.div>
@@ -216,8 +243,12 @@ export default function TradingPostPage() {
         {listings.length === 0 && (
           <div className="text-center py-16">
             <p className="text-5xl mb-3">🏪</p>
-            <p className="text-gray-500 mb-4">No listings yet. Be the first villager to offer a skill!</p>
-            <button onClick={() => setShowCreate(true)} className="village-btn-primary">+ List My Skill</button>
+            <p className="mb-4" style={{ color: textMute }}>No listings yet. Be the first villager to offer a skill!</p>
+            <button onClick={() => setShowCreate(true)}
+              className="rounded-full px-6 py-3 font-bold text-white"
+              style={{ background: accent }}>
+              + List My Skill
+            </button>
           </div>
         )}
       </div>

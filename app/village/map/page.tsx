@@ -5,6 +5,9 @@ import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
+import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
+import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 
 const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
   ssr: false,
@@ -247,27 +250,43 @@ function VillageMapPageInner() {
         </div>
       </div>
 
+      {/* Weather ambient overlay */}
+      <WeatherAmbientLayer />
+
       {/* 3D Map */}
       <div className="flex-1" style={{ height: 'calc(100vh - 52px)' }}>
         <VillageMap3D />
       </div>
 
+      {/* Village heartbeat */}
+      <VillageHeartbeat />
+
       {/* Bottom hint */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-xs text-white/40 pointer-events-none">
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-xs text-white/40 pointer-events-none" style={{ marginBottom: '48px' }}>
         Tap any building to enter
       </div>
     </div>
   );
 }
 
+function WeatherAmbientLayer() {
+  const { palette } = useWeatherAmbient();
+  return (
+    <div className="fixed inset-0 pointer-events-none z-0"
+      style={{ background: `radial-gradient(ellipse at 50% 0%, ${palette.bgOverlay} 0%, transparent 70%)`, transition: 'background 2s ease' }} />
+  );
+}
+
 export default function VillageMapPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
-        <div className="text-6xl animate-pulse">⛺</div>
-      </div>
-    }>
-      <VillageMapPageInner />
-    </Suspense>
+    <WeatherProvider>
+      <Suspense fallback={
+        <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
+          <div className="text-6xl animate-pulse">⛺</div>
+        </div>
+      }>
+        <VillageMapPageInner />
+      </Suspense>
+    </WeatherProvider>
   );
 }

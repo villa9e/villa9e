@@ -1,101 +1,110 @@
 'use client';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { VillageHeader } from '@/components/village/VillageHeader';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const CATEGORIES = [
-  { icon: '🩺', label: 'Licensed Therapists', desc: 'HIPAA-compliant video sessions', specialty: 'Therapy & Counseling' },
-  { icon: '🧘', label: 'Meditation & Mindfulness', desc: 'Guided sessions from certified teachers', specialty: 'Meditation' },
-  { icon: '🌿', label: 'Alternative Healing', desc: 'Homeopathic, naturopathic, herbalism', specialty: 'Alternative Medicine' },
-  { icon: '💆', label: 'Energy Work', desc: 'Reiki, acupuncture, somatic healing', specialty: 'Energy Healing' },
-  { icon: '🌟', label: 'Spiritual Guidance', desc: 'Tarot, astrology, oracle — verified practitioners', specialty: 'Spiritual Guidance' },
-  { icon: '🍃', label: 'Nutrition & Wellness', desc: 'Certified nutritionists and wellness coaches', specialty: 'Nutrition' },
+  { icon: '🩺', label: 'Licensed Therapists',     desc: 'HIPAA-compliant video sessions',           specialty: 'Therapy & Counseling' },
+  { icon: '🧘', label: 'Meditation & Mindfulness', desc: 'Guided sessions from certified teachers',  specialty: 'Meditation' },
+  { icon: '🌿', label: 'Alternative Healing',      desc: 'Homeopathic, naturopathic, herbalism',     specialty: 'Alternative Medicine' },
+  { icon: '💆', label: 'Energy Work',              desc: 'Reiki, acupuncture, somatic healing',      specialty: 'Energy Healing' },
+  { icon: '🌟', label: 'Spiritual Guidance',       desc: 'Tarot, astrology, oracle — verified',      specialty: 'Spiritual Guidance' },
+  { icon: '🍃', label: 'Nutrition & Wellness',     desc: 'Certified nutritionists and coaches',      specialty: 'Nutrition' },
 ];
 
 export default function HospitalPage() {
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+  const bg       = isNight ? '#0A0B12' : '#F0FDF4';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#BBF7D0';
+  const textMain = isNight ? '#F0EBE0' : '#052E16';
+  const textMute = isNight ? '#4A4F72' : '#166534';
+  const accent   = isNight ? '#34D399' : '#059669';
+
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-emerald-600 text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/map" className="text-xl">←</Link>
-        <span className="text-2xl">🏥</span>
-        <div>
-          <h1 className="text-xl font-bold leading-tight">Hospital</h1>
-          <p className="text-emerald-100 text-xs">Wellness & Healing — Free to browse</p>
-        </div>
-      </div>
+    <div className="min-h-screen" style={{ background: bg }}>
+      {isNight && (
+        <div className="fixed inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(52,211,153,0.05) 0%, transparent 60%)' }} />
+      )}
+      <VillageHeader title="Hospital" subtitle="Wellness & Healing — Free to browse" icon="🏥" accentColor={accent} />
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Spirit wellness check */}
-        <div className="village-card bg-gradient-to-br from-emerald-50 to-teal-50">
-          <div className="flex items-start gap-3">
-            <span className="text-3xl">🌿</span>
-            <div>
-              <p className="font-bold text-emerald-700">Spirit says:</p>
-              <p className="text-sm text-gray-600 mt-1">
-                "You cannot achieve your goals if your body, mind, and spirit are depleted. The Hospital exists to keep you whole."
-              </p>
-            </div>
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{ background: isNight ? '#0D1F1A' : '#ECFDF5', border: `1px solid ${isNight ? '#1A3D2F' : '#A7F3D0'}` }}>
+          <span className="text-3xl">🌿</span>
+          <div>
+            <p className="font-bold text-sm" style={{ color: accent }}>Spirit says:</p>
+            <p className="text-sm mt-1 leading-relaxed italic" style={{ color: textMute }}>
+              "You cannot achieve your goals if your body, mind, and spirit are depleted. The Hospital exists to keep you whole."
+            </p>
           </div>
         </div>
 
-        {/* Find a provider CTA */}
-        <Link href="/village/hospital/providers" className="block">
-          <motion.div whileHover={{ scale: 1.01 }} className="village-card bg-gradient-to-r from-emerald-600 to-teal-500 text-white cursor-pointer">
+        <Link href="/village/hospital/providers">
+          <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
+            className="rounded-2xl p-5 cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #059669 0%, #0D9488 100%)' }}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-bold text-lg">Find a Provider</p>
-                <p className="text-emerald-100 text-sm mt-0.5">4 verified practitioners available now</p>
+                <p className="font-black text-white text-lg">Find a Provider</p>
+                <p className="text-green-100 text-sm mt-0.5">4 verified practitioners available now</p>
               </div>
               <span className="text-4xl">🔍</span>
             </div>
-            <div className="flex gap-2 mt-3">
-              <span className="text-xs bg-white/20 rounded-full px-3 py-1">NPI Verified</span>
-              <span className="text-xs bg-white/20 rounded-full px-3 py-1">HIPAA Compliant</span>
-              <span className="text-xs bg-white/20 rounded-full px-3 py-1">1.5% fee</span>
+            <div className="flex gap-2 mt-3 flex-wrap">
+              {['NPI Verified', 'HIPAA Compliant', '1.5% platform fee'].map(tag => (
+                <span key={tag} className="text-xs rounded-full px-3 py-1"
+                  style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>{tag}</span>
+              ))}
             </div>
           </motion.div>
         </Link>
 
-        {/* Provider notice */}
-        <div className="village-card border border-emerald-100">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold">Provider Verification</h2>
-            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">NPI Verified ✓</span>
+        <Link href="/village/hospital/apply">
+          <div className="rounded-2xl p-4 flex items-center justify-between cursor-pointer"
+            style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <div>
+              <p className="font-bold text-sm" style={{ color: textMain }}>Are you a practitioner?</p>
+              <p className="text-xs mt-0.5" style={{ color: textMute }}>Apply to join the hospital as a verified provider</p>
+            </div>
+            <span className="text-2xl">➕</span>
           </div>
-          <p className="text-xs text-gray-500">
-            Licensed providers are verified via NPPES in real-time. Traditional medicine practitioners display community verification tier.
-            villa9e earns 1.5% commission per completed session.
-          </p>
-        </div>
+        </Link>
 
-        {/* Categories */}
         <div>
-          <h2 className="font-bold mb-3">Browse by Specialty</h2>
+          <h2 className="font-black mb-3" style={{ color: textMain }}>Browse by Specialty</h2>
           <div className="grid grid-cols-2 gap-3">
             {CATEGORIES.map((cat, i) => (
-              <Link key={cat.label} href={`/village/hospital/providers?specialty=${encodeURIComponent(cat.specialty)}`}>
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.07 }}
-                  className="village-card hover:shadow-md transition-shadow cursor-pointer h-full"
-                >
-                  <span className="text-2xl mb-2 block">{cat.icon}</span>
-                  <p className="font-semibold text-sm">{cat.label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{cat.desc}</p>
-                </motion.div>
-              </Link>
+              <motion.div key={cat.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
+                <Link href={`/village/hospital/providers?specialty=${encodeURIComponent(cat.specialty)}`}>
+                  <div className="rounded-2xl p-4 h-full cursor-pointer transition-all"
+                    style={{ background: cardBg, border: `1px solid ${border}` }}>
+                    <p className="text-2xl mb-2">{cat.icon}</p>
+                    <p className="font-bold text-sm leading-tight" style={{ color: textMain }}>{cat.label}</p>
+                    <p className="text-xs mt-1 leading-snug" style={{ color: textMute }}>{cat.desc}</p>
+                  </div>
+                </Link>
+              </motion.div>
             ))}
           </div>
         </div>
 
-        {/* Are you a provider? */}
-        <div className="village-card text-center bg-gradient-to-br from-emerald-50 to-white">
-          <p className="font-bold mb-1">Are you a provider?</p>
-          <p className="text-sm text-gray-500 mb-4">Join the village. Set your own rates. Reach people who need you.</p>
-          <Link href="/village/hospital/apply" className="inline-block bg-emerald-600 text-white rounded-full px-6 py-2 text-sm font-semibold hover:bg-emerald-700 transition-colors">
-            Apply to List Your Practice
-          </Link>
-          <p className="text-xs text-gray-400 mt-2">NPI verification takes &lt; 5 seconds</p>
+        <div className="rounded-2xl p-4 space-y-2" style={{ background: cardBg, border: `1px solid ${border}` }}>
+          <p className="font-bold text-sm" style={{ color: textMain }}>How villa9e verifies providers</p>
+          {[
+            { icon: '✓', text: 'NPI number cross-referenced with national registry' },
+            { icon: '🔒', text: 'HIPAA-compliant video via Doxy.me' },
+            { icon: '👥', text: 'Community reviewed — 3+ OoWops from clients' },
+            { icon: '💰', text: 'villa9e earns 1.5% — provider keeps the rest' },
+          ].map(item => (
+            <div key={item.text} className="flex items-start gap-2">
+              <span className="text-sm font-bold flex-shrink-0" style={{ color: accent }}>{item.icon}</span>
+              <p className="text-xs" style={{ color: textMute }}>{item.text}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

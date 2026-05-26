@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { VillageHeader } from '@/components/village/VillageHeader';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 export default function WorkshopPage() {
   const [goalInput, setGoalInput] = useState('');
@@ -13,6 +15,14 @@ export default function WorkshopPage() {
   const [savedMsg, setSavedMsg] = useState('');
   const [trending, setTrending] = useState<any[]>([]);
   const supabase = createClient();
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+  const bg       = isNight ? '#0A0B12' : '#FFF8EE';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#FED7AA';
+  const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
+  const textMute = isNight ? '#4A4F72' : '#8B6F47';
+  const accent   = isNight ? '#FF6B2B' : '#EA580C';
 
   useEffect(() => {
     loadGoals();
@@ -65,15 +75,8 @@ export default function WorkshopPage() {
   function stepsTotal(g: any) { return g.goal_steps?.length ?? 0; }
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-orange-500 text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/map" className="text-xl">←</Link>
-        <span className="text-2xl">🔨</span>
-        <div>
-          <h1 className="text-xl font-bold leading-tight">Workshop</h1>
-          <p className="text-orange-100 text-xs">Goal GPS Engine</p>
-        </div>
-      </div>
+    <div className="min-h-screen" style={{ background: bg }}>
+      <VillageHeader title="Workshop" subtitle="Goal GPS Engine" icon="🔨" accentColor={accent} />
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
         {/* Creator Studio banner */}

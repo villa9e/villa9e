@@ -7,10 +7,37 @@ const config: Config = {
     extend: {
       colors: {
         village: {
-          blue: '#1877F2',
-          blueDark: '#1565C0',
+          blue:      '#1877F2',
+          blueDark:  '#1565C0',
           blueLight: '#42A5F5',
-          bg: '#F8F9FF',
+          bg:        '#F8F9FF',
+        },
+        // Day in Paradise — warm golden hour
+        day: {
+          bg:      '#FFF8EE',
+          surface: '#FFFDF7',
+          card:    '#FFFFFF',
+          border:  '#F0E6D3',
+          text:    '#2D1F0E',
+          muted:   '#8B6F47',
+          accent:  '#E8770A',
+          gold:    '#F4A015',
+          green:   '#2D7D46',
+          sky:     '#4A90D9',
+        },
+        // Night in Paradise — tribal firelight
+        night: {
+          bg:      '#0A0B12',
+          surface: '#0E1020',
+          card:    '#12152A',
+          border:  '#1E2240',
+          text:    '#F0EBE0',
+          muted:   '#7A7FA8',
+          fire:    '#FF6B2B',
+          ember:   '#FFB84D',
+          spirit:  '#1877F2',
+          glow:    '#4F9FFF',
+          star:    '#E8D5FF',
         },
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',

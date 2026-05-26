@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritVoice } from '@/components/village/SpiritVoice';
 import { awardScore } from '@/lib/village/score';
+import { VillageHeader } from '@/components/village/VillageHeader';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const MOODS = [
   { value: 'great',    emoji: '🌟', label: 'Great',  score: 9, color: 'border-yellow-300 bg-yellow-50' },
@@ -71,89 +73,97 @@ export default function ZenSpacePage() {
     setLoading(false);
   }
 
+  const { theme } = useVillageTheme();
+  const isNight  = theme === 'night';
+  const bg       = isNight
+    ? 'linear-gradient(160deg, #060A12 0%, #080D18 50%, #060C14 100%)'
+    : 'linear-gradient(160deg, #ECFDF5 0%, #F0FDFA 50%, #ECFDF5 100%)';
+  const cardBg   = isNight ? '#0D1820' : '#FFFFFF';
+  const border   = isNight ? '#0E2D25' : '#A7F3D0';
+  const textMain = isNight ? '#F0EBE0' : '#052E16';
+  const textMute = isNight ? '#4A6B62' : '#065F46';
+  const accent   = isNight ? '#34D399' : '#059669';
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-cyan-50 via-teal-50 to-emerald-50">
-      <div className="bg-gradient-to-r from-cyan-600 to-teal-600 text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/map" className="text-xl">←</Link>
-        <span className="text-2xl">🧘</span>
-        <div>
-          <h1 className="text-xl font-bold leading-tight">Zen Space</h1>
-          <p className="text-cyan-100 text-xs">Your sanctuary — no ads, no noise</p>
-        </div>
-      </div>
+    <div className="min-h-screen" style={{ background: bg }}>
+      {isNight && (
+        <div className="fixed inset-0 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(52,211,153,0.05) 0%, transparent 60%)' }} />
+      )}
+      <VillageHeader title="Zen Space" subtitle="Your sanctuary — no ads, no noise" icon="🧘"
+        accentColor={isNight ? '#065F46' : '#059669'} />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
         {/* Mindful Moment check-in */}
         {!spiritResponse ? (
-          <div className="village-card">
+          <div className="rounded-2xl p-5" style={{ background: cardBg, border: `1px solid ${border}` }}>
             <div className="text-center mb-6">
               <motion.div animate={{ y: [0, -6, 0] }} transition={{ repeat: Infinity, duration: 3 }} className="text-5xl mb-3">
                 {isEvening ? '🌙' : '☀️'}
               </motion.div>
-              <h2 className="text-2xl font-bold">{isEvening ? 'Evening' : 'Morning'} Mindful Moment</h2>
-              <p className="text-gray-500 text-sm mt-1">How are you feeling right now?</p>
+              <h2 className="text-2xl font-black" style={{ color: textMain }}>{isEvening ? 'Evening' : 'Morning'} Mindful Moment</h2>
+              <p className="text-sm mt-1" style={{ color: textMute }}>How are you feeling right now?</p>
             </div>
 
             <div className="flex justify-center gap-3 flex-wrap">
               {MOODS.map(mood => (
                 <button key={mood.value} onClick={() => setSelectedMood(mood.value)}
-                  className={`flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all ${
-                    selectedMood === mood.value ? `${mood.color} scale-110 shadow-md` : 'border-gray-100 hover:border-gray-200'
-                  }`}>
+                  className="flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 transition-all"
+                  style={{
+                    borderColor: selectedMood === mood.value ? accent : (isNight ? '#1E3D2F' : '#D1FAE5'),
+                    background:  selectedMood === mood.value ? (isNight ? '#0D2D1A' : '#ECFDF5') : 'transparent',
+                    transform:   selectedMood === mood.value ? 'scale(1.1)' : 'scale(1)',
+                  }}>
                   <span className="text-3xl">{mood.emoji}</span>
-                  <span className="text-xs font-medium text-gray-600">{mood.label}</span>
+                  <span className="text-xs font-medium" style={{ color: textMute }}>{mood.label}</span>
                 </button>
               ))}
             </div>
 
             <button onClick={checkIn} disabled={!selectedMood || loading}
-              className="mt-6 w-full bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-2xl py-3 font-bold hover:opacity-90 disabled:opacity-50 transition-opacity">
-              {loading ? '🤖 Spirit is listening…' : '✨ Talk to Spirit'}
+              className="mt-6 w-full rounded-2xl py-3 font-bold transition-opacity disabled:opacity-50 text-white"
+              style={{ background: `linear-gradient(135deg, ${accent}, ${isNight ? '#059669' : '#0D9488'})` }}>
+              {loading ? '🌀 Spirit is listening…' : '✨ Talk to Spirit'}
             </button>
           </div>
         ) : (
           <AnimatePresence>
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
               {/* Spirit message */}
-              <div className="village-card bg-gradient-to-br from-cyan-50 to-teal-50 border border-cyan-100">
+              <div className="rounded-2xl p-5" style={{ background: isNight ? '#0D1F1A' : '#ECFDF5', border: `1px solid ${border}` }}>
                 <div className="flex items-center gap-2 mb-3">
                   <span className="text-2xl">🌿</span>
-                  <p className="font-bold text-cyan-700">Spirit says:</p>
-                  {saved && <span className="text-xs text-green-600 ml-auto">+5 VLG ✓</span>}
+                  <p className="font-bold" style={{ color: accent }}>Spirit says:</p>
+                  {saved && <span className="text-xs text-green-500 ml-auto">+5 VLG ✓</span>}
                 </div>
-                <p className="text-gray-700 leading-relaxed">
+                <p className="leading-relaxed" style={{ color: textMain }}>
                   {spiritResponse.greeting || spiritResponse.reflection}
                 </p>
                 {spiritResponse.affirmation && (
-                  <div className="mt-3 bg-white/70 rounded-xl p-3 border border-cyan-100">
-                    <p className="text-sm italic text-cyan-700">"{spiritResponse.affirmation}"</p>
+                  <div className="mt-3 rounded-xl p-3" style={{ background: isNight ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.7)', border: `1px solid ${border}` }}>
+                    <p className="text-sm italic" style={{ color: accent }}>"{spiritResponse.affirmation}"</p>
                   </div>
                 )}
                 {spiritResponse.focus_tip && (
-                  <p className="text-sm text-gray-600 mt-3">{spiritResponse.focus_tip}</p>
+                  <p className="text-sm mt-3" style={{ color: textMute }}>{spiritResponse.focus_tip}</p>
                 )}
-
-                {/* Spirit voice */}
                 {(spiritResponse.voice_script || spiritResponse.greeting) && (
                   <div className="mt-4">
-                    <SpiritVoice
-                      text={spiritResponse.voice_script || spiritResponse.greeting}
-                      label="Hear Spirit"
-                    />
+                    <SpiritVoice text={spiritResponse.voice_script || spiritResponse.greeting} label="Hear Spirit" />
                   </div>
                 )}
               </div>
 
               {/* Route suggestion */}
               {spiritResponse.route && (
-                <div className={`village-card border ${spiritResponse.route === 'zen_space' ? 'border-cyan-200 bg-cyan-50' : 'border-orange-200 bg-orange-50'}`}>
-                  <p className="text-sm font-medium">
+                <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                  <p className="text-sm font-medium" style={{ color: textMain }}>
                     {spiritResponse.route === 'zen_space'
                       ? '🧘 Spirit suggests staying in Zen Space today — rest and restore.'
                       : '🔨 Your energy is good — head to the Workshop and make progress.'}
                   </p>
                   <Link href={`/village/${spiritResponse.route === 'zen_space' ? 'zen' : 'workshop'}`}
-                    className="mt-2 inline-block text-sm font-bold text-village-blue hover:underline">
+                    className="mt-2 inline-block text-sm font-bold hover:underline" style={{ color: '#1877F2' }}>
                     Go {spiritResponse.route === 'zen_space' ? 'deeper into Zen' : 'to Workshop'} →
                   </Link>
                 </div>
@@ -161,7 +171,7 @@ export default function ZenSpacePage() {
 
               {/* Zen activities */}
               <div>
-                <p className="font-bold mb-3 text-gray-700">What would you like to do?</p>
+                <p className="font-bold mb-3" style={{ color: textMain }}>What would you like to do?</p>
                 <div className="grid grid-cols-2 gap-3">
                   {ZEN_ACTIVITIES.map(act => {
                     const href = act.label === 'Journal' ? '/village/zen/journal'
@@ -170,25 +180,25 @@ export default function ZenSpacePage() {
                       : act.label === 'Zen Music' ? '/village/zen/music'
                       : act.label === 'Telehealth' ? '/village/hospital/providers'
                       : null;
-                    const cardCls = `village-card bg-gradient-to-br ${act.color} text-left hover:shadow-md transition-shadow block`;
-                    const inner = (<>
-                      <span className="text-2xl mb-1 block">{act.emoji}</span>
-                      <p className="font-semibold text-sm">{act.label}</p>
-                      <p className="text-xs text-gray-500">{act.desc}</p>
-                    </>);
+                    const inner = (
+                      <div className="rounded-2xl p-4 text-left transition-all" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                        <span className="text-2xl mb-1 block">{act.emoji}</span>
+                        <p className="font-bold text-sm" style={{ color: textMain }}>{act.label}</p>
+                        <p className="text-xs mt-0.5" style={{ color: textMute }}>{act.desc}</p>
+                      </div>
+                    );
                     return href ? (
-                      <Link key={act.label} href={href} className={cardCls}>{inner}</Link>
+                      <Link key={act.label} href={href}>{inner}</Link>
                     ) : (
-                      <motion.button key={act.label} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                        className={cardCls}>{inner}</motion.button>
+                      <motion.button key={act.label} whileTap={{ scale: 0.98 }} className="block w-full text-left">{inner}</motion.button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Do again */}
               <button onClick={() => { setSpiritResponse(null); setSelectedMood(''); setSaved(false); }}
-                className="w-full border border-cyan-200 rounded-2xl py-2.5 text-sm text-cyan-700 hover:bg-cyan-50 transition-colors">
+                className="w-full rounded-2xl py-2.5 text-sm transition-colors"
+                style={{ border: `1px solid ${border}`, color: textMute, background: 'transparent' }}>
                 ← Check in again
               </button>
             </motion.div>

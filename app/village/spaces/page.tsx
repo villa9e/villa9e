@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { VillageHeader } from '@/components/village/VillageHeader';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const TYPE_COLORS: Record<string, string> = {
   goal_step: 'bg-orange-100 text-orange-700',
@@ -124,17 +126,29 @@ export default function SpacesPage() {
     return d.toDateString() === now.toDateString();
   });
 
+  const { theme } = useVillageTheme();
+  const isNight  = theme === 'night';
+  const bg       = isNight ? '#0A0B12' : '#F5F3FF';
+  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const border   = isNight ? '#1E2240' : '#DDD6FE';
+  const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
+  const textMute = isNight ? '#4A4F72' : '#6D28D9';
+  const accent   = isNight ? '#818CF8' : '#4F46E5';
+
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-indigo-600 text-white px-6 py-4 flex items-center gap-3 sticky top-0 z-10">
-        <Link href="/village/map" className="text-xl">←</Link>
+    <div className="min-h-screen" style={{ background: bg }}>
+      <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3 border-b"
+        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        <Link href="/village/map" className="text-xl text-white">←</Link>
         <span className="text-2xl">📅</span>
         <div className="flex-1">
-          <h1 className="text-xl font-bold leading-tight">Spaces</h1>
-          <p className="text-indigo-200 text-xs">Every event is a full experience</p>
+          <h1 className="text-lg font-black text-white">Spaces</h1>
+          <p className="text-xs text-white/60">Every event is a full experience</p>
         </div>
-        <Link href="/village/spaces/discover" className="text-indigo-200 text-sm mr-1">🌍 Public</Link>
-        <button onClick={() => setShowCreate(true)} className="bg-white text-indigo-700 rounded-full px-3 py-1.5 text-sm font-bold">
+        <Link href="/village/spaces/discover" className="text-white/70 text-sm mr-1">🌍</Link>
+        <button onClick={() => setShowCreate(true)}
+          className="rounded-full px-3 py-1.5 text-sm font-bold"
+          style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
           + Event
         </button>
       </div>
