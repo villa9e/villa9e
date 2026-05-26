@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
-// Step-level ad targeting: match ads to what a user is working on
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -9,25 +8,25 @@ export async function POST(req: NextRequest) {
 
   const { goal_category, step_title, step_index } = await req.json();
 
-  // Fetch active ads matching this step's context
-  const adsResult = await (supabase as any)
+  // Fetch active ads — cast to any since ad_placements is a migration table
+  const adsQuery: any = await (supabase as any)
     .from('ad_placements')
     .select('*')
     .eq('is_active', true)
     .or(`target_categories.cs.{${goal_category}},target_categories.cs.{All}`)
     .order('bid_amount', { ascending: false })
     .limit(3);
-  const ads = adsResult.data as any[] | null;
 
-  if (!ads || ads.length === 0) {
-    // Return curated house ads if no paid placements
+  const ads: any[] = adsQuery?.data ?? [];
+
+  if (ads.length === 0) {
     return NextResponse.json(getHouseAds(goal_category));
   }
 
-  // Log impression
+  // Log impressions
   const now = new Date().toISOString();
   await (supabase as any).from('ad_impressions').insert(
-    ads.map(ad => ({ ad_id: ad.id, user_id: user.id, goal_category, step_title, step_index, shown_at: now }))
+    ads.map((ad: any) => ({ ad_id: ad.id, user_id: user.id, goal_category, step_title, step_index, shown_at: now }))
   );
 
   return NextResponse.json(ads);

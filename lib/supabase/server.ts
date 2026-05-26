@@ -1,10 +1,12 @@
 import { createServerClient as createSSRServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import type { Database } from '@/types/database';
+
+// Untyped Supabase clients — avoids TypeScript errors from migration tables
+// not yet in the auto-generated Database type
 
 export function createServerClient() {
   const cookieStore = cookies();
-  return createSSRServerClient<Database>(
+  return createSSRServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -24,7 +26,7 @@ export function createServerClient() {
 
 export function createAdminClient() {
   const cookieStore = cookies();
-  return createSSRServerClient<Database>(
+  return createSSRServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {

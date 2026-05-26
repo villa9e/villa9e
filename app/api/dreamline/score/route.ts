@@ -81,7 +81,8 @@ Return JSON ONLY:
   }).eq('id', post_id);
 
   // Load admin config to check thresholds
-  const { data: config } = await (admin as any).from('dreamline_config').select('auto_hide_below, mission_score_minimum').eq('id', 1).single();
+  const configResult: any = await (admin as any).from('dreamline_config').select('auto_hide_below, mission_score_minimum').eq('id', 1).single();
+  const config = configResult?.data;
   const autoHideBelow = config?.auto_hide_below ?? 20;
 
   if (score < autoHideBelow) {
