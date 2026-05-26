@@ -124,7 +124,6 @@ export interface Database {
         Insert: Partial<Database['public']['Tables']['user_skills']['Row']> & { user_id: string; skill_name: string; rating: number };
         Update: Partial<Database['public']['Tables']['user_skills']['Row']>;
       };
-    };
       dreamline_config: {
         Row: { id: number; algorithm: string; mission_score_minimum: number; boost_keywords: string[]; suppress_keywords: string[]; auto_hide_below: number; require_video_check: boolean; oowop_weight: number; recency_weight: number; mission_weight: number; updated_at: string; updated_by: string | null };
         Insert: { id?: number; algorithm?: string; mission_score_minimum?: number; boost_keywords?: string[]; suppress_keywords?: string[]; auto_hide_below?: number; require_video_check?: boolean; oowop_weight?: number; recency_weight?: number; mission_weight?: number };
