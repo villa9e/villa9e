@@ -167,15 +167,23 @@ export default function HutPage() {
         )}
 
         {/* Quick links */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="village-card space-y-1">
           {[
-            { href: '/village/workshop', label: '🔨 Workshop', color: 'border-orange-200' },
-            { href: '/village/dreamline', label: '✨ Dream Line', color: 'border-purple-200' },
-            { href: '/village/zen', label: '🧘 Zen Space', color: 'border-cyan-200' },
-            { href: '/village/tribes', label: '👥 Tribes', color: 'border-pink-200' },
+            { href: '/village/hut/vlg-wallet',  icon: '💰', label: '$VLG Wallet',        desc: 'Balance & transactions' },
+            { href: '/village/hut/data-locker', icon: '🔐', label: 'Data Locker',        desc: 'Control your data & earnings' },
+            { href: '/village/discover',         icon: '🔍', label: 'Discover Villagers', desc: 'AI-matched villagers' },
+            { href: '/village/personality-maze', icon: '🏰', label: 'Personality Maze',  desc: 'Find your archetype' },
+            { href: '/leaderboard',              icon: '🏆', label: 'Leaderboard',        desc: 'Top villagers' },
+            { href: '/messages',                 icon: '💬', label: 'Messages',           desc: 'Direct messages' },
+            { href: '/village/hut/settings',     icon: '⚙️', label: 'Settings',          desc: 'Profile, Spirit, language' },
           ].map(item => (
-            <Link key={item.href} href={item.href} className={`village-card border ${item.color} text-sm font-medium hover:shadow-md transition-shadow text-center`}>
-              {item.label}
+            <Link key={item.href} href={item.href} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors">
+              <span className="text-xl">{item.icon}</span>
+              <div className="flex-1">
+                <p className="font-medium text-sm">{item.label}</p>
+                <p className="text-xs text-gray-400">{item.desc}</p>
+              </div>
+              <span className="text-gray-300 text-lg">›</span>
             </Link>
           ))}
         </div>
