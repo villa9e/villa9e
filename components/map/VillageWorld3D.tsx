@@ -1,12 +1,11 @@
 'use client';
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useWeather } from '@/lib/theme/useWeather';
 import { VillageSound } from '@/lib/sounds/village';
+import { useSkySystem } from '@/lib/world/useSkySystem';
 import * as THREE from 'three';
 
 // ─── Location data with collision boxes ───────────────────────────────────────
@@ -23,6 +22,16 @@ const LOCATIONS = [
 
 const SPIRIT_POS: [number,number,number] = [0, 0, 0];
 
+// ─── Sun position from altitude/azimuth ──────────────────────────────────────
+function sunPosFromAngles(altitude: number, azimuth: number, dist = 60): [number,number,number] {
+  const altR = (altitude * Math.PI) / 180;
+  const azR  = (azimuth  * Math.PI) / 180;
+  const x =  Math.sin(azR) * Math.cos(altR) * dist;
+  const y =  Math.sin(altR) * dist;
+  const z = -Math.cos(azR) * Math.cos(altR) * dist;
+  return [x, Math.max(y, -10), z];
+}
+
 // ─── Adinkra canvas texture generator ────────────────────────────────────────
 function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -32,7 +41,6 @@ function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasT
   ctx.fillStyle = bgColor;
   ctx.fillRect(0, 0, 256, 256);
 
-  // Kente stripe bands
   const stripeColors = [color, '#FFD700', color, bgColor];
   stripeColors.forEach((c, i) => {
     ctx.fillStyle = c;
@@ -41,7 +49,6 @@ function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasT
   });
   ctx.globalAlpha = 1;
 
-  // Adinkra symbol (simplified Gye Nyame pattern)
   ctx.strokeStyle = color;
   ctx.lineWidth = 3;
   ctx.globalAlpha = 0.7;
@@ -56,15 +63,207 @@ function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasT
       ctx.stroke();
     }
   }
-
   ctx.globalAlpha = 1;
   return new THREE.CanvasTexture(canvas);
+}
+
+// ─── Sky dome with gradient colors ───────────────────────────────────────────
+function SkyDome({ skyTop, skyMid, skyHor }: { skyTop: string; skyMid: string; skyHor: string }) {
+  const meshRef = useRef<THREE.Mesh>(null);
+
+  const geometry = useMemo(() => {
+    const geo = new THREE.SphereGeometry(80, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+    const positions = geo.attributes.position;
+    const colors: number[] = [];
+    const colTop = hexToColor(skyTop);
+    const colMid = hexToColor(skyMid);
+    const colHor = hexToColor(skyHor);
+
+    for (let i = 0; i < positions.count; i++) {
+      const y = positions.getY(i);
+      const t = Math.max(0, Math.min(1, y / 30));
+      // above equator: interpolate horizon→mid→top
+      let r: number, g: number, b: number;
+      if (t < 0.35) {
+        const f = t / 0.35;
+        r = colHor.r + (colMid.r - colHor.r) * f;
+        g = colHor.g + (colMid.g - colHor.g) * f;
+        b = colHor.b + (colMid.b - colHor.b) * f;
+      } else {
+        const f = (t - 0.35) / 0.65;
+        r = colMid.r + (colTop.r - colMid.r) * f;
+        g = colMid.g + (colTop.g - colMid.g) * f;
+        b = colMid.b + (colTop.b - colMid.b) * f;
+      }
+      colors.push(r, g, b);
+    }
+
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    return geo;
+  }, [skyTop, skyMid, skyHor]);
+
+  return (
+    <mesh ref={meshRef} geometry={geometry} renderOrder={-1}>
+      <meshBasicMaterial vertexColors side={THREE.BackSide} depthWrite={false} />
+    </mesh>
+  );
+}
+
+// ─── Sun / Moon disc ──────────────────────────────────────────────────────────
+function CelestialBody({ phase, altitude, azimuth, sunColor }: {
+  phase: string; altitude: number; azimuth: number; sunColor: string;
+}) {
+  const isNight = phase === 'night' || phase === 'dusk' || phase === 'dawn';
+  const pos = sunPosFromAngles(altitude, azimuth, 55);
+  const bodyRef = useRef<THREE.Mesh>(null);
+
+  useFrame(state => {
+    if (!bodyRef.current) return;
+    // Subtle pulse for sun glow
+    const t = state.clock.elapsedTime;
+    bodyRef.current.scale.setScalar(1 + Math.sin(t * 0.8) * 0.015);
+  });
+
+  if (altitude < -8) return null;
+
+  return (
+    <group position={pos}>
+      {/* Glow halo */}
+      <mesh>
+        <sphereGeometry args={[isNight ? 1.2 : 2.8, 12, 10]} />
+        <meshBasicMaterial color={sunColor} transparent opacity={0.12} />
+      </mesh>
+      {/* Body disc */}
+      <mesh ref={bodyRef}>
+        <sphereGeometry args={[isNight ? 0.8 : 1.8, 16, 14]} />
+        <meshBasicMaterial color={isNight ? '#F0F4FF' : sunColor} />
+      </mesh>
+      {/* God rays at golden hour */}
+      {!isNight && (phase === 'sunrise' || phase === 'golden' || phase === 'sunset') && (
+        Array.from({ length: 8 }).map((_, i) => {
+          const a = (i / 8) * Math.PI * 2;
+          return (
+            <mesh key={i} position={[Math.cos(a) * 2.5, Math.sin(a) * 2.5, 0]}>
+              <planeGeometry args={[0.15, 4 + Math.sin(i * 1.3) * 1.5]} />
+              <meshBasicMaterial color={sunColor} transparent opacity={0.08 + Math.sin(i) * 0.04} />
+            </mesh>
+          );
+        })
+      )}
+    </group>
+  );
+}
+
+// ─── Stars (instanced) ────────────────────────────────────────────────────────
+function Stars({ visible }: { visible: boolean }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+
+  const starData = useMemo(() => Array.from({ length: 200 }, () => {
+    const theta = Math.random() * Math.PI * 2;
+    const phi   = Math.random() * Math.PI * 0.5;
+    const r     = 70;
+    return {
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.cos(phi) * 0.8 + 5,
+      z: r * Math.sin(phi) * Math.sin(theta),
+      brightness: 0.4 + Math.random() * 0.6,
+      twinkleSpeed: 0.5 + Math.random() * 2.5,
+      twinklePhase: Math.random() * Math.PI * 2,
+    };
+  }), []);
+
+  useFrame(state => {
+    if (!ref.current) return;
+    const dummy = new THREE.Object3D();
+    const t = state.clock.elapsedTime;
+    starData.forEach((star, i) => {
+      dummy.position.set(star.x, star.y, star.z);
+      const twinkle = 0.85 + Math.sin(t * star.twinkleSpeed + star.twinklePhase) * 0.15;
+      const scale = visible ? star.brightness * twinkle * 0.35 : 0;
+      dummy.scale.setScalar(scale);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, 200]}>
+      <sphereGeometry args={[1, 4, 3]} />
+      <meshBasicMaterial color="#E8E8FF" />
+    </instancedMesh>
+  );
+}
+
+// ─── River ───────────────────────────────────────────────────────────────────
+function River({ skyState }: { skyState: any }) {
+  const waterRef1 = useRef<THREE.Mesh>(null);
+  const waterRef2 = useRef<THREE.Mesh>(null);
+  const shimmerRef = useRef<THREE.Mesh>(null);
+
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunrise' || skyState?.phase === 'sunset';
+
+  const waterColor = isNight
+    ? '#1A2E4A'
+    : isGolden
+    ? '#CC7722'
+    : '#4DA8DA';
+
+  const shimmerColor = isNight ? '#3A5A8A' : isGolden ? '#FFB347' : '#87CEEB';
+
+  useFrame(state => {
+    const t = state.clock.elapsedTime;
+    if (waterRef1.current) {
+      (waterRef1.current.material as THREE.MeshBasicMaterial).opacity = 0.78 + Math.sin(t * 0.4) * 0.04;
+    }
+    if (shimmerRef.current) {
+      shimmerRef.current.position.z = -16 + ((t * 1.5) % 12);
+      (shimmerRef.current.material as THREE.MeshBasicMaterial).opacity = 0.12 + Math.sin(t * 2.2) * 0.08;
+    }
+  });
+
+  // River runs along the right side of the village (-X edge), curving down
+  return (
+    <group>
+      {/* Main river channel */}
+      <mesh ref={waterRef1} rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.06, 0]}>
+        <planeGeometry args={[3.5, 36, 8, 1]} />
+        <meshBasicMaterial color={waterColor} transparent opacity={0.78} />
+      </mesh>
+      {/* Inner highlight — sky reflection */}
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.07, 0]}>
+        <planeGeometry args={[1.2, 34, 6, 1]} />
+        <meshBasicMaterial color={shimmerColor} transparent opacity={0.22} />
+      </mesh>
+      {/* Moving shimmer band */}
+      <mesh ref={shimmerRef} rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.08, -16]}>
+        <planeGeometry args={[2.2, 3, 4, 1]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.12} />
+      </mesh>
+      {/* River banks */}
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-18.8, 0.03, 0]}>
+        <planeGeometry args={[1.2, 36]} />
+        <meshToonMaterial color="#7A6240" />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-15.2, 0.03, 0]}>
+        <planeGeometry args={[1.2, 36]} />
+        <meshToonMaterial color="#7A6240" />
+      </mesh>
+      {/* River stones */}
+      {[[-16.5, 0.12, -8], [-17.4, 0.12, -2], [-16.8, 0.12, 5], [-17.2, 0.12, 12]].map((pos, i) => (
+        <mesh key={i} position={pos as [number,number,number]}>
+          <sphereGeometry args={[0.2 + Math.sin(i * 1.7) * 0.1, 6, 5]} />
+          <meshToonMaterial color="#8A8070" />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
 // ─── Building component with cultural textures ────────────────────────────────
 function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: string, label: string) => void }) {
   const meshRef  = useRef<THREE.Mesh>(null);
-  const roofRef  = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [x,, z]  = loc.pos;
   const [sw, sh, sd] = loc.size;
@@ -97,10 +296,7 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
         castShadow
       >
         <boxGeometry args={[sw, sh, sd]} />
-        <meshToonMaterial
-          color={hovered ? '#ffffff' : '#F5ECD0'}
-          map={tex.current}
-        />
+        <meshToonMaterial color={hovered ? '#ffffff' : '#F5ECD0'} map={tex.current} />
       </mesh>
 
       {/* Kente band */}
@@ -110,7 +306,7 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
       </mesh>
 
       {/* Roof */}
-      <mesh ref={roofRef} position={[0, sh * 0.5 + 0.8, 0]}>
+      <mesh position={[0, sh * 0.5 + 0.8, 0]}>
         <coneGeometry args={[Math.max(sw, sd) * 0.72, 1.6, loc.id === 'dreamline' || loc.id === 'zen' ? 16 : 4]} />
         <meshToonMaterial color={loc.color} flatShading={loc.id !== 'dreamline' && loc.id !== 'zen'} />
       </mesh>
@@ -120,14 +316,6 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
         <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.02, 0]}>
           <ringGeometry args={[Math.max(sw,sd) * 0.7, Math.max(sw,sd) * 0.9, 24]} />
           <meshBasicMaterial color={loc.color} transparent opacity={0.5} />
-        </mesh>
-      )}
-
-      {/* Location label */}
-      {hovered && (
-        <mesh position={[0, sh * 0.5 + 2.5, 0]}>
-          <planeGeometry args={[3, 0.8]} />
-          <meshBasicMaterial color="#000000" transparent opacity={0.7} />
         </mesh>
       )}
     </group>
@@ -141,10 +329,16 @@ function BaobabTree({ pos, scale = 1 }: { pos: [number,number,number]; scale?: n
     if (!ref.current) return;
     ref.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3 + pos[0]) * 0.02;
   });
-  const trunkGeo = new THREE.CylinderGeometry(0.2, 0.35, 1.2, 10, 1);
-  trunkGeo.computeVertexNormals();
-  const canopyGeo = new THREE.IcosahedronGeometry(1.0, 1);
-  canopyGeo.computeVertexNormals();
+  const trunkGeo = useMemo(() => {
+    const g = new THREE.CylinderGeometry(0.2, 0.35, 1.2, 10, 1);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+  const canopyGeo = useMemo(() => {
+    const g = new THREE.IcosahedronGeometry(1.0, 1);
+    g.computeVertexNormals();
+    return g;
+  }, []);
 
   return (
     <group ref={ref} position={pos} scale={scale}>
@@ -154,10 +348,12 @@ function BaobabTree({ pos, scale = 1 }: { pos: [number,number,number]; scale?: n
       <mesh geometry={canopyGeo} position={[0, 1.6, 0]} castShadow>
         <meshToonMaterial color="#2D7D46" />
       </mesh>
-      <mesh geometry={new THREE.IcosahedronGeometry(0.65, 1)} position={[0.5, 1.4, 0.3]} castShadow>
+      <mesh position={[0.5, 1.4, 0.3]} castShadow>
+        <icosahedronGeometry args={[0.65, 1]} />
         <meshToonMaterial color="#22C55E" />
       </mesh>
-      <mesh geometry={new THREE.IcosahedronGeometry(0.6, 1)} position={[-0.4, 1.3, -0.3]} castShadow>
+      <mesh position={[-0.4, 1.3, -0.3]} castShadow>
+        <icosahedronGeometry args={[0.6, 1]} />
         <meshToonMaterial color="#16A34A" />
       </mesh>
     </group>
@@ -173,26 +369,28 @@ function SacredFire() {
     flameRef.current.scale.x = 1 + Math.sin(t * 8) * 0.1;
     flameRef.current.scale.y = 1 + Math.sin(t * 6) * 0.15;
   });
-  const flameGeo = new THREE.ConeGeometry(0.25, 0.7, 10, 1);
-  flameGeo.computeVertexNormals();
+  const flameGeo = useMemo(() => {
+    const g = new THREE.ConeGeometry(0.25, 0.7, 10, 1);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+
   return (
     <group position={SPIRIT_POS}>
-      {/* Stone ring */}
       {Array.from({ length: 8 }).map((_, i) => {
         const a = (i / 8) * Math.PI * 2;
-        const stoneGeo = new THREE.SphereGeometry(0.18, 6, 5);
-        stoneGeo.computeVertexNormals();
         return (
-          <mesh key={i} geometry={stoneGeo} position={[Math.cos(a) * 0.7, 0.1, Math.sin(a) * 0.7]}>
+          <mesh key={i} position={[Math.cos(a) * 0.7, 0.1, Math.sin(a) * 0.7]}>
+            <sphereGeometry args={[0.18, 6, 5]} />
             <meshToonMaterial color="#78716C" />
           </mesh>
         );
       })}
-      {/* Flame */}
       <mesh ref={flameRef} geometry={flameGeo} position={[0, 0.5, 0]}>
         <meshBasicMaterial color="#FF6B2B" transparent opacity={0.9} />
       </mesh>
-      <mesh geometry={new THREE.ConeGeometry(0.15, 0.4, 8)} position={[0, 0.4, 0]}>
+      <mesh position={[0, 0.4, 0]}>
+        <coneGeometry args={[0.15, 0.4, 8]} />
         <meshBasicMaterial color="#FFD700" transparent opacity={0.85} />
       </mesh>
       <pointLight color="#FF6B2B" intensity={2.0} distance={5} decay={2} />
@@ -205,7 +403,6 @@ function Ground({ isNight }: { isNight: boolean }) {
   const grassColor = isNight ? '#1A2E1A' : '#3D7A3D';
   const pathColor  = isNight ? '#4A3E2A' : '#C4A882';
 
-  // Canvas texture for ground
   const groundTex = useRef<THREE.CanvasTexture>();
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -214,7 +411,6 @@ function Ground({ isNight }: { isNight: boolean }) {
     const ctx = canvas.getContext('2d')!;
     ctx.fillStyle = grassColor;
     ctx.fillRect(0, 0, 512, 512);
-    // Grass texture dots
     ctx.fillStyle = isNight ? '#142414' : '#357535';
     for (let i = 0; i < 200; i++) {
       ctx.beginPath();
@@ -229,12 +425,10 @@ function Ground({ isNight }: { isNight: boolean }) {
 
   return (
     <>
-      {/* Main ground */}
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[50, 50, 16, 16]} />
+        <planeGeometry args={[60, 60, 16, 16]} />
         <meshToonMaterial color={grassColor} map={groundTex.current} />
       </mesh>
-      {/* Dirt paths */}
       {LOCATIONS.map(loc => {
         const [px,,pz] = loc.pos;
         const dist = Math.sqrt(px*px + pz*pz);
@@ -246,7 +440,6 @@ function Ground({ isNight }: { isNight: boolean }) {
           </mesh>
         );
       })}
-      {/* Sacred plaza circle */}
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.02, 0]}>
         <circleGeometry args={[3, 32]} />
         <meshToonMaterial color={pathColor} />
@@ -254,11 +447,6 @@ function Ground({ isNight }: { isNight: boolean }) {
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.025, 0]}>
         <ringGeometry args={[3, 3.4, 32]} />
         <meshBasicMaterial color={isNight ? '#5A4A2A' : '#A87C5A'} transparent opacity={0.7} />
-      </mesh>
-      {/* Water feature near Zen */}
-      <mesh rotation={[-Math.PI/2, 0, 0]} position={[-8.5, 0.05, 2]}>
-        <circleGeometry args={[1.5, 20]} />
-        <meshBasicMaterial color={isNight ? '#1E3A5A' : '#7EC8E3'} transparent opacity={0.85} />
       </mesh>
     </>
   );
@@ -281,18 +469,22 @@ function PlayerCharacter({
   const armRRef  = useRef<THREE.Mesh>(null);
   const tunicColor = isLocal ? '#1877F2' : '#E8770A';
 
-  const headGeo = new THREE.SphereGeometry(0.35, 12, 10);
-  headGeo.computeVertexNormals();
-  const limbGeo = new THREE.CapsuleGeometry(0.1, 0.45, 4, 8);
-  limbGeo.computeVertexNormals();
+  const headGeo = useMemo(() => {
+    const g = new THREE.SphereGeometry(0.35, 12, 10);
+    g.computeVertexNormals();
+    return g;
+  }, []);
+  const limbGeo = useMemo(() => {
+    const g = new THREE.CapsuleGeometry(0.1, 0.45, 4, 8);
+    g.computeVertexNormals();
+    return g;
+  }, []);
 
   useFrame(state => {
     if (!groupRef.current) return;
-    // Smooth position follow
     groupRef.current.position.lerp(position, 0.15);
     groupRef.current.rotation.y = rotation;
 
-    // Walk animation
     const t = state.clock.elapsedTime;
     const moving = position.distanceTo(groupRef.current.position) > 0.05;
     const swing  = moving ? Math.sin(t * 6) * 0.4 : 0;
@@ -300,22 +492,18 @@ function PlayerCharacter({
     if (legRRef.current)  legRRef.current.rotation.x  = -swing;
     if (armLRef.current)  armLRef.current.rotation.x  = -swing * 0.5;
     if (armRRef.current)  armRRef.current.rotation.x  = swing * 0.5;
-    // Body bob
     groupRef.current.position.y = position.y + (moving ? Math.abs(Math.sin(t * 6)) * 0.05 : 0);
   });
 
   return (
     <group ref={groupRef} position={position}>
-      {/* Head */}
       <mesh geometry={headGeo} position={[0, 1.85, 0]} castShadow>
         <meshToonMaterial color={skinColor} />
       </mesh>
-      {/* Hair */}
       <mesh position={[0, 2.1, 0]}>
         <sphereGeometry args={[0.28, 8, 6, 0, Math.PI*2, 0, Math.PI*0.6]} />
         <meshToonMaterial color="#1A0A00" />
       </mesh>
-      {/* Eyes */}
       <mesh position={[0.12, 1.88, 0.33]}>
         <sphereGeometry args={[0.06, 6, 5]} />
         <meshBasicMaterial color="#FFFFFF" />
@@ -332,31 +520,26 @@ function PlayerCharacter({
         <sphereGeometry args={[0.035, 5, 4]} />
         <meshBasicMaterial color="#111" />
       </mesh>
-      {/* Body */}
       <mesh position={[0, 1.35, 0]} castShadow>
         <boxGeometry args={[0.5, 0.55, 0.35]} />
         <meshToonMaterial color={tunicColor} />
       </mesh>
-      {/* Kente band on body */}
       <mesh position={[0, 1.25, 0]}>
         <boxGeometry args={[0.52, 0.08, 0.37]} />
         <meshToonMaterial color="#FFD700" />
       </mesh>
-      {/* Arms */}
       <mesh ref={armLRef} geometry={limbGeo} position={[0.35, 1.35, 0]} castShadow>
         <meshToonMaterial color={tunicColor} />
       </mesh>
       <mesh ref={armRRef} geometry={limbGeo} position={[-0.35, 1.35, 0]} castShadow>
         <meshToonMaterial color={tunicColor} />
       </mesh>
-      {/* Legs */}
       <mesh ref={legLRef} geometry={limbGeo} position={[0.15, 0.8, 0]} castShadow>
         <meshToonMaterial color="#1A0A00" />
       </mesh>
       <mesh ref={legRRef} geometry={limbGeo} position={[-0.15, 0.8, 0]} castShadow>
         <meshToonMaterial color="#1A0A00" />
       </mesh>
-      {/* Feet */}
       <mesh position={[0.15, 0.5, 0.08]}>
         <boxGeometry args={[0.18, 0.1, 0.28]} />
         <meshToonMaterial color="#111111" />
@@ -365,7 +548,6 @@ function PlayerCharacter({
         <boxGeometry args={[0.18, 0.1, 0.28]} />
         <meshToonMaterial color="#111111" />
       </mesh>
-      {/* Name tag for remote players */}
       {!isLocal && username && (
         <mesh position={[0, 2.5, 0]}>
           <planeGeometry args={[1.2, 0.35]} />
@@ -379,42 +561,91 @@ function PlayerCharacter({
 // ─── Third-person camera controller ───────────────────────────────────────────
 function CameraFollow({ targetPos }: { targetPos: React.MutableRefObject<THREE.Vector3> }) {
   const { camera } = useThree();
-  const offset = new THREE.Vector3(0, 6, 10);
-  const lookAt = new THREE.Vector3();
+  const lerpedLook = useRef(new THREE.Vector3());
 
   useFrame(() => {
+    const offset = new THREE.Vector3(0, 6, 10);
     const target = targetPos.current.clone().add(offset);
     camera.position.lerp(target, 0.08);
-    lookAt.lerp(targetPos.current.clone().add(new THREE.Vector3(0, 1, 0)), 0.1);
-    camera.lookAt(lookAt);
+    lerpedLook.current.lerp(targetPos.current.clone().add(new THREE.Vector3(0, 1, 0)), 0.1);
+    camera.lookAt(lerpedLook.current);
   });
   return null;
 }
 
-// ─── Particle systems ─────────────────────────────────────────────────────────
+// ─── Fireflies ────────────────────────────────────────────────────────────────
 function Fireflies({ count = 25, isNight = false }: { count?: number; isNight?: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null);
-  const data = useRef(Array.from({ length: count }, () => ({
+  const data = useMemo(() => Array.from({ length: count }, () => ({
     x: (Math.random()-0.5)*30, y: 0.5+Math.random()*2,
     z: (Math.random()-0.5)*25, sp: 0.3+Math.random()*0.6, ph: Math.random()*Math.PI*2,
-  })));
+  })), [count]);
+
   useFrame(state => {
     if (!ref.current) return;
     const dummy = new THREE.Object3D();
     const t = state.clock.elapsedTime;
-    data.current.forEach((p, i) => {
+    data.forEach((p, i) => {
       dummy.position.set(p.x+Math.sin(t*p.sp+p.ph)*0.8, p.y+Math.sin(t*p.sp*1.3+p.ph)*0.4, p.z+Math.cos(t*p.sp*0.7+p.ph)*0.6);
       dummy.updateMatrix();
       ref.current!.setMatrixAt(i, dummy.matrix);
     });
     ref.current.instanceMatrix.needsUpdate = true;
-    (ref.current.material as THREE.MeshBasicMaterial).opacity = isNight ? 0.55+Math.sin(state.clock.elapsedTime*3)*0.3 : 0.15;
+    (ref.current.material as THREE.MeshBasicMaterial).opacity = isNight ? 0.55+Math.sin(state.clock.elapsedTime*3)*0.3 : 0.12;
   });
+
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]}>
       <sphereGeometry args={[0.05, 5, 4]} />
       <meshBasicMaterial color={isNight ? '#FFD700' : '#FFFFFF'} transparent />
     </instancedMesh>
+  );
+}
+
+// ─── Scene lighting that responds to sky state ────────────────────────────────
+function SceneLighting({ skyState }: { skyState: any }) {
+  const ambientRef = useRef<THREE.AmbientLight>(null);
+  const sunRef = useRef<THREE.DirectionalLight>(null);
+  const ambColor = useRef(new THREE.Color('#FFFBF0'));
+  const sunColor = useRef(new THREE.Color('#FFF5D0'));
+
+  useFrame(() => {
+    if (!skyState) return;
+    if (ambientRef.current) {
+      ambientRef.current.intensity = skyState.ambientIntensity * 0.9;
+      ambientRef.current.color.set(skyState.ambientColor);
+    }
+    if (sunRef.current) {
+      const [sx, sy, sz] = sunPosFromAngles(skyState.sunAltitude, skyState.sunAzimuth, 60);
+      sunRef.current.position.set(sx, Math.max(sy, 2), sz);
+      sunRef.current.intensity = Math.max(0.05, skyState.ambientIntensity * 1.2);
+      sunRef.current.color.set(skyState.sunColor);
+    }
+  });
+
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const initSunPos = sunPosFromAngles(skyState?.sunAltitude ?? 45, skyState?.sunAzimuth ?? 180, 60);
+
+  return (
+    <>
+      <ambientLight ref={ambientRef}
+        intensity={skyState?.ambientIntensity ?? 0.65}
+        color={ambColor.current}
+      />
+      <directionalLight
+        ref={sunRef}
+        position={initSunPos}
+        intensity={Math.max(0.1, (skyState?.ambientIntensity ?? 0.65) * 1.2)}
+        color={sunColor.current}
+        castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
+      />
+      <pointLight position={[0, 3, 0]} intensity={isNight ? 0.8 : 0.2} color="#FF6B2B" />
+      {isNight && (
+        <pointLight position={[20, 30, -20]} intensity={0.15} color="#B0B8FF" />
+      )}
+    </>
   );
 }
 
@@ -430,35 +661,50 @@ interface RemotePlayer {
 }
 
 function WorldScene({
-  playerPos, playerRot, remotePlayers, onEnterBuilding, isNight, weatherMood,
+  playerPos, playerRot, remotePlayers, onEnterBuilding, skyState,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
   remotePlayers: RemotePlayer[];
   onEnterBuilding: (href: string, label: string) => void;
-  isNight: boolean;
-  weatherMood: string;
+  skyState: any;
 }) {
-  const [playerPosition] = useState(() => playerPos.current.clone());
-  const playerDisplayPos = useRef(new THREE.Vector3(0, 0, 0));
-
-  useFrame(() => {
-    playerDisplayPos.current.copy(playerPos.current);
-  });
-
-  const sunPos: [number,number,number] = isNight ? [-10, 15, -10] : [10, 20, 5];
-  const sunColor = isNight ? '#2A1A50' : weatherMood === 'rainy' ? '#8899AA' : '#FFF5D0';
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
 
   return (
     <>
       {/* Lighting */}
-      <ambientLight intensity={isNight ? 0.3 : 0.65} color={isNight ? '#1A0A30' : '#FFFBF0'} />
-      <directionalLight position={sunPos} intensity={isNight ? 0.2 : 0.85} color={sunColor} castShadow
-        shadow-mapSize-width={1024} shadow-mapSize-height={1024} />
-      <pointLight position={[0, 3, 0]} intensity={isNight ? 0.5 : 0.1} color="#FF6B2B" />
+      <SceneLighting skyState={skyState} />
+
+      {/* Sky dome */}
+      <SkyDome
+        skyTop={skyState?.skyTop ?? '#1E6FC8'}
+        skyMid={skyState?.skyMid ?? '#4A90D9'}
+        skyHor={skyState?.skyHor ?? '#87CEEB'}
+      />
+
+      {/* Stars */}
+      <Stars visible={starsVisible} />
+
+      {/* Sun / Moon */}
+      <CelestialBody
+        phase={skyState?.phase ?? 'morning'}
+        altitude={skyState?.sunAltitude ?? 45}
+        azimuth={skyState?.sunAzimuth ?? 180}
+        sunColor={skyState?.sunColor ?? '#FFF5D0'}
+      />
+
+      {/* Fog */}
+      {skyState?.hasFog && (
+        <fog attach="fog" args={[skyState.fogColor, 18, 55]} />
+      )}
 
       {/* Ground */}
       <Ground isNight={isNight} />
+
+      {/* River */}
+      <River skyState={skyState} />
 
       {/* Sacred fire */}
       <SacredFire />
@@ -468,7 +714,7 @@ function WorldScene({
         <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} />
       ))}
 
-      {/* Trees */}
+      {/* Baobab trees */}
       {[
         [-14, 0, -8], [-13, 0, -3], [-14, 0, 3], [-13, 0, 7],
         [14,  0, -8], [13,  0, -2], [14,  0, 4], [13,  0, 8],
@@ -502,19 +748,12 @@ function WorldScene({
 
       {/* Fireflies */}
       <Fireflies count={isNight ? 35 : 12} isNight={isNight} />
-
-      {/* Sky */}
-      <mesh position={[0, 5, -30]}>
-        <planeGeometry args={[80, 40]} />
-        <meshBasicMaterial color={isNight ? '#08091A' : weatherMood === 'rainy' ? '#8899AA' : '#87CEEB'} />
-      </mesh>
     </>
   );
 }
 
 // ─── Virtual joystick (mobile) ────────────────────────────────────────────────
 function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void }) {
-  const baseRef  = useRef<HTMLDivElement>(null);
   const stickRef = useRef<HTMLDivElement>(null);
   const touching = useRef(false);
   const origin   = useRef({ x: 0, y: 0 });
@@ -544,7 +783,7 @@ function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void 
   }
 
   return (
-    <div ref={baseRef}
+    <div
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
@@ -559,15 +798,13 @@ function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void 
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: string) => void }) {
-  const router  = useRouter();
+  const router   = useRouter();
   const supabase = createClient();
-  const { theme } = useVillageTheme();
-  const { mood }  = useWeather();
-  const isNight   = theme === 'night';
+  const { mood } = useWeather();
+  const { skyState } = useSkySystem();
 
   const playerPos = useRef(new THREE.Vector3(0, 0, 5));
   const playerRot = useRef(0);
-  const targetPos = useRef(new THREE.Vector3(0, 0, 5));
   const moveInput = useRef({ dx: 0, dy: 0 });
   const keys      = useRef<Set<string>>(new Set());
 
@@ -597,8 +834,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (!user) return;
       userId = user.id;
 
-      supabase.from('profiles').select('username').eq('id', user.id).single()
-        .then(({ data }) => { username = data?.username ?? 'villager'; });
+      (supabase as any).from('profiles').select('username').eq('id', user.id).single()
+        .then(({ data }: any) => { username = data?.username ?? 'villager'; });
 
       const channel = supabase.channel('village_world', {
         config: { presence: { key: user.id } },
@@ -657,7 +894,6 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         let nx = playerPos.current.x + dx;
         let nz = playerPos.current.z + dz;
 
-        // AABB collision with buildings
         let blocked = false;
         for (const loc of LOCATIONS) {
           const [bx,,bz] = loc.pos;
@@ -667,8 +903,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             blocked = true; break;
           }
         }
-
-        // World boundary
+        // River boundary (left edge)
+        if (nx < -15) blocked = true;
         if (Math.abs(nx) > 22 || Math.abs(nz) > 20) blocked = true;
 
         if (!blocked) {
@@ -676,7 +912,6 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           playerRot.current = Math.atan2(dx, dz);
         }
 
-        // Check proximity to buildings
         let nearest: { href: string; label: string; dist: number } | null = null;
         for (const loc of LOCATIONS) {
           const [bx,,bz] = loc.pos;
@@ -696,44 +931,31 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     return () => clearInterval(loop);
   }, []);
 
-  // ── Tap-to-move ───────────────────────────────────────────────────────────
-  function handleCanvasClick(e: React.MouseEvent) {
-    // Raycasting done by Three.js onClick on building meshes
-    // For ground tap — we use a simple projection
-    const rect = (e.target as HTMLElement).getBoundingClientRect();
-    const nx = ((e.clientX - rect.left) / rect.width * 2 - 1) * 15;
-    const nz = -((e.clientY - rect.top)  / rect.height * 2 - 1) * 15;
-    targetPos.current.set(nx, 0, nz);
-  }
-
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
     if (onNavigate) onNavigate(href);
     else router.push(href);
   }
 
-  const skyGradient = isNight
-    ? 'linear-gradient(180deg,#080912 0%,#1A1A3A 100%)'
-    : mood === 'rainy' ? 'linear-gradient(180deg,#607080 0%,#8898AA 100%)'
-    : 'linear-gradient(180deg,#6AAEDC 0%,#C8E6FF 100%)';
+  // Sky background color transitions with the sky state
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const bgColor = skyState?.skyTop ?? (isNight ? '#080912' : '#6AAEDC');
 
   return (
     <div className="w-full h-full relative">
       <Canvas
         shadows
         gl={{ antialias: false, powerPreference: 'high-performance', pixelRatio: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.5) }}
-        style={{ background: skyGradient }}
+        style={{ background: bgColor, transition: 'background 4s ease' }}
         performance={{ min: 0.5 }}
         camera={{ position: [0, 8, 12], fov: 60 }}
-        onClick={handleCanvasClick}
       >
         <WorldScene
           playerPos={playerPos}
           playerRot={playerRot}
           remotePlayers={remotePlayers}
           onEnterBuilding={handleEnterBuilding}
-          isNight={isNight}
-          weatherMood={mood}
+          skyState={skyState}
         />
       </Canvas>
 
@@ -749,6 +971,14 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)', boxShadow: '0 0 30px rgba(24,119,242,0.5)' }}>
             <span>↑</span> Enter {nearBuilding.label}
           </button>
+        </div>
+      )}
+
+      {/* Sky phase indicator */}
+      {skyState && (
+        <div className="absolute top-16 left-4 z-10 px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
+          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: skyState.sunColor, border: `1px solid ${skyState.sunColor}30` }}>
+          {skyState.phase} · {skyState.sunAltitude > 0 ? `☀ ${skyState.sunAltitude.toFixed(0)}°` : '🌙'}
         </div>
       )}
 

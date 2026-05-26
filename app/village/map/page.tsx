@@ -2,7 +2,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
@@ -66,6 +66,7 @@ function VillageMapPageInner() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [mapMode, setMapMode]           = useState<'illustrated'|'world'|'3d'>('illustrated');
   const searchParams = useSearchParams();
+  const router       = useRouter();
   const supabase     = createClient();
 
   useEffect(() => {
