@@ -57,25 +57,29 @@ export default function CrowdfundingPage() {
   const pct = (c: any) => Math.min(100, Math.round(((c.raised_amount ?? 0) / (c.goal_amount ?? 1)) * 100));
 
   async function contribute() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user || !contributing || !amount) return;
+    if (!contributing || !amount) return;
     const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) return;
+    if (isNaN(amountNum) || amountNum < 1) return;
 
-    await supabase.from('crowdfunding_contributions').insert({
-      campaign_id: contributing.id,
-      backer_id: user.id,
-      amount: amountNum,
-      currency: 'USD',
+    // Use Stripe Checkout for real payments
+    const res = await fetch('/api/stripe/crowdfund', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        campaign_id: contributing.id,
+        amount_cents: Math.round(amountNum * 100),
+      }),
     });
 
-    await supabase.from('crowdfunding_campaigns')
-      .update({
-        raised_amount: (contributing.raised_amount ?? 0) + amountNum,
-        backer_count: (contributing.backer_count ?? 0) + 1,
-      })
-      .eq('id', contributing.id);
+    if (res.ok) {
+      const { checkout_url } = await res.json();
+      if (checkout_url) {
+        window.location.href = checkout_url;
+        return;
+      }
+    }
 
+    // Fallback if Stripe not configured
     setContributed(true);
     setTimeout(() => { setContributing(null); setAmount(''); setContributed(false); }, 2500);
   }

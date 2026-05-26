@@ -284,6 +284,27 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
           </div>
         )}
 
+        {/* Complete goal button — show when owner and ≥80% done */}
+        {isOwner && !isComplete && doneCount > 0 && doneCount >= Math.ceil(steps.length * 0.8) && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+            className="village-card bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200">
+            <p className="font-bold text-amber-800 mb-1">🏆 Ready to complete this goal?</p>
+            <p className="text-xs text-amber-700 mb-3">You've completed {doneCount}/{steps.length} steps. Declare victory and earn your medal.</p>
+            <button onClick={async () => {
+              const res = await fetch('/api/goals/complete', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ goal_id: params.id }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setGoal((g: any) => g ? { ...g, status: 'completed', medal_type: data.medal } : g);
+              }
+            }} className="w-full bg-amber-500 text-white rounded-full py-2.5 font-bold text-sm hover:bg-amber-600">
+              🎯 Declare Goal Complete
+            </button>
+          </motion.div>
+        )}
+
         {/* Share to Dream Line */}
         {isOwner && (
           <button onClick={shareGoalToDreamLine} disabled={sharing}
