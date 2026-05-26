@@ -81,8 +81,9 @@ DROP FUNCTION create_admin_user_if_not_exists();
 -- Update admin page to allow admin@villa9e.app in addition to elitehousemusic@gmail.com
 -- (handled in code via is_super_admin check)
 
--- RLS: super admins can read everything
-CREATE POLICY IF NOT EXISTS "Super admins read all profiles"
+-- RLS: super admins can read everything (drop first to avoid duplicate)
+DROP POLICY IF EXISTS "Super admins read all profiles" ON profiles;
+CREATE POLICY "Super admins read all profiles"
   ON profiles FOR SELECT
   USING (
     auth.uid() IN (SELECT id FROM profiles WHERE is_super_admin = TRUE)

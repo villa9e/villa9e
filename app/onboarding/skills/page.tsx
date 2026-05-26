@@ -1,104 +1,166 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-const SUGGESTED_SKILLS = [
-  'Graphic Design', 'Video Editing', 'Photography', 'Music Production', 'Writing & Copywriting',
-  'Software Development', 'Web Development', 'Data Science', 'UI/UX Design', 'Marketing & Growth',
-  'Project Management', 'Sales', 'Financial Planning', 'Business Strategy', 'Public Speaking',
-  'Construction', 'Cooking & Nutrition', 'Personal Training', 'Life Coaching', 'Teaching',
+const SKILL_CHIPS = [
+  { name: 'Graphic Design',      emoji: '🎨' },
+  { name: 'Video Editing',       emoji: '🎬' },
+  { name: 'Music Production',    emoji: '🎵' },
+  { name: 'Photography',         emoji: '📸' },
+  { name: 'Writing',             emoji: '✍️' },
+  { name: 'Software Development',emoji: '💻' },
+  { name: 'Web Development',     emoji: '🌐' },
+  { name: 'UI/UX Design',        emoji: '🖌️' },
+  { name: 'Marketing',           emoji: '📣' },
+  { name: 'Sales',               emoji: '🤝' },
+  { name: 'Financial Planning',  emoji: '💰' },
+  { name: 'Business Strategy',   emoji: '♟️' },
+  { name: 'Public Speaking',     emoji: '🎤' },
+  { name: 'Coaching',            emoji: '🏆' },
+  { name: 'Teaching',            emoji: '📚' },
+  { name: 'Construction',        emoji: '🔨' },
+  { name: 'Cooking & Nutrition', emoji: '🍽️' },
+  { name: 'Personal Training',   emoji: '💪' },
+  { name: 'Data Science',        emoji: '📊' },
+  { name: 'Project Management',  emoji: '📋' },
 ];
-
-function getRatingLabel(r: number) {
-  if (r <= 3) return { label: 'Pain Point', color: 'text-red-500', bg: 'bg-red-50' };
-  if (r <= 6) return { label: 'Neutral', color: 'text-yellow-600', bg: 'bg-yellow-50' };
-  return { label: 'Skillset', color: 'text-green-600', bg: 'bg-green-50' };
-}
 
 export default function SkillsOnboarding() {
   const router = useRouter();
   const supabase = createClient();
-  const [skills, setSkills] = useState<{ name: string; rating: number }[]>([{ name: '', rating: 7 }]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [custom, setCustom] = useState('');
   const [saving, setSaving] = useState(false);
 
-  function addSkill() { setSkills(prev => [...prev, { name: '', rating: 7 }]); }
-  function updateSkill(i: number, key: string, value: any) {
-    setSkills(prev => prev.map((s, idx) => idx === i ? { ...s, [key]: value } : s));
+  function toggle(name: string) {
+    setSelected(prev =>
+      prev.includes(name) ? prev.filter(s => s !== name) : [...prev, name]
+    );
+  }
+
+  function addCustom() {
+    const trimmed = custom.trim();
+    if (!trimmed || selected.includes(trimmed)) return;
+    setSelected(prev => [...prev, trimmed]);
+    setCustom('');
   }
 
   async function saveSkills() {
-    const valid = skills.filter(s => s.name.trim());
-    if (!valid.length) return;
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('user_skills').insert(valid.map(s => ({
-        user_id: user.id,
-        skill_name: s.name,
-        rating: s.rating,
-      })));
+    if (user && selected.length > 0) {
+      await (supabase as any).from('user_skills').insert(
+        selected.map(name => ({
+          user_id: user.id,
+          skill_name: name,
+          rating: 7, // default to skillset — user can adjust in profile
+        }))
+      );
     }
-    router.push('/onboarding/profile');
+    router.push('/onboarding/first-goal');
   }
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="village-gradient text-white px-6 py-8 text-center">
-        <span className="text-4xl">🔨</span>
-        <h1 className="text-2xl font-bold mt-2">Your Skills</h1>
-        <p className="text-blue-100 text-sm mt-1">Rate yourself honestly — Spirit will use this to find you the right villagers.</p>
+    <div className="min-h-screen bg-[#0a0e1a] text-white flex flex-col">
+      {/* Ambient */}
+      <div className="fixed inset-0 pointer-events-none">
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[400px] h-[400px] bg-amber-500/6 rounded-full blur-[100px]" />
       </div>
 
-      <div className="max-w-lg mx-auto p-6 space-y-4">
-        <div className="bg-village-blue/5 border border-village-blue/20 rounded-2xl p-4 text-sm text-gray-600">
-          <strong>Skill ratings:</strong> 1–3 = Pain Point (need help) · 4–6 = Neutral · 7–9 = Skillset (can help others)
+      {/* Progress */}
+      <div className="relative z-10 flex justify-center gap-2 pt-10 pb-2">
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} className={`h-1 rounded-full transition-all duration-500 ${i === 1 ? 'w-8 bg-amber-400' : i < 1 ? 'w-4 bg-amber-400/50' : 'w-4 bg-white/10'}`} />
+        ))}
+      </div>
+
+      <div className="flex-1 flex flex-col px-5 pb-8 max-w-lg mx-auto w-full">
+        <div className="py-6">
+          <p className="text-amber-400 text-xs font-bold tracking-[2px] uppercase mb-2">STEP 2 OF 4 · SKILLS</p>
+          <h2 className="text-2xl font-black text-white">What do you bring to the village?</h2>
+          <p className="text-white/45 text-sm mt-1">
+            Select your skills — both what you're great at and what you need help with. Spirit uses this to match you with the right villagers.
+          </p>
         </div>
 
-        {skills.map((skill, i) => {
-          const meta = getRatingLabel(skill.rating);
-          return (
-            <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="village-card space-y-3">
-              {/* Skill name */}
-              <input
-                list={`skills-${i}`}
-                value={skill.name}
-                onChange={e => updateSkill(i, 'name', e.target.value)}
-                placeholder="Skill name (e.g. Graphic Design)"
-                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-village-blue text-sm"
-              />
-              <datalist id={`skills-${i}`}>
-                {SUGGESTED_SKILLS.map(s => <option key={s} value={s} />)}
-              </datalist>
-
-              {/* Rating slider */}
-              <div className="space-y-1">
-                <div className="flex justify-between items-center">
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${meta.bg} ${meta.color}`}>{meta.label}</span>
-                  <span className="text-lg font-bold text-gray-700">{skill.rating}/9</span>
-                </div>
-                <input
-                  type="range" min={1} max={9}
-                  value={skill.rating}
-                  onChange={e => updateSkill(i, 'rating', parseInt(e.target.value))}
-                  className="w-full accent-village-blue"
-                />
-                <div className="flex justify-between text-xs text-gray-400">
-                  <span>Pain Point</span><span>Neutral</span><span>Skillset</span>
-                </div>
+        {/* Selected skills */}
+        <AnimatePresence>
+          {selected.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-4"
+            >
+              <p className="text-xs text-white/30 mb-2 uppercase tracking-wide font-semibold">Your Skills ({selected.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {selected.map(s => (
+                  <motion.button
+                    key={s}
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    onClick={() => toggle(s)}
+                    className="flex items-center gap-1.5 bg-amber-400/15 border border-amber-400/40 text-amber-300 text-xs font-semibold px-3 py-1.5 rounded-full"
+                  >
+                    {s} <span className="text-amber-400/60 ml-0.5">×</span>
+                  </motion.button>
+                ))}
               </div>
             </motion.div>
-          );
-        })}
+          )}
+        </AnimatePresence>
 
-        <button onClick={addSkill} className="w-full border-2 border-dashed border-gray-200 rounded-2xl py-3 text-sm text-gray-500 hover:border-village-blue hover:text-village-blue transition-colors">
-          + Add another skill
-        </button>
+        {/* Skill chips grid */}
+        <div className="flex flex-wrap gap-2 flex-1 content-start">
+          {SKILL_CHIPS.filter(c => !selected.includes(c.name)).map(chip => (
+            <motion.button
+              key={chip.name}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => toggle(chip.name)}
+              className="flex items-center gap-1.5 bg-white/[0.04] hover:bg-white/[0.08] border border-white/8 hover:border-white/20 text-white/60 hover:text-white text-xs font-medium px-3 py-2 rounded-full transition-all"
+            >
+              <span>{chip.emoji}</span> {chip.name}
+            </motion.button>
+          ))}
+        </div>
 
-        <button onClick={saveSkills} disabled={saving || !skills.some(s => s.name.trim())} className="village-btn-primary w-full disabled:opacity-50">
-          {saving ? 'Saving skills…' : '🚀 Enter the Village →'}
-        </button>
+        {/* Custom skill input */}
+        <div className="mt-4 flex gap-2">
+          <input
+            value={custom}
+            onChange={e => setCustom(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && addCustom()}
+            placeholder="Add a skill not listed…"
+            className="flex-1 bg-white/5 border border-white/10 rounded-full px-4 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-white/30"
+          />
+          <button
+            onClick={addCustom}
+            disabled={!custom.trim()}
+            className="bg-white/10 hover:bg-white/15 disabled:opacity-30 text-white text-sm px-4 py-2.5 rounded-full transition-colors"
+          >
+            Add
+          </button>
+        </div>
+
+        {/* CTA */}
+        <div className="pt-5 space-y-3">
+          <button
+            onClick={saveSkills}
+            disabled={saving}
+            className="w-full bg-amber-400 hover:bg-amber-300 text-black font-bold py-4 rounded-2xl transition-all disabled:opacity-50 text-base"
+          >
+            {saving ? 'Saving…' : selected.length > 0 ? `Continue with ${selected.length} skills →` : 'Continue →'}
+          </button>
+          <button
+            onClick={() => router.push('/onboarding/first-goal')}
+            className="w-full text-white/25 text-sm py-2"
+          >
+            Skip this step
+          </button>
+        </div>
       </div>
     </div>
   );
