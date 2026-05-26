@@ -6,3 +6,4 @@ out/
 dist/
 *.tsbuildinfo
 .DS_Store
+scripts/add-vercel-env.sh
