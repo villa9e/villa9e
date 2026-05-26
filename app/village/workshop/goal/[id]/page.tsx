@@ -185,16 +185,23 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               : goal.medal_type === 'SILVER' || goal.probability_score >= 60 ? '🥈'
               : goal.medal_type === 'BRONZE' || goal.probability_score >= 40 ? '🥉' : '';
 
+  const accentHex = isNight ? '#FF6B2B' : '#E8770A';
+
   return (
-    <div className="min-h-screen bg-village-bg">
+    <div className="min-h-screen" style={{ background: 'var(--v-bg)' }}>
       <AnimatePresence>
         {celebration && <OoWopValidationCelebration onDismiss={() => setCelebration(false)} />}
       </AnimatePresence>
 
-      <div className="bg-orange-500 text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/workshop" className="text-xl">←</Link>
-        <span className="text-2xl">📍</span>
-        <h1 className="text-lg font-bold truncate flex-1">{goal.title}</h1>
+      {/* Header */}
+      <div className="sticky top-0 z-20 px-4 py-3.5 flex items-center gap-3"
+        style={{ background: isNight ? 'rgba(10,11,18,0.92)' : 'rgba(255,248,238,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid var(--v-card-border)' }}>
+        <Link href="/village/workshop" className="text-xl" style={{ color: 'var(--v-text-muted)' }}>←</Link>
+        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
+          style={{ background: `${accentHex}20`, border: `1px solid ${accentHex}40` }}>
+          📍
+        </div>
+        <h1 className="text-base font-bold truncate flex-1" style={{ color: 'var(--v-text)' }}>{goal.title}</h1>
         {medal && <span className="text-2xl">{medal}</span>}
       </div>
 
@@ -213,7 +220,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         <div className="village-card">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">GPS Probability</p>
+              <p className="text-xs uppercase tracking-wide village-text-muted">GPS Probability</p>
               <p className="text-3xl font-bold text-village-blue">{goal.probability_score ?? 0}%</p>
               {recalcResult?.delta !== undefined && (
                 <p className={`text-xs font-medium mt-0.5 ${recalcResult.delta >= 0 ? 'text-green-600' : 'text-red-500'}`}>
@@ -222,9 +229,9 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               )}
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">Progress</p>
-              <p className="text-2xl font-bold text-orange-500">{doneCount}/{steps.length}</p>
-              <p className="text-xs text-gray-400">steps done</p>
+              <p className="text-xs village-text-muted">Progress</p>
+              <p className="text-2xl font-bold" style={{ color: accentHex }}>{doneCount}/{steps.length}</p>
+              <p className="text-xs village-text-sub">steps done</p>
             </div>
           </div>
           {isOwner && (
@@ -248,11 +255,11 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               )}
             </div>
           )}
-          <div className="w-full bg-gray-100 rounded-full h-3">
+          <div className="w-full rounded-full h-3 village-progress-bg">
             <div className="h-3 rounded-full village-gradient transition-all" style={{ width: `${goal.progress_percentage ?? 0}%` }} />
           </div>
           {goal.target_date && (
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs village-text-sub mt-2">
               Target: {new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </p>
           )}
@@ -260,9 +267,9 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
         {/* Steps */}
         <div className="village-card">
-          <h2 className="font-bold mb-4 flex items-center gap-2">
+          <h2 className="font-bold mb-4 flex items-center gap-2 village-text">
             <span>🗺️</span> GPS Steps
-            <span className="text-xs text-gray-400 font-normal ml-auto">{doneCount} of {steps.length} complete</span>
+            <span className="text-xs village-text-sub font-normal ml-auto">{doneCount} of {steps.length} complete</span>
           </h2>
           <ol className="space-y-3">
             {steps.map((step, i) => {
@@ -272,22 +279,24 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               const hasOoWopped = givenOoWops.has(step.id);
 
               return (
-                <motion.li key={step.id} layout className={`flex gap-3 p-3 rounded-2xl transition-colors ${isDone ? 'bg-green-50' : isNext ? 'bg-orange-50 border border-orange-200' : 'bg-gray-50'}`}>
+                <motion.li key={step.id} layout
+                  className={`flex gap-3 transition-colors ${isDone ? 'village-step-done' : isNext ? 'village-step-next' : 'village-step-idle'}`}>
                   {/* Step number / check */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5 ${isDone ? 'bg-green-500 text-white' : isNext ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-500'}`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5 ${isDone ? 'bg-green-500 text-white' : isNext ? 'text-white' : 'village-text-sub'}`}
+                    style={isNext ? { background: accentHex } : isDone ? {} : { background: 'var(--v-progress-bg)' }}>
                     {isDone ? '✓' : i + 1}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm ${isDone ? 'line-through text-gray-400' : ''}`}>{step.title}</p>
-                    {step.description && <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>}
-                    {step.estimated_hours && <p className="text-xs text-orange-400 mt-0.5">~{step.estimated_hours}h estimated</p>}
+                    <p className={`font-medium text-sm village-text ${isDone ? 'line-through village-text-sub' : ''}`}>{step.title}</p>
+                    {step.description && <p className="text-xs village-text-muted mt-0.5">{step.description}</p>}
+                    {step.estimated_hours && <p className="text-xs mt-0.5" style={{ color: accentHex }}>~{step.estimated_hours}h estimated</p>}
 
                     {/* OoWop section for completed steps */}
                     {isDone && (
                       <div className="mt-2 flex items-center gap-3 flex-wrap">
                         {isOwner ? (
-                          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <div className="flex items-center gap-1.5 text-xs village-text-muted">
                             <span>✊</span>
                             <span>{step.oowops_received ?? 0}/{step.oowops_needed ?? 3} OoWops</span>
                             {step.is_validated && <span className="text-green-600 font-medium ml-1">· Validated ✓</span>}
@@ -359,13 +368,13 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         {/* Resources */}
         {goal.ai_analysis?.resources?.length > 0 && (
           <div className="village-card">
-            <h2 className="font-bold mb-3">📦 Resources Needed</h2>
+            <h2 className="font-bold mb-3 village-text">📦 Resources Needed</h2>
             <div className="space-y-2">
               {goal.ai_analysis.resources.map((r: any, i: number) => (
-                <div key={i} className="flex items-center justify-between py-1.5 border-b border-gray-50 last:border-0">
+                <div key={i} className="flex items-center justify-between py-1.5 border-b border-[var(--v-card-border)] last:border-0">
                   <div>
-                    <p className="text-sm font-medium">{r.name}</p>
-                    {r.category && <p className="text-xs text-gray-400">{r.category}</p>}
+                    <p className="text-sm font-medium village-text">{r.name}</p>
+                    {r.category && <p className="text-xs village-text-sub">{r.category}</p>}
                   </div>
                   {r.estimated_cost > 0 && <span className="text-sm font-bold text-village-blue">${r.estimated_cost.toLocaleString()}</span>}
                 </div>
@@ -398,7 +407,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         {/* Share to Dream Line */}
         {isOwner && (
           <button onClick={shareGoalToDreamLine} disabled={sharing}
-            className="w-full border border-purple-200 text-purple-700 rounded-2xl py-3 text-sm font-medium hover:bg-purple-50 transition-colors disabled:opacity-50">
+            className="w-full rounded-2xl py-3 text-sm font-semibold transition-colors disabled:opacity-50"
+            style={{ border: '1px solid rgba(124,58,237,0.35)', color: '#8B5CF6', background: isNight ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.05)' }}>
             {shared ? '✅ Shared to Dream Line!' : sharing ? 'Sharing…' : '✨ Share Progress to Dream Line'}
           </button>
         )}
@@ -406,7 +416,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         {/* Roles needed */}
         {/* Team members */}
         <div className="village-card">
-          <h2 className="font-bold mb-3">👥 Goal Team</h2>
+          <h2 className="font-bold mb-3 village-text">👥 Goal Team</h2>
           {teamMembers.length > 0 && (
             <div className="space-y-2 mb-3">
               {teamMembers.map(m => (
@@ -430,7 +440,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
               <input value={inviteUsername} onChange={e => setInviteUsername(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && inviteToGoal()}
                 placeholder="@username to invite…"
-                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none village-text"
+                style={{ background: 'var(--v-bg)', border: '1px solid var(--v-card-border)' }} />
               <button onClick={inviteToGoal} disabled={inviting || !inviteUsername.trim()}
                 className="bg-purple-600 text-white rounded-xl px-4 py-2 text-sm font-bold disabled:opacity-50 hover:bg-purple-700">
                 {inviting ? '…' : 'Invite'}

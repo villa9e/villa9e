@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>villa9e · API Pricing &amp; Limits</title>
+<style>
+  :root { --bg:#080c18; --card:#0f1420; --border:#1e2540; --text:#e8e4da; --muted:#5a6080; --accent:#1877F2; --gold:#ffd700; --green:#22c55e; --red:#ef4444; --orange:#f97316; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-height:100vh; }
+
+  #auth { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .auth-card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:40px; width:min(400px,90vw); text-align:center; }
+  .auth-card h1 { font-size:24px; font-weight:900; margin-bottom:6px; }
+  .auth-card p { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  .auth-card input { width:100%; background:#0a0c16; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:var(--text); font-size:15px; outline:none; margin-bottom:12px; }
+  .auth-card input:focus { border-color:var(--accent); }
+  .auth-card button { width:100%; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; }
+  .auth-err { color:var(--red); font-size:13px; margin-top:8px; display:none; }
+
+  #content { display:none; max-width:960px; margin:0 auto; padding:32px 20px 80px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:36px; flex-wrap:wrap; gap:12px; }
+  header h1 { font-size:28px; font-weight:900; }
+  header h1 span { color:var(--gold); }
+  .stamp { background:rgba(249,115,22,.12); border:1px solid rgba(249,115,22,.3); color:var(--orange); padding:4px 12px; border-radius:100px; font-size:11px; font-weight:700; letter-spacing:.1em; }
+
+  .section-title { font-size:11px; font-weight:700; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin:32px 0 12px; }
+
+  table { width:100%; border-collapse:collapse; }
+  thead tr { background:rgba(24,119,242,.08); }
+  thead th { padding:12px 16px; text-align:left; font-size:11px; font-weight:700; letter-spacing:.08em; color:var(--muted); text-transform:uppercase; border-bottom:1px solid var(--border); }
+  tbody tr { border-bottom:1px solid rgba(255,255,255,.04); transition:background .15s; }
+  tbody tr:hover { background:rgba(255,255,255,.02); }
+  tbody td { padding:14px 16px; font-size:13px; vertical-align:top; }
+  .t-wrap { background:var(--card); border:1px solid var(--border); border-radius:16px; overflow:hidden; margin-bottom:8px; }
+
+  .tier { display:inline-block; padding:2px 10px; border-radius:100px; font-size:11px; font-weight:700; }
+  .tier-free { background:rgba(34,197,94,.12); color:#4ade80; border:1px solid rgba(34,197,94,.25); }
+  .tier-pay  { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.25); }
+  .tier-ent  { background:rgba(124,58,237,.12); color:#a78bfa; border:1px solid rgba(124,58,237,.25); }
+
+  .pill { display:inline-block; background:rgba(24,119,242,.1); border:1px solid rgba(24,119,242,.2); color:#60a5fa; border-radius:6px; padding:1px 8px; font-size:11px; font-family:'SF Mono',Consolas,monospace; }
+
+  .warn { background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:12px; padding:12px 16px; font-size:13px; color:#fca5a5; margin-bottom:16px; }
+  .info { background:rgba(24,119,242,.08); border:1px solid rgba(24,119,242,.2); border-radius:12px; padding:12px 16px; font-size:13px; color:#93c5fd; margin:12px 0; }
+
+  .updated { color:var(--muted); font-size:11px; text-align:center; margin-top:48px; }
+  .updated span { color:var(--gold); }
+
+  .cost-high { color:var(--red); font-weight:700; }
+  .cost-med  { color:var(--orange); font-weight:600; }
+  .cost-low  { color:var(--green); font-weight:600; }
+</style>
+</head>
+<body>
+
+<div id="auth">
+  <div class="auth-card">
+    <div style="font-size:36px;margin-bottom:12px;">💰</div>
+    <h1>API Pricing &amp; Limits</h1>
+    <p>villa9e internal · restricted access</p>
+    <input id="pw" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')check()" autofocus />
+    <button onclick="check()">Unlock →</button>
+    <div id="err" class="auth-err">Incorrect password.</div>
+  </div>
+</div>
+
+<div id="content">
+  <header>
+    <div>
+      <h1>API <span>Pricing &amp; Limits</span></h1>
+      <p style="color:var(--muted);font-size:13px;margin-top:4px;">Cost tracking · Rate limits · Budget guidance · Internal use only</p>
+    </div>
+    <span class="stamp">INTERNAL</span>
+  </header>
+
+  <div class="warn">⚠️ All prices are approximate and subject to vendor changes. Verify at each provider's dashboard before budgeting.</div>
+
+  <!-- AI -->
+  <div class="section-title">AI &amp; Intelligence</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Model / Tier</th><th>Input Cost</th><th>Output Cost</th><th>Rate Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Anthropic Claude</strong></td>
+          <td><span class="pill">claude-sonnet-4-6</span></td>
+          <td class="cost-med">$3.00 / M tokens</td>
+          <td class="cost-med">$15.00 / M tokens</td>
+          <td>2,000 RPM · 4M tokens/day</td>
+          <td>Primary AI for Spirit, goal analysis, verification, credentials. Prompt cache 5-min TTL saves ~90% on repeated context.</td>
+        </tr>
+        <tr>
+          <td><strong>AEYE Health</strong></td>
+          <td><span class="tier tier-ent">Enterprise</span></td>
+          <td colspan="2" class="cost-high">Contact sales · Est. $15–25/scan</td>
+          <td>Per-agreement SLA</td>
+          <td>Sandbox free. Production billing via hospital client — not villa9e direct cost. CPT 92229 reimbursement ~$22.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Data -->
+  <div class="section-title">Data &amp; Backend</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Tier</th><th>Monthly Cost</th><th>Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Supabase</strong></td>
+          <td><span class="tier tier-pay">Pro</span></td>
+          <td class="cost-med">$25/mo</td>
+          <td>8GB DB · 100GB storage · 250GB bandwidth · 500K realtime messages/mo</td>
+          <td>Realtime Presence is the main cost driver as village grows. Monitor at supabase.com/dashboard.</td>
+        </tr>
+        <tr>
+          <td><strong>Upstash Redis</strong></td>
+          <td><span class="tier tier-free">Free → Pay-as-go</span></td>
+          <td class="cost-low">$0 → ~$0.2 per 100K cmds</td>
+          <td>Free: 10K cmds/day · 256MB</td>
+          <td>Used for rate limiting. Free tier should hold at launch. Scale when DAU > 5K.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Payments -->
+  <div class="section-title">Payments &amp; Finance</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Pricing Model</th><th>Fee</th><th>Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Stripe</strong></td>
+          <td>% of transaction</td>
+          <td class="cost-med">2.9% + $0.30/transaction</td>
+          <td>No monthly limit · Dispute rate must stay &lt;1%</td>
+          <td>For crowdfunding and subscriptions. Webhooks must be configured — see manifest. International cards +1.5%.</td>
+        </tr>
+        <tr>
+          <td><strong>Plaid</strong></td>
+          <td>Per linked item</td>
+          <td class="cost-med">~$0.30–1.50/linked account/mo</td>
+          <td>Development: free up to 100 items</td>
+          <td>Connects user bank accounts. Production requires Plaid approval. Use sandbox env first.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Communications -->
+  <div class="section-title">Communications</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Tier</th><th>Cost</th><th>Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Resend</strong></td>
+          <td><span class="tier tier-free">Free → Pro</span></td>
+          <td class="cost-low">Free: 3K emails/mo · Pro: $20/mo → 50K</td>
+          <td>Free: 100/day · Pro: 50K/mo</td>
+          <td>For welcome, OoWop, Spirit check-in emails. DNS records must be set at resend.com first.</td>
+        </tr>
+        <tr>
+          <td><strong>Twilio</strong></td>
+          <td><span class="tier tier-pay">Pay-as-go</span></td>
+          <td class="cost-med">$0.0079/SMS · Number: ~$1/mo</td>
+          <td>Throughput: 1 msg/sec/number (long code)</td>
+          <td>For 2FA + SMS alerts. Purchase number first. Use A2P 10DLC registration for US campaigns.</td>
+        </tr>
+        <tr>
+          <td><strong>OneSignal</strong></td>
+          <td><span class="tier tier-free">Free → Growth</span></td>
+          <td class="cost-low">Free up to 10K subscribers · Growth: $9/mo</td>
+          <td>Free: unlimited web pushes · Growth: email included</td>
+          <td>Push for OoWops, goal milestones, Spirit reminders. Most usage is free tier.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Voice & Media -->
+  <div class="section-title">Voice &amp; Media</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Tier</th><th>Cost</th><th>Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>ElevenLabs</strong></td>
+          <td><span class="tier tier-pay">Starter → Creator</span></td>
+          <td class="cost-med">Starter: $5/mo · 30K chars · Creator: $22/mo → 100K chars</td>
+          <td>Starter: 30K chars/mo · API: 2 req/sec</td>
+          <td>Spirit voice for message readback. Each Spirit response ~200–500 chars. At 100 daily active users: ~15K chars/day = Creator tier needed.</td>
+        </tr>
+        <tr>
+          <td><strong>Spotify Web API</strong></td>
+          <td><span class="tier tier-free">Free</span></td>
+          <td class="cost-low">$0</td>
+          <td>25 req/sec · OAuth token per user</td>
+          <td>Zen music recommendations only. Free with Spotify developer account.</td>
+        </tr>
+        <tr>
+          <td><strong>YouTube Data API v3</strong></td>
+          <td><span class="tier tier-free">Free quota</span></td>
+          <td class="cost-low">$0 (within quota)</td>
+          <td>10,000 units/day · Search costs 100 units</td>
+          <td>Skill stream videos. 10K units = 100 searches/day free. Monitor at Google Cloud Console.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Infrastructure -->
+  <div class="section-title">Infrastructure &amp; Hosting</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Service</th><th>Tier</th><th>Monthly Cost</th><th>Limits</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Vercel</strong></td>
+          <td><span class="tier tier-pay">Pro</span></td>
+          <td class="cost-med">$20/mo (Pro) · $0 at current usage</td>
+          <td>Free: 100GB bandwidth · 100K edge requests · 6K build minutes</td>
+          <td>Hosting villa9e. Cron jobs require Pro plan ($20/mo). Edge functions included.</td>
+        </tr>
+        <tr>
+          <td><strong>OpenWeatherMap</strong></td>
+          <td><span class="tier tier-free">Free</span></td>
+          <td class="cost-low">$0</td>
+          <td>60 calls/min · 1M calls/mo (One Call API)</td>
+          <td>Village weather effects. Well within free limits. Cache responses to save calls.</td>
+        </tr>
+        <tr>
+          <td><strong>PostHog</strong></td>
+          <td><span class="tier tier-free">Free</span></td>
+          <td class="cost-low">$0 up to 1M events/mo</td>
+          <td>1M events/mo free · No seat limits</td>
+          <td>Product analytics. Very generous free tier. Upgrade at scale.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Credential Verification -->
+  <div class="section-title">Credential Verification APIs</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>API</th><th>Cost</th><th>Limits</th><th>Auth</th></tr></thead>
+      <tbody>
+        <tr><td><strong>NPPES NPI Registry</strong></td><td class="cost-low">Free</td><td>No published limit · Rate limit via IP</td><td>None required</td></tr>
+        <tr><td><strong>FINRA BrokerCheck</strong></td><td class="cost-low">Free</td><td>Reasonable use policy</td><td>None required</td></tr>
+        <tr><td><strong>Claude AI (doc analysis)</strong></td><td class="cost-med">~$0.01–0.05 per verification</td><td>See Anthropic limits above</td><td>ANTHROPIC_API_KEY</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Budget Summary -->
+  <div class="section-title">Estimated Monthly Budget by Stage</div>
+  <div class="t-wrap">
+    <table>
+      <thead><tr><th>Stage</th><th>Users</th><th>Est. Monthly Cost</th><th>Main Drivers</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Launch / Beta</strong></td><td>&lt;500 DAU</td><td class="cost-low">~$50–100/mo</td><td>Supabase Pro ($25), Vercel Pro ($20), Claude (~$10–50)</td></tr>
+        <tr><td><strong>Growth</strong></td><td>500–5K DAU</td><td class="cost-med">~$200–600/mo</td><td>Claude (main cost), Supabase, ElevenLabs Creator</td></tr>
+        <tr><td><strong>Scale</strong></td><td>5K–50K DAU</td><td class="cost-high">~$1K–5K/mo</td><td>Claude API dominates. Consider caching Spirit responses. Implement prompt caching fully.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="info">💡 <strong>Cost optimization tips:</strong> Cache Spirit responses in Supabase for 24h when inputs match. Use Anthropic prompt caching (5-min TTL) for the system prompt. Batch Spirit check-in cron to fire once daily per user, not on-demand. Use OpenWeatherMap 10-min cache.</div>
+
+  <p class="updated">Last updated: <span id="date-display"></span> · villa9e internal · <span style="color:var(--red)">Confidential — do not share</span></p>
+</div>
+
+<script>
+  const _k = atob('VGhpc0lzVDBwJGVjcmV0');
+  function unlock() {
+    document.getElementById('auth').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('date-display').textContent = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    sessionStorage.setItem('v9e_doc_auth','1');
+  }
+  function check() {
+    if (document.getElementById('pw').value === _k) { unlock(); }
+    else {
+      document.getElementById('err').style.display = 'block';
+      setTimeout(() => document.getElementById('err').style.display='none', 2800);
+    }
+  }
+  if (sessionStorage.getItem('v9e_doc_auth') === '1') unlock();
+</script>
+</body>
+</html>

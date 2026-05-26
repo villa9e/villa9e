@@ -14,10 +14,28 @@ export const useVillageTheme = create<ThemeStore>()(
   persist(
     (set, get) => ({
       theme: 'day',
-      setTheme: (theme) => set({ theme }),
-      toggle: () => set({ theme: get().theme === 'day' ? 'night' : 'day' }),
+      setTheme: (theme) => {
+        set({ theme });
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', theme);
+        }
+      },
+      toggle: () => {
+        const next = get().theme === 'day' ? 'night' : 'day';
+        set({ theme: next });
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', next);
+        }
+      },
     }),
-    { name: 'villa9e-theme' }
+    {
+      name: 'villa9e-theme',
+      onRehydrateStorage: () => (state) => {
+        if (state && typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', state.theme);
+        }
+      },
+    }
   )
 );
 

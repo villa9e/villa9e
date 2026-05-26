@@ -22,19 +22,80 @@
     --destructive-foreground: 0 0% 100%;
     --ring: 214 89% 52%;
     --radius: 0.75rem;
+
+    /* Day theme tokens */
+    --v-bg:        #FFF8EE;
+    --v-surface:   #FFFDF7;
+    --v-card-bg:   #FFFFFF;
+    --v-card-border: #F0E6D3;
+    --v-text:      #2D1F0E;
+    --v-text-muted:#8B6F47;
+    --v-text-sub:  #B8965A;
+    --v-accent:    #E8770A;
+    --v-step-done: #F0FDF4;
+    --v-step-done-border: #BBF7D0;
+    --v-step-next: #FFF7ED;
+    --v-step-next-border: #FED7AA;
+    --v-step-idle: #F9FAFB;
+    --v-step-idle-border: #E5E7EB;
+    --v-progress-bg: #F3F4F6;
+    --v-shadow:    0 2px 8px rgba(24,119,242,0.08);
+  }
+
+  [data-theme="night"] {
+    --v-bg:        #0A0B12;
+    --v-surface:   #0E1020;
+    --v-card-bg:   #12152A;
+    --v-card-border: #1E2240;
+    --v-text:      #F0EBE0;
+    --v-text-muted:#7A7FA8;
+    --v-text-sub:  #4A4F72;
+    --v-accent:    #FF6B2B;
+    --v-step-done: #0D1F1A;
+    --v-step-done-border: #1A3D2F;
+    --v-step-next: #1A1505;
+    --v-step-next-border: #3D2A0A;
+    --v-step-idle: #0E0F1A;
+    --v-step-idle-border: #1E2240;
+    --v-progress-bg: #1A1C2E;
+    --v-shadow:    0 2px 8px rgba(0,0,0,0.35);
   }
 }
 
 @layer base {
   * { @apply border-border; }
   body { @apply bg-village-bg text-foreground font-sans antialiased; }
+  body { background-color: var(--v-bg); color: var(--v-text); }
 }
 
-/* village9e custom utilities */
+/* ── Village card — theme-aware ── */
 .village-card {
-  @apply bg-white rounded-2xl shadow-[0_2px_8px_rgba(24,119,242,0.08)] border border-gray-100 p-4;
+  background: var(--v-card-bg);
+  border: 1px solid var(--v-card-border);
+  box-shadow: var(--v-shadow);
+  @apply rounded-2xl p-4;
 }
 
+/* ── Step states — theme-aware ── */
+.village-step-done {
+  background: var(--v-step-done);
+  border: 1px solid var(--v-step-done-border);
+  @apply rounded-2xl p-3;
+}
+
+.village-step-next {
+  background: var(--v-step-next);
+  border: 1px solid var(--v-step-next-border);
+  @apply rounded-2xl p-3;
+}
+
+.village-step-idle {
+  background: var(--v-step-idle);
+  border: 1px solid var(--v-step-idle-border);
+  @apply rounded-2xl p-3;
+}
+
+/* ── Utility classes ── */
 .village-btn-primary {
   @apply bg-village-blue text-white rounded-full px-6 py-3 font-semibold hover:bg-village-blueDark transition-colors;
 }
@@ -42,3 +103,25 @@
 .village-gradient {
   background: linear-gradient(135deg, #1877F2 0%, #42A5F5 100%);
 }
+
+.village-text { color: var(--v-text); }
+.village-text-muted { color: var(--v-text-muted); }
+.village-text-sub { color: var(--v-text-sub); }
+.village-surface { background: var(--v-surface); }
+.village-progress-bg { background: var(--v-progress-bg); }
+
+/* ── Animations ── */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+.animate-float { animation: float 3s ease-in-out infinite; }
+
+/* ── Safe area for bottom nav ── */
+.safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+
+/* ── Scrollbar styling (webkit) ── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(24,119,242,0.2); border-radius: 2px; }
+[data-theme="night"] ::-webkit-scrollbar-thumb { background: rgba(255,107,43,0.2); }

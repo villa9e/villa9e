@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>villa9e · API Manifest</title>
+<style>
+  :root { --bg:#080c18; --card:#0f1420; --border:#1e2540; --text:#e8e4da; --muted:#5a6080; --accent:#1877F2; --gold:#ffd700; --green:#22c55e; --red:#ef4444; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'SF Pro Display',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; min-height:100vh; }
+
+  /* ── Auth overlay ── */
+  #auth { position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; }
+  .auth-card { background:var(--card); border:1px solid var(--border); border-radius:20px; padding:40px; width:min(400px,90vw); text-align:center; }
+  .auth-card h1 { font-size:24px; font-weight:900; margin-bottom:6px; }
+  .auth-card p { color:var(--muted); font-size:13px; margin-bottom:24px; }
+  .auth-card input { width:100%; background:#0a0c16; border:1px solid var(--border); border-radius:12px; padding:12px 16px; color:var(--text); font-size:15px; outline:none; margin-bottom:12px; }
+  .auth-card input:focus { border-color:var(--accent); }
+  .auth-card button { width:100%; background:var(--accent); color:#fff; border:none; border-radius:12px; padding:13px; font-size:15px; font-weight:700; cursor:pointer; }
+  .auth-card button:hover { opacity:.9; }
+  .auth-err { color:var(--red); font-size:13px; margin-top:8px; display:none; }
+
+  /* ── Content ── */
+  #content { display:none; max-width:960px; margin:0 auto; padding:32px 20px 80px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:36px; flex-wrap:wrap; gap:12px; }
+  header h1 { font-size:28px; font-weight:900; }
+  header h1 span { color:var(--accent); }
+  .stamp { background:rgba(24,119,242,.12); border:1px solid rgba(24,119,242,.3); color:var(--accent); padding:4px 12px; border-radius:100px; font-size:11px; font-weight:700; letter-spacing:.1em; }
+
+  .section-title { font-size:11px; font-weight:700; letter-spacing:.12em; color:var(--muted); text-transform:uppercase; margin:32px 0 12px; }
+  .api-grid { display:grid; gap:12px; }
+
+  .api-card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px; }
+  .api-card-top { display:flex; align-items:flex-start; gap:14px; margin-bottom:12px; }
+  .api-icon { font-size:28px; flex-shrink:0; }
+  .api-name { font-size:16px; font-weight:800; }
+  .api-sub  { font-size:12px; color:var(--muted); margin-top:2px; }
+  .status-badge { margin-left:auto; padding:3px 10px; border-radius:100px; font-size:11px; font-weight:700; flex-shrink:0; }
+  .status-live   { background:rgba(34,197,94,.15); color:#4ade80; border:1px solid rgba(34,197,94,.3); }
+  .status-config { background:rgba(251,191,36,.12); color:#fbbf24; border:1px solid rgba(251,191,36,.25); }
+  .status-mock   { background:rgba(99,102,241,.12); color:#a5b4fc; border:1px solid rgba(99,102,241,.25); }
+  .status-ready  { background:rgba(148,163,184,.1); color:#94a3b8; border:1px solid rgba(148,163,184,.2); }
+
+  .api-meta { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:8px; }
+  .meta-item { background:rgba(255,255,255,.03); border-radius:10px; padding:8px 12px; font-size:12px; }
+  .meta-label { color:var(--muted); margin-bottom:2px; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+  .meta-val  { font-weight:600; }
+
+  .env-key { display:inline-block; background:#0a0c16; border:1px solid var(--border); border-radius:6px; padding:2px 8px; font-family:'SF Mono',Consolas,monospace; font-size:11px; color:#a5b4fc; margin:2px 2px 0 0; }
+
+  .updated { color:var(--muted); font-size:11px; text-align:center; margin-top:48px; }
+  .updated span { color:var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- Auth gate -->
+<div id="auth">
+  <div class="auth-card">
+    <div style="font-size:36px;margin-bottom:12px;">🔐</div>
+    <h1>API Manifest</h1>
+    <p>villa9e internal document · restricted access</p>
+    <input id="pw" type="password" placeholder="Enter password…" onkeydown="if(event.key==='Enter')check()" autofocus />
+    <button onclick="check()">Unlock →</button>
+    <div id="err" class="auth-err">Incorrect password. Try again.</div>
+  </div>
+</div>
+
+<!-- Content -->
+<div id="content">
+  <header>
+    <div>
+      <h1>villa9e · <span>API Manifest</span></h1>
+      <p style="color:var(--muted);font-size:13px;margin-top:4px;">All external API integrations · Internal use only</p>
+    </div>
+    <span class="stamp">CONFIDENTIAL</span>
+  </header>
+
+  <!-- AI / Intelligence -->
+  <div class="section-title">AI &amp; Intelligence</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🌀</div>
+        <div>
+          <div class="api-name">Anthropic Claude</div>
+          <div class="api-sub">Spirit AI core · claude-sonnet-4-6 · Goal analysis · Credential verification</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Endpoint</div><div class="meta-val">api.anthropic.com</div></div>
+        <div class="meta-item"><div class="meta-label">Model</div><div class="meta-val">claude-sonnet-4-6</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">ANTHROPIC_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/claude/* · /api/spirit/* · /api/goals/*</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">👁️</div>
+        <div>
+          <div class="api-name">AEYE Health AI</div>
+          <div class="api-sub">Autonomous retinal screening · CPT 92229 · B2B hospital integration</div>
+        </div>
+        <span class="status-badge status-mock">SANDBOX</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Endpoint</div><div class="meta-val">api.aeyehealth.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">AEYE_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/hospital/diagnostics/*</div></div>
+        <div class="meta-item"><div class="meta-label">CPT Code</div><div class="meta-val">92229</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Data & Backend -->
+  <div class="section-title">Data &amp; Backend</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🗄️</div>
+        <div>
+          <div class="api-name">Supabase</div>
+          <div class="api-sub">PostgreSQL · Auth · Realtime presence · Storage · Row-Level Security</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Project</div><div class="meta-val">villa9e</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">SUPABASE_URL</span> <span class="env-key">SUPABASE_ANON_KEY</span> <span class="env-key">SUPABASE_SERVICE_ROLE_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Realtime</div><div class="meta-val">village_world presence · notifications</div></div>
+        <div class="meta-item"><div class="meta-label">Tables</div><div class="meta-val">30+ tables · migrations 001-011</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">⚡</div>
+        <div>
+          <div class="api-name">Upstash Redis</div>
+          <div class="api-sub">Rate limiting · Caching · Session data</div>
+        </div>
+        <span class="status-badge status-config">NEEDS KEYS</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Console</div><div class="meta-val">console.upstash.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">UPSTASH_REDIS_REST_URL</span> <span class="env-key">UPSTASH_REDIS_REST_TOKEN</span></div></div>
+        <div class="meta-item"><div class="meta-label">Usage</div><div class="meta-val">lib/ratelimit.ts</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Payments & Finance -->
+  <div class="section-title">Payments &amp; Finance</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">💳</div>
+        <div>
+          <div class="api-name">Stripe</div>
+          <div class="api-sub">Payments · Crowdfunding · Subscription billing · Webhooks</div>
+        </div>
+        <span class="status-badge status-config">WEBHOOK NEEDED</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">dashboard.stripe.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">STRIPE_SECRET_KEY</span> <span class="env-key">STRIPE_WEBHOOK_SECRET</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/stripe/* · /api/plaid/*</div></div>
+        <div class="meta-item"><div class="meta-label">Action needed</div><div class="meta-val">Add webhook → /api/stripe/webhook, copy secret to Vercel</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🏦</div>
+        <div>
+          <div class="api-name">Plaid</div>
+          <div class="api-sub">Bank account linking · Balance checks · ACH transfers</div>
+        </div>
+        <span class="status-badge status-config">NEEDS KEYS</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">dashboard.plaid.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">PLAID_CLIENT_ID</span> <span class="env-key">PLAID_SECRET</span> <span class="env-key">PLAID_ENV</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/plaid/link-token · /api/plaid/exchange-token</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Communications -->
+  <div class="section-title">Communications</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">📧</div>
+        <div>
+          <div class="api-name">Resend</div>
+          <div class="api-sub">Transactional email · spirit@villa9e.app · Welcome / notification emails</div>
+        </div>
+        <span class="status-badge status-config">DNS NEEDED</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">resend.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">RESEND_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">From</div><div class="meta-val">spirit@villa9e.app</div></div>
+        <div class="meta-item"><div class="meta-label">Action needed</div><div class="meta-val">Configure DNS records for villa9e.app at Resend dashboard</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">📱</div>
+        <div>
+          <div class="api-name">Twilio</div>
+          <div class="api-sub">SMS notifications · 2FA · Phone number verification</div>
+        </div>
+        <span class="status-badge status-config">NEEDS NUMBER</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">console.twilio.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">TWILIO_ACCOUNT_SID</span> <span class="env-key">TWILIO_AUTH_TOKEN</span> <span class="env-key">TWILIO_PHONE_NUMBER</span></div></div>
+        <div class="meta-item"><div class="meta-label">Action needed</div><div class="meta-val">Purchase phone number at console.twilio.com → add to Vercel</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🔔</div>
+        <div>
+          <div class="api-name">OneSignal</div>
+          <div class="api-sub">Web &amp; mobile push notifications · Goal reminders · OoWop alerts</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">onesignal.com</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">ONESIGNAL_APP_ID</span> <span class="env-key">ONESIGNAL_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/push/send · /api/spirit/remind</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Voice & Media -->
+  <div class="section-title">Voice &amp; Media</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🎙️</div>
+        <div>
+          <div class="api-name">ElevenLabs</div>
+          <div class="api-sub">Spirit voice synthesis · Text-to-speech · /api/spirit/voice</div>
+        </div>
+        <span class="status-badge status-config">NEEDS VOICE ID</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Dashboard</div><div class="meta-val">elevenlabs.io</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">ELEVENLABS_API_KEY</span> <span class="env-key">ELEVENLABS_VOICE_ID</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/spirit/voice</div></div>
+        <div class="meta-item"><div class="meta-label">Action needed</div><div class="meta-val">Select voice at elevenlabs.io/voice-library → add Voice ID to Vercel</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🎵</div>
+        <div>
+          <div class="api-name">Spotify</div>
+          <div class="api-sub">Mood-based music recommendations · Zen space ambient playlists</div>
+        </div>
+        <span class="status-badge status-ready">READY</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">SPOTIFY_CLIENT_ID</span> <span class="env-key">SPOTIFY_CLIENT_SECRET</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/spotify/recommendations</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">▶️</div>
+        <div>
+          <div class="api-name">YouTube Data API v3</div>
+          <div class="api-sub">Skill stream content · Workshop learning resources</div>
+        </div>
+        <span class="status-badge status-ready">READY</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">YOUTUBE_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/youtube/search</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Infrastructure -->
+  <div class="section-title">Infrastructure &amp; Hosting</div>
+  <div class="api-grid">
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">▲</div>
+        <div>
+          <div class="api-name">Vercel</div>
+          <div class="api-sub">Hosting · Edge functions · Cron jobs · Environment variables</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Project</div><div class="meta-val">villa9e</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val">Token stored in Vercel dashboard (see owner's password manager)</div></div>
+        <div class="meta-item"><div class="meta-label">Crons</div><div class="meta-val">/api/spirit/checkin-cron (daily)</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🌤️</div>
+        <div>
+          <div class="api-name">OpenWeatherMap</div>
+          <div class="api-sub">Real-time weather · Village ambient effects · Seasonal fallback</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">OPENWEATHER_API_KEY</span></div></div>
+        <div class="meta-item"><div class="meta-label">Routes</div><div class="meta-val">/api/spaces/weather</div></div>
+      </div>
+    </div>
+
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">📊</div>
+        <div>
+          <div class="api-name">PostHog</div>
+          <div class="api-sub">Product analytics · Feature flags · Session recording</div>
+        </div>
+        <span class="status-badge status-ready">READY</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val"><span class="env-key">NEXT_PUBLIC_POSTHOG_KEY</span> <span class="env-key">NEXT_PUBLIC_POSTHOG_HOST</span></div></div>
+        <div class="meta-item"><div class="meta-label">Component</div><div class="meta-val">components/analytics/PostHogProvider.tsx</div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Credential Verification -->
+  <div class="section-title">Professional Credential Verification</div>
+  <div class="api-grid">
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">🏥</div>
+        <div>
+          <div class="api-name">NPPES (NPI Registry)</div>
+          <div class="api-sub">Auto-verify healthcare provider NPI numbers · Free public API</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Endpoint</div><div class="meta-val">npiregistry.cms.hhs.gov</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val">None (public)</div></div>
+        <div class="meta-item"><div class="meta-label">Route</div><div class="meta-val">/api/credentials/verify</div></div>
+      </div>
+    </div>
+    <div class="api-card">
+      <div class="api-card-top">
+        <div class="api-icon">📈</div>
+        <div>
+          <div class="api-name">FINRA BrokerCheck</div>
+          <div class="api-sub">Auto-verify CRD numbers · Financial advisor credentials</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="api-meta">
+        <div class="meta-item"><div class="meta-label">Endpoint</div><div class="meta-val">api.brokercheck.finra.org</div></div>
+        <div class="meta-item"><div class="meta-label">Auth</div><div class="meta-val">None (public)</div></div>
+        <div class="meta-item"><div class="meta-label">Route</div><div class="meta-val">/api/credentials/verify</div></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="updated">Last updated: <span id="date-display"></span> · villa9e internal · <span style="color:var(--red)">Do not share</span></p>
+</div>
+
+<script>
+  const _k = atob('VGhpc0lzVDBwJGVjcmV0');
+  function unlock() {
+    document.getElementById('auth').style.display = 'none';
+    document.getElementById('content').style.display = 'block';
+    document.getElementById('date-display').textContent = new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+    sessionStorage.setItem('v9e_doc_auth','1');
+  }
+  function check() {
+    if (document.getElementById('pw').value === _k) { unlock(); }
+    else {
+      document.getElementById('err').style.display = 'block';
+      setTimeout(() => document.getElementById('err').style.display='none', 2800);
+    }
+  }
+  if (sessionStorage.getItem('v9e_doc_auth') === '1') unlock();
+</script>
+</body>
+</html>
