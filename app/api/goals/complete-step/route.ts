@@ -49,6 +49,25 @@ export async function POST(req: NextRequest) {
     p_reference_id: step_id,
   });
 
+  // Goal fully complete — award medal bonus
+  if (pct === 100) {
+    const { data: goal } = await admin.from('goals').select('probability_score').eq('id', goal_id).single();
+    const probScore = goal?.probability_score ?? 0;
+    const medalVlg  = probScore >= 80 ? 200 : probScore >= 60 ? 150 : probScore >= 40 ? 100 : 50;
+    const medalType = probScore >= 80 ? 'GOLD' : probScore >= 60 ? 'SILVER' : 'BRONZE';
+
+    await admin.from('goals').update({ status: 'completed', completed_at: new Date().toISOString(), medal_type: medalType }).eq('id', goal_id);
+    await admin.rpc('award_village_score', {
+      p_user_id: user.id, p_points: 50, p_vlg: medalVlg,
+      p_reason: `COMPLETE_GOAL_${medalType}`, p_reference_id: goal_id,
+    });
+    // Share completion to Dream Line
+    await admin.from('dream_line_posts').insert({
+      user_id: user.id, goal_id, content: `🏆 Goal achieved: "${step.title}" — mission complete. ${medalType} medal earned!`,
+      visibility: 'public', is_milestone: true, milestone_type: 'goal_completed',
+    });
+  }
+
   // Send in-app notification to goal team members
   const { data: teamMembers } = await admin.from('goal_team_members').select('user_id').eq('goal_id', goal_id).neq('user_id', user.id).eq('status', 'accepted');
   if (teamMembers?.length) {

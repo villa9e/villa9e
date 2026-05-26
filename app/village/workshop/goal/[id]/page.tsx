@@ -115,9 +115,12 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   );
   if (!goal) return <div className="p-6 text-gray-500">Goal not found.</div>;
 
-  const doneCount  = steps.filter(s => s.status === 'completed').length;
-  const isOwner    = goal.user_id === userId;
-  const medal = goal.probability_score >= 80 ? '🥇' : goal.probability_score >= 60 ? '🥈' : goal.probability_score >= 40 ? '🥉' : '';
+  const doneCount   = steps.filter(s => s.status === 'completed').length;
+  const isOwner     = goal.user_id === userId;
+  const isComplete  = goal.status === 'completed' || (steps.length > 0 && doneCount === steps.length);
+  const medal = goal.medal_type === 'GOLD' || goal.probability_score >= 80 ? '🥇'
+              : goal.medal_type === 'SILVER' || goal.probability_score >= 60 ? '🥈'
+              : goal.medal_type === 'BRONZE' || goal.probability_score >= 40 ? '🥉' : '';
 
   return (
     <div className="min-h-screen bg-village-bg">
@@ -133,6 +136,16 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
       </div>
 
       <div className="max-w-2xl mx-auto p-4 space-y-4">
+        {/* Goal completion banner */}
+        {isComplete && (
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+            className="village-card bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 text-center py-6">
+            <p className="text-5xl mb-2">{medal || '🏆'}</p>
+            <h2 className="text-xl font-bold text-amber-700">Goal Complete!</h2>
+            <p className="text-sm text-amber-600 mt-1">{goal.medal_type === 'GOLD' ? '+200 $VLG earned' : goal.medal_type === 'SILVER' ? '+150 $VLG earned' : '+100 $VLG earned'}</p>
+          </motion.div>
+        )}
+
         {/* Probability + progress */}
         <div className="village-card">
           <div className="flex items-center justify-between mb-3">

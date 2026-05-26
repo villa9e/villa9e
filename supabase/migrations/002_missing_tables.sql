@@ -50,6 +50,10 @@ CREATE TABLE IF NOT EXISTS ad_impressions (
   shown_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- Goal completion fields
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS medal_type TEXT; -- GOLD, SILVER, BRONZE
+
 -- Goal DNA: add steps_preview JSON column if missing
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS steps_preview JSONB DEFAULT '[]';
 ALTER TABLE goal_templates ADD COLUMN IF NOT EXISTS use_count INT NOT NULL DEFAULT 0;
