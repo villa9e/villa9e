@@ -126,119 +126,44 @@ export interface Database {
       };
     };
       dreamline_config: {
-        Row: {
-          id: number;
-          algorithm: string;
-          mission_score_minimum: number;
-          boost_keywords: string[];
-          suppress_keywords: string[];
-          auto_hide_below: number;
-          require_video_check: boolean;
-          oowop_weight: number;
-          recency_weight: number;
-          mission_weight: number;
-          updated_at: string;
-          updated_by: string | null;
-        };
-        Insert: Partial<Database['public']['Tables']['dreamline_config']['Row']>;
-        Update: Partial<Database['public']['Tables']['dreamline_config']['Row']>;
+        Row: { id: number; algorithm: string; mission_score_minimum: number; boost_keywords: string[]; suppress_keywords: string[]; auto_hide_below: number; require_video_check: boolean; oowop_weight: number; recency_weight: number; mission_weight: number; updated_at: string; updated_by: string | null };
+        Insert: { id?: number; algorithm?: string; mission_score_minimum?: number; boost_keywords?: string[]; suppress_keywords?: string[]; auto_hide_below?: number; require_video_check?: boolean; oowop_weight?: number; recency_weight?: number; mission_weight?: number };
+        Update: { algorithm?: string; mission_score_minimum?: number; boost_keywords?: string[]; suppress_keywords?: string[]; auto_hide_below?: number; require_video_check?: boolean; oowop_weight?: number; recency_weight?: number; mission_weight?: number; updated_at?: string; updated_by?: string | null };
       };
       content_review_queue: {
-        Row: {
-          id: string;
-          post_id: string;
-          mission_score: number;
-          reason: string | null;
-          status: string;
-          reviewed_by: string | null;
-          reviewed_at: string | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['content_review_queue']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['content_review_queue']['Row']>;
+        Row: { id: string; post_id: string; mission_score: number; reason: string | null; status: string; reviewed_by: string | null; reviewed_at: string | null; created_at: string };
+        Insert: { post_id: string; mission_score: number; reason?: string | null; status?: string };
+        Update: { status?: string; reviewed_by?: string | null; reviewed_at?: string | null; reason?: string | null };
       };
       tribe_messages: {
-        Row: {
-          id: string;
-          tribe_id: string;
-          user_id: string;
-          content: string;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['tribe_messages']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['tribe_messages']['Row']>;
+        Row: { id: string; tribe_id: string; user_id: string; content: string; created_at: string };
+        Insert: { tribe_id: string; user_id: string; content: string };
+        Update: { content?: string };
       };
       referrals: {
-        Row: {
-          id: string;
-          referrer_id: string;
-          referred_id: string;
-          vlg_awarded: boolean;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['referrals']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['referrals']['Row']>;
+        Row: { id: string; referrer_id: string; referred_id: string; vlg_awarded: boolean; created_at: string };
+        Insert: { referrer_id: string; referred_id: string; vlg_awarded?: boolean };
+        Update: { vlg_awarded?: boolean };
       };
       crowdfunding_contributions: {
-        Row: {
-          id: string;
-          campaign_id: string;
-          backer_id: string;
-          amount: number;
-          currency: string;
-          perk_tier: string | null;
-          stripe_charge_id: string | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['crowdfunding_contributions']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['crowdfunding_contributions']['Row']>;
+        Row: { id: string; campaign_id: string; backer_id: string; amount: number; currency: string; perk_tier: string | null; stripe_charge_id: string | null; created_at: string };
+        Insert: { campaign_id: string; backer_id: string; amount: number; currency?: string; perk_tier?: string | null; stripe_charge_id?: string | null };
+        Update: { stripe_charge_id?: string | null };
       };
       ad_placements: {
-        Row: {
-          id: string;
-          advertiser_id: string | null;
-          title: string;
-          body: string;
-          cta: string;
-          url: string;
-          icon: string;
-          target_categories: string[];
-          bid_amount: number;
-          budget: number | null;
-          spent: number;
-          is_active: boolean;
-          starts_at: string | null;
-          ends_at: string | null;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['ad_placements']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['ad_placements']['Row']>;
+        Row: { id: string; advertiser_id: string | null; title: string; body: string; cta: string; url: string; icon: string; target_categories: string[]; bid_amount: number; budget: number | null; spent: number; is_active: boolean; starts_at: string | null; ends_at: string | null; created_at: string };
+        Insert: { title: string; body: string; cta: string; url: string; target_categories?: string[]; bid_amount?: number; is_active?: boolean; icon?: string };
+        Update: { is_active?: boolean; spent?: number; ends_at?: string | null };
       };
       event_rsvps: {
-        Row: {
-          id: string;
-          event_id: string;
-          user_id: string;
-          status: string;
-          created_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['event_rsvps']['Row'], 'id' | 'created_at'>;
-        Update: Partial<Database['public']['Tables']['event_rsvps']['Row']>;
+        Row: { id: string; event_id: string; user_id: string; status: string; created_at: string };
+        Insert: { event_id: string; user_id: string; status?: string };
+        Update: { status?: string };
       };
       ad_impressions: {
-        Row: {
-          id: string;
-          ad_id: string;
-          user_id: string;
-          goal_category: string | null;
-          step_title: string | null;
-          step_index: number | null;
-          clicked: boolean;
-          clicked_at: string | null;
-          shown_at: string;
-        };
-        Insert: Omit<Database['public']['Tables']['ad_impressions']['Row'], 'id' | 'shown_at'>;
-        Update: Partial<Database['public']['Tables']['ad_impressions']['Row']>;
+        Row: { id: string; ad_id: string; user_id: string; goal_category: string | null; step_title: string | null; step_index: number | null; clicked: boolean; clicked_at: string | null; shown_at: string };
+        Insert: { ad_id: string; user_id: string; goal_category?: string | null; step_title?: string | null; step_index?: number | null };
+        Update: { clicked?: boolean; clicked_at?: string | null };
       };
     };
     Views: Record<string, never>;
