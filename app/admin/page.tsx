@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-const ADMIN_EMAIL = 'elitehousemusic@gmail.com';
+const ADMIN_EMAILS = ['elitehousemusic@gmail.com', 'admin@villa9e.app'];
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -17,7 +17,17 @@ export default function AdminPage() {
   useEffect(() => {
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user?.email === ADMIN_EMAIL) {
+      if (!user) { setLoading(false); return; }
+      // Check hardcoded admin emails OR is_super_admin flag in DB
+      const isEmailAdmin = ADMIN_EMAILS.includes(user.email ?? '');
+      if (isEmailAdmin) {
+        setAuthed(true);
+        loadData();
+        setLoading(false);
+        return;
+      }
+      const { data: profile } = await (supabase as any).from('profiles').select('is_super_admin').eq('id', user.id).single();
+      if (profile?.is_super_admin) {
         setAuthed(true);
         loadData();
       }
