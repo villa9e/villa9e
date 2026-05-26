@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   // Base query — exclude hidden posts and posts below mission threshold
   const baseQ = (supabase as any)
     .from('dream_line_posts')
-    .select('*, profiles(username, avatar_url, village_score, score_tier)')
+    .select('*, profiles(username, avatar_url, village_score, score_tier, score_multiplier, personality_type)')
     .eq('visibility', 'public')
     .eq('is_hidden', false)
     .gte('mission_score', minScore);

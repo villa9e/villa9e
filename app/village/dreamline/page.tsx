@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -7,6 +7,9 @@ import { OoWopButton, OoWopValidationCelebration } from '@/components/village/Oo
 import { VillageHeader } from '@/components/village/VillageHeader';
 import { awardScore } from '@/lib/village/score';
 import { useVillageTheme, useThemeTokens } from '@/lib/theme/useVillageTheme';
+import { VillageSound } from '@/lib/sounds/village';
+
+const PAGE_SIZE = 20;
 
 export default function DreamLinePage() {
   const [posts, setPosts]               = useState<any[]>([]);
@@ -16,10 +19,71 @@ export default function DreamLinePage() {
   const [givenOoWops, setGivenOoWops]  = useState<Set<string>>(new Set());
   const [celebration, setCelebration]  = useState<string | null>(null);
   const [postCount, setPostCount]      = useState(0);
+  const [loadingMore, setLoadingMore]  = useState(false);
+  const [hasMore, setHasMore]          = useState(true);
+  const [page, setPage]                = useState(0);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const motionRef    = useRef({ events: 0, startTime: 0 });
+  const viewTimers   = useRef<Record<string, { start: number; sent: boolean }>>({});
   const supabase = createClient();
   const { theme } = useVillageTheme();
   const t = useThemeTokens();
   const isNight = theme === 'night';
+
+  // ── Accelerometer engagement sensing ──────────────────────
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('DeviceMotionEvent' in window)) return;
+    const handler = () => { motionRef.current.events++; };
+    window.addEventListener('devicemotion', handler, { passive: true });
+    return () => window.removeEventListener('devicemotion', handler);
+  }, []);
+
+  // ── Intersection Observer for infinite scroll ─────────────
+  useEffect(() => {
+    if (!bottomRef.current) return;
+    const obs = new IntersectionObserver(
+      entries => { if (entries[0].isIntersecting && hasMore && !loadingMore) loadMore(); },
+      { threshold: 0.1 }
+    );
+    obs.observe(bottomRef.current);
+    return () => obs.disconnect();
+  }, [hasMore, loadingMore, posts.length]);
+
+  // ── Post Intersection Observer for engagement signals ─────
+  const observePost = useCallback((el: HTMLDivElement | null, postId: string) => {
+    if (!el) return;
+    const obs = new IntersectionObserver(entries => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        viewTimers.current[postId] = { start: Date.now(), sent: false };
+      } else {
+        const timer = viewTimers.current[postId];
+        if (timer && !timer.sent) {
+          const viewMs = Date.now() - timer.start;
+          // Only send if viewed for >1 second
+          if (viewMs > 1000) {
+            timer.sent = true;
+            const motionEvents = motionRef.current.events;
+            motionRef.current.events = 0;
+            fetch('/api/studio/engagement', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                post_id: postId,
+                signals: {
+                  attention_score: Math.min(100, Math.round((viewMs / 5000) * 100)),
+                  motion_events:   motionEvents,
+                  view_duration_ms: viewMs,
+                  face_detected:   false, // camera attention added separately
+                },
+              }),
+            }).catch(() => {});
+          }
+        }
+      }
+    }, { threshold: 0.5 });
+    obs.observe(el);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -27,6 +91,7 @@ export default function DreamLinePage() {
       .channel('dream_line_live')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'dream_line_posts' }, p => {
         setPosts(prev => [p.new as any, ...prev]);
+        VillageSound.notification();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dream_line_posts' }, p => {
         setPosts(prev => prev.map(post => post.id === (p.new as any).id ? p.new as any : post));
@@ -47,16 +112,43 @@ export default function DreamLinePage() {
         .eq('user_id', user.id).gte('created_at', today.toISOString());
       setPostCount(count ?? 0);
     }
-    const feedRes = await fetch('/api/dreamline/feed?limit=30');
+    const feedRes = await fetch(`/api/dreamline/feed?limit=${PAGE_SIZE}&offset=0`);
     if (feedRes.ok) {
       const data = await feedRes.json();
-      if (Array.isArray(data) && data.length > 0) { setPosts(data); return; }
+      if (Array.isArray(data) && data.length > 0) {
+        setPosts(data);
+        setHasMore(data.length === PAGE_SIZE);
+        return;
+      }
     }
     const { data } = await (supabase as any).from('dream_line_posts')
-      .select('*, profiles(username, avatar_url, village_score, score_tier)')
+      .select('*, profiles(username, avatar_url, village_score, score_tier, score_multiplier)')
       .eq('visibility', 'public').eq('is_hidden', false)
-      .order('created_at', { ascending: false }).limit(30);
-    if (data) setPosts(data);
+      .order('created_at', { ascending: false }).limit(PAGE_SIZE);
+    if (data) {
+      setPosts(data);
+      setHasMore(data.length === PAGE_SIZE);
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const feedRes = await fetch(`/api/dreamline/feed?limit=${PAGE_SIZE}&offset=${nextPage * PAGE_SIZE}`);
+    if (feedRes.ok) {
+      const data = await feedRes.json();
+      if (Array.isArray(data) && data.length > 0) {
+        setPosts(prev => [...prev, ...data]);
+        setHasMore(data.length === PAGE_SIZE);
+        setPage(nextPage);
+      } else {
+        setHasMore(false);
+      }
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
   }
 
   async function submitPost() {
@@ -70,6 +162,7 @@ export default function DreamLinePage() {
       if (!error && post) {
         setNewPost('');
         setPostCount(c => c + 1);
+        VillageSound.post();
         await awardScore('DREAM_LINE_POST');
         fetch('/api/dreamline/score', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ post_id: post.id, content: newPost }) }).catch(() => {});
         if (/youtube\.com|youtu\.be|vimeo\.com/i.test(newPost)) {
@@ -91,7 +184,10 @@ export default function DreamLinePage() {
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, oowop_count: newCount } : p));
       await awardScore('GIVE_OOWOP', post.id);
       fetch('/api/oowops/notify', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ post_id: post.id, giver_id: currentUserId, receiver_id: post.user_id, oowop_count: newCount }) }).catch(() => {});
-      if (newCount >= 3) setCelebration(post.id);
+      if (newCount >= 3) {
+        setCelebration(post.id);
+        VillageSound.validated();
+      }
     }
   }
 
@@ -154,7 +250,9 @@ export default function DreamLinePage() {
 
         {/* Feed */}
         {posts.map((post, i) => (
-          <motion.div key={post.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }} style={cardStyle}>
+          <motion.div key={post.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.04, 0.3) }}
+            ref={el => observePost(el as HTMLDivElement | null, post.id)}
+            style={cardStyle}>
             {/* Author row */}
             <div className="flex items-center gap-2 mb-3">
               <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
@@ -233,6 +331,23 @@ export default function DreamLinePage() {
             <p style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>Be the first to share your progress.</p>
           </div>
         )}
+
+        {/* Infinite scroll sentinel */}
+        <div ref={bottomRef} className="py-4 text-center">
+          {loadingMore && (
+            <div className="flex items-center justify-center gap-2">
+              <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="w-4 h-4 rounded-full border-2 border-t-transparent"
+                style={{ borderColor: isNight ? '#4A4F72' : '#DDD6FE', borderTopColor: 'transparent' }} />
+              <span className="text-xs" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>Loading more…</span>
+            </div>
+          )}
+          {!hasMore && posts.length > 0 && (
+            <p className="text-xs" style={{ color: isNight ? '#2A2F4A' : '#E9D5FF' }}>
+              You've seen everything in the village ✨
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
