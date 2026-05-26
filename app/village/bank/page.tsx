@@ -85,6 +85,19 @@ export default function BankPage() {
           </div>
         </div>
 
+        {/* Crowdfunding CTA */}
+        <Link href="/village/bank/crowdfunding">
+          <motion.div whileHover={{ scale: 1.01 }} className="village-card bg-gradient-to-r from-blue-600 to-indigo-500 text-white cursor-pointer">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-bold">🤝 Crowdfunding</p>
+                <p className="text-blue-100 text-xs mt-0.5">Fund your goal · Back a villager · 0% platform fee</p>
+              </div>
+              <span className="text-3xl">›</span>
+            </div>
+          </motion.div>
+        </Link>
+
         {/* Financing options */}
         <div>
           <h2 className="font-bold mb-3">Financing Options</h2>

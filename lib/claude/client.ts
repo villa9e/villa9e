@@ -13,14 +13,29 @@ Tagline: "It takes a village."
 
 Always return structured JSON unless told otherwise.`;
 
-export async function callClaude(prompt: string, systemOverride?: string) {
+interface CallClaudeOptions {
+  system?: string;
+  returnRaw?: boolean;
+  maxTokens?: number;
+}
+
+export async function callClaude(prompt: string, options?: CallClaudeOptions | string): Promise<any> {
+  // Support legacy callClaude(prompt, systemString) signature
+  const system = typeof options === 'string' ? options : (options?.system ?? SPIRIT_SYSTEM_PROMPT);
+  const returnRaw = typeof options === 'object' ? (options?.returnRaw ?? false) : false;
+  const maxTokens = typeof options === 'object' ? (options?.maxTokens ?? 2048) : 2048;
+
   const message = await claude.messages.create({
     model: CLAUDE_MODEL,
-    max_tokens: 2048,
-    system: systemOverride || SPIRIT_SYSTEM_PROMPT,
+    max_tokens: maxTokens,
+    system,
     messages: [{ role: 'user', content: prompt }],
   });
+
   const text = message.content[0].type === 'text' ? message.content[0].text : '';
+
+  if (returnRaw) return text;
+
   try {
     return JSON.parse(text);
   } catch {
