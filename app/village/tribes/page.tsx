@@ -41,7 +41,7 @@ export default function TribesPage() {
     setSaving(false);
   }
 
-  const { theme } = useVillageTheme();
+  const { theme, toggle } = useVillageTheme();
   const isNight  = theme === 'night';
   const bg       = isNight ? '#0A0B12' : '#FFF0F8';
   const cardBg   = isNight ? '#12152A' : '#FFFFFF';
@@ -65,9 +65,9 @@ export default function TribesPage() {
           style={{ background: isNight ? '#1E2240' : 'rgba(255,255,255,0.2)', color: '#fff' }}>
           + Create
         </button>
-        <button onClick={() => {}} className="w-9 h-9 rounded-full flex items-center justify-center"
+        <button onClick={toggle} className="w-9 h-9 rounded-full flex items-center justify-center"
           style={{ background: isNight ? '#1E2240' : 'rgba(255,255,255,0.15)' }}>
-          <span className="text-base">☀️</span>
+          <span className="text-base">{isNight ? '☀️' : '🌙'}</span>
         </button>
       </div>
 
