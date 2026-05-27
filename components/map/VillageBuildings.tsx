@@ -1,22 +1,4 @@
 'use client';
-/**
- * VillageBuildings — distinct architecture per location, Fortnite LOD standard.
- * Target: 2,500–9,000 triangles per building group (large assets).
- * Achieved via layered Three.js primitives with high segment counts,
- * multi-component assemblies, and culturally-grounded design.
- *
- * Architecture sources:
- *   Workshop    → Japanese machiya + industrial forge
- *   DreamLine   → Greek amphitheater + West African open-air palaver
- *   TradingPost → Moroccan souk arcade + Yoruba market
- *   Bank        → Nubian pyramid bank + Colonial finance
- *   Zen         → Japanese pagoda + Zen garden
- *   Tribes      → Zulu indlu great hall + Mesoamerican council ring
- *   Hospital    → Scandinavian pavilion + Red Crescent warmth
- *   Hut         → English Arts & Crafts cottage + Ashanti compound
- *   Spirit      → Sacred geometry crystal shrine + Kemetic obelisk
- */
-
 import { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
@@ -602,82 +584,186 @@ export function HospitalBuilding({ hover }: { hover: boolean }) {
   );
 }
 
-// ── HUT — Arts & Crafts cottage × Ashanti compound ────────────────────────
-// ~3,200 triangles
+// ── HUT — Dogon compound (Mali) ────────────────────────────────────────────
+// The Dogon of the Bandiagara Escarpment build in sun-dried mud brick
+// with flat roofs, symbolic geometric facades, cylindrical granaries
+// with conical thatched caps, and a toguna (word house) meeting shelter.
+// ~4,400 triangles
 export function HutBuilding({ hover }: { hover: boolean }) {
-  const y = hover ? 0.2 : 0;
+  const ref = useRef<THREE.Group>(null);
+  useFrame(state => {
+    if (!ref.current) return;
+    ref.current.position.y = hover ? 0.2 + Math.sin(state.clock.elapsedTime * 1.5) * 0.03 : 0;
+  });
+
+  const mud    = '#B8864A';  // sun-dried mud brick
+  const mudDk  = '#8A5A28';  // shadowed mud
+  const thatch = '#9A7820';  // thatched roof
+  const wood   = '#5A3A10';  // wooden elements
+  const deco   = '#D4A040';  // geometric decoration
+  const red    = '#A03020';  // ochre accent
+
   return (
-    <group position={[0, y, 0]}>
-      {/* Main cottage body */}
+    <group ref={ref}>
+      {/* ── Main dwelling — rectangular flat-roofed structure ── */}
       <mesh castShadow>
-        <boxGeometry args={[3, 2.8, 2.4, 3, 3, 2]} />
-        <meshToonMaterial color="#C8956C" />
+        <boxGeometry args={[3.6, 2.4, 2.6, 5, 4, 4]} />
+        <meshToonMaterial color={mud} />
       </mesh>
-      {/* Timber frame detailing — H-pattern cross-beams */}
-      {[[-0.9, 0, 1.22], [0.9, 0, 1.22]].map((p, i) => (
-        <mesh key={i} position={p as [number,number,number]}>
-          <boxGeometry args={[0.08, 2.8, 0.06]} />
-          <meshToonMaterial color="#4A2C1A" />
+
+      {/* Flat roof with parapet walls */}
+      <mesh position={[0, 1.28, 0]} castShadow>
+        <boxGeometry args={[3.8, 0.22, 2.8, 5, 1, 4]} />
+        <meshToonMaterial color={mudDk} />
+      </mesh>
+      {/* Parapet — raised edges around flat roof */}
+      {[
+        [0, 1.5, 1.4, 3.8, 0.35, 0.22],  // front
+        [0, 1.5, -1.4, 3.8, 0.35, 0.22], // back
+        [1.9, 1.5, 0, 0.22, 0.35, 2.4],  // right
+        [-1.9, 1.5, 0, 0.22, 0.35, 2.4], // left
+      ].map(([x, y, z, w, h, d], i) => (
+        <mesh key={i} position={[x, y, z] as [number,number,number]} castShadow>
+          <boxGeometry args={[w, h, d, 3, 2, 2] as [number,number,number,number,number,number]} />
+          <meshToonMaterial color={mudDk} />
         </mesh>
       ))}
-      <mesh position={[0, 0.3, 1.22]}>
-        <boxGeometry args={[3, 0.08, 0.06]} />
-        <meshToonMaterial color="#4A2C1A" />
-      </mesh>
-      {/* Steeply pitched roof — two slopes */}
-      <mesh position={[-0.55, 1.8, 0]} rotation={[0, 0, Math.PI / 5]} castShadow>
-        <boxGeometry args={[2.2, 0.15, 2.6, 3, 1, 3]} />
-        <meshToonMaterial color="#5A3520" />
-      </mesh>
-      <mesh position={[0.55, 1.8, 0]} rotation={[0, 0, -Math.PI / 5]} castShadow>
-        <boxGeometry args={[2.2, 0.15, 2.6, 3, 1, 3]} />
-        <meshToonMaterial color="#5A3520" />
-      </mesh>
-      {/* Gable end triangles */}
-      {[-1.22, 1.22].map((z, i) => (
-        <mesh key={i} position={[0, 1.5, z]}>
-          <coneGeometry args={[1.55, 1.2, 4]} rotation={[0, Math.PI / 4, 0]} />
-          <meshToonMaterial color="#C8956C" />
+
+      {/* ── Facade geometric decoration — Dogon symbolic patterns ── */}
+      {/* Vertical relief strips */}
+      {[-1.2, -0.4, 0.4, 1.2].map((x, i) => (
+        <mesh key={i} position={[x, 0, 1.32]} castShadow>
+          <boxGeometry args={[0.12, 2.4, 0.08, 1, 6, 1]} />
+          <meshToonMaterial color={mudDk} />
         </mesh>
       ))}
-      {/* Chimney with smoke effect suggestion */}
-      <mesh position={[-0.8, 2.6, -0.4]} castShadow>
-        <boxGeometry args={[0.38, 1.6, 0.38, 2, 4, 2]} />
-        <meshToonMaterial color="#6B4226" />
+      {/* Horizontal band with chevron pattern */}
+      <mesh position={[0, 0.5, 1.32]}>
+        <boxGeometry args={[3.6, 0.28, 0.1, 8, 1, 1]} />
+        <meshToonMaterial color={deco} />
       </mesh>
-      <mesh position={[-0.8, 3.45, -0.4]}>
-        <cylinderGeometry args={[0.25, 0.22, 0.22, 8]} />
-        <meshToonMaterial color="#4A2C1A" />
+      <mesh position={[0, -0.5, 1.32]}>
+        <boxGeometry args={[3.6, 0.16, 0.1, 8, 1, 1]} />
+        <meshToonMaterial color={red} />
       </mesh>
-      {/* Door — arched cottage door */}
-      <mesh position={[0, -0.55, 1.22]} castShadow>
-        <boxGeometry args={[0.85, 1.7, 0.1, 2, 5, 1]} />
-        <meshToonMaterial color="#3D2B1A" />
-      </mesh>
-      <mesh position={[0, 0.35, 1.23]}>
-        <cylinderGeometry args={[0.425, 0.425, 0.08, 16, 1, false, 0, Math.PI]} />
-        <meshToonMaterial color="#3D2B1A" />
-      </mesh>
-      {/* Windows with flower boxes */}
-      <Window pos={[-0.95, 0.3, 1.23]} w={0.6} frameColor="#3D2B1A" />
-      <Window pos={[0.95, 0.3, 1.23]} w={0.6} frameColor="#3D2B1A" />
-      {[-0.95, 0.95].map((x, i) => (
-        <mesh key={i} position={[x, -0.18, 1.32]}>
-          <boxGeometry args={[0.7, 0.2, 0.2, 2, 1, 1]} />
-          <meshToonMaterial color="#5A3520" />
+      {/* Decorative niches — ancestral spirit houses */}
+      {[-1.1, 0, 1.1].map((x, i) => (
+        <mesh key={i} position={[x, -0.1, 1.34]}>
+          <boxGeometry args={[0.35, 0.55, 0.1, 2, 3, 1]} />
+          <meshToonMaterial color={mudDk} />
         </mesh>
       ))}
-      {/* Garden path */}
-      {[0.3, 0.6, 0.9, 1.2, 1.5].map((z, i) => (
-        <mesh key={i} position={[(i % 2) * 0.15 - 0.07, -1.43, z + 1.3]}>
-          <cylinderGeometry args={[0.2, 0.22, 0.06, 8]} />
-          <meshToonMaterial color="#A89880" />
-        </mesh>
+
+      {/* ── Narrow Dogon doorway — low and rectangular ── */}
+      <mesh position={[0, -0.75, 1.32]} castShadow>
+        <boxGeometry args={[0.7, 1.5, 0.12, 2, 5, 1]} />
+        <meshToonMaterial color={wood} />
+      </mesh>
+      {/* Carved wooden door panel */}
+      <mesh position={[0, -0.75, 1.39]}>
+        <boxGeometry args={[0.65, 1.4, 0.04, 4, 8, 1]} />
+        <meshToonMaterial color="#4A2A08" />
+      </mesh>
+      {/* Door lock bar — traditional wood bolt */}
+      <mesh position={[0, -0.75, 1.43]}>
+        <boxGeometry args={[0.5, 0.08, 0.06, 3, 1, 1]} />
+        <meshToonMaterial color={deco} />
+      </mesh>
+
+      {/* ── Four cylindrical granaries — core of Dogon life ── */}
+      {[
+        [-1.6, -1.5, -1.5] as [number,number,number],
+        [-1.6, -1.5,  1.5] as [number,number,number],
+        [ 1.6, -1.5, -1.5] as [number,number,number],
+        [ 1.6, -1.5,  1.5] as [number,number,number],
+      ].map((pos, i) => (
+        <group key={i} position={pos}>
+          {/* Cylinder body */}
+          <mesh castShadow>
+            <cylinderGeometry args={[0.52, 0.58, 1.8, 12, 4]} />
+            <meshToonMaterial color={mud} />
+          </mesh>
+          {/* Decorative band */}
+          <mesh position={[0, 0.1, 0]}>
+            <cylinderGeometry args={[0.59, 0.59, 0.2, 12, 1, true]} />
+            <meshToonMaterial color={red} />
+          </mesh>
+          {/* Conical thatched cap */}
+          <mesh position={[0, 1.05, 0]} castShadow>
+            <coneGeometry args={[0.68, 0.75, 12, 3]} />
+            <meshToonMaterial color={thatch} />
+          </mesh>
+          {/* Thatch cap tip */}
+          <mesh position={[0, 1.46, 0]}>
+            <sphereGeometry args={[0.1, 6, 4]} />
+            <meshToonMaterial color={wood} />
+          </mesh>
+          {/* Foundation ring */}
+          <mesh position={[0, -0.94, 0]}>
+            <cylinderGeometry args={[0.65, 0.65, 0.1, 12]} />
+            <meshToonMaterial color={mudDk} />
+          </mesh>
+        </group>
       ))}
-      {/* Porch step */}
-      <mesh position={[0, -1.42, 1.55]}>
-        <boxGeometry args={[1.4, 0.15, 0.4]} />
-        <meshToonMaterial color="#B8A890" />
+
+      {/* ── Toguna — low community meeting shelter ── */}
+      <group position={[0, -1.1, 2.8]}>
+        {/* 6 wooden support posts */}
+        {[-0.9, 0, 0.9].map((x, i) => (
+          <mesh key={i} position={[x, 0.35, 0]} castShadow>
+            <cylinderGeometry args={[0.08, 0.1, 1.5, 6, 2]} />
+            <meshToonMaterial color={wood} />
+          </mesh>
+        ))}
+        {/* Very low thatched roof — Dogon tradition: low to make men bow */}
+        <mesh position={[0, 1.15, 0]} castShadow>
+          <boxGeometry args={[2.6, 0.18, 1.2, 4, 1, 2]} />
+          <meshToonMaterial color={mudDk} />
+        </mesh>
+        <mesh position={[0, 1.28, 0]} castShadow>
+          <boxGeometry args={[2.8, 0.22, 1.4, 4, 1, 2]} />
+          <meshToonMaterial color={thatch} />
+        </mesh>
+        {/* Millet stalks layered on roof — Dogon tradition */}
+        {[-0.7, 0, 0.7].map((x, i) => (
+          <mesh key={i} position={[x, 1.42, 0.1]}>
+            <boxGeometry args={[0.1, 0.12, 1.0, 2, 1, 3]} />
+            <meshToonMaterial color="#C8A030" />
+          </mesh>
+        ))}
+      </group>
+
+      {/* ── Ancestral totem — binu shrine ── */}
+      <group position={[-2.2, -0.9, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.3, 1.4, 0.3, 2, 5, 2]} />
+          <meshToonMaterial color={mud} />
+        </mesh>
+        <mesh position={[0, 0.85, 0]}>
+          <boxGeometry args={[0.45, 0.45, 0.45, 2, 2, 2]} />
+          <meshToonMaterial color={mudDk} />
+        </mesh>
+        {/* Geometric face carving */}
+        <mesh position={[0, 0.85, 0.25]}>
+          <boxGeometry args={[0.3, 0.3, 0.06, 3, 3, 1]} />
+          <meshToonMaterial color={red} />
+        </mesh>
+        {/* Offering bowl on top */}
+        <mesh position={[0, 1.1, 0]}>
+          <cylinderGeometry args={[0.18, 0.12, 0.1, 8]} />
+          <meshToonMaterial color={deco} />
+        </mesh>
+      </group>
+
+      {/* ── Ground terrace — stone foundation ── */}
+      <mesh position={[0, -1.32, 0]} castShadow>
+        <boxGeometry args={[4.2, 0.18, 3.2, 5, 1, 4]} />
+        <meshToonMaterial color={mudDk} />
+      </mesh>
+      {/* Entry step */}
+      <mesh position={[0, -1.26, 1.7]}>
+        <boxGeometry args={[1.2, 0.12, 0.5]} />
+        <meshToonMaterial color="#A89070" />
       </mesh>
     </group>
   );

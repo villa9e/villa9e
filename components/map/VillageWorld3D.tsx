@@ -216,68 +216,272 @@ function Stars({ visible }: { visible: boolean }) {
   );
 }
 
-// ─── River ───────────────────────────────────────────────────────────────────
-function River({ skyState }: { skyState: any }) {
-  const waterRef1 = useRef<THREE.Mesh>(null);
-  const waterRef2 = useRef<THREE.Mesh>(null);
-  const shimmerRef = useRef<THREE.Mesh>(null);
+// ─── River water texture (canvas-based, animated UV) ─────────────────────────
+function createRiverTexture(waterColor: string, shimColor: string): THREE.CanvasTexture {
+  const W = 512, H = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
 
-  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  // Base water fill
+  ctx.fillStyle = waterColor;
+  ctx.fillRect(0, 0, W, H);
+
+  // Flowing current lines — horizontal sinusoidal waves
+  for (let row = 0; row < 24; row++) {
+    const y0 = (row / 24) * H;
+    const amp = 3 + Math.sin(row * 1.3) * 2;
+    const freq = 0.025 + Math.sin(row) * 0.008;
+    ctx.beginPath();
+    ctx.strokeStyle = `rgba(255,255,255,${0.06 + Math.random() * 0.08})`;
+    ctx.lineWidth = 1.2;
+    for (let x = 0; x <= W; x += 2) {
+      const y = y0 + Math.sin(x * freq + row) * amp;
+      x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Foam patches near banks
+  for (let i = 0; i < 20; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H;
+    ctx.fillStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.06})`;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 18 + Math.random() * 30, 3 + Math.random() * 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Sky reflection shimmer
+  ctx.fillStyle = shimColor;
+  ctx.globalAlpha = 0.15;
+  ctx.fillRect(W * 0.3, 0, W * 0.4, H);
+  ctx.globalAlpha = 1;
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1.5, 3);
+  return tex;
+}
+
+// ─── Procedural river audio (Web Audio API pink noise + filters) ──────────────
+function createRiverAudio(): { gain: GainNode; ctx: AudioContext } | null {
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const master = audioCtx.createGain();
+    master.gain.value = 0;
+    master.connect(audioCtx.destination);
+
+    // Pink noise generator
+    function pinkNoise() {
+      const len = audioCtx.sampleRate * 3;
+      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + w * 0.0555179;
+        b1 = 0.99332 * b1 + w * 0.0750759;
+        b2 = 0.96900 * b2 + w * 0.1538520;
+        b3 = 0.86650 * b3 + w * 0.3104856;
+        b4 = 0.55000 * b4 + w * 0.5329522;
+        b5 = -0.7616 * b5 - w * 0.0168980;
+        d[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362) / 6.5;
+        b6 = w * 0.115926;
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf; src.loop = true; return src;
+    }
+
+    // Layer 1 — deep river rumble
+    const base = pinkNoise();
+    const lp = audioCtx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 0.5;
+    const g1 = audioCtx.createGain(); g1.gain.value = 0.55;
+    base.connect(lp); lp.connect(g1); g1.connect(master); base.start();
+
+    // Layer 2 — water surface chatter
+    const mid = pinkNoise();
+    const bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.8;
+    const g2 = audioCtx.createGain(); g2.gain.value = 0.22;
+    mid.connect(bp); bp.connect(g2); g2.connect(master); mid.start();
+
+    // Layer 3 — high splash detail
+    const hi = pinkNoise();
+    const hp = audioCtx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 3500;
+    const g3 = audioCtx.createGain(); g3.gain.value = 0.08;
+    hi.connect(hp); hp.connect(g3); g3.connect(master); hi.start();
+
+    // LFO — gentle current variation
+    const lfo = audioCtx.createOscillator();
+    lfo.frequency.value = 0.12;
+    const lfog = audioCtx.createGain(); lfog.gain.value = 0.12;
+    lfo.connect(lfog); lfog.connect(master.gain); lfo.start();
+
+    return { gain: master, ctx: audioCtx };
+  } catch { return null; }
+}
+
+// ─── River with animated flow + positional audio ──────────────────────────────
+function River({ skyState, playerPos }: {
+  skyState: any;
+  playerPos: React.MutableRefObject<THREE.Vector3>;
+}) {
+  const shimmerRef = useRef<THREE.Mesh>(null);
+  const flowTex    = useRef<THREE.CanvasTexture | null>(null);
+  const flowTex2   = useRef<THREE.CanvasTexture | null>(null);
+  const matRef     = useRef<THREE.MeshBasicMaterial>(null);
+  const mat2Ref    = useRef<THREE.MeshBasicMaterial>(null);
+  const audioRef   = useRef<{ gain: GainNode; ctx: AudioContext } | null>(null);
+  const audioReady = useRef(false);
+
+  const isNight  = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunrise' || skyState?.phase === 'sunset';
 
-  const waterColor = isNight
-    ? '#1A2E4A'
-    : isGolden
-    ? '#CC7722'
-    : '#4DA8DA';
+  const waterColor  = isNight ? '#1A2E4A' : isGolden ? '#A06820' : '#2A88BA';
+  const shimColor   = isNight ? '#3A5A8A' : isGolden ? '#FFB347' : '#87CEEB';
 
-  const shimmerColor = isNight ? '#3A5A8A' : isGolden ? '#FFB347' : '#87CEEB';
+  // Build / rebuild texture when phase changes
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    flowTex.current  = createRiverTexture(waterColor, shimColor);
+    flowTex2.current = createRiverTexture(waterColor, shimColor);
+    if (matRef.current) { matRef.current.map = flowTex.current; matRef.current.needsUpdate = true; }
+    if (mat2Ref.current){ mat2Ref.current.map = flowTex2.current; mat2Ref.current.needsUpdate = true; }
+  }, [waterColor, shimColor]);
+
+  // Start audio on first user gesture
+  useEffect(() => {
+    const start = () => {
+      if (audioReady.current) return;
+      audioReady.current = true;
+      audioRef.current = createRiverAudio();
+    };
+    window.addEventListener('click', start, { once: true });
+    window.addEventListener('touchstart', start, { once: true });
+    return () => {
+      window.removeEventListener('click', start);
+      window.removeEventListener('touchstart', start);
+      audioRef.current?.ctx.close();
+    };
+  }, []);
 
   useFrame(state => {
     const t = state.clock.elapsedTime;
-    if (waterRef1.current) {
-      (waterRef1.current.material as THREE.MeshBasicMaterial).opacity = 0.78 + Math.sin(t * 0.4) * 0.04;
+
+    // Animate UV offset — two layers at different speeds for parallax
+    if (flowTex.current) {
+      flowTex.current.offset.set(0, -(t * 0.18) % 1);
+      flowTex.current.needsUpdate = true;
     }
+    if (flowTex2.current) {
+      flowTex2.current.offset.set(0.5, -(t * 0.28) % 1);
+      flowTex2.current.needsUpdate = true;
+    }
+
+    // Shimmer band scrolls upstream
     if (shimmerRef.current) {
-      shimmerRef.current.position.z = -16 + ((t * 1.5) % 12);
-      (shimmerRef.current.material as THREE.MeshBasicMaterial).opacity = 0.12 + Math.sin(t * 2.2) * 0.08;
+      shimmerRef.current.position.z = -16 + ((t * 2.5) % 36);
+      (shimmerRef.current.material as THREE.MeshBasicMaterial).opacity =
+        0.08 + Math.sin(t * 3.5) * 0.06;
+    }
+
+    // Distance-based audio volume (river at x ≈ -17)
+    if (audioRef.current) {
+      const dist   = Math.abs(playerPos.current.x + 17) + Math.abs(playerPos.current.z) * 0.2;
+      const vol    = Math.max(0, Math.min(0.75, 1 - dist / 14)) * 0.75;
+      audioRef.current.gain.gain.setTargetAtTime(vol, audioRef.current.ctx.currentTime, 0.3);
     }
   });
 
-  // River runs along the right side of the village (-X edge), curving down
   return (
     <group>
-      {/* Main river channel */}
-      <mesh ref={waterRef1} rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.06, 0]}>
-        <planeGeometry args={[3.5, 36, 8, 1]} />
-        <meshBasicMaterial color={waterColor} transparent opacity={0.78} />
+      {/* ── Main channel — layer 1 (slower flow) ── */}
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.06, 0]}>
+        <planeGeometry args={[3.5, 38, 10, 1]} />
+        <meshBasicMaterial ref={matRef} color={waterColor} map={flowTex.current ?? undefined}
+          transparent opacity={0.82} />
       </mesh>
-      {/* Inner highlight — sky reflection */}
-      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.07, 0]}>
-        <planeGeometry args={[1.2, 34, 6, 1]} />
-        <meshBasicMaterial color={shimmerColor} transparent opacity={0.22} />
+
+      {/* ── Layer 2 — faster surface detail ── */}
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.08, 0]}>
+        <planeGeometry args={[2.6, 36, 8, 1]} />
+        <meshBasicMaterial ref={mat2Ref} color={shimColor} map={flowTex2.current ?? undefined}
+          transparent opacity={0.28} />
       </mesh>
-      {/* Moving shimmer band */}
-      <mesh ref={shimmerRef} rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.08, -16]}>
-        <planeGeometry args={[2.2, 3, 4, 1]} />
-        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.12} />
-      </mesh>
-      {/* River banks */}
-      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-18.8, 0.03, 0]}>
-        <planeGeometry args={[1.2, 36]} />
-        <meshToonMaterial color="#7A6240" />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-15.2, 0.03, 0]}>
-        <planeGeometry args={[1.2, 36]} />
-        <meshToonMaterial color="#7A6240" />
-      </mesh>
-      {/* River stones */}
-      {[[-16.5, 0.12, -8], [-17.4, 0.12, -2], [-16.8, 0.12, 5], [-17.2, 0.12, 12]].map((pos, i) => (
-        <mesh key={i} position={pos as [number,number,number]}>
-          <sphereGeometry args={[0.2 + Math.sin(i * 1.7) * 0.1, 6, 5]} />
-          <meshToonMaterial color="#8A8070" />
+
+      {/* ── Foam edge along banks ── */}
+      {[-0.9, 0.9].map((side, i) => (
+        <mesh key={i} rotation={[-Math.PI/2, 0, 0.15]} position={[-17 + side * 1.1, 0.09, 0]}>
+          <planeGeometry args={[0.35, 36, 4, 1]} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.18} />
         </mesh>
       ))}
+
+      {/* ── Moving shimmer band (light reflection) ── */}
+      <mesh ref={shimmerRef} rotation={[-Math.PI / 2, 0, 0.15]} position={[-17, 0.1, -18]}>
+        <planeGeometry args={[2.4, 5, 4, 1]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.09} />
+      </mesh>
+
+      {/* ── River banks — sandy mud ── */}
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-19.2, 0.03, 0]}>
+        <planeGeometry args={[1.8, 38, 4, 1]} />
+        <meshToonMaterial color={isNight ? '#3A2E1A' : '#9A7850'} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0.15]} position={[-14.8, 0.03, 0]}>
+        <planeGeometry args={[1.8, 38, 4, 1]} />
+        <meshToonMaterial color={isNight ? '#3A2E1A' : '#9A7850'} />
+      </mesh>
+
+      {/* ── Riverside reeds / tall grass ── */}
+      {[
+        [-15.4, 0.08, -10], [-15.2, 0.08, -4], [-15.6, 0.08, 3], [-15.3, 0.08, 9],
+        [-18.6, 0.08, -7], [-18.4, 0.08, 1], [-18.8, 0.08, 7],
+      ].map((pos, i) => (
+        <group key={i} position={pos as [number,number,number]}>
+          {[0, 0.3, -0.3].map((dx, j) => (
+            <mesh key={j} position={[dx * 0.4, 0, 0]}>
+              <coneGeometry args={[0.04, 0.55 + Math.random() * 0.3, 4]} />
+              <meshToonMaterial color={isNight ? '#2A4A2A' : '#4A7A2A'} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* ── River stones with water ripple rings ── */}
+      {[
+        [-16.5, 0.1, -9], [-17.4, 0.1, -3], [-16.8, 0.1, 4],
+        [-17.2, 0.1, 11], [-16.3, 0.1, -1], [-17.6, 0.1, 7],
+      ].map((pos, i) => (
+        <group key={i} position={pos as [number,number,number]}>
+          <mesh castShadow>
+            <sphereGeometry args={[0.18 + Math.sin(i * 1.7) * 0.08, 8, 6]} />
+            <meshToonMaterial color={isNight ? '#5A5040' : '#8A8070'} />
+          </mesh>
+          {/* Ripple ring around stone */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+            <ringGeometry args={[0.28, 0.38, 16]} />
+            <meshBasicMaterial color="#FFFFFF" transparent opacity={0.15} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* ── Small waterfall cascade at one end ── */}
+      <group position={[-17, 0.25, -16]}>
+        <mesh rotation={[0.4, 0.15, 0]}>
+          <planeGeometry args={[1.8, 0.9, 4, 6]} />
+          <meshBasicMaterial color={shimColor} transparent opacity={0.55} />
+        </mesh>
+        {/* Splash pool */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0.6]}>
+          <circleGeometry args={[0.9, 16]} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.25} />
+        </mesh>
+      </group>
     </group>
   );
 }
@@ -1031,8 +1235,8 @@ function WorldScene({
       {/* Ground */}
       <Ground isNight={isNight} />
 
-      {/* River */}
-      <River skyState={skyState} />
+      {/* River — animated flow + positional audio */}
+      <River skyState={skyState} playerPos={playerPos} />
 
       {/* Sacred fire */}
       <SacredFire />
