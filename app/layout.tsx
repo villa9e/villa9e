@@ -13,6 +13,10 @@ export const metadata: Metadata = {
   themeColor: '#1877F2',
   manifest: '/manifest.json',
   metadataBase: new URL('https://villa9e.app'),
+  icons: {
+    icon: '/logo.svg',
+    apple: '/logo.svg',
+  },
   openGraph: {
     title: 'villa9e — It takes a village.',
     description: 'A GPS system for your goals. Set goals, build GPS plans with AI, validate progress with your village, and earn $VLG.',

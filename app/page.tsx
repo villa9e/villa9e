@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
+import { VillageLogo } from '@/components/brand/VillageLogo';
 
 export default async function Home() {
   const supabase = createServerClient();
@@ -31,7 +32,7 @@ export default async function Home() {
       {/* ── NAV ── */}
       <nav className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-5 py-3 backdrop-blur-md bg-[#0a0e1a]/80 border-b border-white/5">
         <div className="flex items-center gap-2">
-          <span className="text-2xl">⛺</span>
+          <VillageLogo size={32} variant="circle" />
           <span className="text-lg font-black tracking-tight text-white">villa9e</span>
         </div>
         <div className="flex gap-2">
@@ -65,11 +66,10 @@ export default async function Home() {
             </div>
           )}
 
-          {/* Village icon */}
-          <div className="relative inline-flex items-center justify-center w-24 h-24 mb-8">
-            <div className="absolute inset-0 rounded-full bg-[#1877F2]/20 animate-ping opacity-30" />
-            <div className="absolute inset-2 rounded-full bg-[#1877F2]/15" />
-            <span className="text-5xl relative z-10">⛺</span>
+          {/* Village logo */}
+          <div className="relative inline-flex items-center justify-center w-28 h-28 mb-8">
+            <div className="absolute inset-0 rounded-full bg-[#1877F2]/20 animate-ping opacity-20" />
+            <VillageLogo size={96} variant="circle" className="relative z-10 drop-shadow-2xl" />
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black leading-[1.05] tracking-tight mb-5">

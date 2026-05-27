@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatarStatic';
+import { VillageLogo } from '@/components/brand/VillageLogo';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 
 const CINEMATIC_STEPS = [
@@ -81,9 +82,8 @@ export default function OnboardingWelcomePage() {
               transition={{ type: 'spring', stiffness: 200, damping: 20 }}
               className="space-y-4"
             >
-              <div className="w-28 h-28 rounded-full mx-auto flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)', boxShadow: '0 0 80px rgba(24,119,242,0.5)' }}>
-                <span className="text-6xl">⛺</span>
+              <div className="mx-auto" style={{ filter: 'drop-shadow(0 0 40px rgba(24,119,242,0.6))' }}>
+                <VillageLogo size={112} variant="circle" />
               </div>
               <motion.h1
                 initial={{ opacity: 0, y: 10 }}

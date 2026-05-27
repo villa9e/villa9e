@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
+import { VillageLogo } from '@/components/brand/VillageLogo';
 
 const FEATURES = [
   { emoji: '🗺️', title: 'Goal GPS',      desc: 'Spirit AI builds your full goal roadmap — steps, probability score, timeline.' },
@@ -47,10 +48,10 @@ export default function ReferralPage({ params }: { params: { username: string } 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ type: 'spring', stiffness: 200 }}
-          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)', boxShadow: '0 0 40px rgba(24,119,242,0.4)' }}
+          className="mx-auto mb-5"
+          style={{ width: 80, filter: 'drop-shadow(0 0 20px rgba(24,119,242,0.5))' }}
         >
-          <span className="text-4xl">⛺</span>
+          <VillageLogo size={80} variant="circle" />
         </motion.div>
 
         <motion.h1
