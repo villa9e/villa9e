@@ -4,9 +4,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
-import { SpiritVoice } from '@/components/village/SpiritVoice';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatarStatic';
+import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
+import { PermissionsModal } from '@/components/village/PermissionsModal';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 
 // Lazy-load the 3D avatar (heavy Three.js bundle)
@@ -43,6 +44,8 @@ export default function SpiritHubPage() {
   const supabase   = createClient();
   const { theme }  = useVillageTheme();
   const isNight    = theme === 'night';
+  const { voiceEnabled, voiceGender, speaking, toggleVoice, setGender, speak } = useSpiritVoice();
+  const [showPermissions, setShowPermissions] = useState(false);
 
   const bg       = isNight ? '#060810' : '#F0F4FF';
   const cardBg   = isNight ? '#0D1020' : '#FFFFFF';
@@ -84,6 +87,8 @@ export default function SpiritHubPage() {
         content: greeting,
         time:    new Date(),
       }]);
+      // Speak the greeting if voice is enabled
+      setTimeout(() => speak(greeting, 'casual'), 800);
     }
     load();
   }, []);
@@ -149,6 +154,9 @@ export default function SpiritHubPage() {
           ? { ...m, content: spiritText }
           : m
       ));
+
+      // Auto-speak if voice is on
+      speak(spiritText);
     } catch {
       setMessages(prev => prev.map(m =>
         m.id === typingId
@@ -196,9 +204,46 @@ export default function SpiritHubPage() {
           <div className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full"
             style={{ background: isNight ? '#12152A' : '#EEF2FF', color: textMute }}>
             <span>{ARCHETYPE_EMOJI[profile.personality_type] ?? '✨'}</span>
-            <span className="capitalize">{profile.personality_type}</span>
+            <span className="capitalize hidden sm:inline">{profile.personality_type}</span>
           </div>
         )}
+
+        {/* Gender toggle */}
+        <div className="flex rounded-full overflow-hidden"
+          style={{ border: `1px solid ${border}`, background: isNight ? '#12152A' : '#EEF2FF' }}>
+          {(['female','male'] as const).map(g => (
+            <button key={g} onClick={() => setGender(g)}
+              className="w-8 h-8 flex items-center justify-center text-sm transition-all"
+              style={{
+                background: voiceGender === g ? accent : 'transparent',
+                color:      voiceGender === g ? '#fff' : textMute,
+              }}
+              title={`${g === 'female' ? 'Female' : 'Male'} Spirit voice`}>
+              {g === 'female' ? '👩' : '👨'}
+            </button>
+          ))}
+        </div>
+
+        {/* Voice toggle */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => {
+            const granted = localStorage.getItem('villa9e_mic_granted');
+            if (!voiceEnabled && !granted) {
+              setShowPermissions(true);
+            } else {
+              toggleVoice();
+            }
+          }}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-all relative"
+          style={{ background: voiceEnabled ? accent : (isNight ? '#12152A' : '#EEF2FF'), color: voiceEnabled ? '#fff' : textMute }}
+          title={voiceEnabled ? 'Mute Spirit' : 'Unmute Spirit'}>
+          {speaking
+            ? <motion.span animate={{ scale: [1,1.3,1] }} transition={{ duration: 0.5, repeat: Infinity }}>🔊</motion.span>
+            : voiceEnabled ? '🔊' : '🔇'
+          }
+        </motion.button>
+
         <Link href="/village/spirit/memories"
           className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors"
           style={{ background: isNight ? '#12152A' : '#EEF2FF', color: textMute }}
@@ -206,6 +251,16 @@ export default function SpiritHubPage() {
           🧠
         </Link>
       </div>
+
+      {/* Permissions modal */}
+      <PermissionsModal
+        open={showPermissions}
+        onClose={() => setShowPermissions(false)}
+        onGranted={(mic) => {
+          setShowPermissions(false);
+          if (mic) toggleVoice();
+        }}
+      />
 
       {/* Daily check-in banner */}
       {profile && (() => {
@@ -257,11 +312,12 @@ export default function SpiritHubPage() {
                 }
               </div>
 
-              {/* Voice for Spirit messages */}
-              {msg.role === 'spirit' && msg.content !== '...' && msg.content.length > 20 && (
-                <div className="mt-1.5 ml-1">
-                  <SpiritVoice text={msg.content} label="Hear Spirit" compact />
-                </div>
+              {/* Tap message to replay it */}
+              {msg.role === 'spirit' && msg.content !== '...' && msg.content.length > 20 && voiceEnabled && (
+                <button onClick={() => speak(msg.content)} className="mt-1 ml-1 text-xs opacity-40 hover:opacity-70 transition-opacity"
+                  style={{ color: textMute, background: 'none', border: 'none', cursor: 'pointer' }}>
+                  {speaking ? '🔊 playing' : '↩ replay'}
+                </button>
               )}
             </div>
           </motion.div>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatarStatic';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 
 const MOODS = [
@@ -31,6 +32,7 @@ export default function SpiritCheckinPage() {
   const supabase = createClient();
   const router   = useRouter();
   const { theme } = useVillageTheme();
+  const { speak } = useSpiritVoice();
   const isNight  = theme === 'night';
 
   const bg      = isNight ? '#060810' : '#F0F4FF';
@@ -79,9 +81,13 @@ export default function SpiritCheckinPage() {
         }),
       });
       const data = await res.json();
-      setQuestion(data.text || data.response || "What's the most important thing you're working through right now?");
+      const q = data.text || data.response || "What's the most important thing you're working through right now?";
+      setQuestion(q);
+      speak(q, 'neutral');
     } catch {
-      setQuestion("What's one thing you want to make sure happens today?");
+      const fallback = "What's one thing you want to make sure happens today?";
+      setQuestion(fallback);
+      speak(fallback, 'neutral');
     }
 
     setLoading(false);
@@ -101,9 +107,13 @@ export default function SpiritCheckinPage() {
         }),
       });
       const data = await res.json();
-      setReflection(data.text || data.response || "That took courage to say. Keep going.");
+      const reflection = data.text || data.response || "That took courage to say. Keep going.";
+      setReflection(reflection);
+      speak(reflection, 'serious');
     } catch {
-      setReflection("That took courage to say. Keep going — one step at a time.");
+      const fallback = "That took courage to say. Keep going — one step at a time.";
+      setReflection(fallback);
+      speak(fallback, 'serious');
     }
 
     // Save to spirit_memories + award score + mark day done

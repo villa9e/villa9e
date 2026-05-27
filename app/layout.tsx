@@ -5,6 +5,7 @@ import { BottomNav } from '@/components/village/BottomNav';
 import { ThemeSync } from '@/components/village/ThemeSync';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { AdminBar } from '@/components/admin/AdminBar';
+import { SpiritVoiceProvider } from '@/components/village/SpiritVoiceProvider';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -49,10 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body className={`${inter.className} pb-20`} style={{ overflowX: 'hidden', WebkitTextSizeAdjust: '100%' }}>
         <PostHogProvider>
-          <ThemeSync />
-          {children}
-          <BottomNav />
-          <AdminBar />
+          <SpiritVoiceProvider>
+            <ThemeSync />
+            {children}
+            <BottomNav />
+            <AdminBar />
+          </SpiritVoiceProvider>
         </PostHogProvider>
       </body>
     </html>
