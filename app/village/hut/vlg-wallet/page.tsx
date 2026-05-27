@@ -4,8 +4,11 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { getScoreTier } from '@/lib/village/score';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 export default function VLGWalletPage() {
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
   const [wallet, setWallet]   = useState<any>(null);
   const [txns, setTxns]       = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -89,12 +92,12 @@ export default function VLGWalletPage() {
         </motion.div>
 
         {/* Phase info */}
-        <div className="village-card border border-amber-200 bg-amber-50">
+        <div className="village-card" style={{ borderColor: isNight ? 'rgba(251,191,36,0.2)' : '#fde68a', background: isNight ? 'rgba(251,191,36,0.07)' : '#fffbeb' }}>
           <div className="flex gap-3">
             <span className="text-2xl">⏳</span>
             <div>
-              <p className="font-bold text-amber-800">Phase 1 — Points Mode</p>
-              <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+              <p className="font-bold" style={{ color: isNight ? '#fbbf24' : '#92400e' }}>Phase 1 — Points Mode</p>
+              <p className="text-xs mt-0.5 leading-relaxed" style={{ color: isNight ? '#d97706' : '#b45309' }}>
                 $VLG is a non-tradeable points system until Phase 3 (50,000+ villagers). Every VLG you earn now converts to real tradeable $VLG tokens at Phase 3 — founding villagers get a 500 VLG bonus airdrop on top.
               </p>
             </div>
@@ -103,7 +106,7 @@ export default function VLGWalletPage() {
 
         {/* How to earn */}
         <div className="village-card">
-          <h2 className="font-bold mb-3">How to Earn $VLG</h2>
+          <h2 className="font-bold mb-3 village-text">How to Earn $VLG</h2>
           <div className="grid grid-cols-2 gap-2">
             {[
               { icon: '📍', action: 'Complete a goal step', vlg: '+10' },
@@ -118,7 +121,7 @@ export default function VLGWalletPage() {
               <div key={item.action} className="flex items-center gap-2 py-1.5">
                 <span className="text-lg">{item.icon}</span>
                 <div className="flex-1">
-                  <p className="text-xs text-gray-600">{item.action}</p>
+                  <p className="text-xs village-text-muted">{item.action}</p>
                 </div>
                 <span className="text-xs font-bold text-green-600">{item.vlg}</span>
               </div>
@@ -128,17 +131,17 @@ export default function VLGWalletPage() {
 
         {/* Transaction history */}
         <div className="village-card">
-          <h2 className="font-bold mb-3">Transaction History</h2>
+          <h2 className="font-bold mb-3 village-text">Transaction History</h2>
           {txns.length === 0 ? (
-            <p className="text-center text-sm text-gray-400 py-4">No transactions yet. Start completing goals to earn $VLG!</p>
+            <p className="text-center text-sm village-text-sub py-4">No transactions yet. Start completing goals to earn $VLG!</p>
           ) : (
             <div className="space-y-2">
               {txns.map(t => (
-                <div key={t.id} className="flex items-center gap-3 py-2 border-b border-gray-50 last:border-0">
+                <div key={t.id} className="flex items-center gap-3 py-2 border-b border-[var(--v-card-border)] last:border-0">
                   <span className="text-xl">{txnIcon(t.transaction_type ?? t.description ?? '')}</span>
                   <div className="flex-1">
-                    <p className="text-sm font-medium">{t.description || t.transaction_type?.replace(/_/g, ' ')}</p>
-                    <p className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                    <p className="text-sm font-medium village-text">{t.description || t.transaction_type?.replace(/_/g, ' ')}</p>
+                    <p className="text-xs village-text-sub">{new Date(t.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                   <span className={`font-bold text-sm ${t.direction === 'credit' ? 'text-green-600' : 'text-red-500'}`}>
                     {t.direction === 'credit' ? '+' : '-'}{parseFloat(t.amount ?? 0).toFixed(2)} {t.token_type}
