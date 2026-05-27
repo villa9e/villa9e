@@ -128,7 +128,7 @@ export default function WorkshopPage() {
         {/* Active goals */}
         {goals.length > 0 && (
           <div className="village-card">
-            <h2 className="font-bold mb-3 text-sm text-gray-500 uppercase tracking-wide">Active Goals</h2>
+            <h2 className="font-bold mb-3 text-sm village-text-muted uppercase tracking-wide">Active Goals</h2>
             <div className="space-y-3">
               {goals.map(g => {
                 const done = stepsDone(g); const total = stepsTotal(g);
@@ -138,10 +138,10 @@ export default function WorkshopPage() {
                     <div className="flex-1">
                       <p className="font-medium text-sm truncate">{g.title}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                        <div className="flex-1 rounded-full h-1.5 village-progress-bg">
                           <div className="h-1.5 rounded-full village-gradient" style={{ width: `${pct}%` }} />
                         </div>
-                        <span className="text-xs text-gray-400">{done}/{total} steps</span>
+                        <span className="text-xs village-text-sub">{done}/{total} steps</span>
                         <span className="text-xs font-bold text-village-blue">{g.probability_score}%</span>
                       </div>
                     </div>
@@ -158,13 +158,13 @@ export default function WorkshopPage() {
         {/* New goal */}
         <div className="village-card">
           <h2 className="font-bold text-lg mb-1">Set a New Goal</h2>
-          <p className="text-sm text-gray-500 mb-4">Spirit will build your full GPS plan — steps, resources, timeline, and probability score.</p>
+          <p className="text-sm village-text-muted mb-4">Spirit will build your full GPS plan — steps, resources, timeline, and probability score.</p>
           <textarea
             value={goalInput}
             onChange={e => setGoalInput(e.target.value)}
             placeholder="What would you like to achieve? Be specific. (e.g. 'Record and release my first EP on Spotify within 3 months')"
             rows={3}
-            className="w-full border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-orange-400 resize-none text-sm"
+            className="w-full rounded-xl p-3 focus:outline-none resize-none text-sm village-text" style={{ background: 'var(--v-bg)', border: '1px solid var(--v-card-border)' }}
           />
           <button
             onClick={analyzeGoal}
@@ -193,16 +193,16 @@ export default function WorkshopPage() {
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h3 className="font-bold">GPS Probability Score</h3>
-                  <p className="text-xs text-gray-500">Live score — improves as you complete steps</p>
+                  <p className="text-xs village-text-muted">Live score — improves as you complete steps</p>
                 </div>
                 <span className={`text-3xl font-bold ${analysis.probability_score >= 70 ? 'text-green-600' : analysis.probability_score >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
                   {analysis.probability_score}%
                 </span>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-3">
+              <div className="w-full rounded-full h-3 village-progress-bg">
                 <div className="h-3 rounded-full village-gradient" style={{ width: `${analysis.probability_score}%` }} />
               </div>
-              {analysis.probability_reason && <p className="text-xs text-gray-500 mt-2">{analysis.probability_reason}</p>}
+              {analysis.probability_reason && <p className="text-xs village-text-muted mt-2">{analysis.probability_reason}</p>}
             </div>
 
             {/* Steps */}
@@ -211,11 +211,11 @@ export default function WorkshopPage() {
                 <h3 className="font-bold mb-3">📍 GPS Steps ({analysis.steps.length})</h3>
                 <ol className="space-y-3">
                   {analysis.steps.map((step: any, i: number) => (
-                    <li key={i} className="flex items-start gap-3 p-2 rounded-xl hover:bg-gray-50">
+                    <li key={i} className="flex items-start gap-3 p-2 rounded-xl transition-colors" style={{ borderRadius:'12px' }}>
                       <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i + 1}</span>
                       <div className="flex-1">
                         <p className="font-medium text-sm">{step.title}</p>
-                        {step.description && <p className="text-xs text-gray-500 mt-0.5">{step.description}</p>}
+                        {step.description && <p className="text-xs village-text-muted mt-0.5">{step.description}</p>}
                         {step.estimated_hours && <p className="text-xs text-orange-500 mt-0.5">~{step.estimated_hours}h</p>}
                       </div>
                     </li>
@@ -227,15 +227,15 @@ export default function WorkshopPage() {
             {/* Cost + timeline + roles */}
             <div className="grid grid-cols-3 gap-3">
               <div className="village-card text-center">
-                <p className="text-xs text-gray-400">Est. Cost</p>
+                <p className="text-xs village-text-muted">Est. Cost</p>
                 <p className="text-lg font-bold text-orange-500">${analysis.estimated_cost?.toLocaleString() ?? '—'}</p>
               </div>
               <div className="village-card text-center">
-                <p className="text-xs text-gray-400">Timeline</p>
+                <p className="text-xs village-text-muted">Timeline</p>
                 <p className="text-lg font-bold text-village-blue">{analysis.estimated_weeks ?? '—'}w</p>
               </div>
               <div className="village-card text-center">
-                <p className="text-xs text-gray-400">Hrs/Week</p>
+                <p className="text-xs village-text-muted">Hrs/Week</p>
                 <p className="text-lg font-bold text-purple-600">{analysis.weekly_hours_needed ?? '—'}h</p>
               </div>
             </div>

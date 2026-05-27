@@ -13,7 +13,7 @@ const MOODS = [
   { value: 'good',     emoji: '😊', label: 'Good',   score: 7, color: 'border-green-300 bg-green-50' },
   { value: 'neutral',  emoji: '😐', label: 'Okay',   score: 5, color: 'border-blue-300 bg-blue-50' },
   { value: 'low',      emoji: '😔', label: 'Low',    score: 3, color: 'border-purple-300 bg-purple-50' },
-  { value: 'very_low', emoji: '😞', label: 'Rough',  score: 1, color: 'border-gray-300 bg-gray-50' },
+  { value: 'very_low', emoji: '😞', label: 'Rough',  score: 1, color: 'border-[var(--v-card-border)] bg-[var(--v-bg)]' },
 ];
 
 const ZEN_ACTIVITIES = [
