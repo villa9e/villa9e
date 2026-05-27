@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const supabase = createClient();
-  const { theme, toggle } = useVillageTheme();
+  const { theme, toggle, overlayTheme, toggleOverlay } = useVillageTheme();
   const isNight = theme === 'night';
 
   const bg     = isNight ? '#0A0B12' : '#F8F9FF';
@@ -245,6 +245,26 @@ export default function SettingsPage() {
                 <span style={{ color: muted }}>›</span>
               </Link>
             ))}
+          </div>
+        </Section>
+
+        <Section title="Display">
+          {/* Map building overlay color */}
+          <div className="flex items-center justify-between p-3 rounded-xl"
+            style={{ background: isNight ? 'rgba(255,255,255,0.03)' : 'rgba(24,119,242,0.03)', border: `1px solid ${border}` }}>
+            <div>
+              <p className="font-semibold text-sm" style={{ color: text }}>Building Overlay</p>
+              <p className="text-xs" style={{ color: muted }}>Background when entering a building in the village</p>
+            </div>
+            <button onClick={toggleOverlay}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+              style={{
+                background: overlayTheme === 'white' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
+                color:      overlayTheme === 'white' ? '#1E1B4B' : '#F0EBE0',
+                border:     `1px solid ${border}`,
+              }}>
+              {overlayTheme === 'white' ? '⬜ White' : '⬛ Black'}
+            </button>
           </div>
         </Section>
 

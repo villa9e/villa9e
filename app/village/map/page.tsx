@@ -11,6 +11,7 @@ import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt'
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 import { VillageLogo } from '@/components/brand/VillageLogo';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import VillageIllustration from '@/components/map/VillageIllustration';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
@@ -79,8 +80,10 @@ function VillageMapPageInner() {
   const [showWelcome, setShowWelcome]   = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const [mapMode, setMapMode]           = useState<'illustrated'|'world'|'3d'>('illustrated');
+  const [activeBuilding, setActiveBuilding] = useState<{ href: string; label: string } | null>(null);
   const searchParams = useSearchParams();
   const router       = useRouter();
+  const { overlayTheme } = useVillageTheme();
   const supabase     = createClient();
 
   useEffect(() => {
@@ -291,11 +294,68 @@ function VillageMapPageInner() {
       {/* Map — absolute fill so h-full works inside the flex child */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <div className="absolute inset-0 overflow-hidden">
-          {mapMode === 'illustrated' && <VillageIllustration />}
-          {mapMode === 'world'       && <VillageWorld3D onNavigate={href => router.push(href)} />}
+          {mapMode === 'illustrated' && <VillageIllustration onEnter={(href, label) => setActiveBuilding({ href, label })} />}
+          {mapMode === 'world'       && <VillageWorld3D onNavigate={(href, label) => setActiveBuilding({ href, label })} />}
           {mapMode === '3d'          && <VillageMap3D />}
         </div>
       </div>
+
+      {/* Building overlay — semi-transparent, 3D world still visible behind */}
+      <AnimatePresence>
+        {activeBuilding && (
+          <motion.div
+            key="building-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="fixed inset-0 z-40 flex flex-col"
+            style={{
+              background: overlayTheme === 'white'
+                ? 'rgba(255,255,255,0.88)'
+                : 'rgba(0,0,0,0.85)',
+              backdropFilter: 'blur(16px) saturate(180%)',
+            }}
+          >
+            {/* Overlay header */}
+            <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+              style={{
+                background: overlayTheme === 'white' ? 'rgba(255,255,255,0.7)' : 'rgba(6,8,16,0.7)',
+                borderBottom: overlayTheme === 'white' ? '1px solid rgba(0,0,0,0.08)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              <button
+                onClick={() => setActiveBuilding(null)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-xl transition-colors"
+                style={{
+                  background: overlayTheme === 'white' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
+                  color: overlayTheme === 'white' ? '#1E1B4B' : 'rgba(255,255,255,0.7)',
+                }}
+              >
+                ←
+              </button>
+              <h2 className="font-black text-base flex-1"
+                style={{ color: overlayTheme === 'white' ? '#1E1B4B' : '#fff' }}>
+                {activeBuilding.label}
+              </h2>
+              <button
+                onClick={() => { router.push(activeBuilding.href); setActiveBuilding(null); }}
+                className="text-xs font-bold px-3 py-1.5 rounded-full"
+                style={{ background: 'rgba(24,119,242,0.15)', color: '#1877F2', border: '1px solid rgba(24,119,242,0.25)' }}
+              >
+                Full Page →
+              </button>
+            </div>
+
+            {/* iframe — loads the building's actual page */}
+            <iframe
+              src={activeBuilding.href}
+              className="flex-1 w-full border-none"
+              style={{ background: 'transparent' }}
+              title={activeBuilding.label}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Village heartbeat */}
       <VillageHeartbeat />

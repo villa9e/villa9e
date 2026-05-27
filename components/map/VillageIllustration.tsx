@@ -368,13 +368,17 @@ function Sun({ azimuth, altitude, skyState }: { azimuth: number; altitude: numbe
 }
 
 // ─── Main Illustrated Map ──────────────────────────────────────────────────────
-export default function VillageIllustration() {
+export default function VillageIllustration({ onEnter }: { onEnter?: (href: string, label: string) => void }) {
   const router  = useRouter();
   const { theme } = useVillageTheme();
   const { skyState, coords } = useSkySystem();
   const [hovered, setHovered] = useState<string | null>(null);
   const [frame, setFrame]     = useState(0);
   const isNight = theme === 'night';
+
+  function enter(href: string, label: string) {
+    if (onEnter) { onEnter(href, label); } else { router.push(href); }
+  }
 
   // Derive sky from system or theme
   const effectiveSky = skyState ?? {
@@ -550,7 +554,7 @@ export default function VillageIllustration() {
           <g key={loc.id} style={{ cursor: 'pointer' }}
             onMouseEnter={() => setHovered(loc.id)}
             onMouseLeave={() => setHovered(null)}
-            onClick={() => router.push(loc.href)}>
+            onClick={() => enter(loc.href, loc.label)}>
             {getBuildingComponent(loc)}
           </g>
         ))}
@@ -559,7 +563,7 @@ export default function VillageIllustration() {
         <g style={{ cursor: 'pointer' }}
           onMouseEnter={() => setHovered('spirit')}
           onMouseLeave={() => setHovered(null)}
-          onClick={() => router.push('/village/spirit')}>
+          onClick={() => enter('/village/spirit', 'Spirit')}>
           <SpiritOrb x={48} y={43} color="#1877F2" hover={hovered === 'spirit'} frame={frame} />
         </g>
 

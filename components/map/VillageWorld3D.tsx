@@ -1349,7 +1349,7 @@ function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void 
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
-export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: string) => void }) {
+export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: string, label: string) => void }) {
   const router   = useRouter();
   const supabase = createClient();
   const { mood } = useWeather();
@@ -1505,7 +1505,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
-    if (onNavigate) onNavigate(href);
+    if (onNavigate) onNavigate(href, label);
     else router.push(href);
   }
 
