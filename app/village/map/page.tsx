@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
 import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
+import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt';
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 import VillageIllustration from '@/components/map/VillageIllustration';
@@ -283,6 +284,9 @@ function VillageMapPageInner() {
 
       {/* Village heartbeat */}
       <VillageHeartbeat />
+
+      {/* Push notification permission prompt — fires 8s after first visit */}
+      <PushPermissionPrompt />
 
       {/* Story mode */}
       <StoryModeOverlay />

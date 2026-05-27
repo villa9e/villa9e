@@ -51,13 +51,16 @@ export default function DiscoverPage() {
     setTab('matches');
   }
 
+  const [sent, setSent] = useState<Set<string>>(new Set());
+
   async function connectWithVillager(matchedId: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await (supabase as any).from('connections').upsert(
-      { requester_id: user.id, addressee_id: matchedId, status: 'pending' },
-      { onConflict: 'requester_id,addressee_id' }
-    );
+    if (sent.has(matchedId)) return;
+    setSent(prev => new Set([...prev, matchedId]));
+    await fetch('/api/connections/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ addressee_id: matchedId }),
+    });
   }
 
   async function dismissMatch(matchId: string) {
@@ -108,9 +111,10 @@ export default function DiscoverPage() {
       </div>
       <div className="flex gap-2 mt-3">
         <button onClick={() => connectWithVillager(v.id)}
-          className="flex-1 text-white rounded-full py-2 text-xs font-bold transition-all"
-          style={{ background: '#1877F2' }}>
-          🤝 Connect
+          disabled={sent.has(v.id)}
+          className="flex-1 text-white rounded-full py-2 text-xs font-bold transition-all disabled:opacity-60"
+          style={{ background: sent.has(v.id) ? '#22C55E' : '#1877F2' }}>
+          {sent.has(v.id) ? '✓ Sent' : '🤝 Connect'}
         </button>
         {matchData && (
           <button onClick={() => dismissMatch(matchData.id)}
