@@ -260,9 +260,9 @@ function Building({ location, onClick, onHover, onLeave }: any) {
               <meshBasicMaterial color="#111111" transparent opacity={outlineOp * 0.7} side={THREE.BackSide} />
             </mesh>
             <mesh position={[0, h * 0.5 + 0.52, 0]}>
-              {/* 4 sides, flatShading: true = each triangular face reads clearly */}
+              {/* 4 sides — hardMat sets flatShading imperatively to avoid TypeScript error */}
               <coneGeometry args={[1.0, 1.0, 4]} />
-              <meshToonMaterial color={location.color} flatShading={true} />
+              <primitive object={hardMat(location.color)} attach="material" />
             </mesh>
             {/* Spire tip — smooth sphere cap */}
             <SmoothSphere r={0.1} ws={8} hs={6} position={[0, h * 0.5 + 1.05, 0]}>

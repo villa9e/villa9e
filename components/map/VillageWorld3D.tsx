@@ -35,6 +35,16 @@ function sunPosFromAngles(altitude: number, azimuth: number, dist = 60): [number
   return [x, Math.max(y, -10), z];
 }
 
+// Memoized flat-shaded toon material — avoids TypeScript JSX prop error
+function FlatToonMat({ color }: { color: string }) {
+  const mat = useMemo(() => {
+    const m = new THREE.MeshToonMaterial({ color });
+    (m as any).flatShading = true;
+    return m;
+  }, [color]);
+  return <primitive object={mat} attach="material" />;
+}
+
 // ─── Adinkra canvas texture generator ────────────────────────────────────────
 function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
@@ -308,10 +318,13 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
         <meshToonMaterial color={loc.color} />
       </mesh>
 
-      {/* Roof */}
+      {/* Roof — pyramid roofs use FlatToonMat, domes use smooth toon */}
       <mesh position={[0, sh * 0.5 + 0.8, 0]}>
         <coneGeometry args={[Math.max(sw, sd) * 0.72, 1.6, loc.id === 'dreamline' || loc.id === 'zen' ? 16 : 4]} />
-        <meshToonMaterial color={loc.color} flatShading={loc.id !== 'dreamline' && loc.id !== 'zen'} />
+        {loc.id === 'dreamline' || loc.id === 'zen'
+          ? <meshToonMaterial color={loc.color} />
+          : <FlatToonMat color={loc.color} />
+        }
       </mesh>
 
       {/* Hover glow ring */}
