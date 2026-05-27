@@ -83,7 +83,7 @@ export default function OnboardingWelcomePage() {
               className="space-y-4"
             >
               <div className="mx-auto" style={{ filter: 'drop-shadow(0 0 40px rgba(24,119,242,0.6))' }}>
-                <VillageLogo size={112} variant="circle" />
+                <VillageLogo size={112} variant="circle" animated />
               </div>
               <motion.h1
                 initial={{ opacity: 0, y: 10 }}

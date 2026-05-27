@@ -1,6 +1,11 @@
+'use client';
+import { motion } from 'framer-motion';
+
 interface VillageLogoProps {
   size?: number;
   variant?: 'circle' | 'flat';
+  /** Animates the shadow rotating around the tent like a sun cycle */
+  animated?: boolean;
   className?: string;
 }
 
@@ -9,7 +14,7 @@ interface VillageLogoProps {
  * variant="circle" — white tent on brand-blue circle (app icon style)
  * variant="flat"   — blue tent on white with gray shadow (standalone)
  */
-export function VillageLogo({ size = 48, variant = 'circle', className }: VillageLogoProps) {
+export function VillageLogo({ size = 48, variant = 'circle', animated = false, className }: VillageLogoProps) {
   if (variant === 'flat') {
     return (
       <svg
@@ -47,6 +52,11 @@ export function VillageLogo({ size = 48, variant = 'circle', className }: Villag
   }
 
   // variant === 'circle' — white tent on brand-blue circle
+  const ShadowGroup = animated ? motion.g : 'g';
+  const shadowProps = animated
+    ? { animate: { rotate: 360 }, transition: { duration: 8, repeat: Infinity, ease: 'linear' } }
+    : {};
+
   return (
     <svg
       width={size}
@@ -57,7 +67,7 @@ export function VillageLogo({ size = 48, variant = 'circle', className }: Villag
       className={className}
     >
       <defs>
-        <clipPath id="v9-circle-clip">
+        <clipPath id={`v9-clip-${size}`}>
           <circle cx="50" cy="50" r="50" />
         </clipPath>
       </defs>
@@ -65,28 +75,35 @@ export function VillageLogo({ size = 48, variant = 'circle', className }: Villag
       {/* Blue circle background */}
       <circle cx="50" cy="50" r="50" fill="#1877F2" />
 
-      {/* Long flat shadow inside circle — darker blue */}
-      <g clipPath="url(#v9-circle-clip)">
-        <polygon
-          points="50,24 84,76 100,100 28,100 16,76"
-          fill="#1255C4"
-          opacity="0.7"
-        />
+      {/* Shadow — static long shadow or animated sun-orbit */}
+      <g clipPath={`url(#v9-clip-${size})`}>
+        {animated ? (
+          <g transform="translate(50, 73)">
+            <ShadowGroup {...(shadowProps as any)}>
+              <polygon points="-22,0 22,0 38,55 -38,55" fill="#0E3A8C" opacity="0.82" />
+            </ShadowGroup>
+          </g>
+        ) : (
+          <polygon
+            points="50,24 84,76 100,100 28,100 16,76"
+            fill="#1255C4"
+            opacity="0.7"
+          />
+        )}
       </g>
 
-      {/* Tent body — white */}
-      <polygon points="50,24 84,76 16,76" fill="white" />
+      {/* Tent body — white, always on top of shadow */}
+      <g clipPath={`url(#v9-clip-${size})`}>
+        <polygon points="50,20 86,73 14,73" fill="white" />
+        <polygon points="50,51 62,73 38,73" fill="#1565C0" />
+      </g>
 
-      {/* Door triangle — medium blue */}
-      <polygon points="50,54 62,76 38,76" fill="#1565C0" />
-
-      {/* Left pole */}
-      <line x1="47" y1="24" x2="55" y2="10" stroke="white" strokeWidth="3" strokeLinecap="round" />
-      {/* Right pole */}
-      <line x1="53" y1="24" x2="45" y2="10" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      {/* Poles */}
+      <line x1="47" y1="20" x2="55" y2="6"  stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <line x1="53" y1="20" x2="45" y2="6"  stroke="white" strokeWidth="3" strokeLinecap="round" />
 
       {/* Base bar */}
-      <line x1="12" y1="76" x2="88" y2="76" stroke="white" strokeWidth="3" strokeLinecap="round" />
+      <line x1="12" y1="73" x2="88" y2="73" stroke="white" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
