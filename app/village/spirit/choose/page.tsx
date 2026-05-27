@@ -3,9 +3,15 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
-import { SpiritSelector } from '@/components/spirit/SpiritSelector';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
+
+// Three.js Canvas must not SSR
+const SpiritSelector = dynamic(
+  () => import('@/components/spirit/SpiritSelector').then(m => ({ default: m.SpiritSelector })),
+  { ssr: false, loading: () => <div className="h-60 rounded-3xl animate-pulse" style={{ background: 'rgba(24,119,242,0.08)' }} /> }
+);
 
 export default function ChooseSpiritPage() {
   const router = useRouter();
