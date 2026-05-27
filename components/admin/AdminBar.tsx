@@ -26,7 +26,6 @@ export function AdminBar() {
   const [token, setToken]         = useState<string | null>(null);
   const [saving, setSaving]       = useState(false);
   const [saved, setSaved]         = useState(false);
-  const [tab, setTab]             = useState(0);
   const supabase = createClient();
 
   useEffect(() => {

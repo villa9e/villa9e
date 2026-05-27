@@ -10,6 +10,7 @@ import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
 import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt';
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
+import { VillageLogo } from '@/components/brand/VillageLogo';
 import VillageIllustration from '@/components/map/VillageIllustration';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
@@ -148,7 +149,7 @@ function VillageMapPageInner() {
   const tierClass = tierColors[profile?.score_tier ?? 'seedling'] ?? tierColors.seedling;
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0a0e1a]">
+    <div className="flex flex-col bg-[#0a0e1a]" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
 
       {/* Confetti */}
       {showConfetti && <Confetti />}
@@ -221,32 +222,32 @@ function VillageMapPageInner() {
       </AnimatePresence>
 
       {/* Top navigation bar */}
-      <div className="flex items-center justify-between px-4 py-2.5 bg-[#0a0e1a]/90 backdrop-blur-md border-b border-white/5 z-10">
+      <div className="flex items-center justify-between px-3 py-2 bg-[#0a0e1a]/95 backdrop-blur-md border-b border-white/5 z-10 flex-shrink-0">
         {/* Logo */}
-        <div className="flex items-center gap-2">
-          <span className="text-xl">⛺</span>
-          <span className="font-black text-white text-sm tracking-tight">villa9e</span>
-        </div>
+        <Link href="/village/map" className="flex items-center gap-1.5">
+          <VillageLogo size={28} variant="circle" />
+          <span className="font-black text-white text-sm tracking-tight hidden sm:inline">villa9e</span>
+        </Link>
 
-        {/* Founding counter */}
+        {/* Founding counter — desktop only */}
         {spotsLeft > 0 && (
-          <div className="hidden sm:flex items-center gap-1.5 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 text-xs">
+          <div className="hidden md:flex items-center gap-1.5 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 text-xs">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
             <span className="text-amber-300 font-semibold">{spotsLeft} Founding spots left</span>
           </div>
         )}
 
         {/* Right side: VLG + notifs + profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           {/* $VLG balance */}
-          <div className="flex items-center gap-1 bg-[#1877F2]/15 border border-[#1877F2]/25 rounded-full px-2.5 py-1">
+          <div className="flex items-center gap-1 bg-[#1877F2]/15 border border-[#1877F2]/25 rounded-full px-2 py-1">
             <span className="text-xs">🪙</span>
-            <span className="text-[#60a5fa] text-xs font-bold">{vlgDisplay} VLG</span>
+            <span className="text-[#60a5fa] text-xs font-bold">{vlgDisplay}</span>
           </div>
 
           {/* Notifications */}
-          <Link href="/notifications" className="relative w-8 h-8 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/10 transition-colors">
-            <span className="text-base">🔔</span>
+          <Link href="/notifications" className="relative w-8 h-8 flex items-center justify-center rounded-full bg-white/5 transition-colors">
+            <span className="text-sm">🔔</span>
             {unreadCount > 0 && (
               <motion.div
                 initial={{ scale: 0 }}
@@ -259,11 +260,11 @@ function VillageMapPageInner() {
           </Link>
 
           {/* Profile */}
-          <Link href="/village/hut" className="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/8 rounded-full px-2.5 py-1 transition-colors">
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${tierClass}`}>
-              {profile?.score_tier ?? 'seedling'}
+          <Link href="/village/hut" className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2 py-1">
+            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border ${tierClass}`}>
+              {(profile?.score_tier ?? 'seed').slice(0, 4)}
             </span>
-            <span className="text-white/70 text-xs font-medium">@{profile?.username ?? '…'}</span>
+            <span className="text-white/70 text-xs font-medium hidden xs:inline">@{profile?.username ?? '…'}</span>
           </Link>
         </div>
       </div>
@@ -287,11 +288,11 @@ function VillageMapPageInner() {
       {/* Weather ambient overlay */}
       {mapMode === '3d' && <WeatherAmbientLayer />}
 
-      {/* Map */}
-      <div className="flex-1" style={{ height: 'calc(100vh - 52px)', position: 'relative' }}>
+      {/* Map — fills remaining space after header */}
+      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         {mapMode === 'illustrated' && <VillageIllustration />}
         {mapMode === 'world'       && <VillageWorld3D onNavigate={href => router.push(href)} />}
-        {mapMode === '3d'          && (mapMode === '3d' && <VillageMap3D />)}
+        {mapMode === '3d'          && <VillageMap3D />}
       </div>
 
       {/* Village heartbeat */}

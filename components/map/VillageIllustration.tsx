@@ -379,12 +379,12 @@ export default function VillageIllustration() {
   // Derive sky from system or theme
   const effectiveSky = skyState ?? {
     phase: isNight ? 'night' : 'morning',
-    skyTop: isNight ? '#08091A' : '#4A90D9',
-    skyMid: isNight ? '#1A1A3A' : '#87CEEB',
-    skyHor: isNight ? '#0A0B28' : '#C8E6FF',
+    skyTop: isNight ? '#0D1235' : '#4A90D9',  // was #08091A — now visible navy
+    skyMid: isNight ? '#1E2348' : '#87CEEB',  // was #1A1A3A
+    skyHor: isNight ? '#162040' : '#C8E6FF',  // was #0A0B28
     sunColor: isNight ? '#E8D5FF' : '#FFF8DC',
     ambientColor: isNight ? '#1A0A30' : '#FFFBF0',
-    ambientIntensity: isNight ? 0.3 : 0.8,
+    ambientIntensity: isNight ? 0.45 : 0.8,  // brighter night ambient
     hasFog: false, fogColor: '#ccc', fogDensity: 0,
     sunAltitude: isNight ? -20 : 45,
     sunAzimuth: isNight ? 0 : 180,

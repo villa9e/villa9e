@@ -117,11 +117,44 @@
 }
 .animate-float { animation: float 3s ease-in-out infinite; }
 
-/* ── Safe area for bottom nav ── */
+/* ── Mobile / safe area ── */
 .safe-area-pb { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Prevent text size adjustment on iOS after orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Prevent horizontal overflow globally */
+body {
+  overflow-x: hidden;
+  min-height: 100dvh;
+}
+
+/* Touch tap highlight removal for interactive elements */
+button, a, [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
 
 /* ── Scrollbar styling (webkit) ── */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(24,119,242,0.2); border-radius: 2px; }
 [data-theme="night"] ::-webkit-scrollbar-thumb { background: rgba(255,107,43,0.2); }
+
+/* ── Responsive helpers ── */
+@media (max-width: 390px) {
+  .text-4xl { font-size: 1.75rem; }
+  .text-5xl { font-size: 2rem; }
+  .text-6xl { font-size: 2.5rem; }
+}
+
+/* Map page fills the viewport exactly */
+.map-container {
+  height: 100dvh;
+  height: 100vh; /* fallback */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
