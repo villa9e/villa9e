@@ -579,12 +579,24 @@ function PlayerCharacter({
 }
 
 // ─── Third-person camera controller ───────────────────────────────────────────
-function CameraFollow({ targetPos }: { targetPos: React.MutableRefObject<THREE.Vector3> }) {
+function CameraFollow({
+  targetPos, cameraZoom, cameraAzimuth,
+}: {
+  targetPos: React.MutableRefObject<THREE.Vector3>;
+  cameraZoom: React.MutableRefObject<number>;
+  cameraAzimuth: React.MutableRefObject<number>;
+}) {
   const { camera } = useThree();
   const lerpedLook = useRef(new THREE.Vector3());
 
   useFrame(() => {
-    const offset = new THREE.Vector3(0, 6, 10);
+    const dist = cameraZoom.current;
+    const az   = cameraAzimuth.current;
+    const offset = new THREE.Vector3(
+      Math.sin(az) * dist,
+      dist * 0.6,
+      Math.cos(az) * dist,
+    );
     const target = targetPos.current.clone().add(offset);
     camera.position.lerp(target, 0.08);
     lerpedLook.current.lerp(targetPos.current.clone().add(new THREE.Vector3(0, 1, 0)), 0.1);
@@ -682,6 +694,7 @@ interface RemotePlayer {
 
 function WorldScene({
   playerPos, playerRot, remotePlayers, onEnterBuilding, skyState, spiritVariant,
+  cameraZoom, cameraAzimuth,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
@@ -689,6 +702,8 @@ function WorldScene({
   onEnterBuilding: (href: string, label: string) => void;
   skyState: any;
   spiritVariant: SpiritVariantId;
+  cameraZoom: React.MutableRefObject<number>;
+  cameraAzimuth: React.MutableRefObject<number>;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -794,7 +809,7 @@ function WorldScene({
       />
 
       {/* Camera follow */}
-      <CameraFollow targetPos={playerPos} />
+      <CameraFollow targetPos={playerPos} cameraZoom={cameraZoom} cameraAzimuth={cameraAzimuth} />
 
       {/* Fireflies */}
       <Fireflies count={isNight ? 35 : 12} isNight={isNight} />
@@ -854,10 +869,13 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const { skyState } = useSkySystem();
 
   const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
-  const playerPos = useRef(new THREE.Vector3(0, 0, 5));
-  const playerRot = useRef(0);
-  const moveInput = useRef({ dx: 0, dy: 0 });
-  const keys      = useRef<Set<string>>(new Set());
+  const playerPos    = useRef(new THREE.Vector3(0, 0, 5));
+  const playerRot    = useRef(0);
+  const moveInput    = useRef({ dx: 0, dy: 0 });
+  const keys         = useRef<Set<string>>(new Set());
+  const cameraZoom   = useRef(10);
+  const cameraAzimuth = useRef(0);
+  const gestureRef   = useRef({ lastDist: 0, lastMidX: 0, active: false });
 
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [nearBuilding, setNearBuilding]   = useState<{ href: string; label: string } | null>(null);
@@ -993,12 +1011,52 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     else router.push(href);
   }
 
+  function handleTwoFingerStart(e: React.TouchEvent) {
+    if (e.touches.length !== 2) return;
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dx = t0.clientX - t1.clientX;
+    const dy = t0.clientY - t1.clientY;
+    gestureRef.current.lastDist = Math.sqrt(dx * dx + dy * dy);
+    gestureRef.current.lastMidX = (t0.clientX + t1.clientX) / 2;
+    gestureRef.current.active   = true;
+  }
+
+  function handleTwoFingerMove(e: React.TouchEvent) {
+    if (e.touches.length !== 2 || !gestureRef.current.active) return;
+    const t0 = e.touches[0], t1 = e.touches[1];
+    const dx   = t0.clientX - t1.clientX;
+    const dy   = t0.clientY - t1.clientY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const midX = (t0.clientX + t1.clientX) / 2;
+
+    // Pinch → zoom (inward = closer, outward = further)
+    const distDelta = gestureRef.current.lastDist - dist;
+    cameraZoom.current = Math.max(5, Math.min(20, cameraZoom.current + distDelta * 0.05));
+
+    // Horizontal two-finger drag → orbit camera around player
+    const midDelta = midX - gestureRef.current.lastMidX;
+    cameraAzimuth.current += midDelta * 0.006;
+
+    gestureRef.current.lastDist = dist;
+    gestureRef.current.lastMidX = midX;
+  }
+
+  function handleTwoFingerEnd() {
+    gestureRef.current.active = false;
+  }
+
   // Sky background color transitions with the sky state
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const bgColor = skyState?.skyTop ?? (isNight ? '#080912' : '#6AAEDC');
 
   return (
-    <div className="w-full h-full relative">
+    <div
+      className="w-full h-full relative"
+      style={{ touchAction: 'none' }}
+      onTouchStart={handleTwoFingerStart}
+      onTouchMove={handleTwoFingerMove}
+      onTouchEnd={handleTwoFingerEnd}
+    >
       <Canvas
         shadows
         gl={{ antialias: false, powerPreference: 'high-performance', pixelRatio: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.5) }}
@@ -1013,6 +1071,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           onEnterBuilding={handleEnterBuilding}
           skyState={skyState}
           spiritVariant={spiritVariant}
+          cameraZoom={cameraZoom}
+          cameraAzimuth={cameraAzimuth}
         />
       </Canvas>
 
@@ -1049,9 +1109,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       )}
 
       {/* Controls hint */}
-      <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5 hidden sm:block"
+      <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5"
         style={{ background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.5)' }}>
-        WASD / Arrow keys to move
+        <span className="hidden sm:inline">WASD / Arrows to move · </span>
+        <span className="sm:hidden">Joystick to move · </span>
+        Pinch zoom · 2-finger drag to orbit
       </div>
     </div>
   );

@@ -27,6 +27,8 @@ export default function WorkshopPage() {
   useEffect(() => {
     loadGoals();
     fetch('/api/trending').then(r => r.json()).then(setTrending).catch(() => {});
+    const prefill = new URLSearchParams(window.location.search).get('goal');
+    if (prefill) setGoalInput(decodeURIComponent(prefill));
   }, []);
 
   async function loadGoals() {

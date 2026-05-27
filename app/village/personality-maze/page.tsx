@@ -107,7 +107,7 @@ export default function PersonalityMazePage() {
     if (user) {
       await supabase.from('profiles').update({ personality_type: archetype as any }).eq('id', user.id);
     }
-    router.push('/village/hut');
+    router.push(`/village/spirit?archetype=${archetype}`);
   }
 
   const resultData = result ? ARCHETYPE_RESULTS[result] : null;

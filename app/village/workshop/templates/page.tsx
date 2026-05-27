@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 
 const CATEGORIES = ['All', 'Business', 'Health', 'Education', 'Creative', 'Financial', 'Personal'];
@@ -66,6 +67,7 @@ export default function GoalDNAPage() {
   const [cloned, setCloned] = useState(false);
   const [realTemplates, setRealTemplates] = useState<any[]>([]);
   const supabase = createClient();
+  const router = useRouter();
 
   useEffect(() => {
     async function loadTemplates() {
@@ -201,13 +203,21 @@ export default function GoalDNAPage() {
                     <span>· Score {(selected.creator_score ?? selected.profiles?.village_score ?? 0).toLocaleString()}</span>
                   </div>
 
-                  <button
-                    onClick={() => cloneTemplate(selected)}
-                    disabled={cloning}
-                    className="w-full bg-orange-500 text-white rounded-full py-3 font-bold text-sm disabled:opacity-50 hover:bg-orange-600 transition-colors"
-                  >
-                    {cloning ? 'Cloning…' : '🧬 Clone This Goal Blueprint'}
-                  </button>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => cloneTemplate(selected)}
+                      disabled={cloning}
+                      className="w-full bg-orange-500 text-white rounded-full py-3 font-bold text-sm disabled:opacity-50 hover:bg-orange-600 transition-colors"
+                    >
+                      {cloning ? 'Cloning…' : '🧬 Quick Clone — Add Directly'}
+                    </button>
+                    <button
+                      onClick={() => router.push(`/village/workshop?goal=${encodeURIComponent(selected.title)}`)}
+                      className="w-full border border-orange-300 text-orange-600 rounded-full py-3 font-bold text-sm hover:bg-orange-50 transition-colors"
+                    >
+                      Customize First →
+                    </button>
+                  </div>
                 </>
               )}
             </motion.div>

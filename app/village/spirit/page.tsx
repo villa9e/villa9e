@@ -75,8 +75,9 @@ export default function SpiritHubPage() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      // Greet Spirit style: show an opening message
-      const greeting = getGreeting(p);
+      // Greet Spirit style — use archetype-specific message if coming from the maze
+      const archetypeParam = new URLSearchParams(window.location.search).get('archetype');
+      const greeting = archetypeParam ? getArchetypeGreeting(p, archetypeParam) : getGreeting(p);
       setMessages([{
         id:      'welcome',
         role:    'spirit',
@@ -90,6 +91,21 @@ export default function SpiritHubPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  function getArchetypeGreeting(p: any, archetype: string): string {
+    const name = p?.display_name || p?.username || 'Villager';
+    const lines: Record<string, string> = {
+      architect: `${name} — I see you. The Architect. You build systems and think in structures. Tell me — what are you designing for your life right now?`,
+      spark:     `${name} — The Spark. You move fast and see possibilities everywhere. The real question is: which ones are worth chasing? Let's figure that out.`,
+      anchor:    `${name} — The Anchor. You keep things grounded when everything else drifts. That's rare. What are YOU anchored to right now?`,
+      compass:   `${name} — The Compass. You have direction when others are lost. Where are you pointing yourself right now?`,
+      pioneer:   `${name} — The Pioneer. You go first into the unknown. That takes real courage. What new territory are you stepping into?`,
+      sage:      `${name} — The Sage. You seek understanding and share it freely. What are you learning right now that's changing how you see things?`,
+      weaver:    `${name} — The Weaver. You see connections others miss entirely. What threads are you pulling together in your life right now?`,
+      flame:     `${name} — The Flame. You burn with purpose and light up the people around you. What are you on fire about right now?`,
+    };
+    return lines[archetype] ?? `${name}, your archetype is the ${archetype}. I want to understand what that means for your goals — what's calling you right now?`;
+  }
 
   function getGreeting(p: any): string {
     const hour = new Date().getHours();
