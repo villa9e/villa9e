@@ -21,30 +21,52 @@ function HospitalProvidersPageInner() {
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<any | null>(null);
-  const [bookingStep, setBookingStep] = useState<'select' | 'confirm' | 'done'>('select');
+  const [bookingStep, setBookingStep] = useState<'select' | 'slots' | 'confirm' | 'done'>('select');
   const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [jitsiUrl, setJitsiUrl]       = useState('');
+  const [passcode, setPasscode]       = useState('');
+  const [booking, setBooking]         = useState(false);
 
   const filtered = MOCK_PROVIDERS.filter(p =>
     (specialty === 'All' || p.specialty === specialty) &&
     (search === '' || p.name.toLowerCase().includes(search.toLowerCase()) || p.specialty.toLowerCase().includes(search.toLowerCase()))
   );
 
-  function book(provider: any) { setSelected(provider); setBookingStep('confirm'); }
+  function book(provider: any) { setSelected(provider); setBookingStep('slots'); }
 
   async function confirmBooking() {
-    if (!selected || !bookingDate) return;
-    const res = await fetch('/api/hospital/book', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        provider_id: selected.id?.startsWith('h') ? null : selected.id,
-        provider_name: selected.name,
-        session_rate: selected.rate,
-        preferred_date: bookingDate,
-        specialty: selected.specialty,
-      }),
-    });
-    // Show done state regardless (graceful)
+    if (!selected || !bookingDate || !bookingTime || booking) return;
+    setBooking(true);
+    const dateTime = `${bookingDate}T${bookingTime}`;
+    try {
+      const res = await fetch('/api/hospital/book', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider_id:   selected.id?.startsWith('mock') ? null : selected.id,
+          provider_name: selected.name,
+          session_rate:  selected.rate,
+          preferred_date: dateTime,
+          specialty:     selected.specialty,
+        }),
+      });
+      const data = await res.json();
+      if (data.video_url) { setJitsiUrl(data.video_url); setPasscode(data.passcode ?? ''); }
+      // Send confirmation email
+      fetch('/api/email/send', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'bookingConfirm', data: {
+          name:         'Villager',
+          providerName: selected.name,
+          specialty:    selected.specialty,
+          date:         new Date(dateTime).toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' }),
+          time:         bookingTime,
+          jitsiUrl:     data.video_url ?? '',
+        }}),
+      }).catch(() => {});
+    } catch { /* show done regardless */ }
+    setBooking(false);
     setBookingStep('done');
   }
 
@@ -62,37 +84,83 @@ function HospitalProvidersPageInner() {
       {/* Booking modal */}
       {selected && bookingStep !== 'select' && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white rounded-3xl w-full max-w-md p-6 space-y-4">
-            {bookingStep === 'confirm' ? (
+          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="bg-white rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+
+            {/* Step 1: Time slot selection */}
+            {bookingStep === 'slots' && (
               <>
-                <h2 className="text-xl font-bold">Book with {selected.name}</h2>
-                <div className="bg-emerald-50 rounded-2xl p-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold">Book with {selected.name}</h2>
+                  <button onClick={() => setBookingStep('select')} className="text-gray-400 text-2xl">×</button>
+                </div>
+                <div className="bg-emerald-50 rounded-2xl p-3 text-sm">
                   <p className="font-bold">{selected.specialty}</p>
-                  <p className="text-sm text-gray-500">${selected.rate}/session · {selected.availability}</p>
+                  <p className="text-gray-500">${selected.rate}/session · {selected.availability}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700">Preferred Date & Time</label>
-                  <input type="datetime-local" value={bookingDate} onChange={e => setBookingDate(e.target.value)}
-                    className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+                  <label className="text-sm font-bold text-gray-700 block mb-2">Select Date</label>
+                  <input type="date" value={bookingDate} onChange={e => setBookingDate(e.target.value)}
+                    min={new Date().toISOString().slice(0,10)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
                 </div>
-                <div className="bg-gray-50 rounded-2xl p-3 text-xs text-gray-500 space-y-1">
-                  <p>💳 Payment collected after session confirms</p>
-                  <p>🔒 HIPAA-compliant video via Doxy.me</p>
-                  <p>💰 villa9e earns 1.5% platform fee</p>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 block mb-2">Select Time</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['09:00','10:00','11:00','13:00','14:00','15:00','16:00','17:00','18:00'].map(t => (
+                      <button key={t} onClick={() => setBookingTime(t)}
+                        className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${bookingTime === t ? 'bg-emerald-600 text-white border-emerald-600' : 'border-gray-200 text-gray-600 hover:border-emerald-400'}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button onClick={() => setBookingStep('confirm')} disabled={!bookingDate || !bookingTime}
+                  className="w-full bg-emerald-600 text-white rounded-full py-3 font-bold disabled:opacity-50">
+                  Review Booking →
+                </button>
+              </>
+            )}
+
+            {bookingStep === 'confirm' && (
+              <>
+                <h2 className="text-xl font-bold">Confirm Session</h2>
+                <div className="space-y-2 bg-gray-50 rounded-2xl p-4">
+                  <div className="flex justify-between text-sm"><span className="text-gray-500">Provider</span><span className="font-bold">{selected.name}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-500">Specialty</span><span>{selected.specialty}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-500">Date</span><span className="font-bold">{new Date(bookingDate).toLocaleDateString('en', { weekday: 'short', month: 'long', day: 'numeric' })}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-500">Time</span><span className="font-bold">{bookingTime}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-500">Rate</span><span className="font-bold text-emerald-600">${selected.rate}/session</span></div>
+                </div>
+                <div className="bg-blue-50 rounded-2xl p-3 text-xs text-blue-700 space-y-1">
+                  <p>🎥 HIPAA-adjacent video via Jitsi Meet (link sent after confirmation)</p>
+                  <p>💳 Payment due directly to provider · villa9e earns 1.5%</p>
+                  <p>📧 Confirmation emailed to you</p>
                 </div>
                 <div className="flex gap-3">
-                  <button onClick={() => { setSelected(null); setBookingStep('select'); }} className="flex-1 border border-gray-200 rounded-full py-3 text-gray-500">Cancel</button>
-                  <button onClick={confirmBooking} disabled={!bookingDate} className="flex-1 bg-emerald-600 text-white rounded-full py-3 font-bold disabled:opacity-50">
-                    Confirm Booking
+                  <button onClick={() => setBookingStep('slots')} className="flex-1 border border-gray-200 rounded-full py-3 text-gray-500">← Back</button>
+                  <button onClick={confirmBooking} disabled={booking}
+                    className="flex-1 bg-emerald-600 text-white rounded-full py-3 font-bold disabled:opacity-50">
+                    {booking ? 'Booking…' : 'Confirm →'}
                   </button>
                 </div>
               </>
-            ) : (
+            )}
+
+            {bookingStep === 'done' && (
               <div className="text-center py-4 space-y-4">
-                <div className="text-6xl animate-float">✅</div>
-                <h2 className="text-2xl font-bold text-emerald-700">Booking Requested!</h2>
-                <p className="text-gray-500 text-sm">{selected.name} will confirm your session. You'll receive a notification with the video link.</p>
-                <button onClick={() => { setSelected(null); setBookingStep('select'); }} className="village-btn-primary w-full">
+                <div className="text-6xl">✅</div>
+                <h2 className="text-2xl font-bold text-emerald-700">Session Booked!</h2>
+                <p className="text-gray-500 text-sm">Your session with <strong>{selected.name}</strong> is confirmed for {bookingDate} at {bookingTime}.</p>
+                {jitsiUrl && (
+                  <div className="bg-emerald-50 rounded-2xl p-4 text-left space-y-2">
+                    <p className="text-xs font-bold text-emerald-700">🎥 Your Video Link</p>
+                    <a href={jitsiUrl} target="_blank" rel="noopener noreferrer"
+                      className="block text-xs text-emerald-600 underline break-all">{jitsiUrl}</a>
+                    {passcode && <p className="text-xs text-gray-500">Passcode: <strong>{passcode}</strong></p>}
+                    <p className="text-xs text-gray-400">Check your email for the confirmation with this link.</p>
+                  </div>
+                )}
+                <button onClick={() => { setSelected(null); setBookingStep('select'); setJitsiUrl(''); }} className="village-btn-primary w-full">
                   Back to Providers
                 </button>
               </div>

@@ -609,6 +609,61 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
           </button>
         )}
 
+        {/* Social Share Card — links to dynamic OG image */}
+        {isOwner && goal && (
+          <div className="rounded-2xl p-4 space-y-3"
+            style={{ background: isNight ? '#12152A' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}` }}>
+            <p className="text-xs font-bold uppercase tracking-wider" style={{ color: isNight ? '#4A4F72' : '#6B7280' }}>
+              📣 Share Your Goal Card
+            </p>
+            <div className="rounded-xl overflow-hidden border" style={{ borderColor: isNight ? '#1E2240' : '#E0E7FF' }}>
+              {/* OG preview */}
+              <div className="flex items-center gap-3 p-3"
+                style={{ background: isNight ? '#0D1020' : '#fff' }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                  style={{ background: `${accentHex}15`, border: `1px solid ${accentHex}30` }}>📍</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold truncate" style={{ color: isNight ? '#F0EBE0' : '#1E1B4B' }}>{goal.title}</p>
+                  <p className="text-xs" style={{ color: isNight ? '#4A4F72' : '#6B7280' }}>
+                    {goal.probability_score}% GPS · {doneCount}/{steps.length} steps
+                  </p>
+                </div>
+                <span className="text-xs font-bold" style={{ color: accentHex }}>{goal.probability_score}%</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  const url = `https://villa9e.app/village/workshop/goal/${params.id}`;
+                  const ogUrl = `https://villa9e.app/api/og?title=${encodeURIComponent(goal.title)}&type=goal&score=${goal.probability_score}`;
+                  const text = `I'm working on "${goal.title}" on villa9e — ${goal.probability_score}% GPS probability. ✊\n\n${url}`;
+                  if (navigator.share) navigator.share({ title: goal.title, text, url });
+                  else { navigator.clipboard.writeText(text); }
+                }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                style={{ background: '#1877F2', color: '#fff' }}>
+                📤 Share
+              </button>
+              <button
+                onClick={() => {
+                  const url = `https://villa9e.app/village/workshop/goal/${params.id}`;
+                  navigator.clipboard.writeText(url);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all"
+                style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA' }}>
+                🔗 Copy Link
+              </button>
+              <a
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Working on "${goal.title}" with ${goal.probability_score}% GPS probability on villa9e ⛺\n\nhttps://villa9e.app/village/workshop/goal/${params.id}`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center transition-all"
+                style={{ background: '#000', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                𝕏 Tweet
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Roles needed */}
         {/* Team members */}
         <div className="village-card">

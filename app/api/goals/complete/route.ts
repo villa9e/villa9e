@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { sendEmail } from '@/lib/email/send';
+import { EMAIL_TEMPLATES } from '@/lib/email/templates';
 
 // Mark an entire goal as completed manually (when all steps done or user declares it)
 export async function POST(req: NextRequest) {
@@ -63,6 +65,21 @@ export async function POST(req: NextRequest) {
       }))
     );
   }
+
+  // Send goal completion email (non-blocking)
+  try {
+    const { data: authUser } = await (admin as any).auth.admin.getUserById(user.id);
+    const { data: profile } = await admin.from('profiles').select('display_name, username, village_score, checkin_streak').eq('id', user.id).single();
+    if (authUser?.user?.email) {
+      const t = EMAIL_TEMPLATES.goalComplete({
+        name:       profile?.display_name || profile?.username || 'Villager',
+        goalTitle:  goal.title,
+        score:      medalVlg,
+        streak:     profile?.checkin_streak ?? 0,
+      });
+      sendEmail(authUser.user.email, t.subject, t.html).catch(() => {});
+    }
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({ ok: true, medal: medalType, vlg_earned: medalVlg });
 }

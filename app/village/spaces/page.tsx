@@ -289,6 +289,34 @@ export default function SpacesPage() {
                 )}
               </div>
 
+              {/* ── Join Live Room ── */}
+              {(() => {
+                const now = Date.now();
+                const start = new Date(selected.start_time).getTime();
+                const end   = selected.end_time ? new Date(selected.end_time).getTime() : start + 3600_000;
+                const isLive   = now >= start - 10 * 60_000 && now <= end + 10 * 60_000; // 10min buffer
+                const isUpcoming = now < start;
+                const roomId = Buffer.from(`villa9e-space-${selected.id}`).toString('base64').slice(0, 20).replace(/[+/=]/g, '');
+                const jitsiUrl = selected.location?.startsWith('http') ? selected.location : `https://meet.jit.si/villa9e-${roomId}`;
+                return (
+                  <a
+                    href={jitsiUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold transition-all"
+                    style={{
+                      background: isLive ? 'linear-gradient(135deg,#22C55E,#16A34A)' : isUpcoming ? 'linear-gradient(135deg,#1877F2,#7C3AED)' : 'rgba(255,255,255,0.05)',
+                      color: '#fff',
+                      textDecoration: 'none',
+                      opacity: !isLive && !isUpcoming ? 0.5 : 1,
+                      pointerEvents: !isLive && !isUpcoming ? 'none' : 'auto',
+                    }}
+                  >
+                    {isLive ? '🔴 Join Live Room Now →' : isUpcoming ? '🎥 Preview Video Room →' : '⏹ Session Ended'}
+                  </a>
+                );
+              })()}
+
               {/* Google Calendar sync */}
               <button onClick={() => syncToGoogleCalendar(selected)} disabled={gcalSyncing}
                 className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-2xl py-3 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50">

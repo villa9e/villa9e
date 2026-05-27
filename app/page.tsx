@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { VillageLogo } from '@/components/brand/VillageLogo';
+import { getAppConfig, cfg } from '@/lib/admin/getAppConfig';
 
 export default async function Home() {
   const supabase = createServerClient();
@@ -17,14 +18,21 @@ export default async function Home() {
     else redirect('/onboarding/spirit');
   }
 
-  const { data: counter } = await (supabase as any)
-    .from('founding_villager_counter')
-    .select('count,max_count')
-    .eq('id', 1)
-    .single();
+  // Load live config from DB (falls back to defaults if table not seeded)
+  const [counterRes, config] = await Promise.all([
+    (supabase as any).from('founding_villager_counter').select('count,max_count').eq('id', 1).single(),
+    getAppConfig(['home.hero.title','home.hero.subtitle','home.hero.cta_primary','home.founding.max','home.founding.bonus','brand.tagline']),
+  ]);
+
+  const counter = counterRes.data;
   const villagerCount = counter?.count ?? 0;
-  const spotsLeft = Math.max(0, (counter?.max_count ?? 1000) - villagerCount);
-  const pct = Math.round((villagerCount / (counter?.max_count ?? 1000)) * 100);
+  const foundingMax   = cfg(config, 'home.founding.max',   counter?.max_count ?? 1000);
+  const foundingBonus = cfg(config, 'home.founding.bonus', 500);
+  const spotsLeft = Math.max(0, foundingMax - villagerCount);
+  const pct = Math.round((villagerCount / foundingMax) * 100);
+  const heroTitle    = cfg(config, 'home.hero.title',    'It takes a village to achieve your goals.');
+  const heroSubtitle = cfg(config, 'home.hero.subtitle', 'Set a goal. AI builds your plan. Your village validates every step. Progress is a community sport.');
+  const heroCta      = cfg(config, 'home.hero.cta_primary', '🏡 Enter the Village');
 
   return (
     <div className="min-h-screen bg-[#0a0e1a] text-white overflow-x-hidden">
@@ -62,7 +70,7 @@ export default async function Home() {
           {spotsLeft > 0 && (
             <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold px-4 py-2 rounded-full mb-8">
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-              {spotsLeft} Founding Villager spots left · 500 $VLG bonus at launch
+              {spotsLeft} Founding Villager spots left · {foundingBonus} $VLG bonus at launch
             </div>
           )}
 
@@ -73,21 +81,21 @@ export default async function Home() {
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-black leading-[1.05] tracking-tight mb-5">
-            <span className="text-white">It takes a village</span>
+            <span className="text-white">{heroTitle.split(' to ')[0] ?? 'It takes a village'}</span>
             <br />
             <span style={{ background: 'linear-gradient(135deg, #1877F2, #60a5fa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-              to achieve your goals.
+              {heroTitle.includes(' to ') ? 'to ' + heroTitle.split(' to ').slice(1).join(' to ') : 'to achieve your goals.'}
             </span>
           </h1>
 
           <p className="text-white/50 text-lg leading-relaxed mb-10 max-w-lg mx-auto">
-            Set a goal. AI builds your plan. Your village validates every step. Progress is a community sport.
+            {heroSubtitle}
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/signup"
               className="bg-[#1877F2] hover:bg-[#1565c0] text-white font-bold text-base px-8 py-4 rounded-2xl transition-all hover:scale-[1.02] active:scale-95 shadow-[0_0_40px_rgba(24,119,242,0.3)]">
-              🏡 Enter the Village
+              {heroCta}
             </Link>
             <Link href="/login"
               className="bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-base px-8 py-4 rounded-2xl transition-colors">
