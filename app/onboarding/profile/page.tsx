@@ -64,7 +64,7 @@ export default function ProfileOnboarding() {
       if (referrer) localStorage.removeItem('villa9e_referrer');
     }
     setStep('done');
-    setTimeout(() => router.push('/village/map?welcome=1'), 1200);
+    setTimeout(() => router.push('/onboarding/welcome'), 1200);
   }
 
   return (
