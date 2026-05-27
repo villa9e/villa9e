@@ -217,11 +217,11 @@ export default function SpacesPage() {
                     {new Date(selected.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
-                <button onClick={() => { setSelected(null); setSpiritPrep(''); setAgenda(''); }} className="text-gray-400 text-2xl leading-none">×</button>
+                <button onClick={() => { setSelected(null); setSpiritPrep(''); setAgenda(''); }} className="text-2xl leading-none" style={{ color: textMute }}>×</button>
               </div>
 
               {selected.location && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm" style={{ color: textMute }}>
                   <span>📍</span> {selected.location}
                 </div>
               )}
@@ -233,7 +233,7 @@ export default function SpacesPage() {
                   <p className="font-bold text-sm text-indigo-700">Spirit Pre-Event Prep</p>
                 </div>
                 {spiritPrep ? (
-                  <p className="text-sm text-gray-700 leading-relaxed">{spiritPrep}</p>
+                  <p className="text-sm leading-relaxed" style={{ color: textMain }}>{spiritPrep}</p>
                 ) : prepLoading ? (
                   <div className="flex items-center gap-2 text-sm text-indigo-400">
                     <span className="animate-spin">⟳</span> Spirit is preparing your mindset…
@@ -257,11 +257,11 @@ export default function SpacesPage() {
                   )}
                 </div>
                 {agenda ? (
-                  <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{agenda}</pre>
+                  <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: textMain }}>{agenda}</pre>
                 ) : agendaLoading ? (
-                  <p className="text-xs text-gray-400">Building agenda…</p>
+                  <p className="text-xs" style={{ color: textMute }}>Building agenda…</p>
                 ) : (
-                  <p className="text-xs text-gray-400">Click "Generate" to get an AI-crafted agenda for this event.</p>
+                  <p className="text-xs" style={{ color: textMute }}>Click "Generate" to get an AI-crafted agenda for this event.</p>
                 )}
               </div>
 
@@ -273,7 +273,7 @@ export default function SpacesPage() {
               </button>
 
               {selected.description && (
-                <div className="text-sm text-gray-600 border-t border-gray-100 pt-3">
+                <div className="text-sm border-t pt-3" style={{ color: textMute, borderColor: border }}>
                   {selected.description}
                 </div>
               )}
@@ -342,7 +342,7 @@ export default function SpacesPage() {
             <span className="text-4xl">{weather.icon}</span>
             <div>
               <p className="font-bold">{weather.temp}° · {weather.condition}</p>
-              <p className="text-xs text-gray-500">{weather.city} · {weather.humidity}% humidity · {weather.wind} mph wind</p>
+              <p className="text-xs" style={{ color: textMute }}>{weather.city} · {weather.humidity}% humidity · {weather.wind} mph wind</p>
             </div>
           </motion.div>
         )}
@@ -350,7 +350,7 @@ export default function SpacesPage() {
         {/* Today's events highlight */}
         {upcomingToday.length > 0 && (
           <div>
-            <h2 className="font-bold text-sm text-gray-500 mb-2">TODAY</h2>
+            <h2 className="font-bold text-xs uppercase tracking-widest mb-2" style={{ color: textMute }}>TODAY</h2>
             {upcomingToday.map((ev, i) => (
               <motion.div key={ev.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
                 onClick={() => getSpiritPrep(ev)}
@@ -361,7 +361,7 @@ export default function SpacesPage() {
                   </div>
                   <div className="flex-1">
                     <p className="font-bold text-sm">{ev.title}</p>
-                    {ev.location && <p className="text-xs text-gray-400">📍 {ev.location}</p>}
+                    {ev.location && <p className="text-xs" style={{ color: textMute }}>📍 {ev.location}</p>}
                   </div>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[ev.event_type] || TYPE_COLORS.personal}`}>
                     {ev.event_type.replace('_', ' ')}
@@ -375,7 +375,7 @@ export default function SpacesPage() {
         {/* All upcoming */}
         {events.filter(e => !upcomingToday.includes(e)).length > 0 && (
           <div>
-            <h2 className="font-bold text-sm text-gray-500 mb-2">UPCOMING</h2>
+            <h2 className="font-bold text-xs uppercase tracking-widest mb-2" style={{ color: textMute }}>UPCOMING</h2>
             {events.filter(e => !upcomingToday.includes(e)).map((ev, i) => {
               const start = new Date(ev.start_time);
               return (
@@ -394,11 +394,11 @@ export default function SpacesPage() {
                           {ev.event_type.replace('_', ' ')}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs mt-0.5" style={{ color: textMute }}>
                         {start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                         {ev.location && ` · ${ev.location}`}
                       </p>
-                      {ev.description && <p className="text-xs text-gray-400 mt-1 line-clamp-1">{ev.description}</p>}
+                      {ev.description && <p className="text-xs mt-1 line-clamp-1" style={{ color: textMute }}>{ev.description}</p>}
                       {/* RSVP buttons for public/tribe events */}
                       {ev.event_type !== 'personal' && (
                         <div className="flex gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
@@ -425,8 +425,8 @@ export default function SpacesPage() {
         {events.length === 0 && (
           <div className="text-center py-16">
             <p className="text-5xl mb-3">📅</p>
-            <p className="text-gray-500 mb-2">No upcoming events.</p>
-            <p className="text-sm text-gray-400 mb-6">Spaces treats every event as a full experience — Spirit mindset prep, AI agenda, Google Calendar sync.</p>
+            <p className="mb-2" style={{ color: textMute }}>No upcoming events.</p>
+            <p className="text-sm mb-6" style={{ color: textMute }}>Spaces treats every event as a full experience — Spirit mindset prep, AI agenda, Google Calendar sync.</p>
             <button onClick={() => setShowCreate(true)} className="village-btn-primary">+ Create First Event</button>
           </div>
         )}
