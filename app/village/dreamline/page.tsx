@@ -22,6 +22,8 @@ export default function DreamLinePage() {
   const [loadingMore, setLoadingMore]  = useState(false);
   const [hasMore, setHasMore]          = useState(true);
   const [page, setPage]                = useState(0);
+  const [discoverSteps, setDiscoverSteps] = useState<any[]>([]);
+  const [givenDiscoverOoWops, setGivenDiscoverOoWops] = useState<Set<string>>(new Set());
   const bottomRef    = useRef<HTMLDivElement>(null);
   const motionRef    = useRef({ events: 0, startTime: 0 });
   const viewTimers   = useRef<Record<string, { start: number; sent: boolean }>>({});
@@ -100,6 +102,55 @@ export default function DreamLinePage() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
+  async function loadDiscoverSteps(userId: string) {
+    // Fetch recently completed steps from OTHER users that still need OoWops (< 3)
+    const { data: steps } = await (supabase as any)
+      .from('goal_steps')
+      .select(`
+        id, title, goal_id,
+        goals!inner(id, title, user_id,
+          profiles!inner(username, score_tier, personality_type, display_name)
+        ),
+        oowops(id)
+      `)
+      .eq('status', 'completed')
+      .neq('goals.user_id', userId)
+      .order('completed_at', { ascending: false })
+      .limit(30);
+
+    if (!steps) return;
+
+    // Filter: fewer than 3 OoWops, user hasn't already given one
+    const { data: myOoWops } = await (supabase as any)
+      .from('oowops')
+      .select('step_id')
+      .eq('giver_id', userId)
+      .not('step_id', 'is', null);
+    const myStepOoWops = new Set((myOoWops ?? []).map((o: any) => o.step_id));
+
+    const eligible = steps
+      .filter((s: any) => {
+        const count = (s.oowops ?? []).length;
+        return count < 3 && !myStepOoWops.has(s.id);
+      })
+      .slice(0, 8);
+
+    setDiscoverSteps(eligible);
+  }
+
+  async function giveDiscoverOoWop(step: any) {
+    if (!currentUserId || givenDiscoverOoWops.has(step.id)) return;
+    setGivenDiscoverOoWops(prev => new Set([...prev, step.id]));
+    await (supabase as any).from('oowops').insert({
+      giver_id:    currentUserId,
+      receiver_id: step.goals.user_id,
+      step_id:     step.id,
+      goal_id:     step.goal_id,
+    });
+    VillageSound.oowop?.();
+    setCelebration(step.id);
+  }
+
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
@@ -111,6 +162,7 @@ export default function DreamLinePage() {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id).gte('created_at', today.toISOString());
       setPostCount(count ?? 0);
+      loadDiscoverSteps(user.id);
     }
     const feedRes = await fetch(`/api/dreamline/feed?limit=${PAGE_SIZE}&offset=0`);
     if (feedRes.ok) {
@@ -215,6 +267,67 @@ export default function DreamLinePage() {
       )}
 
       <div className="max-w-2xl mx-auto p-4 space-y-3">
+
+        {/* ── OoWop Discovery ───────────────────────────────────── */}
+        {discoverSteps.length > 0 && (
+          <div>
+            <p className="text-xs font-bold uppercase tracking-widest mb-2.5 flex items-center gap-2"
+              style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
+              <span>✊</span> Give OoWops — validate their wins
+            </p>
+            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4" style={{ scrollbarWidth: 'none' }}>
+              {discoverSteps.map((step: any) => {
+                const profile = step.goals?.profiles;
+                const name    = profile?.display_name || profile?.username || 'Villager';
+                const count   = (step.oowops ?? []).length;
+                const given   = givenDiscoverOoWops.has(step.id);
+
+                return (
+                  <motion.div
+                    key={step.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex-shrink-0 rounded-2xl p-4 flex flex-col gap-3 w-56"
+                    style={{
+                      background: isNight ? '#12152A' : '#FFFFFF',
+                      border: `1px solid ${isNight ? '#1E2240' : '#E9D5FF'}`,
+                    }}
+                  >
+                    <div>
+                      <p className="text-xs font-semibold truncate" style={{ color: isNight ? '#7A7FA8' : '#7C3AED' }}>
+                        @{profile?.username}
+                      </p>
+                      <p className="text-sm font-bold mt-0.5 line-clamp-2 leading-snug"
+                        style={{ color: isNight ? '#F0EBE0' : '#1E1B4B' }}>
+                        {step.title}
+                      </p>
+                      <p className="text-xs mt-1 truncate" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
+                        ↳ {step.goals?.title}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
+                        {count}/3 OoWops
+                      </span>
+                      <motion.button
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => giveDiscoverOoWop(step)}
+                        disabled={given}
+                        className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black transition-all disabled:opacity-50"
+                        style={{
+                          background: given ? (isNight ? '#1A3D2F' : '#DCFCE7') : '#7C3AED',
+                          color:      given ? '#4ADE80' : '#fff',
+                        }}
+                      >
+                        {given ? '✓ OoWop'd' : '✊ OoWop'}
+                      </motion.button>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Post composer */}
         <div style={cardStyle}>

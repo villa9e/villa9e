@@ -114,12 +114,20 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
       .select('*').eq('user_id', userId).single(),
     (admin as any).from('spirit_collective')
       .select('insight').limit(3),
-    (admin as any).from('spirit_memories')
-      .select('content, memory_type, importance')
-      .eq('user_id', userId)
-      .order('importance', { ascending: false })
-      .order('created_at', { ascending: false })
-      .limit(12),
+    // If a query is provided, use full-text search for relevant memories;
+    // otherwise fall back to most recent / most important
+    query?.trim()
+      ? (admin as any).from('spirit_memories')
+          .select('content, memory_type, importance')
+          .eq('user_id', userId)
+          .textSearch('content_tsv', query.trim(), { type: 'websearch' })
+          .limit(8)
+      : (admin as any).from('spirit_memories')
+          .select('content, memory_type, importance')
+          .eq('user_id', userId)
+          .order('importance', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(10),
   ]);
 
   // Safely extract data from allSettled results — missing tables return null

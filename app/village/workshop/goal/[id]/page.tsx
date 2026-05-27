@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
 import { awardScore } from '@/lib/village/score';
@@ -28,6 +29,13 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [inviting, setInviting] = useState(false);
   const [inviteSent, setInviteSent] = useState('');
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [activeSprint, setActiveSprint]       = useState<any>(null);
+  const [showSprintModal, setShowSprintModal] = useState(false);
+  const [sprintTitle, setSprintTitle]         = useState('');
+  const [sprintIntention, setSprintIntention] = useState('');
+  const [selectedStepIds, setSelectedStepIds] = useState<Set<string>>(new Set());
+  const [creatingSprint, setCreatingSprint]   = useState(false);
+  const router = useRouter();
   const supabase = createClient();
 
   useEffect(() => { loadGoal(); }, [params.id]);
@@ -44,12 +52,44 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     setTeamMembers(team ?? []);
     setGoal(g); setSteps(s ?? []);
 
-    // Which steps has this user OoWop'd?
+    // Which steps has this user OoWop'd? + active sprint?
     if (user) {
-      const { data: ow } = await supabase.from('oowops').select('step_id').eq('giver_id', user.id).not('step_id', 'is', null);
+      const [{ data: ow }, sprintRes] = await Promise.all([
+        supabase.from('oowops').select('step_id').eq('giver_id', user.id).not('step_id', 'is', null),
+        fetch(`/api/sprints?goal_id=${params.id}`),
+      ]);
       if (ow) setGivenOoWops(new Set(ow.map((o: any) => o.step_id).filter(Boolean)));
+      if (sprintRes.ok) { const sp = await sprintRes.json(); if (sp) setActiveSprint(sp); }
     }
     setLoading(false);
+  }
+
+  async function createSprint() {
+    if (!goal || creatingSprint) return;
+    setCreatingSprint(true);
+    const pendingSteps = steps.filter(s => s.status !== 'completed');
+    const actions = selectedStepIds.size > 0
+      ? pendingSteps.filter(s => selectedStepIds.has(s.id)).map(s => ({ title: s.title, goal_step_id: s.id }))
+      : pendingSteps.slice(0, 5).map(s => ({ title: s.title, goal_step_id: s.id }));
+
+    const res = await fetch('/api/sprints', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        goal_id:          goal.id,
+        title:            sprintTitle || `${goal.title} — Week Sprint`,
+        focus_intention:  sprintIntention,
+        actions,
+      }),
+    });
+    if (res.ok) {
+      const sprint = await res.json();
+      setShowSprintModal(false);
+      setCreatingSprint(false);
+      router.push(`/village/workshop/sprint/${sprint.id}`);
+    } else {
+      setCreatingSprint(false);
+    }
   }
 
   // Spirit verifies first, then completes
@@ -215,6 +255,102 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
             <p className="text-sm text-amber-600 mt-1">{goal.medal_type === 'GOLD' ? '+200 $VLG earned' : goal.medal_type === 'SILVER' ? '+150 $VLG earned' : '+100 $VLG earned'}</p>
           </motion.div>
         )}
+
+        {/* ── Sprint card ─────────────────────────────────────── */}
+        {isOwner && !isComplete && (
+          activeSprint ? (
+            <Link href={`/village/workshop/sprint/${activeSprint.id}`}>
+              <motion.div whileHover={{ scale: 1.01 }} className="village-card cursor-pointer"
+                style={{ background: isNight ? 'rgba(24,119,242,0.08)' : '#EEF2FF', border: `1px solid ${isNight ? 'rgba(24,119,242,0.2)' : '#C7D2FE'}` }}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide" style={{ color: isNight ? '#60A5FA' : '#4338CA' }}>Active Sprint ⚡</p>
+                    <p className="font-bold text-sm mt-0.5" style={{ color: 'var(--v-text)' }}>{activeSprint.title}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'var(--v-text-muted)' }}>
+                      {activeSprint.sprint_actions?.filter((a: any) => a.completed).length ?? 0}/
+                      {activeSprint.sprint_actions?.length ?? 0} actions · Tap to track →
+                    </p>
+                  </div>
+                  <div className="text-3xl">⚡</div>
+                </div>
+              </motion.div>
+            </Link>
+          ) : (
+            <motion.button whileTap={{ scale: 0.98 }} onClick={() => { setSprintTitle(`${goal?.title ?? ''} — Week Sprint`); setShowSprintModal(true); }}
+              className="w-full village-card text-left flex items-center gap-4 cursor-pointer"
+              style={{ border: `1px dashed ${isNight ? '#1E2240' : '#C7D2FE'}` }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
+                style={{ background: isNight ? 'rgba(24,119,242,0.1)' : '#EEF2FF' }}>⚡</div>
+              <div>
+                <p className="font-bold text-sm" style={{ color: 'var(--v-text)' }}>Start Weekly Sprint</p>
+                <p className="text-xs" style={{ color: 'var(--v-text-muted)' }}>Pick 3–5 actions to focus on this week → track daily</p>
+              </div>
+            </motion.button>
+          )
+        )}
+
+        {/* Sprint creation modal */}
+        <AnimatePresence>
+          {showSprintModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+              onClick={() => setShowSprintModal(false)}>
+              <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
+                onClick={e => e.stopPropagation()}
+                className="w-full max-w-md rounded-3xl p-6 space-y-4 max-h-[85vh] overflow-y-auto"
+                style={{ background: isNight ? '#0D0F1E' : '#fff', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}` }}>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-black text-lg" style={{ color: 'var(--v-text)' }}>⚡ Start Sprint</h2>
+                  <button onClick={() => setShowSprintModal(false)} style={{ color: 'var(--v-text-muted)', background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--v-text-muted)' }}>Sprint Title</label>
+                    <input value={sprintTitle} onChange={e => setSprintTitle(e.target.value)}
+                      className="w-full mt-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                      style={{ background: isNight ? 'rgba(255,255,255,0.06)' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: 'var(--v-text)' }} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--v-text-muted)' }}>What will you accomplish this week?</label>
+                    <textarea value={sprintIntention} onChange={e => setSprintIntention(e.target.value)} rows={2}
+                      placeholder="My intention for this sprint…"
+                      className="w-full mt-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
+                      style={{ background: isNight ? 'rgba(255,255,255,0.06)' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: 'var(--v-text)', fontFamily: 'inherit' }} />
+                  </div>
+
+                  {/* Step picker */}
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--v-text-muted)' }}>
+                      Choose focus steps (leave blank = auto-pick top 5)
+                    </label>
+                    <div className="mt-2 space-y-1.5 max-h-44 overflow-y-auto">
+                      {steps.filter(s => s.status !== 'completed').map(step => (
+                        <label key={step.id} className="flex items-center gap-2.5 rounded-xl px-3 py-2 cursor-pointer"
+                          style={{ background: selectedStepIds.has(step.id) ? (isNight ? 'rgba(24,119,242,0.15)' : '#EEF2FF') : 'transparent' }}>
+                          <input type="checkbox" checked={selectedStepIds.has(step.id)}
+                            onChange={e => setSelectedStepIds(prev => {
+                              const n = new Set(prev);
+                              e.target.checked ? n.add(step.id) : n.delete(step.id);
+                              return n;
+                            })} className="w-4 h-4 rounded" />
+                          <span className="text-sm" style={{ color: 'var(--v-text)' }}>{step.title}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <button onClick={createSprint} disabled={creatingSprint || !sprintTitle.trim()}
+                  className="w-full py-3.5 rounded-2xl font-black text-white disabled:opacity-50"
+                  style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
+                  {creatingSprint ? 'Creating…' : '⚡ Launch Sprint →'}
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Probability + progress */}
         <div className="village-card">

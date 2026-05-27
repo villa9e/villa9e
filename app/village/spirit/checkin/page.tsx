@@ -116,20 +116,35 @@ export default function SpiritCheckinPage() {
       speak(fallback, 'serious');
     }
 
-    // Save to spirit_memories + award score + mark day done
+    // Save to spirit_memories + award score + update streak
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const today = new Date().toISOString().slice(0, 10);
-      await (supabase as any).from('spirit_memories').insert({
-        user_id:     user.id,
-        memory_type: 'checkin',
-        content:     `${timeLabel} check-in — Mood: ${mood.label}. ${question} "${answer}"`,
-      });
-      await (supabase as any).from('profiles').update({
-        mindful_moment_done: true,
-        last_mindful_date:   today,
-        village_score:       (profile?.village_score ?? 0) + 10,
-      }).eq('id', user.id);
+      const today     = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+      const last      = profile?.last_checkin_date ?? null;
+
+      // Calculate streak: +1 if checked in yesterday, reset to 1 otherwise
+      const currentStreak  = profile?.checkin_streak  ?? 0;
+      const longestStreak  = profile?.longest_streak  ?? 0;
+      const newStreak      = last === yesterday ? currentStreak + 1 : 1;
+      const newLongest     = Math.max(newStreak, longestStreak);
+
+      await Promise.all([
+        (supabase as any).from('spirit_memories').insert({
+          user_id:     user.id,
+          memory_type: 'checkin',
+          content:     `${timeLabel} check-in — Mood: ${mood.label}. ${question} "${answer}"`,
+          importance:  5,
+        }),
+        (supabase as any).from('profiles').update({
+          mindful_moment_done: true,
+          last_mindful_date:   today,
+          last_checkin_date:   today,
+          checkin_streak:      newStreak,
+          longest_streak:      newLongest,
+          village_score:       (profile?.village_score ?? 0) + 10,
+        }).eq('id', user.id),
+      ]);
     }
 
     setLoading(false);
@@ -289,10 +304,23 @@ export default function SpiritCheckinPage() {
                 <p className="text-sm leading-relaxed" style={{ color: text }}>{reflection}</p>
               </div>
 
-              <div className="rounded-2xl py-3 px-4 flex items-center justify-center gap-2"
+              <div className="rounded-2xl py-3 px-4 space-y-2"
                 style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.2)' }}>
-                <span className="text-lg">✓</span>
-                <span className="font-bold text-green-400 text-sm">Check-in complete · +10 VLG earned</span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="text-lg">✓</span>
+                  <span className="font-bold text-green-400 text-sm">Check-in complete · +10 VLG earned</span>
+                </div>
+                {(profile?.checkin_streak ?? 0) > 0 && (
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-base">🔥</span>
+                    <span className="text-sm font-black text-orange-400">
+                      {((profile?.checkin_streak ?? 0) + 1)}-day streak
+                    </span>
+                    {((profile?.checkin_streak ?? 0) + 1) >= 7 && (
+                      <span className="text-xs text-orange-300">· On fire!</span>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -35,6 +35,7 @@ export default function HutPage() {
   const [wallet, setWallet]    = useState<any>(null);
   const [provider, setProvider]= useState<any>(null);
   const [loading, setLoading]  = useState(true);
+  const [badges, setBadges]    = useState<any[]>([]);
   const supabase = createClient();
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
@@ -65,6 +66,14 @@ export default function HutPage() {
 
       setProfile(p); setSkills(s ?? []); setGoals(g ?? []);
       setWallet(w); setXp(xpData); setProvider(prov);
+
+      // Load earned badges
+      const { data: earned } = await (supabase as any)
+        .from('user_achievements')
+        .select('achievement_id, earned_at, achievements(id, title, icon, rarity, points, description)')
+        .eq('user_id', user.id)
+        .order('earned_at', { ascending: false });
+      setBadges(earned ?? []);
       setLoading(false);
     }
     load();
@@ -221,6 +230,60 @@ export default function HutPage() {
                   {s.skill_name} {s.rating >= 7 ? '✓' : ''}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── Streak ────────────────────────────────────────────── */}
+        {(profile?.checkin_streak ?? 0) > 0 && (
+          <div className="rounded-2xl p-4 flex items-center gap-4"
+            style={{ background: isNight ? 'rgba(255,107,43,0.08)' : '#FFF7ED', border: `1px solid ${isNight ? 'rgba(255,107,43,0.2)' : '#FED7AA'}` }}>
+            <span className="text-3xl">🔥</span>
+            <div className="flex-1">
+              <p className="font-black text-lg" style={{ color: isNight ? '#FB923C' : '#EA580C' }}>
+                {profile.checkin_streak}-Day Streak
+              </p>
+              <p className="text-xs" style={{ color: textMute }}>
+                Longest: {profile.longest_streak ?? profile.checkin_streak} days · Keep checking in daily
+              </p>
+            </div>
+            <Link href="/village/spirit/checkin"
+              className="text-xs font-bold px-3 py-2 rounded-xl"
+              style={{ background: isNight ? 'rgba(255,107,43,0.15)' : '#FED7AA', color: isNight ? '#FB923C' : '#9A3412' }}>
+              Check In →
+            </Link>
+          </div>
+        )}
+
+        {/* ── Achievement badges ─────────────────────────────────── */}
+        {badges.length > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-black text-sm" style={{ color: textMain }}>Achievements</p>
+              <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+                style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA' }}>
+                {badges.length} earned
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {badges.map((b: any) => {
+                const ach = b.achievements;
+                const rarityColor: Record<string, string> = {
+                  legendary: '#F59E0B',
+                  epic:      '#8B5CF6',
+                  rare:      '#3B82F6',
+                  common:    isNight ? '#4A4F72' : '#6B7280',
+                };
+                const color = rarityColor[ach?.rarity ?? 'common'];
+                return (
+                  <div key={b.achievement_id} title={`${ach?.title}: ${ach?.description}`}
+                    className="flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-center"
+                    style={{ background: isNight ? '#0D1020' : '#F8FAFF', border: `1px solid ${color}30`, minWidth: '60px' }}>
+                    <span className="text-2xl">{ach?.icon}</span>
+                    <span className="text-[10px] font-bold leading-tight" style={{ color }}>{ach?.title}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
