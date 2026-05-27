@@ -38,16 +38,27 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .single();
 
-  // Notify the addressee
+  const title = `@${requester?.username} wants to connect`;
+  const body  = `${requester?.display_name || requester?.username} sent you a connection request in the village.`;
+
+  // DB notification
   await (admin as any).from('notifications').insert({
-    user_id:        addressee_id,
-    type:           'connection_request',
-    title:          `@${requester?.username} wants to connect`,
-    body:           `${requester?.display_name || requester?.username} sent you a connection request in the village.`,
-    reference_id:   conn.id,
-    reference_type: 'connection',
-    action_url:     '/village/discover/connections',
+    user_id: addressee_id, type: 'connection_request',
+    title, body, reference_id: conn.id,
+    reference_type: 'connection', action_url: '/village/discover/connections',
   });
+
+  // Push notification via OneSignal
+  fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      external_user_ids: [addressee_id],
+      title, body,
+      url: `${process.env.NEXT_PUBLIC_APP_URL}/village/discover/connections`,
+      data: { type: 'connection_request', connection_id: conn.id },
+    }),
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true, connection_id: conn.id });
 }

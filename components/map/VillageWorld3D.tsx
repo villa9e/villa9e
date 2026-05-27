@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useWeather } from '@/lib/theme/useWeather';
 import { VillageSound } from '@/lib/sounds/village';
 import { useSkySystem } from '@/lib/world/useSkySystem';
+import { SpiritFigure } from '@/components/spirit/SpiritFigure';
+import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 import * as THREE from 'three';
 
 // ─── Location data with collision boxes ───────────────────────────────────────
@@ -661,13 +663,14 @@ interface RemotePlayer {
 }
 
 function WorldScene({
-  playerPos, playerRot, remotePlayers, onEnterBuilding, skyState,
+  playerPos, playerRot, remotePlayers, onEnterBuilding, skyState, spiritVariant,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
   remotePlayers: RemotePlayer[];
   onEnterBuilding: (href: string, label: string) => void;
   skyState: any;
+  spiritVariant: SpiritVariantId;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -708,6 +711,16 @@ function WorldScene({
 
       {/* Sacred fire */}
       <SacredFire />
+
+      {/* Floating Spirit figure above the fire — user's selected variant */}
+      <group position={[0, 1.8, 0]}>
+        <SpiritFigure variant={spiritVariant} scale={1.2} index={0} />
+      </group>
+      {/* Gentle glow beneath Spirit */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+        <circleGeometry args={[1.2, 32]} />
+        <meshBasicMaterial color="#1877F2" transparent opacity={0.08} />
+      </mesh>
 
       {/* Buildings */}
       {LOCATIONS.map(loc => (
@@ -803,6 +816,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const { mood } = useWeather();
   const { skyState } = useSkySystem();
 
+  const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
   const playerPos = useRef(new THREE.Vector3(0, 0, 5));
   const playerRot = useRef(0);
   const moveInput = useRef({ dx: 0, dy: 0 });
@@ -834,8 +848,13 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (!user) return;
       userId = user.id;
 
-      (supabase as any).from('profiles').select('username').eq('id', user.id).single()
-        .then(({ data }: any) => { username = data?.username ?? 'villager'; });
+      (supabase as any).from('profiles').select('username, avatar_config').eq('id', user.id).single()
+        .then(({ data }: any) => {
+          username = data?.username ?? 'villager';
+          if (data?.avatar_config?.spirit_variant) {
+            setSpiritVariant(data.avatar_config.spirit_variant as SpiritVariantId);
+          }
+        });
 
       const channel = supabase.channel('village_world', {
         config: { presence: { key: user.id } },
@@ -956,6 +975,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           remotePlayers={remotePlayers}
           onEnterBuilding={handleEnterBuilding}
           skyState={skyState}
+          spiritVariant={spiritVariant}
         />
       </Canvas>
 

@@ -9,6 +9,93 @@ import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 type Tab = 'chat' | 'goals' | 'tasks' | 'members' | 'deals';
 
+// ─── Tribe Deal Creator ────────────────────────────────────────────────────────
+function TribeDealCreator({ tribeId, userId, isNight, cardBg, border, textMain, textMute, accent, onCreated }: {
+  tribeId: string; userId: string | null; isNight: boolean;
+  cardBg: string; border: string; textMain: string; textMute: string; accent: string;
+  onCreated: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ title: '', skill_offered: '', description: '', hourly_rate: '', deal_types: 'trade' });
+  const [saving, setSaving] = useState(false);
+  const supabase = createClient();
+
+  async function create() {
+    if (!form.title.trim() || !form.skill_offered.trim() || !userId) return;
+    setSaving(true);
+    await (supabase as any).from('trading_post_listings').insert({
+      user_id:       userId,
+      title:         form.title,
+      description:   form.description,
+      skill_offered: form.skill_offered,
+      category:      'Tribe',
+      hourly_rate:   form.hourly_rate ? parseFloat(form.hourly_rate) : null,
+      deal_types:    [form.deal_types],
+      is_active:     true,
+      tribe_id:      tribeId,
+    });
+    setSaving(false);
+    setOpen(false);
+    setForm({ title: '', skill_offered: '', description: '', hourly_rate: '', deal_types: 'trade' });
+    onCreated();
+    VillageSound.tap();
+  }
+
+  const inputStyle: React.CSSProperties = {
+    background: isNight ? '#0A0B12' : '#FFF0F8',
+    border: `1px solid ${border}`,
+    color: textMain,
+    width: '100%',
+    borderRadius: '12px',
+    padding: '10px 14px',
+    fontSize: '13px',
+    outline: 'none',
+  };
+
+  return (
+    <div>
+      {!open ? (
+        <button onClick={() => setOpen(true)}
+          className="w-full py-3.5 rounded-2xl text-sm font-black text-white transition-all"
+          style={{ background: `linear-gradient(135deg, ${accent}, #9D174D)` }}>
+          + Offer a Skill or Service to Your Tribe
+        </button>
+      ) : (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-4 space-y-3"
+          style={{ background: cardBg, border: `1px solid ${accent}50` }}>
+          <div className="flex items-center justify-between mb-1">
+            <p className="font-black text-sm" style={{ color: textMain }}>Create a Tribe Offer</p>
+            <button onClick={() => setOpen(false)} style={{ color: textMute }}>×</button>
+          </div>
+          <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+            placeholder="Offer title (e.g. 'Logo Design for tribe members')" style={inputStyle} />
+          <input value={form.skill_offered} onChange={e => setForm(f => ({ ...f, skill_offered: e.target.value }))}
+            placeholder="Skill offered (e.g. Graphic Design)" style={inputStyle} />
+          <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Details about what you're offering…" rows={2}
+            style={{ ...inputStyle, resize: 'none' }} />
+          <div className="flex gap-2">
+            <input value={form.hourly_rate} onChange={e => setForm(f => ({ ...f, hourly_rate: e.target.value }))}
+              placeholder="$/h (optional)" type="number" style={{ ...inputStyle, width: '40%' }} />
+            <select value={form.deal_types} onChange={e => setForm(f => ({ ...f, deal_types: e.target.value }))}
+              style={{ ...inputStyle, width: '60%' }}>
+              <option value="trade">🤝 Skill Trade</option>
+              <option value="pay">💳 Paid Service</option>
+              <option value="collab">💬 Collaboration</option>
+            </select>
+          </div>
+          <button onClick={create} disabled={saving || !form.title.trim()}
+            className="w-full py-3 rounded-2xl text-sm font-black text-white disabled:opacity-50"
+            style={{ background: accent }}>
+            {saving ? 'Posting…' : '🤝 Post to Tribe'}
+          </button>
+        </motion.div>
+      )}
+    </div>
+  );
+}
+
 export default function TribeDetailPage({ params }: { params: { id: string } }) {
   const [tribe, setTribe]       = useState<any>(null);
   const [members, setMembers]   = useState<any[]>([]);
@@ -410,49 +497,91 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
       {/* DEALS */}
       {activeTab === 'deals' && (
         <div className="max-w-2xl mx-auto w-full p-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-wider" style={{ color: textMute }}>
-            Skills & Services from Tribe Members
-          </p>
-          <p className="text-xs leading-relaxed" style={{ color: textMute }}>
-            These are offerings from your tribe. Invest in each other — skills, services, collaboration deals.
-          </p>
-          {deals.length === 0 && (
+          {/* Offer creation CTA */}
+          <TribeDealCreator
+            tribeId={params.id}
+            userId={userId}
+            isNight={isNight}
+            cardBg={cardBg}
+            border={border}
+            textMain={textMain}
+            textMute={textMute}
+            accent={accent}
+            onCreated={() => load()}
+          />
+
+          {deals.length === 0 ? (
             <div className="text-center py-10" style={{ color: textMute }}>
               <p className="text-3xl mb-2">🤝</p>
-              <p className="text-sm">No tribe members have listed skills yet.</p>
-              <Link href="/village/trading-post" className="text-sm font-bold mt-2 inline-block" style={{ color: accent }}>
-                Add your skill →
-              </Link>
+              <p className="text-sm mb-1">No deals in this tribe yet.</p>
+              <p className="text-xs">Offer a skill or service above — your tribe is waiting.</p>
             </div>
+          ) : (
+            <>
+              <p className="text-xs font-bold uppercase tracking-widest pt-2" style={{ color: textMute }}>
+                Tribe Offers ({deals.length})
+              </p>
+              {deals.map(deal => (
+                <motion.div key={deal.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl p-4"
+                  style={{ background: cardBg, border: `1px solid ${border}` }}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
+                          {deal.profiles?.username?.[0]?.toUpperCase() ?? '?'}
+                        </div>
+                        <div>
+                          <p className="font-black text-sm" style={{ color: textMain }}>{deal.title}</p>
+                          <p className="text-xs" style={{ color: textMute }}>@{deal.profiles?.username} · {deal.skill_offered}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {deal.hourly_rate && (
+                      <span className="font-black text-sm flex-shrink-0 px-2.5 py-1 rounded-full"
+                        style={{ background: 'rgba(24,119,242,0.1)', color: '#60a5fa' }}>
+                        ${deal.hourly_rate}/h
+                      </span>
+                    )}
+                  </div>
+                  {deal.description && (
+                    <p className="text-xs mt-2 leading-relaxed line-clamp-2" style={{ color: textMute }}>{deal.description}</p>
+                  )}
+                  <div className="flex gap-2 mt-3">
+                    {(deal.deal_types ?? []).map((dt: string) => (
+                      <span key={dt} className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                        style={{
+                          background: dt === 'trade' ? (isNight ? '#0D2D1A' : '#DCFCE7') : dt === 'pay' ? (isNight ? '#0D1A2D' : '#DBEAFE') : (isNight ? '#1A0D2D' : '#F3E8FF'),
+                          color: dt === 'trade' ? '#16A34A' : dt === 'pay' ? '#1877F2' : '#7C3AED',
+                        }}>
+                        {dt === 'trade' ? '🤝 Trade' : dt === 'pay' ? '💳 Hire' : '💬 Network'}
+                      </span>
+                    ))}
+                    <div className="flex-1" />
+                    {deal.user_id !== userId && (
+                      <button
+                        onClick={async () => {
+                          await fetch('/api/trading-post/contact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              listing_id: deal.id,
+                              message: `Hey! I saw your offer in our tribe "${tribe?.name}" and I'm interested in collaborating.`,
+                            }),
+                          });
+                          alert('Message sent! Check your messages.');
+                        }}
+                        className="px-3 py-1 rounded-full text-xs font-bold text-white transition-all"
+                        style={{ background: accent }}>
+                        Contact
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </>
           )}
-          {deals.map(deal => (
-            <div key={deal.id} className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>{deal.title}</p>
-                  <p className="text-xs" style={{ color: textMute }}>@{deal.profiles?.username} · {deal.skill_offered}</p>
-                </div>
-                {deal.hourly_rate && (
-                  <span className="font-black text-sm flex-shrink-0" style={{ color: '#1877F2' }}>${deal.hourly_rate}/h</span>
-                )}
-              </div>
-              {deal.description && (
-                <p className="text-xs mt-2 line-clamp-2" style={{ color: isNight ? '#C8C3B8' : '#6B7280' }}>{deal.description}</p>
-              )}
-              <div className="flex gap-2 mt-3">
-                {(deal.deal_types ?? []).map((dt: string) => (
-                  <Link key={dt} href={`/village/trading-post`}
-                    className="flex-1 text-center rounded-full py-2 text-xs font-bold"
-                    style={{
-                      background: dt === 'trade' ? (isNight ? '#0D2D1A' : '#DCFCE7') : dt === 'pay' ? (isNight ? '#0D1A2D' : '#DBEAFE') : (isNight ? '#1A0D2D' : '#F3E8FF'),
-                      color: dt === 'trade' ? '#16A34A' : dt === 'pay' ? '#1877F2' : '#7C3AED',
-                    }}>
-                    {dt === 'trade' ? '🤝 Trade' : dt === 'pay' ? '💳 Hire' : '💬 Network'}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
         </div>
       )}
     </div>

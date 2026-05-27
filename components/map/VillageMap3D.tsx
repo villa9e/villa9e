@@ -340,76 +340,168 @@ function Building({ location, onClick, onHover, onLeave }: any) {
 // Each entry: skin, hair, garment color, cultural accent color, headpiece
 // Representing: West African, Kemetic, Native American, South Asian, Pacific Islander,
 // Aboriginal Australian, Mayan/Aztec, Nordic/Celtic, Southeast Asian, Siberian, East African
-const NPC_CULTURES = [
-  { skin: '#3B1506', hair: '#1A0A00', garment: '#8B0000', accent: '#FFD700',  label: 'Kemetic'       },
-  { skin: '#6B3A2A', hair: '#1A0A00', garment: '#D97706', accent: '#16A34A',  label: 'West African'  },
-  { skin: '#C68642', hair: '#1A0A00', garment: '#7C3AED', accent: '#06B6D4',  label: 'Mayan'         },
-  { skin: '#F0C27F', hair: '#2D1600', garment: '#DC2626', accent: '#FFD700',  label: 'Native Amer.'  },
-  { skin: '#8B6347', hair: '#1A0A00', garment: '#059669', accent: '#F59E0B',  label: 'South Asian'   },
-  { skin: '#C4A882', hair: '#1A0A00', garment: '#1877F2', accent: '#E8770A',  label: 'Pacific Isl.'  },
-  { skin: '#4A2800', hair: '#1A0A00', garment: '#BE185D', accent: '#FFD700',  label: 'Aboriginal'    },
-  { skin: '#F5DEB3', hair: '#8B4513', garment: '#2D7D46', accent: '#C4A882',  label: 'Celtic'        },
-  { skin: '#D2B48C', hair: '#1A0A00', garment: '#FF6B2B', accent: '#7C3AED',  label: 'SE Asian'      },
-  { skin: '#5C3A1E', hair: '#1A0A00', garment: '#0D9488', accent: '#FFD700',  label: 'East African'  },
-  { skin: '#C68642', hair: '#1A0A00', garment: '#3B1506', accent: '#D97706',  label: 'Siberian'      },
+const NPC_CULTURES: NPCCulture[] = [
+  { skin: '#2D0F08', hair: '#1A0A00', garment: '#8B0000', accent: '#FFD700',  label: 'Kemetic',       headpiece: 'crown',   hairStyle: 'locs'     },
+  { skin: '#5C3010', hair: '#1A0A00', garment: '#D97706', accent: '#16A34A',  label: 'West African',  headpiece: 'wrap',    hairStyle: 'afro'     },
+  { skin: '#C87941', hair: '#1A0A00', garment: '#7C3AED', accent: '#06B6D4',  label: 'Mayan',         headpiece: 'feather', hairStyle: 'straight' },
+  { skin: '#F0C27F', hair: '#3B1200', garment: '#DC2626', accent: '#FFD700',  label: 'Native Amer.',  headpiece: 'feather', hairStyle: 'braids'   },
+  { skin: '#8B6347', hair: '#1A0A00', garment: '#D97706', accent: '#E8770A',  label: 'South Asian',   headpiece: 'turban',  hairStyle: 'straight' },
+  { skin: '#C4A882', hair: '#1A0A00', garment: '#1877F2', accent: '#E8770A',  label: 'Pacific Isl.',  headpiece: 'none',    hairStyle: 'locs'     },
+  { skin: '#3A1A08', hair: '#1A0A00', garment: '#BE185D', accent: '#FFD700',  label: 'Aboriginal',    headpiece: 'none',    hairStyle: 'afro'     },
+  { skin: '#F5DEB3', hair: '#8B3A10', garment: '#2D7D46', accent: '#C4A882',  label: 'Celtic',        headpiece: 'none',    hairStyle: 'braids'   },
+  { skin: '#D2B48C', hair: '#1A0A00', garment: '#FF6B2B', accent: '#7C3AED',  label: 'SE Asian',      headpiece: 'none',    hairStyle: 'bun'      },
+  { skin: '#5C2A10', hair: '#1A0A00', garment: '#0D9488', accent: '#FFD700',  label: 'East African',  headpiece: 'wrap',    hairStyle: 'locs'     },
+  { skin: '#C8956E', hair: '#2D1600', garment: '#3B1506', accent: '#D97706',  label: 'Siberian',      headpiece: 'wrap',    hairStyle: 'braids'   },
 ];
 
-// ─── NPC — lower poly count, bold silhouette ──────────────────────────────────
-// Smooth where it matters (head, limbs) but poly-efficient
-function NPC({ pos, color = '#C68642', accentColor = '#E8770A' }: { pos: [number,number,number]; color?: string; accentColor?: string }) {
-  const ref = useRef<THREE.Group>(null);
+// ─── NPC — culturally diverse, bold Spider-Verse silhouette ──────────────────
+interface NPCCulture {
+  skin: string; hair: string; garment: string; accent: string;
+  label: string;
+  headpiece?: 'wrap' | 'crown' | 'feather' | 'turban' | 'none';
+  hairStyle?: 'afro' | 'locs' | 'straight' | 'bun' | 'braids';
+}
 
-  const headGeo = useMemo(() => {
-    const g = new THREE.SphereGeometry(0.28, 10, 8); // smooth head silhouette
-    g.computeVertexNormals();
-    return g;
-  }, []);
-  const hairGeo = useMemo(() => {
-    const g = new THREE.SphereGeometry(0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.6); // hair cap
-    g.computeVertexNormals();
-    return g;
-  }, []);
-  const limbGeo = useMemo(() => {
-    const g = new THREE.CapsuleGeometry(0.07, 0.3, 4, 8); // smooth capsule limbs
-    g.computeVertexNormals();
-    return g;
-  }, []);
+function NPC({ pos, culture }: { pos: [number,number,number]; culture: NPCCulture }) {
+  const ref = useRef<THREE.Group>(null);
+  const armRef = useRef<THREE.Mesh>(null);
+
+  const headGeo  = useMemo(() => { const g = new THREE.SphereGeometry(0.28, 12, 10); g.computeVertexNormals(); return g; }, []);
+  const afroGeo  = useMemo(() => { const g = new THREE.SphereGeometry(0.30, 10, 8); g.computeVertexNormals(); return g; }, []);
+  const locsGeo  = useMemo(() => { const g = new THREE.CylinderGeometry(0.04, 0.03, 0.25, 6); g.computeVertexNormals(); return g; }, []);
+  const limbGeo  = useMemo(() => { const g = new THREE.CapsuleGeometry(0.07, 0.32, 4, 8); g.computeVertexNormals(); return g; }, []);
+  const bunGeo   = useMemo(() => { const g = new THREE.SphereGeometry(0.15, 8, 6); g.computeVertexNormals(); return g; }, []);
 
   useFrame(state => {
     if (!ref.current) return;
-    const t = state.clock.elapsedTime;
-    ref.current.position.y = pos[1] + Math.sin(t * 1.1 + pos[0]) * 0.04;
+    const t = state.clock.elapsedTime + pos[0] * 0.7;
+    ref.current.position.y = pos[1] + Math.sin(t * 0.9) * 0.03;
+    ref.current.rotation.y = Math.sin(t * 0.4 + pos[2]) * 0.12;
+    if (armRef.current) {
+      armRef.current.rotation.x = Math.sin(t * 1.2) * 0.15;
+    }
   });
 
+  const hairStyle = culture.hairStyle ?? 'straight';
+
   return (
-    <group ref={ref} position={pos} scale={0.7}>
+    <group ref={ref} position={pos} scale={0.72}>
       {/* Head */}
-      <mesh geometry={headGeo} position={[0, 1.32, 0]}>
-        <meshToonMaterial color={color} />
+      <mesh geometry={headGeo} position={[0, 1.35, 0]} castShadow>
+        <meshToonMaterial color={culture.skin} />
       </mesh>
-      {/* Hair */}
-      <mesh geometry={hairGeo} position={[0, 1.42, 0]}>
-        <meshToonMaterial color="#1A0A00" />
+
+      {/* Hair — style varies by culture */}
+      {hairStyle === 'afro' && (
+        <mesh geometry={afroGeo} position={[0, 1.50, 0]} castShadow>
+          <meshToonMaterial color={culture.hair} />
+        </mesh>
+      )}
+      {hairStyle === 'locs' && (
+        <>
+          {[-0.12, 0, 0.12].map((x, i) => (
+            <mesh key={i} geometry={locsGeo} position={[x, 1.28 - i * 0.04, 0.05]} castShadow>
+              <meshToonMaterial color={culture.hair} />
+            </mesh>
+          ))}
+          {/* Crown */}
+          <mesh position={[0, 1.55, 0]}>
+            <sphereGeometry args={[0.22, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
+            <meshToonMaterial color={culture.hair} />
+          </mesh>
+        </>
+      )}
+      {hairStyle === 'bun' && (
+        <>
+          <mesh position={[0, 1.52, 0]}>
+            <sphereGeometry args={[0.18, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
+            <meshToonMaterial color={culture.hair} />
+          </mesh>
+          <mesh geometry={bunGeo} position={[0, 1.58, 0]} scale={[0.8, 0.7, 0.8]}>
+            <meshToonMaterial color={culture.hair} />
+          </mesh>
+        </>
+      )}
+      {hairStyle === 'braids' && (
+        <>
+          {[-0.1, 0.1].map((x, i) => (
+            <mesh key={i} position={[x, 1.22, 0.08]} rotation={[0.2, 0, 0]}>
+              <capsuleGeometry args={[0.04, 0.22, 4, 6]} />
+              <meshToonMaterial color={culture.hair} />
+            </mesh>
+          ))}
+          <mesh position={[0, 1.52, 0]}>
+            <sphereGeometry args={[0.20, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.5]} />
+            <meshToonMaterial color={culture.hair} />
+          </mesh>
+        </>
+      )}
+      {hairStyle === 'straight' && (
+        <mesh position={[0, 1.48, 0]}>
+          <sphereGeometry args={[0.24, 8, 6, 0, Math.PI * 2, 0, Math.PI * 0.65]} />
+          <meshToonMaterial color={culture.hair} />
+        </mesh>
+      )}
+
+      {/* Headpiece — cultural */}
+      {culture.headpiece === 'crown' && (
+        <mesh position={[0, 1.64, 0]}>
+          <cylinderGeometry args={[0.24, 0.20, 0.14, 8, 1, true]} />
+          <meshToonMaterial color={culture.accent} />
+        </mesh>
+      )}
+      {culture.headpiece === 'wrap' && (
+        <mesh position={[0, 1.55, 0]}>
+          <torusGeometry args={[0.22, 0.07, 6, 12]} />
+          <meshToonMaterial color={culture.garment} />
+        </mesh>
+      )}
+      {culture.headpiece === 'feather' && (
+        <mesh position={[0.02, 1.68, 0]} rotation={[0.3, 0, 0.2]}>
+          <capsuleGeometry args={[0.025, 0.22, 4, 6]} />
+          <meshToonMaterial color={culture.accent} />
+        </mesh>
+      )}
+      {culture.headpiece === 'turban' && (
+        <mesh position={[0, 1.54, 0]} scale={[1, 0.75, 1]}>
+          <sphereGeometry args={[0.28, 10, 8]} />
+          <meshToonMaterial color={culture.garment} />
+        </mesh>
+      )}
+
+      {/* Eyes */}
+      {[-0.09, 0.09].map((x, i) => (
+        <mesh key={i} position={[x, 1.37, 0.26]}>
+          <sphereGeometry args={[0.038, 6, 5]} />
+          <meshBasicMaterial color="#0A0A12" />
+        </mesh>
+      ))}
+
+      {/* Body — cultural garment color */}
+      <mesh position={[0, 0.95, 0]} castShadow>
+        <boxGeometry args={[0.38, 0.44, 0.28]} />
+        <meshToonMaterial color={culture.garment} />
       </mesh>
-      {/* Body — box: sharp corners intentional */}
-      <mesh position={[0, 0.95, 0]}>
-        <boxGeometry args={[0.36, 0.42, 0.28]} />
-        <meshToonMaterial color={accentColor} />
+      {/* Accent band (kente/sash/belt) */}
+      <mesh position={[0, 0.88, 0]}>
+        <boxGeometry args={[0.40, 0.09, 0.30]} />
+        <meshToonMaterial color={culture.accent} />
       </mesh>
-      {/* Left arm */}
-      <mesh geometry={limbGeo} position={[0.24, 0.9, 0]} rotation={[0, 0, 0.25]}>
-        <meshToonMaterial color={accentColor} />
+
+      {/* Arms */}
+      <mesh ref={armRef} geometry={limbGeo} position={[0.25, 0.92, 0]} rotation={[0, 0, 0.3]} castShadow>
+        <meshToonMaterial color={culture.skin} />
       </mesh>
-      {/* Right arm */}
-      <mesh geometry={limbGeo} position={[-0.24, 0.9, 0]} rotation={[0, 0, -0.25]}>
-        <meshToonMaterial color={accentColor} />
+      <mesh geometry={limbGeo} position={[-0.25, 0.92, 0]} rotation={[0, 0, -0.3]} castShadow>
+        <meshToonMaterial color={culture.skin} />
       </mesh>
+
       {/* Legs */}
-      <mesh geometry={limbGeo} position={[0.1, 0.55, 0]}>
-        <meshToonMaterial color="#1A0A00" />
+      <mesh geometry={limbGeo} position={[0.1, 0.54, 0]} castShadow>
+        <meshToonMaterial color={culture.garment} />
       </mesh>
-      <mesh geometry={limbGeo} position={[-0.1, 0.55, 0]}>
-        <meshToonMaterial color="#1A0A00" />
+      <mesh geometry={limbGeo} position={[-0.1, 0.54, 0]} castShadow>
+        <meshToonMaterial color={culture.garment} />
       </mesh>
     </group>
   );
@@ -612,13 +704,12 @@ function Scene({ onNavigate, onHover, onLeave, isNight, weatherMood }:
         { pos: [-2.5,  0,  0.4],  cIdx: 5 },  // Pacific Islander — near zen
         { pos: [0.8,   0,  2.8],  cIdx: 6 },  // Aboriginal — near hut
         { pos: [-0.6,  0, -2.8],  cIdx: 7 },  // Celtic — near hospital
-      ].map(({ pos, cIdx }) => {
-        const c = NPC_CULTURES[cIdx % NPC_CULTURES.length];
-        return (
-          <NPC key={cIdx} pos={pos as [number,number,number]}
-            color={c.skin} accentColor={c.garment} />
-        );
-      })}
+      ].map(({ pos, cIdx }) => (
+        <NPC key={cIdx}
+          pos={pos as [number,number,number]}
+          culture={NPC_CULTURES[cIdx % NPC_CULTURES.length]}
+        />
+      ))}
 
       {LOCATIONS.map(loc => (
         <Building key={loc.id} location={loc}

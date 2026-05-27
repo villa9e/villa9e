@@ -183,6 +183,12 @@ export default function SpiritHubPage() {
             <span className="capitalize">{profile.personality_type}</span>
           </div>
         )}
+        <Link href="/village/spirit/memories"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors"
+          style={{ background: isNight ? '#12152A' : '#EEF2FF', color: textMute }}
+          title="Spirit's memory">
+          🧠
+        </Link>
       </div>
 
       {/* Messages */}

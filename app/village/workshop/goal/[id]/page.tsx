@@ -265,105 +265,165 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
           )}
         </div>
 
-        {/* Steps */}
-        <div className="village-card">
-          <h2 className="font-bold mb-4 flex items-center gap-2 village-text">
-            <span>🗺️</span> GPS Steps
-            <span className="text-xs village-text-sub font-normal ml-auto">{doneCount} of {steps.length} complete</span>
-          </h2>
-          <ol className="space-y-3">
-            {steps.map((step, i) => {
-              const isDone      = step.status === 'completed';
-              const isNext      = !isDone && steps.slice(0, i).every(s => s.status === 'completed');
-              const canOoWop    = !isOwner && isDone && !givenOoWops.has(step.id);
-              const hasOoWopped = givenOoWops.has(step.id);
+        {/* GPS Steps — Sprint-grouped if sprints available, flat fallback */}
+        {(() => {
+          const sprints: any[] = goal.ai_analysis?.sprints ?? [];
+          const hasSprints = sprints.length > 0;
 
-              return (
-                <motion.li key={step.id} layout
-                  className={`flex gap-3 transition-colors ${isDone ? 'village-step-done' : isNext ? 'village-step-next' : 'village-step-idle'}`}>
-                  {/* Step number / check */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5 ${isDone ? 'bg-green-500 text-white' : isNext ? 'text-white' : 'village-text-sub'}`}
-                    style={isNext ? { background: accentHex } : isDone ? {} : { background: 'var(--v-progress-bg)' }}>
-                    {isDone ? '✓' : i + 1}
-                  </div>
+          // Build sprint → step mapping by cumulative action count
+          const sprintGroups: { sprint: any; steps: typeof steps }[] = [];
+          if (hasSprints) {
+            let offset = 0;
+            for (const sprint of sprints) {
+              const actionCount = sprint.steps?.length ?? 0;
+              const sprintSteps = steps.slice(offset, offset + actionCount);
+              sprintGroups.push({ sprint, steps: sprintSteps });
+              offset += actionCount;
+            }
+            // Catch any remaining steps (in case counts don't match)
+            if (offset < steps.length) {
+              sprintGroups.push({ sprint: { title: 'Additional Actions', milestone: '' }, steps: steps.slice(offset) });
+            }
+          }
 
-                  <div className="flex-1 min-w-0">
-                    <p className={`font-medium text-sm village-text ${isDone ? 'line-through village-text-sub' : ''}`}>{step.title}</p>
-                    {step.description && <p className="text-xs village-text-muted mt-0.5">{step.description}</p>}
-                    {step.estimated_hours && <p className="text-xs mt-0.5" style={{ color: accentHex }}>~{step.estimated_hours}h estimated</p>}
+          const StepItem = ({ step, i }: { step: any; i: number }) => {
+            const isDone      = step.status === 'completed';
+            const isNext      = !isDone && steps.slice(0, steps.indexOf(step)).every(s => s.status === 'completed');
+            const hasOoWopped = givenOoWops.has(step.id);
+            const globalIdx   = steps.indexOf(step);
 
-                    {/* OoWop section for completed steps */}
-                    {isDone && (
-                      <div className="mt-2 flex items-center gap-3 flex-wrap">
-                        {isOwner ? (
-                          <div className="flex items-center gap-1.5 text-xs village-text-muted">
-                            <span>✊</span>
-                            <span>{step.oowops_received ?? 0}/{step.oowops_needed ?? 3} OoWops</span>
-                            {step.is_validated && <span className="text-green-600 font-medium ml-1">· Validated ✓</span>}
+            return (
+              <motion.li key={step.id} layout
+                className={`flex gap-3 transition-colors ${isDone ? 'village-step-done' : isNext ? 'village-step-next' : 'village-step-idle'}`}>
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5 ${isDone ? 'bg-green-500 text-white' : isNext ? 'text-white' : 'village-text-sub'}`}
+                  style={isNext ? { background: accentHex } : isDone ? {} : { background: 'var(--v-progress-bg)' }}>
+                  {isDone ? '✓' : globalIdx + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className={`font-medium text-sm village-text ${isDone ? 'line-through village-text-sub' : ''}`}>{step.title}</p>
+                  {step.description && <p className="text-xs village-text-muted mt-0.5">{step.description}</p>}
+                  {step.estimated_hours && <p className="text-xs mt-0.5" style={{ color: accentHex }}>~{step.estimated_hours}h</p>}
+
+                  {isDone && (
+                    <div className="mt-2 flex items-center gap-3 flex-wrap">
+                      {isOwner ? (
+                        <div className="flex items-center gap-1.5 text-xs village-text-muted">
+                          <span>✊</span>
+                          <span>{step.oowops_received ?? 0}/{step.oowops_needed ?? 3} OoWops</span>
+                          {step.is_validated && <span className="text-green-600 font-medium ml-1">· Validated ✓</span>}
+                        </div>
+                      ) : (
+                        <OoWopButton count={step.oowops_received ?? 0} hasGiven={hasOoWopped}
+                          onGive={() => handleOoWop(step)} size="sm" showValidation oowopsNeeded={step.oowops_needed ?? 3} />
+                      )}
+                    </div>
+                  )}
+
+                  {isOwner && isNext && (
+                    <div className="mt-2">
+                      {showVerify === step.id ? (
+                        <div className="space-y-2">
+                          <textarea value={verifyNotes} onChange={e => setVerifyNotes(e.target.value)}
+                            placeholder="Tell Spirit what you did — even one sentence."
+                            rows={2} className="w-full text-xs rounded-xl px-3 py-2 resize-none focus:outline-none"
+                            style={{ background: isNight ? '#0A0B12' : '#FFF8EE', border: `1px solid ${isNight ? '#1E2240' : '#FED7AA'}`, color: isNight ? '#F0EBE0' : '#2D1F0E' }} />
+                          <div className="flex gap-2">
+                            <button onClick={() => { setShowVerify(null); setVerifyNotes(''); }}
+                              className="text-xs px-3 py-1.5 rounded-full"
+                              style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: isNight ? '#7A7FA8' : '#6B7280' }}>Cancel</button>
+                            <button onClick={() => verifyStep(step)} disabled={verifying === step.id}
+                              className="flex-1 text-xs px-3 py-1.5 rounded-full font-bold text-white disabled:opacity-50"
+                              style={{ background: '#FF6B2B' }}>
+                              {verifying === step.id ? '🌀 Spirit verifying…' : '✓ Verify with Spirit'}
+                            </button>
                           </div>
-                        ) : (
-                          <OoWopButton
-                            count={step.oowops_received ?? 0}
-                            hasGiven={hasOoWopped}
-                            onGive={() => handleOoWop(step)}
-                            size="sm"
-                            showValidation
-                            oowopsNeeded={step.oowops_needed ?? 3}
-                          />
-                        )}
-                      </div>
-                    )}
-
-                    {/* Spirit verification before completion */}
-                    {isOwner && isNext && (
-                      <div className="mt-2">
-                        {showVerify === step.id ? (
-                          <div className="space-y-2">
-                            <textarea
-                              value={verifyNotes}
-                              onChange={e => setVerifyNotes(e.target.value)}
-                              placeholder="Tell Spirit what you did — even one sentence. Spirit verifies and logs it."
-                              rows={2}
-                              className="w-full text-xs rounded-xl px-3 py-2 resize-none focus:outline-none"
-                              style={{ background: isNight ? '#0A0B12' : '#FFF8EE', border: `1px solid ${isNight ? '#1E2240' : '#FED7AA'}`, color: isNight ? '#F0EBE0' : '#2D1F0E' }}
-                            />
-                            <div className="flex gap-2">
-                              <button onClick={() => { setShowVerify(null); setVerifyNotes(''); }}
-                                className="text-xs px-3 py-1.5 rounded-full" style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: isNight ? '#7A7FA8' : '#6B7280' }}>
-                                Cancel
-                              </button>
-                              <button onClick={() => verifyStep(step)} disabled={verifying === step.id}
-                                className="flex-1 text-xs px-3 py-1.5 rounded-full font-bold text-white transition-colors disabled:opacity-50"
-                                style={{ background: '#FF6B2B' }}>
-                                {verifying === step.id ? '🌀 Spirit verifying…' : '✓ Verify with Spirit'}
-                              </button>
+                          {verifyResult[step.id] && (
+                            <div className="rounded-xl p-3 text-xs"
+                              style={{ background: isNight ? '#0D1F1A' : '#ECFDF5', border: `1px solid ${isNight ? '#1A3D2F' : '#A7F3D0'}` }}>
+                              <p className="font-bold mb-1" style={{ color: '#059669' }}>🌀 Spirit:</p>
+                              <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{verifyResult[step.id].spirit_message}</p>
                             </div>
-                            {/* Spirit verification response */}
-                            {verifyResult[step.id] && (
-                              <div className="rounded-xl p-3 text-xs" style={{ background: isNight ? '#0D1F1A' : '#ECFDF5', border: `1px solid ${isNight ? '#1A3D2F' : '#A7F3D0'}` }}>
-                                <p className="font-bold mb-1" style={{ color: '#059669' }}>🌀 Spirit:</p>
-                                <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{verifyResult[step.id].spirit_message}</p>
-                                {verifyResult[step.id].next_step_hint && (
-                                  <p className="mt-1 opacity-70">{verifyResult[step.id].next_step_hint}</p>
-                                )}
-                              </div>
+                          )}
+                        </div>
+                      ) : (
+                        <button onClick={() => setShowVerify(step.id)}
+                          className="mt-1 text-xs px-3 py-1.5 rounded-full font-bold text-white"
+                          style={{ background: '#FF6B2B' }}>✓ Mark Complete</button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </motion.li>
+            );
+          };
+
+          if (hasSprints) {
+            return (
+              <div className="space-y-4">
+                {sprintGroups.map((group, si) => {
+                  const sprintDone  = group.steps.every(s => s.status === 'completed');
+                  const sprintActive = !sprintDone && group.steps.some(s => s.status !== 'completed') &&
+                    (si === 0 || sprintGroups[si - 1]?.steps.every(s => s.status === 'completed'));
+                  const sprintPct = group.steps.length
+                    ? Math.round((group.steps.filter(s => s.status === 'completed').length / group.steps.length) * 100)
+                    : 0;
+
+                  return (
+                    <div key={si} className="rounded-2xl overflow-hidden"
+                      style={{ border: `1px solid ${sprintDone ? 'rgba(34,197,94,0.4)' : sprintActive ? `${accentHex}50` : 'var(--v-card-border)'}` }}>
+                      {/* Sprint header */}
+                      <div className="px-4 py-3 flex items-center justify-between"
+                        style={{ background: sprintDone ? 'rgba(34,197,94,0.08)' : sprintActive ? `${accentHex}12` : 'var(--v-card-bg)' }}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white"
+                            style={{ background: sprintDone ? '#22C55E' : sprintActive ? accentHex : 'var(--v-progress-bg)', color: sprintDone || sprintActive ? '#fff' : 'var(--v-text-muted)' }}>
+                            {sprintDone ? '✓' : si + 1}
+                          </div>
+                          <div>
+                            <p className="font-black text-sm village-text">{group.sprint.title}</p>
+                            {group.sprint.milestone && (
+                              <p className="text-xs village-text-muted">🏁 {group.sprint.milestone}</p>
                             )}
                           </div>
-                        ) : (
-                          <button onClick={() => setShowVerify(step.id)}
-                            className="mt-1 text-xs px-3 py-1.5 rounded-full font-bold text-white"
-                            style={{ background: '#FF6B2B' }}>
-                            ✓ Mark Complete
-                          </button>
-                        )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {group.sprint.duration_weeks && (
+                            <span className="text-xs village-text-sub">{group.sprint.duration_weeks}w</span>
+                          )}
+                          <span className="text-xs font-bold" style={{ color: sprintDone ? '#22C55E' : 'var(--v-text-muted)' }}>
+                            {sprintPct}%
+                          </span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </motion.li>
-              );
-            })}
-          </ol>
-        </div>
+                      {/* Sprint actions */}
+                      <ol className="space-y-2 p-3" style={{ background: 'var(--v-card-bg)' }}>
+                        {group.steps.map((step, i) => (
+                          <StepItem key={step.id} step={step} i={i} />
+                        ))}
+                        {group.steps.length === 0 && (
+                          <p className="text-xs village-text-muted py-2 px-1">Actions will appear here once the goal is started.</p>
+                        )}
+                      </ol>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          }
+
+          // Flat fallback (no sprint structure)
+          return (
+            <div className="village-card">
+              <h2 className="font-bold mb-4 flex items-center gap-2 village-text">
+                <span>🗺️</span> GPS Steps
+                <span className="text-xs village-text-sub font-normal ml-auto">{doneCount} of {steps.length} complete</span>
+              </h2>
+              <ol className="space-y-3">
+                {steps.map((step, i) => <StepItem key={step.id} step={step} i={i} />)}
+              </ol>
+            </div>
+          );
+        })()}
 
         {/* Resources */}
         {goal.ai_analysis?.resources?.length > 0 && (

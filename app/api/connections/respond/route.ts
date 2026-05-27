@@ -44,15 +44,27 @@ export async function POST(req: NextRequest) {
       .eq('id', user.id)
       .single();
 
+    const acceptTitle = `@${me?.username} accepted your connection`;
+    const acceptBody  = `You and ${me?.display_name || me?.username} are now connected in the village. Give them an OoWop!`;
+
     await (admin as any).from('notifications').insert({
-      user_id:        conn.requester_id,
-      type:           'connection_accepted',
-      title:          `@${me?.username} accepted your connection`,
-      body:           `You and ${me?.display_name || me?.username} are now connected in the village. Give them an OoWop!`,
-      reference_id:   user.id,
-      reference_type: 'profile',
-      action_url:     `/villager/${me?.username}`,
+      user_id: conn.requester_id, type: 'connection_accepted',
+      title: acceptTitle, body: acceptBody,
+      reference_id: user.id, reference_type: 'profile',
+      action_url: `/villager/${me?.username}`,
     });
+
+    // Push notification
+    fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        external_user_ids: [conn.requester_id],
+        title: acceptTitle, body: acceptBody,
+        url: `${process.env.NEXT_PUBLIC_APP_URL}/villager/${me?.username}`,
+        data: { type: 'connection_accepted', user_id: user.id },
+      }),
+    }).catch(() => {});
 
     // Award VLG for making a connection
     try {

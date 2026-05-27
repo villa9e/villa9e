@@ -39,9 +39,35 @@ export async function POST(req: NextRequest) {
 
   if (error || !goal) return NextResponse.json({ error: error?.message ?? 'Failed to save goal' }, { status: 500 });
 
-  // Insert steps from AI analysis
-  if (ai_analysis?.steps?.length) {
-    const stepRows = ai_analysis.steps.map((step: any, i: number) => ({
+  // Build steps from sprint structure (preferred) or flat steps array (fallback)
+  const sprints: any[] = ai_analysis?.sprints ?? [];
+  const flatSteps: any[] = ai_analysis?.steps ?? [];
+
+  let stepRows: any[] = [];
+
+  if (sprints.length > 0) {
+    // Flatten sprint → actions into goal_steps, tagging each with sprint context
+    let stepNum = 1;
+    for (let si = 0; si < sprints.length; si++) {
+      const sprint = sprints[si];
+      const sprintActions: any[] = sprint.steps ?? [];
+      for (const action of sprintActions) {
+        stepRows.push({
+          goal_id:           goal.id,
+          user_id:           user.id,
+          step_number:       stepNum++,
+          title:             action.title,
+          description:       action.description ?? null,
+          estimated_hours:   action.estimated_hours ?? null,
+          resource_category: action.resource_category ?? null,
+          oowops_needed:     3,
+          // Store sprint context in description prefix if it fits
+          sprint_number:     si + 1,  // will be ignored if column doesn't exist (no error)
+        });
+      }
+    }
+  } else if (flatSteps.length > 0) {
+    stepRows = flatSteps.map((step: any, i: number) => ({
       goal_id:           goal.id,
       user_id:           user.id,
       step_number:       i + 1,
@@ -51,7 +77,12 @@ export async function POST(req: NextRequest) {
       resource_category: step.resource_category ?? null,
       oowops_needed:     3,
     }));
-    await supabase.from('goal_steps').insert(stepRows);
+  }
+
+  if (stepRows.length > 0) {
+    // Insert without sprint_number first (column may not exist yet)
+    const safeRows = stepRows.map(({ sprint_number: _, ...r }) => r);
+    await supabase.from('goal_steps').insert(safeRows);
   }
 
   // Award VLG + score via RPC
