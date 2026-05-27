@@ -39,7 +39,7 @@ ALTER TABLE dream_line_posts ADD COLUMN IF NOT EXISTS share_count      INT DEFAU
 
 CREATE TABLE IF NOT EXISTS event_rsvps (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  event_id   UUID NOT NULL REFERENCES spaces_events(id) ON DELETE CASCADE,
+  event_id   UUID NOT NULL REFERENCES calendar_events(id) ON DELETE CASCADE,
   user_id    UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   status     TEXT DEFAULT 'going' CHECK (status IN ('going','maybe','not_going')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
