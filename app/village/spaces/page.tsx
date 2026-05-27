@@ -206,11 +206,12 @@ export default function SpacesPage() {
         {selected && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
             <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              className="bg-white rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+              className="rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+              style={{ background: cardBg, border: `1px solid ${border}` }}>
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h2 className="font-bold text-xl">{selected.title}</h2>
-                  <p className="text-sm text-gray-500 mt-0.5">
+                  <h2 className="font-bold text-xl" style={{ color: textMain }}>{selected.title}</h2>
+                  <p className="text-sm mt-0.5" style={{ color: textMute }}>
                     {new Date(selected.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
                     {' · '}
                     {new Date(selected.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
@@ -245,7 +246,7 @@ export default function SpacesPage() {
               </div>
 
               {/* AI Agenda */}
-              <div className="bg-gray-50 rounded-2xl p-4">
+              <div className="rounded-2xl p-4" style={{ background: isNight ? '#0A0B12' : '#F9FAFB', border: `1px solid ${border}` }}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span>📋</span>
@@ -286,29 +287,36 @@ export default function SpacesPage() {
         {showCreate && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+              className="rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto"
+              style={{ background: cardBg, border: `1px solid ${border}` }}>
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Create Event</h2>
-                <button onClick={() => setShowCreate(false)} className="text-gray-400 text-2xl">×</button>
+                <h2 className="text-xl font-bold" style={{ color: textMain }}>Create Event</h2>
+                <button onClick={() => setShowCreate(false)} className="text-2xl" style={{ color: textMute }}>×</button>
               </div>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Event title"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-              <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Location or video link"
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              {[
+                { key: 'title', placeholder: 'Event title', type: 'text' },
+                { key: 'location', placeholder: 'Location or video link', type: 'text' },
+              ].map(f => (
+                <input key={f.key} value={(form as any)[f.key]}
+                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder} type={f.type}
+                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                  style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
+              ))}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-gray-500">Start</label>
-                  <input type="datetime-local" value={form.start_time} onChange={e => setForm(f => ({ ...f, start_time: e.target.value }))}
-                    className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">End</label>
-                  <input type="datetime-local" value={form.end_time} onChange={e => setForm(f => ({ ...f, end_time: e.target.value }))}
-                    className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-                </div>
+                {[['Start', 'start_time'], ['End', 'end_time']].map(([label, key]) => (
+                  <div key={key}>
+                    <label className="text-xs" style={{ color: textMute }}>{label}</label>
+                    <input type="datetime-local" value={(form as any)[key]}
+                      onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))}
+                      className="mt-1 w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                      style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
+                  </div>
+                ))}
               </div>
               <select value={form.event_type} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
+                style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }}>
                 <option value="personal">Personal</option>
                 <option value="goal_step">Goal Step</option>
                 <option value="tribe_meeting">Tribe Meeting</option>
@@ -316,7 +324,8 @@ export default function SpacesPage() {
               </select>
               <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 placeholder="Description, agenda, notes…" rows={3}
-                className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 resize-none" />
+                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
+                style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
               <button onClick={createEvent} disabled={saving || !form.title.trim() || !form.start_time}
                 className="w-full bg-indigo-600 text-white rounded-full py-3 font-bold hover:bg-indigo-700 disabled:opacity-50">
                 {saving ? 'Creating…' : '📅 Create Event'}
