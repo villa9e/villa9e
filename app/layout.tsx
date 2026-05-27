@@ -4,6 +4,7 @@ import './globals.css';
 import { BottomNav } from '@/components/village/BottomNav';
 import { ThemeSync } from '@/components/village/ThemeSync';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
+import { AdminBar } from '@/components/admin/AdminBar';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -51,6 +52,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeSync />
           {children}
           <BottomNav />
+          <AdminBar />
         </PostHogProvider>
       </body>
     </html>
