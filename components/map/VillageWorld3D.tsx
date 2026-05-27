@@ -80,6 +80,10 @@ function createAdinkraTexture(color: string, bgColor = '#F5ECD0'): THREE.CanvasT
   return new THREE.CanvasTexture(canvas);
 }
 
+function hexToColor(hex: string): THREE.Color {
+  return new THREE.Color(hex);
+}
+
 // ─── Sky dome with gradient colors ───────────────────────────────────────────
 function SkyDome({ skyTop, skyMid, skyHor }: { skyTop: string; skyMid: string; skyHor: string }) {
   const meshRef = useRef<THREE.Mesh>(null);
