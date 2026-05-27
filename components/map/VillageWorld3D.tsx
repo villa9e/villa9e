@@ -10,6 +10,10 @@ import { SpiritFigure } from '@/components/spirit/SpiritFigure';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
+import {
+  WorkshopBuilding, DreamLineBuilding, TradingPostBuilding, BankBuilding,
+  ZenBuilding, TribesBuilding, HospitalBuilding, HutBuilding, SpiritShrine,
+} from './VillageBuildings';
 
 // ─── Location data with collision boxes ───────────────────────────────────────
 const LOCATIONS = [
@@ -278,64 +282,41 @@ function River({ skyState }: { skyState: any }) {
   );
 }
 
-// ─── Building component with cultural textures ────────────────────────────────
+// ─── Distinct building router — Fortnite-standard polygon architecture ────────
+const BUILDING_MAP: Record<string, React.FC<{ hover: boolean }>> = {
+  workshop:       WorkshopBuilding,
+  dreamline:      DreamLineBuilding,
+  'trading-post': TradingPostBuilding,
+  bank:           BankBuilding,
+  zen:            ZenBuilding,
+  tribes:         TribesBuilding,
+  hospital:       HospitalBuilding,
+  hut:            HutBuilding,
+  spirit:         SpiritShrine,
+};
+
 function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: string, label: string) => void }) {
-  const meshRef  = useRef<THREE.Mesh>(null);
   const [hovered, setHovered] = useState(false);
   const [x,, z]  = loc.pos;
-  const [sw, sh, sd] = loc.size;
-  const tex = useRef<THREE.CanvasTexture>();
-
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      tex.current = createAdinkraTexture(loc.color);
-    }
-  }, [loc.color]);
-
-  useFrame(state => {
-    if (!meshRef.current) return;
-    meshRef.current.position.y = hovered ? 0.3 + Math.sin(state.clock.elapsedTime * 2) * 0.05 : 0;
-  });
+  const ArchComp = BUILDING_MAP[loc.id];
 
   return (
-    <group position={[x, 0, z]}>
-      {/* Shadow — circle scaled to ellipse proportions */}
-      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} scale={[sw * 0.6, sd * 0.6, 1]}>
-        <circleGeometry args={[1, 16]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.12} />
+    <group position={[x, 0, z]}
+      onClick={() => onEnter(loc.href, loc.label)}
+      onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
+      onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}>
+      {/* Ground shadow */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
+        <circleGeometry args={[2.4, 20]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.08} />
       </mesh>
-
-      {/* Main body */}
-      <mesh ref={meshRef}
-        onClick={() => onEnter(loc.href, loc.label)}
-        onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
-        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}
-        castShadow
-      >
-        <boxGeometry args={[sw, sh, sd]} />
-        <meshToonMaterial color={hovered ? '#ffffff' : '#F5ECD0'} map={tex.current} />
-      </mesh>
-
-      {/* Kente band */}
-      <mesh position={[0, sh * 0.25, 0]}>
-        <boxGeometry args={[sw + 0.05, sh * 0.15, sd + 0.05]} />
-        <meshToonMaterial color={loc.color} />
-      </mesh>
-
-      {/* Roof — pyramid roofs use FlatToonMat, domes use smooth toon */}
-      <mesh position={[0, sh * 0.5 + 0.8, 0]}>
-        <coneGeometry args={[Math.max(sw, sd) * 0.72, 1.6, loc.id === 'dreamline' || loc.id === 'zen' ? 16 : 4]} />
-        {loc.id === 'dreamline' || loc.id === 'zen'
-          ? <meshToonMaterial color={loc.color} />
-          : <FlatToonMat color={loc.color} />
-        }
-      </mesh>
-
-      {/* Hover glow ring */}
+      {/* Distinct architecture per location */}
+      {ArchComp && <ArchComp hover={hovered} />}
+      {/* Hover selection ring */}
       {hovered && (
-        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.02, 0]}>
-          <ringGeometry args={[Math.max(sw,sd) * 0.7, Math.max(sw,sd) * 0.9, 24]} />
-          <meshBasicMaterial color={loc.color} transparent opacity={0.5} />
+        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.03, 0]}>
+          <ringGeometry args={[2.2, 2.6, 24]} />
+          <meshBasicMaterial color={loc.color} transparent opacity={0.45} />
         </mesh>
       )}
     </group>
@@ -469,6 +450,292 @@ function Ground({ isNight }: { isNight: boolean }) {
         <meshBasicMaterial color={isNight ? '#5A4A2A' : '#A87C5A'} transparent opacity={0.7} />
       </mesh>
     </>
+  );
+}
+
+// ─── Rain + wind particle system ─────────────────────────────────────────────
+function RainSystem({ intensity = 0, windAngle = 0 }: { intensity?: number; windAngle?: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = Math.floor(intensity * 600);
+
+  const drops = useMemo(() => Array.from({ length: 600 }, () => ({
+    x: (Math.random() - 0.5) * 50,
+    y: Math.random() * 20 + 2,
+    z: (Math.random() - 0.5) * 50,
+    speed: 8 + Math.random() * 6,
+    phase: Math.random() * 20,
+  })), []);
+
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(state => {
+    if (!ref.current || COUNT === 0) return;
+    const t = state.clock.elapsedTime;
+    const windX = Math.sin(windAngle) * intensity * 0.4;
+    const windZ = Math.cos(windAngle) * intensity * 0.2;
+
+    drops.forEach((d, i) => {
+      if (i >= COUNT) { dummy.scale.setScalar(0); dummy.updateMatrix(); ref.current!.setMatrixAt(i, dummy.matrix); return; }
+      const elapsed = (t * d.speed + d.phase) % 22;
+      dummy.position.set(
+        d.x + windX * elapsed,
+        d.y - elapsed,
+        d.z + windZ * elapsed,
+      );
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(intensity * 0.3, 0, -windAngle * 0.25);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+    (ref.current.material as THREE.MeshBasicMaterial).opacity = 0.25 + intensity * 0.35;
+  });
+
+  if (intensity < 0.1) return null;
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, 600]}>
+      <capsuleGeometry args={[0.015, 0.28, 2, 4]} />
+      <meshBasicMaterial color="#C8E8FF" transparent opacity={0.4} />
+    </instancedMesh>
+  );
+}
+
+// ─── Wind-animated grass blades ───────────────────────────────────────────────
+function WindGrass({ windStrength = 0, isNight = false }: { windStrength?: number; isNight?: boolean }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const blades = useMemo(() => Array.from({ length: 300 }, () => ({
+    x: (Math.random() - 0.5) * 48,
+    z: (Math.random() - 0.5) * 48,
+    scale: 0.3 + Math.random() * 0.4,
+    phase: Math.random() * Math.PI * 2,
+    speed: 0.8 + Math.random() * 1.2,
+  })), []);
+
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(state => {
+    if (!ref.current) return;
+    const t = state.clock.elapsedTime;
+    blades.forEach((b, i) => {
+      const sway = Math.sin(t * b.speed + b.phase) * (0.08 + windStrength * 0.35);
+      dummy.position.set(b.x, 0.12 * b.scale, b.z);
+      dummy.rotation.set(sway, b.phase, sway * 0.4);
+      dummy.scale.setScalar(b.scale);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, 300]}>
+      <coneGeometry args={[0.04, 0.28, 3]} />
+      <meshToonMaterial color={isNight ? '#1A3A1A' : '#4A8A2A'} />
+    </instancedMesh>
+  );
+}
+
+// ─── Dense forest ring around the village ────────────────────────────────────
+function ForestRing({ windStrength = 0, isNight = false }: { windStrength?: number; isNight?: boolean }) {
+  const trees = useMemo(() => {
+    const result: { x: number; z: number; h: number; r: number; type: string; phase: number }[] = [];
+    const types = ['tall', 'broad', 'conifer', 'palm', 'baobab'];
+    for (let i = 0; i < 80; i++) {
+      const angle  = (i / 80) * Math.PI * 2 + Math.random() * 0.15;
+      const radius = 16 + Math.random() * 10;
+      result.push({
+        x:     Math.cos(angle) * radius,
+        z:     Math.sin(angle) * radius,
+        h:     3 + Math.random() * 5,
+        r:     0.6 + Math.random() * 1.4,
+        type:  types[Math.floor(Math.random() * types.length)],
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+    // Interior forest patches
+    for (let i = 0; i < 30; i++) {
+      const angle  = Math.random() * Math.PI * 2;
+      const radius = 12 + Math.random() * 4;
+      result.push({
+        x:     Math.cos(angle) * radius,
+        z:     Math.sin(angle) * radius,
+        h:     2.5 + Math.random() * 3,
+        r:     0.5 + Math.random() * 0.8,
+        type:  types[Math.floor(Math.random() * types.length)],
+        phase: Math.random() * Math.PI * 2,
+      });
+    }
+    return result;
+  }, []);
+
+  const trunkColor  = isNight ? '#2A1A0A' : '#5A3520';
+  const leaf1 = isNight ? '#0A1F0A' : '#2D5A1A';
+  const leaf2 = isNight ? '#122A12' : '#3D7A2A';
+  const leaf3 = isNight ? '#0D1F0D' : '#4A8A35';
+
+  return (
+    <group>
+      {trees.map((tree, i) => (
+        <WindTree
+          key={i}
+          pos={[tree.x, 0, tree.z]}
+          h={tree.h}
+          r={tree.r}
+          type={tree.type}
+          phase={tree.phase}
+          windStrength={windStrength}
+          trunkColor={trunkColor}
+          leafColors={[leaf1, leaf2, leaf3]}
+          isNight={isNight}
+        />
+      ))}
+    </group>
+  );
+}
+
+function WindTree({
+  pos, h, r, type, phase, windStrength, trunkColor, leafColors, isNight,
+}: {
+  pos: [number,number,number]; h: number; r: number; type: string;
+  phase: number; windStrength: number; trunkColor: string;
+  leafColors: string[]; isNight: boolean;
+}) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(state => {
+    if (!ref.current) return;
+    const t = state.clock.elapsedTime;
+    const sway = Math.sin(t * 0.7 + phase) * (0.015 + windStrength * 0.06);
+    ref.current.rotation.x = sway;
+    ref.current.rotation.z = Math.sin(t * 0.5 + phase + 1) * sway * 0.6;
+  });
+
+  const trunkR = Math.max(0.08, r * 0.14);
+
+  return (
+    <group position={pos}>
+      {/* Trunk */}
+      <mesh castShadow>
+        <cylinderGeometry args={[trunkR * 0.7, trunkR, h * 0.55, 7, 3]} />
+        <meshToonMaterial color={trunkColor} />
+      </mesh>
+      {/* Root buttresses */}
+      {[0, 1, 2].map(i => (
+        <mesh key={i} position={[Math.cos(i * 2.1) * trunkR * 1.5, -h * 0.22, Math.sin(i * 2.1) * trunkR * 1.5]}
+          rotation={[0, i * 2.1, 0.5]} castShadow>
+          <boxGeometry args={[trunkR * 0.5, h * 0.18, trunkR * 0.25, 1, 2, 1]} />
+          <meshToonMaterial color={trunkColor} />
+        </mesh>
+      ))}
+      {/* Canopy layers */}
+      <group ref={ref} position={[0, h * 0.38, 0]}>
+        {type === 'conifer' ? (
+          // Conical fir tree
+          [0, 0.35, 0.65].map((yOff, li) => (
+            <mesh key={li} position={[0, yOff * h * 0.6, 0]} castShadow>
+              <coneGeometry args={[r * (1.1 - li * 0.25), h * 0.38, 8, 2]} />
+              <meshToonMaterial color={leafColors[li]} />
+            </mesh>
+          ))
+        ) : type === 'palm' ? (
+          // Palm fronds
+          Array.from({ length: 7 }).map((_, fi) => {
+            const a = (fi / 7) * Math.PI * 2;
+            return (
+              <mesh key={fi} position={[Math.cos(a) * r * 0.5, h * 0.1, Math.sin(a) * r * 0.5]}
+                rotation={[0.6, a, 0.3]} castShadow>
+                <capsuleGeometry args={[0.05, r * 1.1, 3, 6]} />
+                <meshToonMaterial color={leafColors[0]} />
+              </mesh>
+            );
+          })
+        ) : type === 'baobab' ? (
+          // Massive rounded crown
+          [0, 0.2, -0.15].map((yOff, li) => (
+            <mesh key={li} position={[(li - 1) * r * 0.3, yOff * r, 0]} castShadow>
+              <sphereGeometry args={[r * (0.85 + li * 0.1), 10, 7]} />
+              <meshToonMaterial color={leafColors[li % 3]} />
+            </mesh>
+          ))
+        ) : type === 'broad' ? (
+          // Broad deciduous — layered spheres
+          [
+            [0, 0, 0, r],
+            [r * 0.55, r * 0.15, 0, r * 0.7],
+            [-r * 0.55, r * 0.15, 0, r * 0.7],
+            [0, r * 0.4, r * 0.3, r * 0.65],
+            [0, r * 0.55, -r * 0.25, r * 0.6],
+          ].map(([dx, dy, dz, sr], li) => (
+            <mesh key={li} position={[dx, dy, dz]} castShadow>
+              <sphereGeometry args={[sr, 9, 7]} />
+              <meshToonMaterial color={leafColors[li % 3]} />
+            </mesh>
+          ))
+        ) : (
+          // Tall — elongated oval canopy
+          [0, 0.3].map((yOff, li) => (
+            <mesh key={li} position={[0, yOff * r * 0.8, 0]} castShadow>
+              <sphereGeometry args={[r * (1 - li * 0.2), 10, 8]} />
+              <meshToonMaterial color={leafColors[li]} />
+            </mesh>
+          ))
+        )}
+      </group>
+      {/* Undergrowth ferns */}
+      {[0, 1, 2].map(fi => {
+        const a = (fi / 3) * Math.PI * 2 + phase;
+        return (
+          <mesh key={fi} position={[Math.cos(a) * r * 0.8, -h * 0.24, Math.sin(a) * r * 0.8]}>
+            <sphereGeometry args={[0.15 + r * 0.08, 5, 4]} />
+            <meshToonMaterial color={leafColors[2]} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+}
+
+// ─── Leaf/debris particles blowing in wind ────────────────────────────────────
+function WindParticles({ windStrength = 0, windAngle = 0 }: { windStrength?: number; windAngle?: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 80;
+  const particles = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 40,
+    y: 0.3 + Math.random() * 4,
+    z: (Math.random() - 0.5) * 40,
+    speed: 0.5 + Math.random() * 2,
+    phase: Math.random() * 20,
+    tumble: Math.random() * Math.PI * 2,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(state => {
+    if (!ref.current || windStrength < 0.15) { ref.current && (ref.current.count = 0); return; }
+    ref.current.count = Math.floor(windStrength * COUNT);
+    const t  = state.clock.elapsedTime;
+    const wx = Math.sin(windAngle) * windStrength * 3;
+    const wz = Math.cos(windAngle) * windStrength * 1.5;
+    particles.forEach((p, i) => {
+      if (i >= ref.current!.count) return;
+      const elapsed = (t * p.speed + p.phase) % 30;
+      dummy.position.set(
+        ((p.x + wx * elapsed) % 40) - 20,
+        p.y + Math.sin(elapsed + p.tumble) * 0.5,
+        ((p.z + wz * elapsed) % 40) - 20,
+      );
+      dummy.rotation.set(elapsed * 2, elapsed * 3, elapsed);
+      dummy.scale.setScalar(0.06 + Math.random() * 0.06);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <planeGeometry args={[1, 1]} />
+      <meshToonMaterial color="#6B8C2A" transparent opacity={0.7} />
+    </instancedMesh>
   );
 }
 
@@ -694,7 +961,7 @@ interface RemotePlayer {
 
 function WorldScene({
   playerPos, playerRot, remotePlayers, onEnterBuilding, skyState, spiritVariant,
-  cameraZoom, cameraAzimuth,
+  cameraZoom, cameraAzimuth, weather,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
@@ -704,9 +971,13 @@ function WorldScene({
   spiritVariant: SpiritVariantId;
   cameraZoom: React.MutableRefObject<number>;
   cameraAzimuth: React.MutableRefObject<number>;
+  weather?: { rain?: number; wind?: number; windAngle?: number };
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
+  const rainIntensity  = weather?.rain  ?? 0;
+  const windStrength   = weather?.wind  ?? 0;
+  const windAngle      = weather?.windAngle ?? 0;
 
   return (
     <>
@@ -731,10 +1002,12 @@ function WorldScene({
         sunColor={skyState?.sunColor ?? '#FFF5D0'}
       />
 
-      {/* Fog */}
-      {skyState?.hasFog && (
-        <fog attach="fog" args={[skyState.fogColor, 18, 55]} />
-      )}
+      {/* Atmospheric fog — forest mist + rain visibility */}
+      <fog attach="fog" args={[
+        isNight ? '#0A1218' : (rainIntensity > 0.3 ? '#A8B8C8' : '#C8E4D0'),
+        rainIntensity > 0.5 ? 10 : isNight ? 20 : 28,
+        rainIntensity > 0.5 ? 28 : isNight ? 55 : 70,
+      ]} />
 
       {/* Physics world — ground floor + building colliders */}
       <Physics gravity={[0, -9.81, 0]} colliders={false}>
@@ -779,14 +1052,24 @@ function WorldScene({
         <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} />
       ))}
 
-      {/* Baobab trees */}
+      {/* Tribal village forest — dense ring + interior trees */}
+      <ForestRing windStrength={windStrength} isNight={isNight} />
+
+      {/* Wind-animated grass */}
+      <WindGrass windStrength={windStrength} isNight={isNight} />
+
+      {/* Rain system — responds to weather */}
+      <RainSystem intensity={rainIntensity} windAngle={windAngle} />
+
+      {/* Wind-blown leaf/debris particles */}
+      {windStrength > 0.2 && <WindParticles windStrength={windStrength} windAngle={windAngle} />}
+
+      {/* Original baobab trees — inner village */}
       {[
-        [-14, 0, -8], [-13, 0, -3], [-14, 0, 3], [-13, 0, 7],
-        [14,  0, -8], [13,  0, -2], [14,  0, 4], [13,  0, 8],
-        [-4,  0, -13],[0,   0, -14],[4,   0, -13],
-        [-4,  0, 13], [0,   0, 14], [4,   0, 13],
+        [-10, 0, -6], [-9, 0, -2], [-10, 0, 2], [-9, 0, 6],
+        [10,  0, -6], [9,  0, -1], [10,  0, 3], [9,  0, 7],
       ].map((pos, i) => (
-        <BaobabTree key={i} pos={pos as [number,number,number]} scale={0.8 + Math.sin(i*1.4)*0.2} />
+        <BaobabTree key={i} pos={pos as [number,number,number]} scale={0.7 + Math.sin(i*1.4)*0.2} />
       ))}
 
       {/* Remote players */}
@@ -867,6 +1150,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const supabase = createClient();
   const { mood } = useWeather();
   const { skyState } = useSkySystem();
+
+  // Derive weather from mood palette
+  const weatherData = useMemo(() => {
+    const isRainy  = mood === 'stormy' || mood === 'rainy';
+    const isWindy  = mood === 'stormy' || mood === 'windy';
+    return {
+      rain:      isRainy ? (mood === 'stormy' ? 0.9 : 0.55) : 0,
+      wind:      isWindy ? (mood === 'stormy' ? 0.85 : 0.45) : (mood === 'breezy' ? 0.2 : 0.05),
+      windAngle: Math.random() * Math.PI * 2,  // stable per session
+    };
+  }, [mood]);
 
   const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
   const playerPos    = useRef(new THREE.Vector3(0, 0, 5));
@@ -1073,6 +1367,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           spiritVariant={spiritVariant}
           cameraZoom={cameraZoom}
           cameraAzimuth={cameraAzimuth}
+          weather={weatherData}
         />
       </Canvas>
 
