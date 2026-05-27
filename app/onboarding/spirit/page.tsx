@@ -2,7 +2,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
+import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
+
+const SpiritSelector = dynamic(
+  () => import('@/components/spirit/SpiritSelector').then(m => ({ default: m.SpiritSelector })),
+  { ssr: false }
+);
 
 const TOPICS = [
   { id: 'wellness',      emoji: '🌿', label: 'Wellness' },
@@ -31,8 +38,8 @@ const SPIRITUAL_SYSTEMS = [
   { id: 'Other', emoji: '💫' },
 ];
 
-// Stepped onboarding: intro → topics → spirit → done
-type Step = 'intro' | 'topics' | 'spirit' | 'saving';
+// Stepped onboarding: intro → spirit_choice → topics → spirit → done
+type Step = 'intro' | 'spirit_choice' | 'topics' | 'spirit' | 'saving';
 
 export default function SpiritOnboarding() {
   const router = useRouter();
@@ -40,6 +47,7 @@ export default function SpiritOnboarding() {
   const [step, setStep] = useState<Step>('intro');
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [spiritualSystem, setSpiritualSystem] = useState('Secular');
+  const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
 
   function toggleTopic(id: string) {
     setSelectedTopics(prev =>
@@ -51,11 +59,22 @@ export default function SpiritOnboarding() {
     setStep('saving');
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await (supabase as any).from('spirit_configs').upsert({
-        user_id: user.id,
-        topics: selectedTopics,
-        spiritual_system: spiritualSystem,
-      });
+      await Promise.all([
+        (supabase as any).from('spirit_configs').upsert({
+          user_id: user.id,
+          topics: selectedTopics,
+          spiritual_system: spiritualSystem,
+        }),
+        // Save spirit variant to avatar_config
+        (supabase as any).from('profiles')
+          .select('avatar_config')
+          .eq('id', user.id)
+          .single()
+          .then(({ data }: any) => {
+            const updated = { ...(data?.avatar_config ?? {}), spirit_variant: spiritVariant };
+            return (supabase as any).from('profiles').update({ avatar_config: updated }).eq('id', user.id);
+          }),
+      ]);
     }
     router.push('/onboarding/skills');
   }
@@ -70,10 +89,10 @@ export default function SpiritOnboarding() {
 
       {/* Progress dots */}
       <div className="relative z-10 flex justify-center gap-2 pt-10 pb-4">
-        {(['intro', 'topics', 'spirit'] as const).map((s, i) => (
+        {(['intro', 'spirit_choice', 'topics', 'spirit'] as const).map((s, i) => (
           <div key={s} className={`h-1 rounded-full transition-all duration-500 ${
             s === step || (step === 'saving' && s === 'spirit') ? 'w-8 bg-[#1877F2]' :
-            (['topics', 'spirit'].indexOf(s) <= ['intro', 'topics', 'spirit'].indexOf(step)) ? 'w-4 bg-[#1877F2]/60' :
+            i < (['intro', 'spirit_choice', 'topics', 'spirit'] as const).indexOf(step as any) ? 'w-4 bg-[#1877F2]/60' :
             'w-4 bg-white/10'
           }`} />
         ))}
@@ -118,7 +137,7 @@ export default function SpiritOnboarding() {
               </div>
             </div>
 
-            <button onClick={() => setStep('topics')}
+            <button onClick={() => setStep('spirit_choice')}
               className="bg-[#1877F2] hover:bg-[#1565c0] text-white font-bold px-10 py-4 rounded-2xl text-base transition-all hover:scale-[1.02] w-full max-w-sm shadow-[0_0_40px_rgba(24,119,242,0.3)]">
               Meet Spirit →
             </button>
@@ -126,7 +145,33 @@ export default function SpiritOnboarding() {
           </motion.div>
         )}
 
-        {/* STEP 2: Topic selection */}
+        {/* STEP 2: Choose your Spirit */}
+        {step === 'spirit_choice' && (
+          <motion.div key="spirit_choice"
+            initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+            className="flex-1 flex flex-col px-5 pb-10 max-w-lg mx-auto w-full">
+
+            <div className="py-6">
+              <p className="text-[#1877F2] text-xs font-bold tracking-[2px] uppercase mb-2">SPIRIT SETUP · CHOOSE</p>
+              <h2 className="text-2xl font-black text-white">Pick your Spirit.</h2>
+              <p className="text-white/45 text-sm mt-1">This is your AI companion until you create your own.</p>
+            </div>
+
+            <div className="flex-1">
+              <SpiritSelector selected={spiritVariant} onSelect={setSpiritVariant} />
+            </div>
+
+            <div className="pt-5 space-y-3">
+              <button onClick={() => setStep('topics')}
+                className="w-full bg-[#1877F2] hover:bg-[#1565c0] text-white font-bold py-4 rounded-2xl transition-all">
+                Continue with {spiritVariant === 'blue' ? 'Blue' : spiritVariant === 'white' ? 'White' : 'Dark'} Spirit →
+              </button>
+              <button onClick={() => setStep('intro')} className="w-full text-white/30 text-sm py-2">← Back</button>
+            </div>
+          </motion.div>
+        )}
+
+        {/* STEP 3: Topic selection */}
         {step === 'topics' && (
           <motion.div key="topics"
             initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}

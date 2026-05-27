@@ -398,12 +398,28 @@ export default function AvatarBuilderPage() {
           </div>
         )}
 
-        {/* Save */}
+        {/* Save avatar */}
         <button onClick={save} disabled={saving}
           className="w-full rounded-2xl py-4 font-black text-white text-base transition-all disabled:opacity-50"
           style={{ background: `linear-gradient(135deg, ${accent}, #4F46E5)` }}>
           {saved ? '✓ Avatar Saved to Village!' : saving ? 'Saving…' : '✊ Save My Avatar'}
         </button>
+
+        {/* Choose Spirit */}
+        <Link href="/village/spirit/choose"
+          className="flex items-center justify-between w-full rounded-2xl px-5 py-4 transition-all"
+          style={{ background: isNight ? 'rgba(24,119,242,0.08)' : 'rgba(24,119,242,0.06)', border: `1px solid ${isNight ? 'rgba(24,119,242,0.25)' : 'rgba(24,119,242,0.2)'}` }}>
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🌀</span>
+            <div>
+              <p className="font-bold text-sm" style={{ color: isNight ? '#93C5FD' : '#1D4ED8' }}>Choose Your Spirit</p>
+              <p className="text-xs" style={{ color: isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)' }}>
+                Blue, White, or Dark — your Spirit companion
+              </p>
+            </div>
+          </div>
+          <span style={{ color: isNight ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}>›</span>
+        </Link>
       </div>
     </div>
   );

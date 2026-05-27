@@ -2,9 +2,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritVoice } from '@/components/village/SpiritVoice';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatar';
+import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
+
+// Lazy-load the 3D avatar (heavy Three.js bundle)
+const SpiritAvatar = dynamic(
+  () => import('@/components/spirit/SpiritAvatar').then(m => ({ default: m.SpiritAvatar })),
+  { ssr: false, loading: () => <SpiritAvatarStatic variant="blue" size={40} /> }
+);
 
 interface Message {
   id:      string;
@@ -27,6 +36,7 @@ export default function SpiritHubPage() {
   const [input, setInput]           = useState('');
   const [sending, setSending]       = useState(false);
   const [profile, setProfile]       = useState<any>(null);
+  const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
   const [showStarters, setShowStarters] = useState(true);
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
@@ -47,10 +57,14 @@ export default function SpiritHubPage() {
       if (!user) return;
       const { data: p } = await (supabase as any)
         .from('profiles')
-        .select('username, display_name, personality_type, village_score, score_tier')
+        .select('username, display_name, personality_type, village_score, score_tier, avatar_config')
         .eq('id', user.id)
         .single();
       setProfile(p);
+      // Load selected spirit variant from avatar_config
+      if (p?.avatar_config?.spirit_variant) {
+        setSpiritVariant(p.avatar_config.spirit_variant as SpiritVariantId);
+      }
 
       // Load recent Spirit conversations from DB
       const { data: memories } = await (supabase as any)
@@ -145,9 +159,9 @@ export default function SpiritHubPage() {
         <Link href="/village/map" className="text-xl" style={{ color: textMute }}>←</Link>
 
         <div className="relative">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-2xl"
-            style={{ background: isNight ? '#12152A' : '#EEF2FF', border: `2px solid ${accent}` }}>
-            🌀
+          <div className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center"
+            style={{ background: isNight ? '#08101A' : '#EEF2FF', border: `2px solid ${accent}` }}>
+            <SpiritAvatar variant={spiritVariant} size={48} />
           </div>
           <motion.div
             animate={{ scale: [1, 1.3, 1] }}
@@ -182,9 +196,9 @@ export default function SpiritHubPage() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-2`}
           >
             {msg.role === 'spirit' && (
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0 mt-0.5"
-                style={{ background: isNight ? '#12152A' : '#EEF2FF', border: `1px solid ${border}` }}>
-                🌀
+              <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 mt-0.5"
+                style={{ background: isNight ? '#08101A' : '#EEF2FF', border: `1px solid ${border}` }}>
+                <SpiritAvatarStatic variant={spiritVariant} size={36} />
               </div>
             )}
 
