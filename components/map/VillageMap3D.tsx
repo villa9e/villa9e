@@ -32,7 +32,7 @@ function smoothMat(color: string, emissive?: string) {
 // Hard-edge material — for intentionally angular architectural faces
 function hardMat(color: string) {
   const mat = new THREE.MeshToonMaterial({ color });
-  mat.flatShading = true;
+  (mat as any).flatShading = true;
   return mat;
 }
 
