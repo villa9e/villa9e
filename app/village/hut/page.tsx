@@ -21,10 +21,11 @@ const HUT_LINKS = [
   { href: '/village/hut/avatar',      emoji: '🎭', label: 'Build Avatar',      desc: 'Customize your village character' },
   { href: '/village/hut/settings',    emoji: '⚙️', label: 'Settings',           desc: 'Profile, Spirit, language' },
   { href: '/village/hut/vlg-wallet',  emoji: '🪙', label: '$VLG Wallet',        desc: 'Balance, transactions, earning' },
+  { href: '/village/blockchain',      emoji: '⛓️', label: 'Blockchain',          desc: 'Village ledger · $VLG token' },
   { href: '/village/hut/data-locker', emoji: '🔒', label: 'Data Locker',        desc: 'Control your data & earnings' },
   { href: '/village/hut/referrals',   emoji: '🤝', label: 'Referrals',          desc: 'Invite villagers, earn VLG' },
   { href: '/village/hospital/join',   emoji: '✅', label: 'Get Verified',        desc: 'Open your professional storefront' },
-  { href: '/village/hut/avatar',      emoji: '🏆', label: 'Achievements',       desc: 'Medals, milestones, badges' },
+  { href: '/village/hut/achievements', emoji: '🏆', label: 'Achievements',       desc: 'Medals, milestones, badges' },
 ];
 
 export default function HutPage() {

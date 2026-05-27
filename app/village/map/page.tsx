@@ -288,11 +288,13 @@ function VillageMapPageInner() {
       {/* Weather ambient overlay */}
       {mapMode === '3d' && <WeatherAmbientLayer />}
 
-      {/* Map — fills remaining space after header */}
-      <div className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
-        {mapMode === 'illustrated' && <VillageIllustration />}
-        {mapMode === 'world'       && <VillageWorld3D onNavigate={href => router.push(href)} />}
-        {mapMode === '3d'          && <VillageMap3D />}
+      {/* Map — absolute fill so h-full works inside the flex child */}
+      <div className="flex-1 relative" style={{ minHeight: 0 }}>
+        <div className="absolute inset-0 overflow-hidden">
+          {mapMode === 'illustrated' && <VillageIllustration />}
+          {mapMode === 'world'       && <VillageWorld3D onNavigate={href => router.push(href)} />}
+          {mapMode === '3d'          && <VillageMap3D />}
+        </div>
       </div>
 
       {/* Village heartbeat */}

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>villa9e — Offline</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, sans-serif; background: #060810; color: #fff; min-height: 100dvh; display: flex; align-items: center; justify-content: center; text-align: center; }
+  .card { padding: 40px 32px; max-width: 360px; }
+  .logo { font-size: 64px; margin-bottom: 16px; }
+  h1 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+  p { color: rgba(255,255,255,0.45); font-size: 15px; line-height: 1.6; margin-bottom: 24px; }
+  button { background: #1877F2; color: #fff; border: none; border-radius: 14px; padding: 14px 28px; font-size: 15px; font-weight: 700; cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">⛺</div>
+  <h1>You're offline</h1>
+  <p>villa9e needs a connection to load. Your village is waiting for you to reconnect.</p>
+  <button onclick="window.location.reload()">Try Again</button>
+</div>
+</body>
+</html>

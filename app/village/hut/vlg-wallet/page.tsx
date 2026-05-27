@@ -91,6 +91,11 @@ export default function VLGWalletPage() {
           </div>
         </motion.div>
 
+        {/* VLG Redemption — Early Access */}
+        {totalVlg >= 500 && (
+          <RedeemVLGCard totalVlg={totalVlg} isNight={isNight} />
+        )}
+
         {/* Phase info */}
         <div className="village-card" style={{ borderColor: isNight ? 'rgba(251,191,36,0.2)' : '#fde68a', background: isNight ? 'rgba(251,191,36,0.07)' : '#fffbeb' }}>
           <div className="flex gap-3">
@@ -152,6 +157,72 @@ export default function VLGWalletPage() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function RedeemVLGCard({ totalVlg, isNight }: { totalVlg: number; isNight: boolean }) {
+  const [amount, setAmount]   = useState(500);
+  const [email, setEmail]     = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted]   = useState(false);
+  const MIN = 500;
+  const RATE = 0.01; // $0.01 per VLG in Phase 1 early access
+  const usd = (amount * RATE).toFixed(2);
+
+  async function submit() {
+    if (amount < MIN || !email.trim() || submitting) return;
+    setSubmitting(true);
+    await fetch('/api/vlg/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, payout_email: email }),
+    }).catch(() => {});
+    setSubmitting(false);
+    setSubmitted(true);
+  }
+
+  if (submitted) return (
+    <div className="village-card text-center space-y-2 py-6">
+      <div className="text-4xl">✅</div>
+      <p className="font-bold" style={{ color: isNight ? '#F0EBE0' : '#1E1B4B' }}>Redemption Requested</p>
+      <p className="text-xs" style={{ color: isNight ? '#4A4F72' : '#6B7280' }}>
+        Your request for ${usd} will be processed within 5–7 business days via PayPal/Stripe.
+      </p>
+    </div>
+  );
+
+  return (
+    <div className="village-card space-y-3" style={{ borderColor: '#1877F220' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-xl">💸</span>
+        <div>
+          <p className="font-bold text-sm" style={{ color: isNight ? '#F0EBE0' : '#1E1B4B' }}>
+            Redeem VLG — Early Access
+          </p>
+          <p className="text-xs" style={{ color: isNight ? '#4A4F72' : '#6B7280' }}>
+            Minimum 500 VLG · Rate: $0.01/VLG in Phase 1
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <input type="number" min={MIN} max={Math.floor(totalVlg)} value={amount}
+          onChange={e => setAmount(Math.min(Math.floor(totalVlg), Math.max(MIN, parseInt(e.target.value) || MIN)))}
+          className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+          style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
+        <span className="font-black text-lg" style={{ color: '#1877F2' }}>= ${usd}</span>
+      </div>
+      <input type="email" placeholder="PayPal or Stripe email for payout" value={email}
+        onChange={e => setEmail(e.target.value)}
+        className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+        style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
+      <button onClick={submit} disabled={submitting || amount < MIN || !email.trim()}
+        className="w-full py-3 rounded-2xl font-bold text-white text-sm disabled:opacity-50"
+        style={{ background: '#1877F2' }}>
+        {submitting ? 'Submitting…' : `Request Payout of $${usd}`}
+      </button>
+      <p className="text-xs text-center" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
+        Full conversion at Phase 3 launch (50K+ villagers). Early access rate may change.
+      </p>
     </div>
   );
 }

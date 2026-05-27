@@ -19,11 +19,19 @@ export default function TradingPostPage() {
   const [contacting, setContacting] = useState<any>(null);
   const [contactMsg, setContactMsg] = useState('');
   const [contacted, setContacted] = useState(false);
+  const [hiring, setHiring]         = useState<string | null>(null); // listing_id being hired
+  const [paidSuccess, setPaidSuccess] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     loadListings();
     supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
+    // Detect Stripe success redirect
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('paid') === 'success') {
+      setPaidSuccess(true);
+      setTimeout(() => setPaidSuccess(false), 5000);
+      window.history.replaceState({}, '', '/village/trading-post');
+    }
   }, [category, search]);
 
   async function loadListings() {
@@ -97,6 +105,14 @@ export default function TradingPostPage() {
           + List Skill
         </button>
       </div>
+
+      {/* Payment success toast */}
+      {paidSuccess && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl font-bold text-white text-sm"
+          style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)', boxShadow: '0 4px 24px rgba(34,197,94,0.4)' }}>
+          ✅ Payment successful! Your session is booked.
+        </div>
+      )}
 
       {/* Contact modal */}
       {contacting && (
@@ -229,9 +245,26 @@ export default function TradingPostPage() {
                   <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
                     style={{ background: isNight ? '#0D2D1A' : '#DCFCE7', color: '#16A34A' }}>🤝 Barter</button>
                 )}
-                {l.deal_types?.includes('pay') && (
-                  <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
-                    style={{ background: isNight ? '#0D1A2D' : '#DBEAFE', color: '#1877F2' }}>💳 Hire</button>
+                {l.deal_types?.includes('pay') && l.hourly_rate && (
+                  <button
+                    onClick={async () => {
+                      setHiring(l.id);
+                      try {
+                        const res = await fetch('/api/trading-post/pay', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ listing_id: l.id }),
+                        });
+                        const data = await res.json();
+                        if (data.url) window.location.href = data.url;
+                        else setContacting(l); // fallback to contact
+                      } catch { setContacting(l); }
+                      setHiring(null);
+                    }}
+                    disabled={hiring === l.id}
+                    className="flex-1 rounded-full py-2 text-xs font-bold disabled:opacity-60"
+                    style={{ background: '#1877F2', color: '#fff' }}>
+                    {hiring === l.id ? '…' : `💳 Hire $${l.hourly_rate}/hr`}
+                  </button>
                 )}
                 <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
                   style={{ background: isNight ? '#1A0D2D' : '#F3E8FF', color: '#7C3AED' }}>💬 Network</button>

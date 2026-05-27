@@ -424,48 +424,93 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
         </div>
       )}
 
-      {/* TASKS */}
+      {/* TASKS — Kanban board */}
       {activeTab === 'tasks' && (
-        <div className="max-w-2xl mx-auto w-full p-4 space-y-3">
+        <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
+          {/* Quick-add */}
           <div className="flex gap-2">
             <input value={newTask} onChange={e => setNewTask(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && addTask()}
-              placeholder="Add a tribe task…"
+              placeholder="Add a tribe task and press Enter…"
               className="flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none"
               style={{ background: isNight ? '#0A0B12' : '#FDF2F8', border: `1px solid ${border}`, color: textMain }} />
             <button onClick={addTask} disabled={!newTask.trim()}
               className="rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
               style={{ background: accent }}>Add</button>
           </div>
-          <div className="flex items-center justify-between text-xs" style={{ color: textMute }}>
-            <span>{tasks.filter(t => t.status === 'completed').length}/{tasks.length} done</span>
-            {tasks.length > 0 && (
-              <div className="flex-1 mx-3 h-1 rounded-full" style={{ background: isNight ? '#1E2240' : '#FCE7F3' }}>
-                <div className="h-1 rounded-full transition-all" style={{ width: `${tasks.length ? (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100 : 0}%`, background: accent }} />
+
+          {/* Sprint progress */}
+          {tasks.length > 0 && (
+            <div className="flex items-center gap-3 text-xs" style={{ color: textMute }}>
+              <span className="font-bold">{tasks.filter(t => t.status === 'completed').length}/{tasks.length} done</span>
+              <div className="flex-1 h-1.5 rounded-full" style={{ background: isNight ? '#1E2240' : '#FCE7F3' }}>
+                <div className="h-1.5 rounded-full transition-all" style={{ width: `${tasks.length ? (tasks.filter(t => t.status === 'completed').length / tasks.length) * 100 : 0}%`, background: accent }} />
               </div>
-            )}
-          </div>
-          {tasks.map(task => (
-            <div key={task.id} className="flex items-center gap-3 rounded-2xl p-4"
-              style={{ background: cardBg, border: `1px solid ${border}` }}>
-              <button onClick={() => toggleTask(task)}
-                className="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                style={{
-                  borderColor: task.status === 'completed' ? '#16A34A' : border,
-                  background:  task.status === 'completed' ? '#16A34A' : 'transparent',
-                }}>
-                {task.status === 'completed' && <span className="text-white text-xs">✓</span>}
-              </button>
-              <span className={`text-sm flex-1 ${task.status === 'completed' ? 'line-through opacity-40' : ''}`}
-                style={{ color: textMain }}>{task.title}</span>
-            </div>
-          ))}
-          {tasks.length === 0 && (
-            <div className="text-center py-10" style={{ color: textMute }}>
-              <p className="text-3xl mb-2">✅</p>
-              <p className="text-sm">No tasks yet. Add one above.</p>
+              <span>{Math.round(tasks.filter(t => t.status === 'completed').length / Math.max(1, tasks.length) * 100)}%</span>
             </div>
           )}
+
+          {/* Kanban columns */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Todo', status: 'pending',     color: isNight ? '#1E2240' : '#EEF2FF', badge: '#6366F1' },
+              { label: 'Doing', status: 'in_progress', color: isNight ? '#1A1505' : '#FFFBEB', badge: '#F59E0B' },
+              { label: 'Done',  status: 'completed',  color: isNight ? '#0D2D1A' : '#F0FDF4', badge: '#22C55E' },
+            ].map(col => {
+              const colTasks = tasks.filter(t =>
+                col.status === 'in_progress'
+                  ? t.status !== 'pending' && t.status !== 'completed'
+                  : t.status === col.status
+              );
+              return (
+                <div key={col.status}>
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: col.badge }} />
+                    <p className="text-xs font-bold" style={{ color: textMute }}>{col.label}</p>
+                    <span className="ml-auto text-xs font-black rounded-full px-1.5 py-0.5"
+                      style={{ background: col.color, color: col.badge }}>{colTasks.length}</span>
+                  </div>
+                  <div className="space-y-2 min-h-[80px] rounded-2xl p-2" style={{ background: col.color }}>
+                    {colTasks.map(task => (
+                      <div key={task.id} className="rounded-xl p-2.5 text-xs space-y-2"
+                        style={{ background: cardBg, border: `1px solid ${border}` }}>
+                        <p style={{ color: textMain, fontWeight: 600, lineHeight: 1.4 }}
+                          className={task.status === 'completed' ? 'line-through opacity-50' : ''}>
+                          {task.title}
+                        </p>
+                        {/* Status cycle buttons */}
+                        <div className="flex gap-1">
+                          {col.status !== 'pending' && (
+                            <button onClick={() => {
+                              (supabase as any).from('tribe_tasks').update({ status: 'pending' }).eq('id', task.id);
+                              setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'pending' } : t));
+                            }} className="text-xs px-1.5 py-0.5 rounded-lg" style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: '#6366F1' }}>
+                              ← Todo
+                            </button>
+                          )}
+                          {col.status !== 'in_progress' && (
+                            <button onClick={() => {
+                              const next = col.status === 'pending' ? 'in_progress' : 'completed';
+                              (supabase as any).from('tribe_tasks').update({ status: next }).eq('id', task.id);
+                              setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: next } : t));
+                            }} className="text-xs px-1.5 py-0.5 rounded-lg" style={{
+                              background: col.status === 'pending' ? (isNight ? '#1A1505' : '#FFFBEB') : (isNight ? '#0D2D1A' : '#F0FDF4'),
+                              color: col.status === 'pending' ? '#F59E0B' : '#22C55E',
+                            }}>
+                              {col.status === 'pending' ? 'Start →' : 'Done ✓'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {colTasks.length === 0 && (
+                      <p className="text-center py-3 text-xs" style={{ color: textMute }}>Empty</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

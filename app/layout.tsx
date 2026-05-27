@@ -48,6 +48,16 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        {/* Register service worker for PWA */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+              navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+          }
+        `}} />
+      </head>
       <body className={`${inter.className} pb-20`} style={{ overflowX: 'hidden', WebkitTextSizeAdjust: '100%' }}>
         <PostHogProvider>
           <SpiritVoiceProvider>

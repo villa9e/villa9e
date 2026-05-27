@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { storeMemory } from '@/lib/claude/spirit';
+import { PushTriggers } from '@/lib/notifications/triggers';
+import { checkAndAwardAchievements } from '@/lib/village/achievements';
 
 export async function POST(req: NextRequest) {
   const admin = createAdminClient();
@@ -65,19 +67,17 @@ export async function POST(req: NextRequest) {
     });
   } catch { /* non-critical */ }
 
-  // Push notification
-  fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/push/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      external_user_ids: [receiver_id],
-      title: `${giverName} OoWop'd you! ✊`,
-      body: oowop_count >= 3
-        ? 'Your step is validated — the village believes in you! 🔥'
-        : `${oowop_count}/3 OoWops — keep going!`,
-      url: step_id ? '/village/workshop' : '/village/dreamline',
-    }),
-  }).catch(() => {});
+  // Personalized push notification via PushTriggers
+  if (step_id) {
+    const { data: step } = await (admin as any).from('goal_steps').select('title, goal_id').eq('id', step_id).single();
+    PushTriggers.oowopReceived(receiver_id, giverName, step?.title ?? 'a step', step?.goal_id ?? '').catch(() => {});
+  } else {
+    PushTriggers.oowopReceived(receiver_id, giverName, 'your post', '').catch(() => {});
+  }
+
+  // Check achievements for both giver and receiver
+  checkAndAwardAchievements(giver_id).catch(() => {});
+  checkAndAwardAchievements(receiver_id).catch(() => {});
 
   return NextResponse.json({ ok: true, giver_weight: giverWeight });
 }

@@ -201,6 +201,24 @@ export default function DataLockerPage() {
           style={{ background: `linear-gradient(135deg, ${accent}, #1877F2)` }}>
           {saving ? 'Saving…' : saved ? '✅ Saved!' : '🔐 Save Data Locker Settings'}
         </button>
+
+        {/* GDPR Data Export */}
+        <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+          <p className="font-bold text-sm mb-1" style={{ color: textMain }}>Your Rights (GDPR / CCPA)</p>
+          <p className="text-xs mb-3" style={{ color: textMute }}>Download everything villa9e knows about you, or request permanent deletion.</p>
+          <div className="flex gap-2">
+            <a href="/api/data-export" download
+              className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center"
+              style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA', textDecoration: 'none' }}>
+              📥 Download My Data
+            </a>
+            <a href="mailto:privacy@villa9e.app?subject=Data Deletion Request"
+              className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center"
+              style={{ background: isNight ? '#2D0E0E' : '#FEF2F2', color: '#EF4444', textDecoration: 'none' }}>
+              🗑️ Request Deletion
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

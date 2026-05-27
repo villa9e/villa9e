@@ -412,7 +412,8 @@ export default function VillageIllustration() {
   }
 
   return (
-    <div className="w-full h-full relative overflow-hidden select-none">
+    <div className="w-full h-full relative overflow-hidden select-none"
+      style={{ background: effectiveSky.skyTop, minHeight: '400px' }}>
       <svg
         viewBox="0 0 100 100"
         preserveAspectRatio="xMidYMid slice"
