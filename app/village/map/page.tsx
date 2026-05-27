@@ -11,7 +11,19 @@ import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt'
 import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 import VillageIllustration from '@/components/map/VillageIllustration';
-import VillageWorld3D from '@/components/map/VillageWorld3D';
+const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#06080E] to-[#08101E]">
+      <div className="text-center">
+        <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+          <span className="text-6xl">🌀</span>
+        </motion.div>
+        <p className="text-white/50 text-sm mt-3 font-medium animate-pulse">Entering the village…</p>
+      </div>
+    </div>
+  ),
+});
 
 const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
   ssr: false,
