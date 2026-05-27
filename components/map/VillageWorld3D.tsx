@@ -299,9 +299,9 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
 
   return (
     <group position={[x, 0, z]}>
-      {/* Shadow */}
-      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
-        <ellipseGeometry args={[sw * 0.6, sd * 0.6, 16]} />
+      {/* Shadow — circle scaled to ellipse proportions */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]} scale={[sw * 0.6, sd * 0.6, 1]}>
+        <circleGeometry args={[1, 16]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.12} />
       </mesh>
 
