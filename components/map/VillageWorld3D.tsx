@@ -724,16 +724,16 @@ function WorldScene({
       {/* Physics world — ground floor + building colliders */}
       <Physics gravity={[0, -9.81, 0]} colliders={false}>
         {/* Static ground plane */}
-        <RigidBody type="fixed" colliders="cuboid">
+        <RigidBody type="fixed">
           <CuboidCollider args={[30, 0.1, 30]} position={[0, -0.1, 0]} />
         </RigidBody>
 
-        {/* Building static colliders — replace manual AABB */}
+        {/* Building static colliders — exact bounds per location */}
         {LOCATIONS.map(loc => {
           const [bx, , bz] = loc.pos;
           const [bw, bh, bd] = loc.size;
           return (
-            <RigidBody key={loc.id} type="fixed" colliders={false}>
+            <RigidBody key={loc.id} type="fixed">
               <CuboidCollider args={[bw / 2 + 0.4, bh / 2, bd / 2 + 0.4]} position={[bx, bh / 2, bz]} />
             </RigidBody>
           );
