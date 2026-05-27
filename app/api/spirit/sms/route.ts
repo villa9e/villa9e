@@ -26,8 +26,7 @@ export async function POST(req: NextRequest) {
     try {
       const { text } = await callSpirit(
         profile.id,
-        msgBody,
-        { source: 'sms', phone: from }
+        `[SMS from ${from}]: ${msgBody}`
       );
       replyText = text.slice(0, 1600); // SMS limit
     } catch {
