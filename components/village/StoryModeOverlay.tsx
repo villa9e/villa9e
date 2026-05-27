@@ -247,6 +247,7 @@ function StepPanel() {
   }
 
   function handleNavigate() {
+    if (!currentStep) return;
     if (currentStep.autoComplete) {
       handleComplete();
     } else {

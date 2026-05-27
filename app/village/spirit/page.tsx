@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritVoice } from '@/components/village/SpiritVoice';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatar';
+import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatarStatic';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 
 // Lazy-load the 3D avatar (heavy Three.js bundle)
