@@ -84,10 +84,12 @@ export async function POST(req: NextRequest) {
     }, { onConflict: 'provider_id' });
 
     // Award VLG for verification
-    await admin.rpc('award_village_score', {
-      p_user_id: user.id, p_points: 25, p_vlg: 100,
-      p_reason: 'PROVIDER_VERIFIED', p_reference_id: provider.id,
-    }).catch(() => {});
+    try {
+      await admin.rpc('award_village_score', {
+        p_user_id: user.id, p_points: 25, p_vlg: 100,
+        p_reason: 'PROVIDER_VERIFIED', p_reference_id: provider.id,
+      });
+    } catch { /* non-critical */ }
 
     // Notify
     await (admin as any).from('notifications').insert({
