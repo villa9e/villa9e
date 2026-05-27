@@ -9,11 +9,29 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { template, content } = await req.json();
-  // template: 'goal_progress' | 'oowop_celebration' | 'quote_reel' | 'achievement'
-  // content: { text, username, goal_title, metric, music_mood, duration }
+  const { template, content, template_id } = await req.json();
 
-  const duration = Math.min(content.duration ?? 15, 60);
+  // If template is a full JSON2Video payload object (from videoTemplates.ts), use directly
+  if (template && typeof template === 'object' && template.scenes) {
+    try {
+      const res = await fetch('https://api.json2video.com/v2/movies', {
+        method: 'POST',
+        headers: { 'x-api-key': JSON2VIDEO_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(template),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        return NextResponse.json({ error: 'Video generation failed', details: err.slice(0, 300) }, { status: 500 });
+      }
+      const data = await res.json();
+      return NextResponse.json({ movie_id: data.movie, id: data.movie, status: 'processing' });
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 500 });
+    }
+  }
+
+  // String template name — build from content fields
+  const duration = Math.min(content?.duration ?? 15, 60);
   const bgColor = '#1877F2';
   const textColor = '#FFFFFF';
 

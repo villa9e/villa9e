@@ -157,14 +157,38 @@ export default function SpacesPage() {
 
   async function syncToGoogleCalendar(event: any) {
     setGcalSyncing(true);
-    // Build Google Calendar URL (no OAuth needed for personal quick-add)
+
+    // Try real OAuth sync first
+    try {
+      const res = await fetch('/api/integrations/google-calendar/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_id: event.id }),
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        setGcalSynced(true);
+        setGcalSyncing(false);
+        setTimeout(() => setGcalSynced(false), 4000);
+        return;
+      }
+
+      if (data.error === 'not_connected') {
+        // Redirect to OAuth flow
+        window.location.href = `/api/integrations/google-calendar/auth?return_to=/village/spaces`;
+        return;
+      }
+    } catch { /* fall through to URL approach */ }
+
+    // Fallback: open Google Calendar URL for manual add
     const start = new Date(event.start_time);
     const end = new Date(event.end_time ?? new Date(start.getTime() + 3600000));
     const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
     const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(event.description ?? '')}&location=${encodeURIComponent(event.location ?? '')}`;
     window.open(gcalUrl, '_blank');
-    setGcalSyncing(false);
     setGcalSynced(true);
+    setGcalSyncing(false);
     setTimeout(() => setGcalSynced(false), 3000);
   }
 

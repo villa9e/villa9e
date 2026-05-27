@@ -8,6 +8,7 @@ import { VillageSound } from '@/lib/sounds/village';
 import { useSkySystem } from '@/lib/world/useSkySystem';
 import { SpiritFigure } from '@/components/spirit/SpiritFigure';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
+import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 
 // ─── Location data with collision boxes ───────────────────────────────────────
@@ -702,6 +703,25 @@ function WorldScene({
       {skyState?.hasFog && (
         <fog attach="fog" args={[skyState.fogColor, 18, 55]} />
       )}
+
+      {/* Physics world — ground floor + building colliders */}
+      <Physics gravity={[0, -9.81, 0]} colliders={false}>
+        {/* Static ground plane */}
+        <RigidBody type="fixed" colliders="cuboid">
+          <CuboidCollider args={[30, 0.1, 30]} position={[0, -0.1, 0]} />
+        </RigidBody>
+
+        {/* Building static colliders — replace manual AABB */}
+        {LOCATIONS.map(loc => {
+          const [bx, , bz] = loc.pos;
+          const [bw, bh, bd] = loc.size;
+          return (
+            <RigidBody key={loc.id} type="fixed" colliders={false}>
+              <CuboidCollider args={[bw / 2 + 0.4, bh / 2, bd / 2 + 0.4]} position={[bx, bh / 2, bz]} />
+            </RigidBody>
+          );
+        })}
+      </Physics>
 
       {/* Ground */}
       <Ground isNight={isNight} />
