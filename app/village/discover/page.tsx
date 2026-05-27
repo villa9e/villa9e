@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 export default function DiscoverPage() {
   const [villagers, setVillagers] = useState<any[]>([]);
@@ -11,6 +12,15 @@ export default function DiscoverPage() {
   const [matching, setMatching] = useState(false);
   const [tab, setTab] = useState<'matches' | 'discover'>('matches');
   const supabase = createClient();
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+
+  const bg     = isNight ? '#060810' : '#F0F4FF';
+  const card   = isNight ? '#0D1020' : '#FFFFFF';
+  const border = isNight ? '#1A1F3A' : '#E0E7FF';
+  const text   = isNight ? '#F0EBE0' : '#1E1B4B';
+  const muted  = isNight ? '#4A4F72' : '#6D28D9';
+  const sub    = isNight ? '#3A3F5A' : '#9CA3AF';
 
   useEffect(() => { loadVillagers(); }, []);
 
@@ -19,8 +29,14 @@ export default function DiscoverPage() {
     if (!user) return;
 
     const [{ data: top }, { data: myMatches }] = await Promise.all([
-      supabase.from('profiles').select('id,username,display_name,village_score,score_tier,personality_type,occupation').neq('id', user.id).gt('village_score', 0).order('village_score', { ascending: false }).limit(20),
-      supabase.from('villager_matches').select('*, profiles!villager_matches_matched_user_id_fkey(username,display_name,village_score,score_tier,personality_type,occupation)').eq('user_id', user.id).eq('is_dismissed', false).order('match_score', { ascending: false }).limit(10),
+      (supabase as any).from('profiles')
+        .select('id,username,display_name,village_score,score_tier,personality_type,occupation')
+        .neq('id', user.id).gt('village_score', 0)
+        .order('village_score', { ascending: false }).limit(20),
+      (supabase as any).from('villager_matches')
+        .select('*, profiles!villager_matches_matched_user_id_fkey(username,display_name,village_score,score_tier,personality_type,occupation)')
+        .eq('user_id', user.id).eq('is_dismissed', false)
+        .order('match_score', { ascending: false }).limit(10),
     ]);
     setVillagers(top ?? []);
     setMatches(myMatches ?? []);
@@ -38,51 +54,68 @@ export default function DiscoverPage() {
   async function connectWithVillager(matchedId: string) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('connections').upsert({ requester_id: user.id, addressee_id: matchedId, status: 'pending' }, { onConflict: 'requester_id,addressee_id' });
+    await (supabase as any).from('connections').upsert(
+      { requester_id: user.id, addressee_id: matchedId, status: 'pending' },
+      { onConflict: 'requester_id,addressee_id' }
+    );
   }
 
   async function dismissMatch(matchId: string) {
-    await supabase.from('villager_matches').update({ is_dismissed: true }).eq('id', matchId);
+    await (supabase as any).from('villager_matches').update({ is_dismissed: true }).eq('id', matchId);
     setMatches(prev => prev.filter(m => m.id !== matchId));
   }
 
   const tierIcon = (tier: string) => tier === 'legend' ? '🏆' : tier === 'elder' ? '⚡' : tier === 'builder' ? '🏗️' : tier === 'grower' ? '🌱' : '🌾';
+  const ARCHETYPE_EMOJI: Record<string,string> = { architect:'🏗️', spark:'⚡', anchor:'⚓', compass:'🧭', pioneer:'🏔️', sage:'📚', weaver:'🕸️', flame:'🔥' };
 
   const VillagerCard = ({ v, matchData }: { v: any; matchData?: any }) => (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="village-card">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl p-4"
+      style={{ background: card, border: `1px solid ${border}` }}>
       <div className="flex items-start gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-village-blue/10 flex items-center justify-center text-2xl font-bold text-village-blue flex-shrink-0">
-          {v.username?.[0]?.toUpperCase() ?? '?'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <p className="font-bold">@{v.username}</p>
-            <span>{tierIcon(v.score_tier ?? 'seedling')}</span>
-            <span className="text-xs text-gray-400 ml-auto">{v.village_score} pts</span>
+        <Link href={`/villager/${v.username}`}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
+            {v.username?.[0]?.toUpperCase() ?? '?'}
           </div>
-          {v.display_name && <p className="text-sm text-gray-600">{v.display_name}</p>}
-          {v.occupation && <p className="text-xs text-gray-400 mt-0.5">{v.occupation}</p>}
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Link href={`/villager/${v.username}`}>
+              <p className="font-bold text-sm" style={{ color: text }}>@{v.username}</p>
+            </Link>
+            <span>{tierIcon(v.score_tier ?? 'seedling')}</span>
+            {v.personality_type && <span className="text-sm">{ARCHETYPE_EMOJI[v.personality_type] ?? ''}</span>}
+            <span className="text-xs ml-auto" style={{ color: sub }}>{v.village_score ?? 0} pts</span>
+          </div>
+          {v.display_name && <p className="text-sm mt-0.5" style={{ color: muted }}>{v.display_name}</p>}
+          {v.occupation && <p className="text-xs mt-0.5" style={{ color: sub }}>{v.occupation}</p>}
           {matchData?.match_reason && (
-            <p className="text-xs text-village-blue mt-1.5 bg-blue-50 px-2 py-1 rounded-lg">
+            <p className="text-xs mt-1.5 px-2 py-1 rounded-lg"
+              style={{ color: '#60a5fa', background: isNight ? 'rgba(24,119,242,0.1)' : 'rgba(24,119,242,0.06)' }}>
               ✨ {matchData.match_reason}
             </p>
           )}
           {matchData?.match_score && (
             <div className="flex items-center gap-2 mt-1.5">
-              <div className="flex-1 bg-gray-100 rounded-full h-1.5">
-                <div className="h-1.5 rounded-full village-gradient" style={{ width: `${matchData.match_score}%` }} />
+              <div className="flex-1 rounded-full h-1.5" style={{ background: 'var(--v-progress-bg)' }}>
+                <div className="h-1.5 rounded-full" style={{ width: `${matchData.match_score}%`, background: '#1877F2' }} />
               </div>
-              <span className="text-xs font-bold text-village-blue">{matchData.match_score}% match</span>
+              <span className="text-xs font-bold" style={{ color: '#1877F2' }}>{matchData.match_score}% match</span>
             </div>
           )}
         </div>
       </div>
       <div className="flex gap-2 mt-3">
-        <button onClick={() => connectWithVillager(v.id)} className="flex-1 bg-village-blue text-white rounded-full py-1.5 text-xs font-bold hover:bg-village-blueDark">
+        <button onClick={() => connectWithVillager(v.id)}
+          className="flex-1 text-white rounded-full py-2 text-xs font-bold transition-all"
+          style={{ background: '#1877F2' }}>
           🤝 Connect
         </button>
         {matchData && (
-          <button onClick={() => dismissMatch(matchData.id)} className="px-3 bg-gray-100 text-gray-400 rounded-full text-xs hover:bg-gray-200">
+          <button onClick={() => dismissMatch(matchData.id)}
+            className="px-4 rounded-full text-xs font-semibold transition-colors"
+            style={{ background: isNight ? '#1A1F3A' : '#F3F4F6', color: sub }}>
             ✕
           </button>
         )}
@@ -91,54 +124,75 @@ export default function DiscoverPage() {
   );
 
   return (
-    <div className="min-h-screen bg-village-bg">
-      <div className="bg-village-blue text-white px-6 py-4 flex items-center gap-3">
-        <Link href="/village/map" className="text-xl">←</Link>
+    <div className="min-h-screen pb-24" style={{ background: bg }}>
+      {/* Header */}
+      <div className="sticky top-0 z-20 px-4 py-3 flex items-center gap-3"
+        style={{ background: isNight ? 'rgba(6,8,16,0.92)' : 'rgba(240,244,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
+        <Link href="/village/map" className="text-xl" style={{ color: muted }}>←</Link>
         <span className="text-2xl">🔍</span>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">Discover Villagers</h1>
-          <p className="text-blue-100 text-xs">Find your people</p>
+          <h1 className="text-lg font-black" style={{ color: text }}>Discover Villagers</h1>
+          <p className="text-xs" style={{ color: muted }}>Find your people</p>
         </div>
-        <Link href="/village/discover/connections" className="text-blue-200 text-sm mr-1">🤝 Connections</Link>
-        <button onClick={runMatching} disabled={matching} className="bg-white/20 rounded-full px-3 py-1 text-xs font-bold hover:bg-white/30 disabled:opacity-50">
+        <Link href="/village/discover/connections"
+          className="text-xs font-semibold mr-1" style={{ color: '#60a5fa' }}>
+          🤝 Connections
+        </Link>
+        <button onClick={runMatching} disabled={matching}
+          className="px-3 py-1.5 rounded-full text-xs font-bold text-white disabled:opacity-50"
+          style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
           {matching ? '⟳ Matching…' : '🤖 AI Match'}
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 bg-white">
+      <div className="flex border-b" style={{ background: card, borderColor: border }}>
         {(['matches', 'discover'] as const).map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`flex-1 py-3 text-sm font-semibold transition-colors ${tab === t ? 'text-village-blue border-b-2 border-village-blue' : 'text-gray-500'}`}>
+            className="flex-1 py-3 text-sm font-semibold transition-colors relative"
+            style={{ color: tab === t ? '#1877F2' : muted }}>
             {t === 'matches' ? `✨ My Matches (${matches.length})` : '🌍 All Villagers'}
+            {tab === t && (
+              <motion.div layoutId="discover-tab"
+                className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1877F2]" />
+            )}
           </button>
         ))}
       </div>
 
       <div className="max-w-2xl mx-auto p-4 space-y-3">
-        {loading && <div className="text-center py-8 text-gray-400">Loading villagers…</div>}
-
-        {tab === 'matches' && (
-          <>
-            {matches.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-4xl mb-3">🤖</p>
-                <p className="text-gray-500 mb-4">No AI matches yet.</p>
-                <button onClick={runMatching} disabled={matching} className="village-btn-primary">
-                  {matching ? 'Finding matches…' : '✨ Find My Villagers'}
-                </button>
-              </div>
-            ) : (
-              matches.map(m => <VillagerCard key={m.id} v={m.profiles} matchData={m} />)
-            )}
-          </>
+        {loading && (
+          <div className="text-center py-12 text-sm" style={{ color: muted }}>Loading villagers…</div>
         )}
 
-        {tab === 'discover' && villagers.map((v, i) => (
+        {!loading && tab === 'matches' && (
+          matches.length === 0 ? (
+            <div className="text-center py-16">
+              <p className="text-5xl mb-3">🤖</p>
+              <p className="text-sm mb-4" style={{ color: muted }}>No AI matches yet.</p>
+              <button onClick={runMatching} disabled={matching}
+                className="px-6 py-3 rounded-full font-bold text-white"
+                style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
+                {matching ? 'Finding matches…' : '✨ Find My Villagers'}
+              </button>
+            </div>
+          ) : (
+            matches.map(m => <VillagerCard key={m.id} v={m.profiles} matchData={m} />)
+          )
+        )}
+
+        {!loading && tab === 'discover' && villagers.map((v, i) => (
           <motion.div key={v.id} transition={{ delay: i * 0.03 }}>
             <VillagerCard v={v} />
           </motion.div>
         ))}
+
+        {!loading && tab === 'discover' && villagers.length === 0 && (
+          <div className="text-center py-16">
+            <p className="text-5xl mb-3">🌍</p>
+            <p className="text-sm" style={{ color: muted }}>No villagers yet. Be the first to join!</p>
+          </div>
+        )}
       </div>
     </div>
   );
