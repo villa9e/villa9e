@@ -153,7 +153,7 @@ export function computeSkyState(now: Date, sunTimes: SunTimes | null, altitude: 
   if (!sunTimes) {
     // No location data — use clock-based approximation
     const h = now.getHours() + now.getMinutes() / 60;
-    if (h < 5 || h >= 21) return buildState('night', phaseSky('deep_night'), altitude, now.getAzimuth?.() ?? 180);
+    if (h < 5 || h >= 21) return buildState('night', phaseSky('deep_night'), altitude, 180);
     if (h < 7)   return buildState('dawn',      phaseSky('dawn'),      altitude, 90);
     if (h < 9)   return buildState('sunrise',   phaseSky('golden_am'), altitude, 110);
     if (h < 12)  return buildState('morning',   phaseSky('morning'),   altitude, 140);
