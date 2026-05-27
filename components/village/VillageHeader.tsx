@@ -1,29 +1,65 @@
 'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { createClient } from '@/lib/supabase/client';
 
 interface VillageHeaderProps {
   title: string;
   subtitle?: string;
   icon: string;
   backHref?: string;
-  accentColor?: string;  // hex for day, falls back to theme fire for night
+  accentColor?: string;
 }
 
 export function VillageHeader({ title, subtitle, icon, backHref = '/village/map', accentColor }: VillageHeaderProps) {
   const { theme, toggle } = useVillageTheme();
   const isNight = theme === 'night';
+  const [unread, setUnread] = useState(0);
+  const supabase = createClient();
 
   const dayBg  = accentColor ?? '#E8770A';
   const nightBg = '#0E1020';
+
+  useEffect(() => {
+    let userId: string;
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      userId = user.id;
+      // Initial unread count
+      (supabase as any)
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .then(({ count }: any) => setUnread(count ?? 0));
+
+      // Live updates
+      const ch = supabase.channel('header_notif')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          () => setUnread(n => n + 1))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
+          () => {
+            (supabase as any)
+              .from('notifications')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', userId)
+              .eq('read', false)
+              .then(({ count }: any) => setUnread(count ?? 0));
+          })
+        .subscribe();
+
+      return () => { supabase.removeChannel(ch); };
+    });
+  }, []);
 
   return (
     <div
       className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
       style={{
-        background:   isNight ? nightBg : dayBg,
-        borderColor:  isNight ? '#1E2240' : 'transparent',
+        background:  isNight ? nightBg : dayBg,
+        borderColor: isNight ? '#1E2240' : 'transparent',
       }}
     >
       <Link href={backHref} className="text-xl opacity-80 hover:opacity-100 transition-opacity" style={{ color: isNight ? '#F0EBE0' : '#fff' }}>←</Link>
@@ -32,6 +68,22 @@ export function VillageHeader({ title, subtitle, icon, backHref = '/village/map'
         <h1 className="text-lg font-black leading-tight" style={{ color: isNight ? '#F0EBE0' : '#fff' }}>{title}</h1>
         {subtitle && <p className="text-xs opacity-70 truncate" style={{ color: isNight ? '#7A7FA8' : '#fff' }}>{subtitle}</p>}
       </div>
+
+      {/* Notification bell */}
+      <Link href="/notifications" className="relative w-9 h-9 rounded-full flex items-center justify-center transition-all"
+        style={{ background: isNight ? '#1E2240' : 'rgba(255,255,255,0.2)' }}>
+        <span className="text-base">🔔</span>
+        {unread > 0 && (
+          <motion.span
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-white font-black"
+            style={{ background: '#EF4444', fontSize: '9px' }}
+          >
+            {unread > 9 ? '9+' : unread}
+          </motion.span>
+        )}
+      </Link>
 
       {/* Day / Night toggle */}
       <motion.button

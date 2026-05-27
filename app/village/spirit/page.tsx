@@ -207,6 +207,27 @@ export default function SpiritHubPage() {
         </Link>
       </div>
 
+      {/* Daily check-in banner */}
+      {profile && (() => {
+        const today = new Date().toISOString().slice(0, 10);
+        const done  = profile.mindful_moment_done && profile.last_mindful_date === today;
+        if (done) return null;
+        const hour = new Date().getHours();
+        const label = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+        return (
+          <Link href="/village/spirit/checkin"
+            className="mx-4 mt-3 flex items-center gap-3 rounded-2xl px-4 py-3 transition-opacity hover:opacity-90"
+            style={{ background: 'linear-gradient(135deg,rgba(24,119,242,0.15),rgba(124,58,237,0.15))', border: `1px solid ${border}` }}>
+            <span className="text-2xl">✨</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold" style={{ color: textMain }}>{label} check-in with Spirit</p>
+              <p className="text-xs" style={{ color: textMute }}>60 seconds · +10 VLG</p>
+            </div>
+            <span className="text-sm font-bold" style={{ color: accent }}>Start →</span>
+          </Link>
+        );
+      })()}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 max-w-2xl mx-auto w-full">
         {messages.map((msg, i) => (
