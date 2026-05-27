@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { createClient } from '@/lib/supabase/server';
+import { createServerClient } from '@/lib/supabase/server';
 
 export async function generateMetadata(
   { params }: { params: { username: string } }
 ): Promise<Metadata> {
-  const supabase = createClient();
+  const supabase = createServerClient();
   const { data: profile } = await (supabase as any)
     .from('profiles')
     .select('display_name, username, score_tier, village_score, personality_type')

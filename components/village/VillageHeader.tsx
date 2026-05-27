@@ -23,35 +23,32 @@ export function VillageHeader({ title, subtitle, icon, backHref = '/village/map'
   const nightBg = '#0E1020';
 
   useEffect(() => {
-    let userId: string;
+    let mounted = true;
+    let ch: ReturnType<typeof supabase.channel> | null = null;
+
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      userId = user.id;
+      if (!user || !mounted) return;
+      const uid = user.id;
+
       // Initial unread count
       (supabase as any)
         .from('notifications')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .eq('read', false)
-        .then(({ count }: any) => setUnread(count ?? 0));
+        .then(({ count }: any) => { if (mounted) setUnread(count ?? 0); });
 
-      // Live updates
-      const ch = supabase.channel('header_notif')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-          () => setUnread(n => n + 1))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` },
-          () => {
-            (supabase as any)
-              .from('notifications')
-              .select('id', { count: 'exact', head: true })
-              .eq('user_id', userId)
-              .eq('read', false)
-              .then(({ count }: any) => setUnread(count ?? 0));
-          })
+      // Live updates — channel named per user to avoid collision on navigation
+      ch = supabase.channel(`hdr_notif_${uid}`)
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${uid}` },
+          () => { if (mounted) setUnread(n => n + 1); })
         .subscribe();
-
-      return () => { supabase.removeChannel(ch); };
     });
+
+    return () => {
+      mounted = false;
+      if (ch) supabase.removeChannel(ch);
+    };
   }, []);
 
   return (
