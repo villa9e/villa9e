@@ -704,7 +704,81 @@ function Building({
   );
 }
 
-// ─── Third-person camera controller ───────────────────────────────────────────
+// ─── Rain system ──────────────────────────────────────────────────────────────
+function RainSystem({ intensity = 0, windAngle = 0 }: { intensity?: number; windAngle?: number }) {
+  const ref    = useRef<THREE.InstancedMesh>(null);
+  const COUNT  = 600;
+  const drops  = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 50, y: Math.random() * 20 + 2,
+    z: (Math.random() - 0.5) * 50, speed: 8 + Math.random() * 6, phase: Math.random() * 20,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(state => {
+    if (!ref.current || intensity < 0.1) return;
+    const t = state.clock.elapsedTime;
+    const wx = Math.sin(windAngle) * intensity * 0.4;
+    const wz = Math.cos(windAngle) * intensity * 0.2;
+    const active = Math.floor(intensity * COUNT);
+    drops.forEach((d, i) => {
+      if (i >= active) { dummy.scale.setScalar(0); dummy.updateMatrix(); ref.current!.setMatrixAt(i, dummy.matrix); return; }
+      const elapsed = (t * d.speed + d.phase) % 22;
+      dummy.position.set(d.x + wx * elapsed, d.y - elapsed, d.z + wz * elapsed);
+      dummy.scale.set(1, 1, 1);
+      dummy.rotation.set(intensity * 0.3, 0, -windAngle * 0.25);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+    (ref.current.material as THREE.MeshBasicMaterial).opacity = 0.25 + intensity * 0.35;
+  });
+
+  if (intensity < 0.1) return null;
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <capsuleGeometry args={[0.015, 0.28, 3, 8]} />
+      <meshBasicMaterial color="#C8E8FF" transparent opacity={0.4} />
+    </instancedMesh>
+  );
+}
+
+// ─── Wind-blown leaf/debris particles ─────────────────────────────────────────
+function WindParticles({ windStrength = 0, windAngle = 0 }: { windStrength?: number; windAngle?: number }) {
+  const ref    = useRef<THREE.InstancedMesh>(null);
+  const COUNT  = 80;
+  const parts  = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 40, y: 0.3 + Math.random() * 4,
+    z: (Math.random() - 0.5) * 40, speed: 0.5 + Math.random() * 2,
+    phase: Math.random() * 20, tumble: Math.random() * Math.PI * 2,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(state => {
+    if (!ref.current) return;
+    const t  = state.clock.elapsedTime;
+    const wx = Math.sin(windAngle) * windStrength * 3;
+    const wz = Math.cos(windAngle) * windStrength * 1.5;
+    const active = Math.floor(windStrength * COUNT);
+    parts.forEach((p, i) => {
+      if (i >= active) { dummy.scale.setScalar(0); dummy.updateMatrix(); ref.current!.setMatrixAt(i, dummy.matrix); return; }
+      const elapsed = (t * p.speed + p.phase) % 30;
+      dummy.position.set(((p.x + wx * elapsed) % 40) - 20, p.y + Math.sin(elapsed + p.tumble) * 0.5, ((p.z + wz * elapsed) % 40) - 20);
+      dummy.rotation.set(elapsed * 2, elapsed * 3, elapsed);
+      dummy.scale.setScalar(0.06 + Math.random() * 0.06);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <planeGeometry args={[1, 1]} />
+      <meshToonMaterial color="#6B8C2A" transparent opacity={0.7} />
+    </instancedMesh>
+  );
+}
+
 // ─── Ground pointer — invisible plane captures pointer drag for move-to-click ─
 function GroundPointer({ pointerTarget }: { pointerTarget: React.MutableRefObject<{ x: number; z: number } | null> }) {
   const dragging = useRef(false);
