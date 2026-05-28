@@ -15,6 +15,8 @@ export type WeatherMood =
   | 'autumn'     // Fall — amber, rust, orange
   | 'night_clear'// Clear night — stars, deep indigo
   | 'night_rain' // Rainy night — dark navy, soft blue glow
+  | 'windy'      // Windy — grey-blue, fast clouds
+  | 'breezy'     // Light wind — pleasant, soft greens
   | 'default';   // Fallback
 
 interface WeatherState {
@@ -58,6 +60,8 @@ export const WEATHER_PALETTES: Record<WeatherMood, {
   autumn:     { bgOverlay: 'rgba(234,88,12,0.09)',   cardTint: 'rgba(234,88,12,0.04)',  accentShift: '#EA580C', emoji: '🍂',  ambientClass: 'weather-autumn' },
   night_clear:{ bgOverlay: 'rgba(99,102,241,0.08)',  cardTint: 'rgba(99,102,241,0.03)', accentShift: '#818CF8', emoji: '🌙',  ambientClass: 'weather-night-clear' },
   night_rain: { bgOverlay: 'rgba(30,64,175,0.10)',   cardTint: 'rgba(30,64,175,0.04)',  accentShift: '#3B82F6', emoji: '🌧️',  ambientClass: 'weather-night-rain' },
+  windy:      { bgOverlay: 'rgba(100,116,139,0.09)', cardTint: 'rgba(100,116,139,0.04)',accentShift: '#64748B', emoji: '💨',  ambientClass: 'weather-windy' },
+  breezy:     { bgOverlay: 'rgba(134,239,172,0.07)', cardTint: 'rgba(134,239,172,0.03)',accentShift: '#4ADE80', emoji: '🌬️',  ambientClass: 'weather-breezy' },
   default:    { bgOverlay: 'rgba(24,119,242,0.06)',  cardTint: 'rgba(24,119,242,0.02)', accentShift: '#1877F2', emoji: '⛺',  ambientClass: '' },
 };
 
