@@ -39,8 +39,8 @@ const LOCATIONS = [
 // ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
 // Using simple Unicode symbols that read as flat/monotone
 const MENU_ITEMS = [
-  { id: 'messages', icon: '◉', label: 'Messages', href: '/messages',             svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
-  { id: 'goal',     icon: '◎', label: 'New Goal',  href: '/village/workshop?new=1', svg: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 14l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L19 9l-7 7z' },
+  { id: 'messages', icon: '◉', label: 'Messages', href: '/messages',               svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
+  { id: 'goal',     icon: '◎', label: 'New Goal',  href: '/village/workshop/chat',  svg: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 14l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L19 9l-7 7z' },
   { id: 'studio',  icon: '◌', label: 'Create',    href: '/village/studio',        svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
   { id: 'map',     icon: '◈', label: 'Map',       href: null,                     svg: 'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z' },
   { id: 'settings',icon: '◇', label: 'Settings',  href: '/village/hut/settings',  svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
@@ -2055,18 +2055,28 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     return () => clearInterval(loop);
   }, []);
 
-  // All navigation opens the slide-in drawer except Map (full overlay) and Mute
+  // Single-focus: close everything before opening anything new
+  function openDrawer(href: string, title: string) {
+    setShowMapOverlay(false);
+    setAvatarMenuOpen(false);
+    setSpiritMenuOpen(false);
+    setDrawer({ href, title });
+  }
+
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
-    setAvatarMenuOpen(false);
-    setDrawer({ href, title: label });
+    openDrawer(href, label);
   }
 
   const handleAvatarMenuAction = useCallback((id: MenuId, href: string | null) => {
     setAvatarMenuOpen(false);
     VillageSound.tap();
-    if (id === 'map') { setShowMapOverlay(true); return; }
-    if (href) setDrawer({ href, title: MENU_ITEMS.find(m => m.id === id)?.label ?? '' });
+    if (id === 'map') {
+      setDrawer(null); // close any open drawer first
+      setShowMapOverlay(true);
+      return;
+    }
+    if (href) openDrawer(href, MENU_ITEMS.find(m => m.id === id)?.label ?? '');
   }, []);
 
   const SPIRIT_ITEMS = [
