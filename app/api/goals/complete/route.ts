@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
         score:      medalVlg,
         streak:     profile?.checkin_streak ?? 0,
       });
-      sendEmail(authUser.user.email, t.subject, t.html).catch(() => {});
+      sendEmail({ to: authUser.user.email, subject: t.subject, html: t.html }).catch(() => {});
     }
   } catch { /* non-blocking */ }
 

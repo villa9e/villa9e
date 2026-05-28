@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         topGoal:        topGoalData?.[0]?.title,
       });
 
-      await sendEmail(email, template.subject, template.html);
+      await sendEmail({ to: email, subject: template.subject, html: template.html });
       sent++;
     } catch { /* non-blocking */ }
   }
