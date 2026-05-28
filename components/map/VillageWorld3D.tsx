@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 const VillageMap3DOverlay = dynamic(() => import('./VillageMap3D'), { ssr: false, loading: () => null });
 import { createClient } from '@/lib/supabase/client';
 import { useWeather } from '@/lib/theme/useWeather';
+import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 import { VillageSound } from '@/lib/sounds/village';
 import { useSkySystem } from '@/lib/world/useSkySystem';
 import { SpiritFigure } from '@/components/spirit/SpiritFigure';
@@ -1769,8 +1770,9 @@ function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void 
 
 // ─── Main export ─────────────────────────────────────────────────────────────
 export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: string, label: string) => void }) {
-  const router   = useRouter();
-  const supabase = createClient();
+  const router       = useRouter();
+  const supabase     = createClient();
+  const { toggleVoice, voiceEnabled } = useSpiritVoice();
   const { mood } = useWeather();
   const { skyState } = useSkySystem();
 
@@ -1966,8 +1968,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   const SPIRIT_ITEMS = [
     { id: 'spirit-chat', icon: '💬', label: 'Talk to Spirit', href: '/village/spirit' },
-    { id: 'spirit-mute', icon: '🔇', label: 'Mute Spirit',    href: null },
-    { id: 'spirit-gear', icon: '⚙️', label: 'Spirit Settings',href: '/village/spirit/settings' },
+    { id: 'spirit-mute', icon: voiceEnabled ? '🔇' : '🔊', label: voiceEnabled ? 'Mute Spirit' : 'Unmute Spirit', href: null },
+    { id: 'spirit-gear', icon: '⚙️', label: 'Spirit Settings', href: '/village/spirit/settings' },
   ] as const;
 
   function handleTwoFingerStart(e: React.TouchEvent) {
@@ -2148,6 +2150,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                 onClick={() => {
                   setSpiritMenuOpen(false);
                   VillageSound.tap();
+                  if (item.id === 'spirit-mute') { toggleVoice(); return; }
                   if (item.href) router.push(item.href);
                 }}
                 title={item.label}

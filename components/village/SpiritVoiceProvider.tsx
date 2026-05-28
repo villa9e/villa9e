@@ -27,15 +27,17 @@ const Ctx = createContext<SpiritVoiceCtx>({
 export const useSpiritVoice = () => useContext(Ctx);
 
 export function SpiritVoiceProvider({ children }: { children: React.ReactNode }) {
-  const [voiceEnabled, _setVoiceEnabled] = useState(false);
+  const [voiceEnabled, _setVoiceEnabled] = useState(true); // on by default; muted via 🔇 or settings
   const [voiceGender,  _setVoiceGender]  = useState<VoiceGender>('female');
   const [speaking,     setSpeaking]      = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   // Restore preferences from localStorage (client-only)
+  // Default is ON unless user explicitly set it to 'false'
   useEffect(() => {
-    const enabled = localStorage.getItem('spirit_voice_enabled') === 'true';
+    const stored = localStorage.getItem('spirit_voice_enabled');
+    const enabled = stored === null ? true : stored === 'true';
     const gender  = (localStorage.getItem('spirit_voice_gender') ?? 'female') as VoiceGender;
     _setVoiceEnabled(enabled);
     _setVoiceGender(gender);
@@ -52,8 +54,9 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
   }, []);
 
   const speak = useCallback(async (text: string, tone?: VoiceTone) => {
-    // Always use the current value from localStorage since state might be stale
-    const isEnabled = localStorage.getItem('spirit_voice_enabled') === 'true';
+    // Read from localStorage; null means default ON
+    const stored    = localStorage.getItem('spirit_voice_enabled');
+    const isEnabled = stored === null ? true : stored === 'true';
     if (!isEnabled || !text?.trim()) return;
 
     stop();
