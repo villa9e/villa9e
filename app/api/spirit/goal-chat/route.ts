@@ -72,11 +72,26 @@ Return ONLY valid JSON after [GPS_READY: — no extra text after the closing ]
 ${spiritCtx.archetype ? `This person's archetype is ${spiritCtx.archetype} — speak accordingly.` : ''}
 ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritCtx.communicationStyle}` : ''}`;
 
+  // Claude API requires messages[0].role === 'user'
+  // The Spirit greeting is an assistant message — skip it, reconstruct from user messages onward
+  const apiMessages = messages
+    .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+    .filter((m, i) => {
+      // Drop leading assistant messages
+      if (i === 0 && m.role === 'assistant') return false;
+      return true;
+    });
+
+  // Ensure we always have at least one user message (safety)
+  if (apiMessages.length === 0 || apiMessages[0].role !== 'user') {
+    return NextResponse.json({ message: 'What goal are we building today?', phase: 'discovery', gpsReady: false });
+  }
+
   const response = await claude.messages.create({
     model:      CLAUDE_MODEL,
     max_tokens: 600,
     system:     systemPrompt,
-    messages:   messages.map(m => ({ role: m.role, content: m.content })),
+    messages:   apiMessages,
   });
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '';

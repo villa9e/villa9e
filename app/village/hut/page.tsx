@@ -101,7 +101,7 @@ export default function HutPage() {
   const xpThisLevel = xpTotal % xpToNext;
   const xpPct      = Math.round((xpThisLevel / xpToNext) * 100);
   const levelName  = LEVEL_NAMES[xpLevel] ?? 'Villager';
-  const archEmoji  = ARCHETYPE_EMOJI[profile?.personality_type ?? ''] ?? '⛺';
+  const archEmoji  = ARCHETYPE_EMOJI[profile?.personality_type ?? ''] ?? '🏕️';
   const vlg        = parseFloat(wallet?.vlg_balance ?? 0);
   const vlgDisplay = vlg >= 1000 ? `${(vlg/1000).toFixed(1)}K` : vlg.toFixed(0);
 

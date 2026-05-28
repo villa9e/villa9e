@@ -33,7 +33,7 @@ const BASE = (content: string) => `
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="hero-logo">⛺</div>
+    <div class="hero-logo">🏕️</div>
     <h1 class="hero-title">villa9e</h1>
     <p class="hero-sub">It takes a village.</p>
   </div>

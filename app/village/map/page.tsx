@@ -31,7 +31,7 @@ const VillageMap3D = dynamic(() => import('@/components/map/VillageMap3D'), {
     <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#0a0e1a] to-[#0d1f3c]">
       <div className="text-center">
         <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-          <span className="text-6xl">⛺</span>
+          <span style={{ fontSize: 32, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', letterSpacing: '-0.05em' }}>villa9e</span>
         </motion.div>
         <p className="text-white/50 text-sm mt-3 font-medium animate-pulse">Loading your village…</p>
       </div>
@@ -309,7 +309,7 @@ export default function VillageMapPage() {
     <WeatherProvider>
       <Suspense fallback={
         <div className="min-h-screen bg-[#0a0e1a] flex items-center justify-center">
-          <div className="text-6xl animate-pulse">⛺</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', letterSpacing: '-0.05em' }}>villa9e</div>
         </div>
       }>
         <VillageMapPageInner />

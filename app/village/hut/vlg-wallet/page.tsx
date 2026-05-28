@@ -40,7 +40,7 @@ export default function VLGWalletPage() {
     if (type.includes('REFER')) return '👥';
     if (type.includes('MEDAL')) return '🏆';
     if (type.includes('DEAL')) return '🤝';
-    return '⛺';
+    return '🏕️';
   };
 
   return (

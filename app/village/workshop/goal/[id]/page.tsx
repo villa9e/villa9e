@@ -654,7 +654,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 🔗 Copy Link
               </button>
               <a
-                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Working on "${goal.title}" with ${goal.probability_score}% GPS probability on villa9e ⛺\n\nhttps://villa9e.app/village/workshop/goal/${params.id}`)}`}
+                href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(`Working on "${goal.title}" with ${goal.probability_score}% GPS probability on villa9e\n\nhttps://villa9e.app/village/workshop/goal/${params.id}`)}`}
                 target="_blank" rel="noopener noreferrer"
                 className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center transition-all"
                 style={{ background: '#000', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

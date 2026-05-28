@@ -167,7 +167,7 @@ function SignupPageInner() {
               />
               <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center"
                 style={{ background: 'linear-gradient(135deg, rgba(24,119,242,0.3), rgba(124,58,237,0.2))', border: '1px solid rgba(24,119,242,0.3)' }}>
-                <span className="text-3xl">⛺</span>
+                <span style={{ fontSize: 28, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', letterSpacing: '-0.05em' }}>v9</span>
               </div>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">Join villa9e</h1>
@@ -299,7 +299,7 @@ export default function SignupPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-[#060810] flex items-center justify-center">
-        <div className="text-5xl animate-float">⛺</div>
+        <div style={{ fontSize: 36, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', animation: 'pulse 2s infinite' }}>villa9e</div>
       </div>
     }>
       <SignupPageInner />

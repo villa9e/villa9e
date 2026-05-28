@@ -47,7 +47,7 @@ export function welcomeEmail(username: string, isFoundingVillager: boolean, foun
 <body>
 <div class="container">
   <div class="header">
-    <div class="logo">⛺</div>
+    <div class="logo">🏕️</div>
     <h1>Welcome to villa9e</h1>
     <p>It takes a village.</p>
   </div>

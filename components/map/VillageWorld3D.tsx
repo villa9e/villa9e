@@ -1322,6 +1322,47 @@ function PlayerCharacter({
 }
 
 // ─── Third-person camera controller ───────────────────────────────────────────
+// ─── Ground pointer — invisible plane captures pointer drag for move-to-click ─
+function GroundPointer({ pointerTarget }: { pointerTarget: React.MutableRefObject<{ x: number; z: number } | null> }) {
+  const dragging = useRef(false);
+  const downPos  = useRef({ x: 0, y: 0 });
+
+  return (
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, -0.05, 0]}
+      visible={false}
+      onPointerDown={e => {
+        dragging.current = true;
+        downPos.current = { x: e.clientX, y: e.clientY };
+        e.stopPropagation();
+      }}
+      onPointerMove={e => {
+        if (!dragging.current) return;
+        // Only move if dragged more than 8px (distinguish from click-on-building)
+        const dx = e.clientX - downPos.current.x;
+        const dy = e.clientY - downPos.current.y;
+        if (Math.sqrt(dx * dx + dy * dy) > 8) {
+          pointerTarget.current = { x: e.point.x, z: e.point.z };
+        }
+      }}
+      onPointerUp={e => {
+        dragging.current = false;
+        const dx = e.clientX - downPos.current.x;
+        const dy = e.clientY - downPos.current.y;
+        // Short tap (< 8px) = single click — set target once for click-to-walk
+        if (Math.sqrt(dx * dx + dy * dy) < 8) {
+          pointerTarget.current = { x: e.point.x, z: e.point.z };
+        }
+      }}
+      onPointerLeave={() => { dragging.current = false; }}
+    >
+      <planeGeometry args={[200, 200]} />
+      <meshBasicMaterial />
+    </mesh>
+  );
+}
+
 function CameraFollow({
   targetPos, cameraZoom, cameraAzimuth,
 }: {
@@ -1529,6 +1570,7 @@ function WorldScene({
   spiritDivRef: React.MutableRefObject<HTMLDivElement | null>;
   onAvatarTap: () => void;
   onSpiritTap: () => void;
+  pointerTarget: React.MutableRefObject<{ x: number; z: number } | null>;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -1635,6 +1677,9 @@ function WorldScene({
           username={p.username}
         />
       ))}
+
+      {/* Ground hit plane — drag/tap to walk there */}
+      <GroundPointer pointerTarget={pointerTarget} />
 
       {/* Local player — tap to open crescent menu */}
       <group onPointerUp={e => { e.stopPropagation(); onAvatarTap(); }}>
@@ -1899,6 +1944,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const moveInput    = useRef({ dx: 0, dy: 0 });
   const isMoving     = useRef(false);
   const keys         = useRef<Set<string>>(new Set());
+  // Drag-to-move: pointer pressed on ground → walk toward that world point
+  const pointerTarget = useRef<{ x: number; z: number } | null>(null);
   const cameraZoom   = useRef(14);
   const cameraAzimuth = useRef(0);
   const gestureRef   = useRef({ lastDist: 0, lastMidX: 0, active: false });
@@ -2005,6 +2052,19 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (keys.current.has('s') || keys.current.has('ArrowDown'))  dz =  1;
       if (keys.current.has('a') || keys.current.has('ArrowLeft'))  dx = -1;
       if (keys.current.has('d') || keys.current.has('ArrowRight')) dx =  1;
+
+      // Drag/tap-to-walk: steer toward pointerTarget if no other input
+      if (pointerTarget.current && dx === 0 && dz === 0) {
+        const tdx = pointerTarget.current.x - playerPos.current.x;
+        const tdz = pointerTarget.current.z - playerPos.current.z;
+        const tDist = Math.sqrt(tdx * tdx + tdz * tdz);
+        if (tDist < 0.4) {
+          pointerTarget.current = null; // arrived
+        } else {
+          dx = tdx / tDist;
+          dz = tdz / tDist;
+        }
+      }
 
       isMoving.current = dx !== 0 || dz !== 0;
 
@@ -2162,6 +2222,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           spiritDivRef={spiritDivRef}
           onAvatarTap={() => { setAvatarMenuOpen(m => !m); setSpiritMenuOpen(false); }}
           onSpiritTap={() => { setSpiritMenuOpen(m => !m); setAvatarMenuOpen(false); }}
+          pointerTarget={pointerTarget}
         />
       </Canvas>
 

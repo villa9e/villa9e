@@ -79,7 +79,7 @@ function VideoPreview({
       {/* Brand bar */}
       <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between px-2 py-1.5"
         style={{ background: 'rgba(0,0,0,0.6)' }}>
-        <span className="text-white/70 font-bold" style={{ fontSize: '9px' }}>⛺ villa9e</span>
+        <span className="text-white/70 font-bold" style={{ fontSize: '9px' }}>villa9e</span>
         <motion.div
           animate={{ opacity: [0.5, 1, 0.5] }}
           transition={{ duration: 1.5, repeat: Infinity }}
