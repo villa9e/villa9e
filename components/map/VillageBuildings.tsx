@@ -6,7 +6,7 @@ import * as THREE from 'three';
 // ── Shared primitive helpers ───────────────────────────────────────────────
 
 function Column({
-  pos, h = 3, r = 0.12, sides = 12, color = '#E8DCC8', capColor,
+  pos, h = 3, r = 0.12, sides = 28, color = '#E8DCC8', capColor,
 }: { pos: [number,number,number]; h?: number; r?: number; sides?: number; color?: string; capColor?: string }) {
   const cap = capColor ?? color;
   return (
@@ -31,7 +31,7 @@ function Column({
 }
 
 function Arch({
-  pos, w = 1.2, h = 1.8, depth = 0.3, color = '#C4A882', sides = 16,
+  pos, w = 1.2, h = 1.8, depth = 0.3, color = '#C4A882', sides = 28,
 }: { pos: [number,number,number]; w?: number; h?: number; depth?: number; color?: string; sides?: number }) {
   const r = w / 2;
   return (
@@ -48,7 +48,7 @@ function Arch({
       </mesh>
       {/* Semi-circular arch */}
       <mesh position={[0, h / 2, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
-        <torusGeometry args={[r, depth / 2, 8, sides, Math.PI]} />
+        <torusGeometry args={[r, depth / 2, 16, sides, Math.PI]} />
         <meshToonMaterial color={color} />
       </mesh>
     </group>
@@ -71,7 +71,7 @@ function Steps({
 }
 
 function PagoTier({
-  pos, w, h, eave, color, roofColor, sides = 8,
+  pos, w, h, eave, color, roofColor, sides = 24,
 }: { pos: [number,number,number]; w: number; h: number; eave: number; color: string; roofColor: string; sides?: number }) {
   return (
     <group position={pos}>
@@ -163,7 +163,7 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
         <meshToonMaterial color="#5A3520" />
       </mesh>
       <mesh position={[1.4, 4.55, 0.5]}>
-        <cylinderGeometry args={[0.28, 0.32, 0.3, 8]} />
+        <cylinderGeometry args={[0.28, 0.32, 0.3, 24]} />
         <meshToonMaterial color="#2D1A00" />
       </mesh>
       {/* Forge doors — sliding shoji */}
@@ -178,7 +178,7 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
       <Window pos={[1.3, 0.5, -1.56]} />
       {/* Gear decoration */}
       <mesh position={[0, 2.0, 1.6]} rotation={[0, 0, 0]}>
-        <torusGeometry args={[0.4, 0.08, 6, 12]} />
+        <torusGeometry args={[0.4, 0.08, 14, 32]} />
         <meshToonMaterial color="#E8770A" />
       </mesh>
       {/* Workbench outside */}
@@ -187,11 +187,11 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
         <meshToonMaterial color="#6B4226" />
       </mesh>
       <mesh position={[-0.85, -1.85, 1.9]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.9, 6]} />
+        <cylinderGeometry args={[0.05, 0.05, 0.9, 14]} />
         <meshToonMaterial color="#4A2C1A" />
       </mesh>
       <mesh position={[0.85, -1.85, 1.9]}>
-        <cylinderGeometry args={[0.05, 0.05, 0.9, 6]} />
+        <cylinderGeometry args={[0.05, 0.05, 0.9, 14]} />
         <meshToonMaterial color="#4A2C1A" />
       </mesh>
       {/* Ground foundation */}
@@ -212,13 +212,13 @@ export function DreamLineBuilding({ hover }: { hover: boolean }) {
       {/* Tiered seating — 4 semicircular tiers */}
       {[0, 1, 2, 3].map(tier => (
         <mesh key={tier} position={[0, -1.5 + tier * 0.45, 0]} rotation={[0, 0, 0]}>
-          <cylinderGeometry args={[1.5 + tier * 0.55, 1.5 + tier * 0.55 + 0.5, 0.42, 24, 1, false, 0, Math.PI]} />
+          <cylinderGeometry args={[1.5 + tier * 0.55, 1.5 + tier * 0.55 + 0.5, 0.42, 40, 2, false, 0, Math.PI]} />
           <meshToonMaterial color={tier % 2 === 0 ? '#C8B89A' : '#B8A88A'} />
         </mesh>
       ))}
       {/* Central stage platform */}
       <mesh position={[0, -1.56, -0.8]} castShadow>
-        <cylinderGeometry args={[1.3, 1.3, 0.35, 24]} />
+        <cylinderGeometry args={[1.3, 1.3, 0.35, 40]} />
         <meshToonMaterial color="#E8DCC8" />
       </mesh>
       {/* Skene building — backdrop */}
@@ -233,7 +233,7 @@ export function DreamLineBuilding({ hover }: { hover: boolean }) {
       </mesh>
       {/* Front colonnade — 5 columns */}
       {[-1.6, -0.8, 0, 0.8, 1.6].map((x, i) => (
-        <Column key={i} pos={[x, -0.4, -1.7]} h={2.4} r={0.14} sides={10} color="#E8DCC8" capColor="#C4A882" />
+        <Column key={i} pos={[x, -0.4, -1.7]} h={2.4} r={0.14} sides={24} color="#E8DCC8" capColor="#C4A882" />
       ))}
       {/* Entablature beam */}
       <mesh position={[0, 0.85, -1.72]} castShadow>
@@ -243,8 +243,8 @@ export function DreamLineBuilding({ hover }: { hover: boolean }) {
       {/* Stage decorations — two torches */}
       {[-0.6, 0.6].map((x, i) => (
         <group key={i} position={[x, -0.9, -0.5]}>
-          <mesh><cylinderGeometry args={[0.06, 0.04, 1.2, 8]} /><meshToonMaterial color="#6B4226" /></mesh>
-          <mesh position={[0, 0.7, 0]}><sphereGeometry args={[0.12, 8, 6]} /><meshToonMaterial color="#FF6B2B" /></mesh>
+          <mesh><cylinderGeometry args={[0.06, 0.04, 1.2, 18]} /><meshToonMaterial color="#6B4226" /></mesh>
+          <mesh position={[0, 0.7, 0]}><sphereGeometry args={[0.12, 16, 12]} /><meshToonMaterial color="#FF6B2B" /></mesh>
         </group>
       ))}
       {/* Acanthus leaf decoration row */}
@@ -294,11 +294,11 @@ export function TradingPostBuilding({ hover }: { hover: boolean }) {
       ))}
       {/* Minaret-style corner tower */}
       <mesh position={[-1.9, 1.0, -1.3]} castShadow>
-        <cylinderGeometry args={[0.22, 0.28, 3.5, 10, 4]} />
+        <cylinderGeometry args={[0.22, 0.28, 3.5, 24, 4]} />
         <meshToonMaterial color="#D4A87A" />
       </mesh>
       <mesh position={[-1.9, 2.85, -1.3]}>
-        <coneGeometry args={[0.3, 0.7, 10]} />
+        <coneGeometry args={[0.3, 0.7, 22]} />
         <meshToonMaterial color="#059669" />
       </mesh>
       {/* Market stalls — lean-to structures */}
@@ -343,7 +343,7 @@ export function BankBuilding({ hover }: { hover: boolean }) {
       </mesh>
       {/* Nubian pyramid crowning feature */}
       <mesh position={[0, 1.65, 0]} castShadow>
-        <coneGeometry args={[2.0, 2.2, 4, 6]} />
+        <coneGeometry args={[2.0, 2.2, 4, 8]} />
         <meshToonMaterial color="#D97706" />
       </mesh>
       {/* Gold capstone */}
@@ -353,7 +353,7 @@ export function BankBuilding({ hover }: { hover: boolean }) {
       </mesh>
       {/* 6 Doric columns across facade */}
       {[-1.5, -0.9, -0.3, 0.3, 0.9, 1.5].map((x, i) => (
-        <Column key={i} pos={[x, -0.6, 1.55]} h={2.6} r={0.16} sides={10} color="#E8DCC8" capColor="#C4A882" />
+        <Column key={i} pos={[x, -0.6, 1.55]} h={2.6} r={0.16} sides={26} color="#E8DCC8" capColor="#C4A882" />
       ))}
       {/* Entablature */}
       <mesh position={[0, 0.75, 1.56]} castShadow>
@@ -373,8 +373,8 @@ export function BankBuilding({ hover }: { hover: boolean }) {
         <meshToonMaterial color="#4A2C0A" />
       </mesh>
       {/* Door hardware */}
-      <mesh position={[0.35, -0.5, 1.62]}><sphereGeometry args={[0.07, 8, 6]} /><meshToonMaterial color="#FFD700" /></mesh>
-      <mesh position={[-0.35, -0.5, 1.62]}><sphereGeometry args={[0.07, 8, 6]} /><meshToonMaterial color="#FFD700" /></mesh>
+      <mesh position={[0.35, -0.5, 1.62]}><sphereGeometry args={[0.07, 16, 12]} /><meshToonMaterial color="#FFD700" /></mesh>
+      <mesh position={[-0.35, -0.5, 1.62]}><sphereGeometry args={[0.07, 16, 12]} /><meshToonMaterial color="#FFD700" /></mesh>
       {/* Windows — upper floor */}
       <Window pos={[-1.2, 0.65, 1.52]} h={0.9} frameColor="#4A2C0A" />
       <Window pos={[1.2, 0.65, 1.52]} h={0.9} frameColor="#4A2C0A" />
@@ -406,34 +406,34 @@ export function ZenBuilding({ hover }: { hover: boolean }) {
       <PagoTier pos={[0, 1.55, 0]}  w={1.3} h={0.75} eave={0.32} color="#A87858" roofColor="#2D5A1A" />
       {/* Finial spire — sorin */}
       <mesh position={[0, 2.35, 0]} castShadow>
-        <cylinderGeometry args={[0.05, 0.08, 1.2, 8, 3]} />
+        <cylinderGeometry args={[0.05, 0.08, 1.2, 20, 3]} />
         <meshToonMaterial color="#C4A832" />
       </mesh>
       {[0.25, 0.55, 0.85].map((y2, i) => (
         <mesh key={i} position={[0, 2.35 + y2 * 0.3, 0]}>
-          <torusGeometry args={[0.12 - i * 0.02, 0.04, 6, 10]} />
+          <torusGeometry args={[0.12 - i * 0.02, 0.04, 12, 24]} />
           <meshToonMaterial color="#FFD700" />
         </mesh>
       ))}
       {/* Torii gate entrance */}
       <group position={[0, -1.2, 2.2]}>
-        <mesh position={[-0.6, 0, 0]} castShadow><cylinderGeometry args={[0.07, 0.07, 2.2, 8, 2]} /><meshToonMaterial color="#CC3300" /></mesh>
-        <mesh position={[0.6, 0, 0]} castShadow><cylinderGeometry args={[0.07, 0.07, 2.2, 8, 2]} /><meshToonMaterial color="#CC3300" /></mesh>
+        <mesh position={[-0.6, 0, 0]} castShadow><cylinderGeometry args={[0.07, 0.07, 2.2, 20, 3]} /><meshToonMaterial color="#CC3300" /></mesh>
+        <mesh position={[0.6, 0, 0]} castShadow><cylinderGeometry args={[0.07, 0.07, 2.2, 20, 3]} /><meshToonMaterial color="#CC3300" /></mesh>
         <mesh position={[0, 0.9, 0]}><boxGeometry args={[1.6, 0.12, 0.12, 3, 1, 1]} /><meshToonMaterial color="#CC3300" /></mesh>
         <mesh position={[0, 0.65, 0]}><boxGeometry args={[1.4, 0.1, 0.1, 3, 1, 1]} /><meshToonMaterial color="#CC3300" /></mesh>
       </group>
       {/* Stone lanterns */}
       {[[-1.4, -1.5, 1.6], [1.4, -1.5, 1.6]].map((p, i) => (
         <group key={i} position={p as [number,number,number]}>
-          <mesh><cylinderGeometry args={[0.12, 0.18, 0.8, 8, 2]} /><meshToonMaterial color="#8A8070" /></mesh>
+          <mesh><cylinderGeometry args={[0.12, 0.18, 0.8, 20, 3]} /><meshToonMaterial color="#8A8070" /></mesh>
           <mesh position={[0, 0.55, 0]}><boxGeometry args={[0.32, 0.35, 0.32, 2, 2, 2]} /><meshToonMaterial color="#7A7060" /></mesh>
-          <mesh position={[0, 0.8, 0]}><coneGeometry args={[0.22, 0.3, 8]} /><meshToonMaterial color="#5A5048" /></mesh>
+          <mesh position={[0, 0.8, 0]}><coneGeometry args={[0.22, 0.3, 20]} /><meshToonMaterial color="#5A5048" /></mesh>
         </group>
       ))}
       {/* Raked gravel garden rings */}
       {[1.4, 1.7, 2.0].map((r2, i) => (
         <mesh key={i} position={[0, -1.88, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[r2, r2 + 0.06, 32]} />
+          <ringGeometry args={[r2, r2 + 0.06, 56]} />
           <meshToonMaterial color="#C8B89A" />
         </mesh>
       ))}
@@ -449,28 +449,28 @@ export function TribesBuilding({ hover }: { hover: boolean }) {
     <group position={[0, y, 0]}>
       {/* Main round great hall */}
       <mesh castShadow>
-        <cylinderGeometry args={[1.8, 2.0, 2.8, 20, 4]} />
+        <cylinderGeometry args={[1.8, 2.0, 2.8, 36, 5]} />
         <meshToonMaterial color="#C89858" />
       </mesh>
       {/* Thatched conical roof — multi-layer */}
       <mesh position={[0, 1.7, 0]} castShadow>
-        <coneGeometry args={[2.3, 0.6, 20, 2]} />
+        <coneGeometry args={[2.3, 0.6, 36, 3]} />
         <meshToonMaterial color="#8B6914" />
       </mesh>
       <mesh position={[0, 2.1, 0]} castShadow>
-        <coneGeometry args={[1.9, 0.6, 20, 2]} />
+        <coneGeometry args={[1.9, 0.6, 36, 3]} />
         <meshToonMaterial color="#7A5A0A" />
       </mesh>
       <mesh position={[0, 2.48, 0]} castShadow>
-        <coneGeometry args={[1.4, 0.8, 20, 2]} />
+        <coneGeometry args={[1.4, 0.8, 36, 3]} />
         <meshToonMaterial color="#6B4A00" />
       </mesh>
       <mesh position={[0, 2.9, 0]} castShadow>
-        <coneGeometry args={[0.8, 0.7, 20, 2]} />
+        <coneGeometry args={[0.8, 0.7, 36, 3]} />
         <meshToonMaterial color="#5A3A00" />
       </mesh>
       {/* Roof finial */}
-      <mesh position={[0, 3.3, 0]}><sphereGeometry args={[0.12, 8, 6]} /><meshToonMaterial color="#FFD700" /></mesh>
+      <mesh position={[0, 3.3, 0]}><sphereGeometry args={[0.12, 18, 14]} /><meshToonMaterial color="#FFD700" /></mesh>
       {/* Ceremonial entrance porch */}
       <mesh position={[0, -0.2, 1.95]} castShadow>
         <boxGeometry args={[1.2, 2.4, 0.6, 2, 4, 1]} />
@@ -479,9 +479,9 @@ export function TribesBuilding({ hover }: { hover: boolean }) {
       {/* Totem poles flanking entrance */}
       {[-0.8, 0.8].map((x, i) => (
         <group key={i} position={[x, 0.2, 2.15]}>
-          <mesh castShadow><cylinderGeometry args={[0.12, 0.14, 3.2, 8, 5]} /><meshToonMaterial color="#6B4226" /></mesh>
+          <mesh castShadow><cylinderGeometry args={[0.12, 0.14, 3.2, 20, 5]} /><meshToonMaterial color="#6B4226" /></mesh>
           <mesh position={[0, 1.3, 0]}><boxGeometry args={[0.35, 0.35, 0.35, 2, 2, 2]} /><meshToonMaterial color="#BE185D" /></mesh>
-          <mesh position={[0, 1.6, 0]}><sphereGeometry args={[0.2, 8, 6]} /><meshToonMaterial color="#7C3AED" /></mesh>
+          <mesh position={[0, 1.6, 0]}><sphereGeometry args={[0.2, 16, 12]} /><meshToonMaterial color="#7C3AED" /></mesh>
         </group>
       ))}
       {/* Ring of 6 smaller satellite structures */}
@@ -490,11 +490,11 @@ export function TribesBuilding({ hover }: { hover: boolean }) {
         return (
           <group key={i} position={[Math.cos(a) * 2.8, -1.1, Math.sin(a) * 2.8]}>
             <mesh castShadow>
-              <cylinderGeometry args={[0.35, 0.4, 0.9, 10, 2]} />
+              <cylinderGeometry args={[0.35, 0.4, 0.9, 22, 3]} />
               <meshToonMaterial color="#A87840" />
             </mesh>
             <mesh position={[0, 0.6, 0]} castShadow>
-              <coneGeometry args={[0.5, 0.6, 10, 2]} />
+              <coneGeometry args={[0.5, 0.6, 22, 3]} />
               <meshToonMaterial color="#7A5A0A" />
             </mesh>
           </group>
@@ -502,11 +502,11 @@ export function TribesBuilding({ hover }: { hover: boolean }) {
       })}
       {/* Kente band decoration */}
       <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[2.01, 2.01, 0.5, 20, 1, true]} />
+        <cylinderGeometry args={[2.01, 2.01, 0.5, 40, 1, true]} />
         <meshToonMaterial color="#BE185D" />
       </mesh>
       <mesh position={[0, 0.3, 0]}>
-        <cylinderGeometry args={[2.01, 2.01, 0.15, 20, 1, true]} />
+        <cylinderGeometry args={[2.01, 2.01, 0.15, 40, 1, true]} />
         <meshToonMaterial color="#FFD700" />
       </mesh>
     </group>
@@ -571,13 +571,13 @@ export function HospitalBuilding({ hover }: { hover: boolean }) {
       {/* Support columns — clean steel look */}
       {[-1.5, 0, 1.5].map((x, i) => (
         <mesh key={i} position={[x, 0, 1.5]}>
-          <cylinderGeometry args={[0.08, 0.08, 3.2, 8, 2]} />
+          <cylinderGeometry args={[0.08, 0.08, 3.2, 20, 3]} />
           <meshToonMaterial color="#6B8C6B" />
         </mesh>
       ))}
       {/* Healing garden — side area */}
       <mesh position={[2.5, -1.75, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.9, 16]} />
+        <circleGeometry args={[0.9, 36]} />
         <meshToonMaterial color="#4A7A3A" />
       </mesh>
     </group>
@@ -680,27 +680,27 @@ export function HutBuilding({ hover }: { hover: boolean }) {
         <group key={i} position={pos}>
           {/* Cylinder body */}
           <mesh castShadow>
-            <cylinderGeometry args={[0.52, 0.58, 1.8, 12, 4]} />
+            <cylinderGeometry args={[0.52, 0.58, 1.8, 28, 5]} />
             <meshToonMaterial color={mud} />
           </mesh>
           {/* Decorative band */}
           <mesh position={[0, 0.1, 0]}>
-            <cylinderGeometry args={[0.59, 0.59, 0.2, 12, 1, true]} />
+            <cylinderGeometry args={[0.59, 0.59, 0.2, 28, 1, true]} />
             <meshToonMaterial color={red} />
           </mesh>
           {/* Conical thatched cap */}
           <mesh position={[0, 1.05, 0]} castShadow>
-            <coneGeometry args={[0.68, 0.75, 12, 3]} />
+            <coneGeometry args={[0.68, 0.75, 28, 4]} />
             <meshToonMaterial color={thatch} />
           </mesh>
           {/* Thatch cap tip */}
           <mesh position={[0, 1.46, 0]}>
-            <sphereGeometry args={[0.1, 6, 4]} />
+            <sphereGeometry args={[0.1, 16, 12]} />
             <meshToonMaterial color={wood} />
           </mesh>
           {/* Foundation ring */}
           <mesh position={[0, -0.94, 0]}>
-            <cylinderGeometry args={[0.65, 0.65, 0.1, 12]} />
+            <cylinderGeometry args={[0.65, 0.65, 0.1, 28]} />
             <meshToonMaterial color={mudDk} />
           </mesh>
         </group>
@@ -711,7 +711,7 @@ export function HutBuilding({ hover }: { hover: boolean }) {
         {/* 6 wooden support posts */}
         {[-0.9, 0, 0.9].map((x, i) => (
           <mesh key={i} position={[x, 0.35, 0]} castShadow>
-            <cylinderGeometry args={[0.08, 0.1, 1.5, 6, 2]} />
+            <cylinderGeometry args={[0.08, 0.1, 1.5, 18, 3]} />
             <meshToonMaterial color={wood} />
           </mesh>
         ))}
@@ -792,7 +792,7 @@ export function SpiritShrine({ hover }: { hover: boolean }) {
       {/* Stepped ziggurat base */}
       {[0, 1, 2].map(tier => (
         <mesh key={tier} position={[0, -1.7 + tier * 0.38, 0]} castShadow>
-          <cylinderGeometry args={[2.0 - tier * 0.45, 2.0 - tier * 0.45 + 0.12, 0.38, 16, 1]} />
+          <cylinderGeometry args={[2.0 - tier * 0.45, 2.0 - tier * 0.45 + 0.12, 0.38, 36, 2]} />
           <meshToonMaterial color={tier === 0 ? '#2D1F3A' : tier === 1 ? '#3D2F4A' : '#4D3F5A'} />
         </mesh>
       ))}
@@ -820,25 +820,25 @@ export function SpiritShrine({ hover }: { hover: boolean }) {
         })}
         {/* Connecting ring */}
         <mesh>
-          <torusGeometry args={[1.4, 0.05, 6, 32]} />
+          <torusGeometry args={[1.4, 0.05, 14, 56]} />
           <meshToonMaterial color="#7C3AED" transparent opacity={0.7} />
         </mesh>
       </group>
       {/* Floating central orb */}
       <mesh ref={orbRef} position={[0, 1.6, 0]}>
-        <sphereGeometry args={[0.5, 16, 12]} />
+        <sphereGeometry args={[0.5, 32, 24]} />
         <meshToonMaterial color="#60A5FA" transparent opacity={0.75} />
       </mesh>
       {/* Inner orb glow */}
       <mesh position={[0, 1.6, 0]}>
-        <sphereGeometry args={[0.3, 12, 8]} />
+        <sphereGeometry args={[0.3, 24, 18]} />
         <meshToonMaterial color="#E8D5FF" />
       </mesh>
       {/* 4 corner pillars */}
       {[[-1.7, -1.7], [1.7, -1.7], [-1.7, 1.7], [1.7, 1.7]].map(([x, z], i) => (
         <group key={i} position={[x, -0.9, z]}>
           <mesh castShadow>
-            <cylinderGeometry args={[0.15, 0.18, 1.8, 8, 3]} />
+            <cylinderGeometry args={[0.15, 0.18, 1.8, 22, 4]} />
             <meshToonMaterial color="#3D2F4A" />
           </mesh>
           <mesh position={[0, 1.0, 0]}>

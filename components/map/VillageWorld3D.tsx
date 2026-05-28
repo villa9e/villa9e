@@ -149,15 +149,20 @@ function CelestialBody({ phase, altitude, azimuth, sunColor }: {
 
   return (
     <group position={pos}>
-      {/* Glow halo */}
+      {/* Glow halo — high-poly for smooth gradient */}
       <mesh>
-        <sphereGeometry args={[isNight ? 1.2 : 2.8, 12, 10]} />
-        <meshBasicMaterial color={sunColor} transparent opacity={0.12} />
+        <sphereGeometry args={[isNight ? 1.35 : 3.2, 32, 24]} />
+        <meshBasicMaterial color={sunColor} transparent opacity={0.10} />
+      </mesh>
+      {/* Inner halo — tighter, brighter */}
+      <mesh>
+        <sphereGeometry args={[isNight ? 0.95 : 2.2, 28, 20]} />
+        <meshBasicMaterial color={sunColor} transparent opacity={0.18} />
       </mesh>
       {/* Body disc */}
       <mesh ref={bodyRef}>
-        <sphereGeometry args={[isNight ? 0.8 : 1.8, 16, 14]} />
-        <meshBasicMaterial color={isNight ? '#F0F4FF' : sunColor} />
+        <sphereGeometry args={[isNight ? 0.82 : 1.85, 32, 24]} />
+        <meshBasicMaterial color={isNight ? '#F4F8FF' : sunColor} />
       </mesh>
       {/* God rays at golden hour */}
       {!isNight && (phase === 'sunrise' || phase === 'golden' || phase === 'sunset') && (
@@ -511,7 +516,7 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
       onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}>
       {/* Ground shadow */}
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[2.4, 20]} />
+        <circleGeometry args={[2.4, 48]} />
         <meshBasicMaterial color="#000000" transparent opacity={0.08} />
       </mesh>
       {/* Distinct architecture per location */}
@@ -535,12 +540,12 @@ function BaobabTree({ pos, scale = 1 }: { pos: [number,number,number]; scale?: n
     ref.current.rotation.y = Math.sin(state.clock.elapsedTime * 0.3 + pos[0]) * 0.02;
   });
   const trunkGeo = useMemo(() => {
-    const g = new THREE.CylinderGeometry(0.2, 0.35, 1.2, 10, 1);
+    const g = new THREE.CylinderGeometry(0.2, 0.38, 1.3, 20, 4);
     g.computeVertexNormals();
     return g;
   }, []);
   const canopyGeo = useMemo(() => {
-    const g = new THREE.IcosahedronGeometry(1.0, 1);
+    const g = new THREE.IcosahedronGeometry(1.0, 3);
     g.computeVertexNormals();
     return g;
   }, []);
@@ -554,11 +559,11 @@ function BaobabTree({ pos, scale = 1 }: { pos: [number,number,number]; scale?: n
         <meshToonMaterial color="#2D7D46" />
       </mesh>
       <mesh position={[0.5, 1.4, 0.3]} castShadow>
-        <icosahedronGeometry args={[0.65, 1]} />
+        <icosahedronGeometry args={[0.65, 3]} />
         <meshToonMaterial color="#22C55E" />
       </mesh>
       <mesh position={[-0.4, 1.3, -0.3]} castShadow>
-        <icosahedronGeometry args={[0.6, 1]} />
+        <icosahedronGeometry args={[0.6, 3]} />
         <meshToonMaterial color="#16A34A" />
       </mesh>
     </group>
@@ -586,19 +591,25 @@ function SacredFire() {
         const a = (i / 8) * Math.PI * 2;
         return (
           <mesh key={i} position={[Math.cos(a) * 0.7, 0.1, Math.sin(a) * 0.7]}>
-            <sphereGeometry args={[0.18, 6, 5]} />
+            <sphereGeometry args={[0.18, 14, 10]} />
             <meshToonMaterial color="#78716C" />
           </mesh>
         );
       })}
-      <mesh ref={flameRef} geometry={flameGeo} position={[0, 0.5, 0]}>
-        <meshBasicMaterial color="#FF6B2B" transparent opacity={0.9} />
+      {/* Outer flame cone — high poly, animated */}
+      <mesh ref={flameRef} geometry={flameGeo} position={[0, 0.55, 0]}>
+        <meshBasicMaterial color="#FF6020" transparent opacity={0.88} />
       </mesh>
-      <mesh position={[0, 0.4, 0]}>
-        <coneGeometry args={[0.15, 0.4, 8]} />
-        <meshBasicMaterial color="#FFD700" transparent opacity={0.85} />
+      {/* Inner bright core */}
+      <mesh position={[0, 0.45, 0]}>
+        <coneGeometry args={[0.13, 0.38, 20, 4]} />
+        <meshBasicMaterial color="#FFD040" transparent opacity={0.92} />
       </mesh>
-      <pointLight color="#FF6B2B" intensity={2.0} distance={5} decay={2} />
+      {/* Ember glow at base */}
+      <mesh position={[0, 0.28, 0]}>
+        <sphereGeometry args={[0.22, 20, 14]} />
+        <meshBasicMaterial color="#FF4400" transparent opacity={0.45} />
+      </mesh>
     </group>
   );
 }
@@ -631,7 +642,7 @@ function Ground({ isNight }: { isNight: boolean }) {
   return (
     <>
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[60, 60, 16, 16]} />
+        <planeGeometry args={[60, 60, 40, 40]} />
         <meshToonMaterial color={grassColor} map={groundTex.current} />
       </mesh>
       {LOCATIONS.map(loc => {
@@ -820,7 +831,7 @@ function WindTree({
     <group position={pos}>
       {/* Trunk */}
       <mesh castShadow>
-        <cylinderGeometry args={[trunkR * 0.7, trunkR, h * 0.55, 7, 3]} />
+        <cylinderGeometry args={[trunkR * 0.7, trunkR, h * 0.55, 16, 4]} />
         <meshToonMaterial color={trunkColor} />
       </mesh>
       {/* Root buttresses */}
@@ -837,7 +848,7 @@ function WindTree({
           // Conical fir tree
           [0, 0.35, 0.65].map((yOff, li) => (
             <mesh key={li} position={[0, yOff * h * 0.6, 0]} castShadow>
-              <coneGeometry args={[r * (1.1 - li * 0.25), h * 0.38, 8, 2]} />
+              <coneGeometry args={[r * (1.1 - li * 0.25), h * 0.38, 24, 3]} />
               <meshToonMaterial color={leafColors[li]} />
             </mesh>
           ))
@@ -848,7 +859,7 @@ function WindTree({
             return (
               <mesh key={fi} position={[Math.cos(a) * r * 0.5, h * 0.1, Math.sin(a) * r * 0.5]}
                 rotation={[0.6, a, 0.3]} castShadow>
-                <capsuleGeometry args={[0.05, r * 1.1, 3, 6]} />
+                <capsuleGeometry args={[0.05, r * 1.1, 6, 14]} />
                 <meshToonMaterial color={leafColors[0]} />
               </mesh>
             );
@@ -857,7 +868,7 @@ function WindTree({
           // Massive rounded crown
           [0, 0.2, -0.15].map((yOff, li) => (
             <mesh key={li} position={[(li - 1) * r * 0.3, yOff * r, 0]} castShadow>
-              <sphereGeometry args={[r * (0.85 + li * 0.1), 10, 7]} />
+              <sphereGeometry args={[r * (0.85 + li * 0.1), 20, 16]} />
               <meshToonMaterial color={leafColors[li % 3]} />
             </mesh>
           ))
@@ -871,7 +882,7 @@ function WindTree({
             [0, r * 0.55, -r * 0.25, r * 0.6],
           ].map(([dx, dy, dz, sr], li) => (
             <mesh key={li} position={[dx, dy, dz]} castShadow>
-              <sphereGeometry args={[sr, 9, 7]} />
+              <sphereGeometry args={[sr, 18, 14]} />
               <meshToonMaterial color={leafColors[li % 3]} />
             </mesh>
           ))
@@ -879,7 +890,7 @@ function WindTree({
           // Tall — elongated oval canopy
           [0, 0.3].map((yOff, li) => (
             <mesh key={li} position={[0, yOff * r * 0.8, 0]} castShadow>
-              <sphereGeometry args={[r * (1 - li * 0.2), 10, 8]} />
+              <sphereGeometry args={[r * (1 - li * 0.2), 20, 16]} />
               <meshToonMaterial color={leafColors[li]} />
             </mesh>
           ))
@@ -890,7 +901,7 @@ function WindTree({
         const a = (fi / 3) * Math.PI * 2 + phase;
         return (
           <mesh key={fi} position={[Math.cos(a) * r * 0.8, -h * 0.24, Math.sin(a) * r * 0.8]}>
-            <sphereGeometry args={[0.15 + r * 0.08, 5, 4]} />
+            <sphereGeometry args={[0.15 + r * 0.08, 10, 8]} />
             <meshToonMaterial color={leafColors[2]} />
           </mesh>
         );
@@ -944,6 +955,23 @@ function WindParticles({ windStrength = 0, windAngle = 0 }: { windStrength?: num
 }
 
 // ─── Player character ──────────────────────────────────────────────────────────
+// ── Pre-computed shared geometry (defined outside component so they're created once) ──
+const HEAD_GEO  = new THREE.SphereGeometry(0.35, 32, 24);
+const HAIR_GEO  = new THREE.SphereGeometry(0.315, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.58);
+const EYE_W_GEO = new THREE.SphereGeometry(0.065, 14, 10);
+const IRIS_GEO  = new THREE.SphereGeometry(0.042, 12, 10);
+const PUPIL_GEO = new THREE.SphereGeometry(0.026, 10, 8);
+const EAR_GEO   = new THREE.SphereGeometry(0.07, 12, 10);
+const NOSE_GEO  = new THREE.SphereGeometry(0.045, 10, 8);
+const NECK_GEO  = new THREE.CylinderGeometry(0.12, 0.14, 0.24, 20, 2);
+const SHLD_GEO  = new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55);
+const LIMB_GEO  = new THREE.CapsuleGeometry(0.095, 0.44, 8, 20);
+const HAND_GEO  = new THREE.SphereGeometry(0.105, 16, 12);
+const KNUCK_GEO = new THREE.BoxGeometry(0.17, 0.07, 0.08);
+const BOOT_TOP  = new THREE.CylinderGeometry(0.115, 0.125, 0.22, 20, 2);
+const BOOT_SOLE = new THREE.BoxGeometry(0.215, 0.055, 0.34);
+const TOE_GEO   = new THREE.SphereGeometry(0.095, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.52);
+
 function PlayerCharacter({
   position, rotation, skinColor, isLocal, username, isMovingRef,
 }: {
@@ -955,17 +983,17 @@ function PlayerCharacter({
   isMovingRef?: React.MutableRefObject<boolean>;
 }) {
   const groupRef  = useRef<THREE.Group>(null);
-  // Pivot groups for shoulder/hip rotation — arms rotate from shoulder, legs from hip
   const armLPivot = useRef<THREE.Group>(null);
   const armRPivot = useRef<THREE.Group>(null);
   const legLPivot = useRef<THREE.Group>(null);
   const legRPivot = useRef<THREE.Group>(null);
-  const bobRef    = useRef(0);
-  const tunicColor = isLocal ? '#1877F2' : '#E8770A';
 
-  const headGeo = useMemo(() => new THREE.SphereGeometry(0.35, 16, 12), []);
-  const limbGeo = useMemo(() => new THREE.CapsuleGeometry(0.1, 0.42, 4, 10), []);
-  const handGeo = useMemo(() => new THREE.SphereGeometry(0.1, 8, 6), []);
+  const tunic  = isLocal ? '#1877F2' : '#E8770A';
+  const tunicD = isLocal ? '#0D5CBF' : '#BF5500'; // darker shade for depth
+  const pant   = '#1E2A3A';
+  const pantD  = '#141C28';
+  const boot   = '#1A1A1A';
+  const gold   = '#D4A820';
 
   useFrame(state => {
     if (!groupRef.current) return;
@@ -974,92 +1002,262 @@ function PlayerCharacter({
 
     const t   = state.clock.elapsedTime;
     const mov = isMovingRef ? isMovingRef.current : false;
-    const freq  = mov ? 7 : 0;
-    const swing = mov ? Math.sin(t * freq) * 0.65 : 0;
+    const swing = mov ? Math.sin(t * 7) * 0.62 : 0;
 
-    // Natural arm swing — opposite phase to legs (left arm forward when right leg forward)
-    if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.6, 0.25);
-    if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.6, 0.25);
-    if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing, 0.25);
-    if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing, 0.25);
+    if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.55, 0.22);
+    if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.55, 0.22);
+    if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing, 0.22);
+    if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing, 0.22);
 
-    // Subtle vertical bob while walking
-    bobRef.current = mov ? Math.abs(Math.sin(t * freq)) * 0.04 : 0;
-    groupRef.current.position.y = position.y + bobRef.current;
+    groupRef.current.position.y = position.y + (mov ? Math.abs(Math.sin(t * 7)) * 0.038 : 0);
   });
 
   return (
     <group ref={groupRef} position={position}>
-      {/* Head */}
-      <mesh geometry={headGeo} position={[0, 1.85, 0]} castShadow>
+
+      {/* ── HEAD GROUP ──────────────────────────────────────────────── */}
+      <group position={[0, 1.88, 0]}>
+        {/* Skull */}
+        <mesh geometry={HEAD_GEO} castShadow>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Hair cap — domed partial sphere sitting on top */}
+        <mesh geometry={HAIR_GEO} position={[0, 0.08, -0.02]}>
+          <meshToonMaterial color="#1A0800" />
+        </mesh>
+        {/* Hair fade strip along sides */}
+        <mesh position={[0, -0.1, 0]}>
+          <cylinderGeometry args={[0.345, 0.32, 0.14, 28, 1, true, 0, Math.PI * 2]} />
+          <meshToonMaterial color="#2A1200" />
+        </mesh>
+        {/* Left ear */}
+        <mesh geometry={EAR_GEO} position={[0.345, -0.04, 0]} scale={[0.55, 0.9, 0.55]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Right ear */}
+        <mesh geometry={EAR_GEO} position={[-0.345, -0.04, 0]} scale={[0.55, 0.9, 0.55]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Left eye white */}
+        <mesh geometry={EYE_W_GEO} position={[0.115, 0.03, 0.325]} scale={[1, 0.85, 0.6]}>
+          <meshBasicMaterial color="#F8F4EE" />
+        </mesh>
+        {/* Right eye white */}
+        <mesh geometry={EYE_W_GEO} position={[-0.115, 0.03, 0.325]} scale={[1, 0.85, 0.6]}>
+          <meshBasicMaterial color="#F8F4EE" />
+        </mesh>
+        {/* Left iris */}
+        <mesh geometry={IRIS_GEO} position={[0.115, 0.03, 0.352]} scale={[1, 1, 0.4]}>
+          <meshBasicMaterial color="#3B2000" />
+        </mesh>
+        {/* Right iris */}
+        <mesh geometry={IRIS_GEO} position={[-0.115, 0.03, 0.352]} scale={[1, 1, 0.4]}>
+          <meshBasicMaterial color="#3B2000" />
+        </mesh>
+        {/* Left pupil */}
+        <mesh geometry={PUPIL_GEO} position={[0.115, 0.03, 0.356]} scale={[1, 1, 0.3]}>
+          <meshBasicMaterial color="#040404" />
+        </mesh>
+        {/* Right pupil */}
+        <mesh geometry={PUPIL_GEO} position={[-0.115, 0.03, 0.356]} scale={[1, 1, 0.3]}>
+          <meshBasicMaterial color="#040404" />
+        </mesh>
+        {/* Left eyebrow */}
+        <mesh position={[0.115, 0.1, 0.325]} rotation={[0, 0, -0.12]}>
+          <boxGeometry args={[0.13, 0.022, 0.025]} />
+          <meshBasicMaterial color="#1A0800" />
+        </mesh>
+        {/* Right eyebrow */}
+        <mesh position={[-0.115, 0.1, 0.325]} rotation={[0, 0, 0.12]}>
+          <boxGeometry args={[0.13, 0.022, 0.025]} />
+          <meshBasicMaterial color="#1A0800" />
+        </mesh>
+        {/* Nose bridge + tip */}
+        <mesh geometry={NOSE_GEO} position={[0, -0.04, 0.355]} scale={[0.7, 0.6, 0.55]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Mouth crease — subtle dark line */}
+        <mesh position={[0, -0.13, 0.34]} rotation={[0.18, 0, 0]}>
+          <boxGeometry args={[0.1, 0.018, 0.018]} />
+          <meshBasicMaterial color="#5A2A18" />
+        </mesh>
+        {/* Chin */}
+        <mesh position={[0, -0.285, 0.2]}>
+          <sphereGeometry args={[0.08, 12, 8]} />
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+      </group>
+
+      {/* ── NECK ─────────────────────────────────────────────────────── */}
+      <mesh geometry={NECK_GEO} position={[0, 1.63, 0]} castShadow>
         <meshToonMaterial color={skinColor} />
       </mesh>
-      {/* Hair */}
-      <mesh position={[0, 2.08, 0]}>
-        <sphereGeometry args={[0.29, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
-        <meshToonMaterial color="#1A0A00" />
-      </mesh>
-      {/* Eyes */}
-      <mesh position={[0.11, 1.88, 0.33]}><sphereGeometry args={[0.058, 7, 5]} /><meshBasicMaterial color="#FFF" /></mesh>
-      <mesh position={[-0.11, 1.88, 0.33]}><sphereGeometry args={[0.058, 7, 5]} /><meshBasicMaterial color="#FFF" /></mesh>
-      <mesh position={[0.11, 1.88, 0.365]}><sphereGeometry args={[0.032, 6, 4]} /><meshBasicMaterial color="#111" /></mesh>
-      <mesh position={[-0.11, 1.88, 0.365]}><sphereGeometry args={[0.032, 6, 4]} /><meshBasicMaterial color="#111" /></mesh>
-      {/* Torso */}
-      <mesh position={[0, 1.35, 0]} castShadow>
-        <boxGeometry args={[0.52, 0.58, 0.36]} />
-        <meshToonMaterial color={tunicColor} />
-      </mesh>
-      {/* Belt */}
-      <mesh position={[0, 1.08, 0]}>
-        <boxGeometry args={[0.54, 0.07, 0.38]} />
-        <meshToonMaterial color="#FFD700" />
-      </mesh>
 
-      {/* Left arm — pivot at shoulder (1.58) */}
-      <group ref={armLPivot} position={[0.31, 1.58, 0]}>
-        <mesh geometry={limbGeo} position={[0, -0.26, 0]} castShadow>
-          <meshToonMaterial color={tunicColor} />
+      {/* ── TORSO ────────────────────────────────────────────────────── */}
+      <group position={[0, 1.33, 0]}>
+        {/* Main shirt body */}
+        <mesh castShadow>
+          <boxGeometry args={[0.52, 0.62, 0.36, 2, 2, 2]} />
+          <meshToonMaterial color={tunic} />
         </mesh>
-        <mesh geometry={handGeo} position={[0, -0.55, 0]}>
+        {/* Chest pocket / panel detail */}
+        <mesh position={[0.1, 0.08, 0.185]}>
+          <boxGeometry args={[0.18, 0.22, 0.01]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        {/* Collar band */}
+        <mesh position={[0, 0.32, 0]}>
+          <cylinderGeometry args={[0.145, 0.14, 0.07, 20, 1, true]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        {/* Left shoulder cap (muscle bulk) */}
+        <mesh geometry={SHLD_GEO} position={[0.295, 0.25, 0]} rotation={[0, 0, -Math.PI / 2]}>
+          <meshToonMaterial color={tunic} />
+        </mesh>
+        {/* Right shoulder cap */}
+        <mesh geometry={SHLD_GEO} position={[-0.295, 0.25, 0]} rotation={[0, 0, Math.PI / 2]}>
+          <meshToonMaterial color={tunic} />
+        </mesh>
+        {/* Belt */}
+        <mesh position={[0, -0.305, 0]}>
+          <boxGeometry args={[0.545, 0.085, 0.385]} />
+          <meshToonMaterial color={gold} />
+        </mesh>
+        {/* Belt buckle */}
+        <mesh position={[0, -0.305, 0.2]}>
+          <boxGeometry args={[0.1, 0.09, 0.03]} />
+          <meshToonMaterial color="#D4A820" />
+        </mesh>
+        <mesh position={[0, -0.305, 0.215]}>
+          <boxGeometry args={[0.055, 0.048, 0.02]} />
+          <meshBasicMaterial color="#FFE066" />
+        </mesh>
+      </group>
+
+      {/* ── LEFT ARM — pivot at shoulder ─────────────────────────────── */}
+      <group ref={armLPivot} position={[0.32, 1.565, 0]}>
+        {/* Sleeve / upper arm */}
+        <mesh geometry={LIMB_GEO} position={[0, -0.27, 0]} castShadow>
+          <meshToonMaterial color={tunic} />
+        </mesh>
+        {/* Elbow cap */}
+        <mesh position={[0, -0.5, 0]}>
+          <sphereGeometry args={[0.1, 14, 10]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        {/* Forearm / cuff */}
+        <mesh position={[0, -0.7, 0]}>
+          <capsuleGeometry args={[0.085, 0.22, 6, 16]} />
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Sleeve cuff band */}
+        <mesh position={[0, -0.57, 0]}>
+          <cylinderGeometry args={[0.098, 0.098, 0.055, 18, 1]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        {/* Hand */}
+        <mesh geometry={HAND_GEO} position={[0, -0.88, 0]} castShadow>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Knuckle detail */}
+        <mesh geometry={KNUCK_GEO} position={[0, -0.88, 0.06]}>
           <meshToonMaterial color={skinColor} />
         </mesh>
       </group>
-      {/* Right arm — pivot at shoulder */}
-      <group ref={armRPivot} position={[-0.31, 1.58, 0]}>
-        <mesh geometry={limbGeo} position={[0, -0.26, 0]} castShadow>
-          <meshToonMaterial color={tunicColor} />
+
+      {/* ── RIGHT ARM — mirror of left ───────────────────────────────── */}
+      <group ref={armRPivot} position={[-0.32, 1.565, 0]}>
+        <mesh geometry={LIMB_GEO} position={[0, -0.27, 0]} castShadow>
+          <meshToonMaterial color={tunic} />
         </mesh>
-        <mesh geometry={handGeo} position={[0, -0.55, 0]}>
+        <mesh position={[0, -0.5, 0]}>
+          <sphereGeometry args={[0.1, 14, 10]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        <mesh position={[0, -0.7, 0]}>
+          <capsuleGeometry args={[0.085, 0.22, 6, 16]} />
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        <mesh position={[0, -0.57, 0]}>
+          <cylinderGeometry args={[0.098, 0.098, 0.055, 18, 1]} />
+          <meshToonMaterial color={tunicD} />
+        </mesh>
+        <mesh geometry={HAND_GEO} position={[0, -0.88, 0]} castShadow>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        <mesh geometry={KNUCK_GEO} position={[0, -0.88, 0.06]}>
           <meshToonMaterial color={skinColor} />
         </mesh>
       </group>
 
-      {/* Left leg — pivot at hip (1.06) */}
-      <group ref={legLPivot} position={[0.14, 1.06, 0]}>
-        <mesh geometry={limbGeo} position={[0, -0.28, 0]} castShadow>
-          <meshToonMaterial color="#2A1500" />
+      {/* ── LEFT LEG — pivot at hip ───────────────────────────────────── */}
+      <group ref={legLPivot} position={[0.15, 1.035, 0]}>
+        {/* Thigh */}
+        <mesh geometry={LIMB_GEO} position={[0, -0.25, 0]} castShadow>
+          <meshToonMaterial color={pant} />
         </mesh>
-        {/* Boot */}
-        <mesh position={[0, -0.58, 0.06]}>
-          <boxGeometry args={[0.19, 0.1, 0.3]} />
-          <meshToonMaterial color="#111" />
+        {/* Knee */}
+        <mesh position={[0, -0.49, 0]}>
+          <sphereGeometry args={[0.1, 14, 10]} />
+          <meshToonMaterial color={pantD} />
         </mesh>
-      </group>
-      {/* Right leg — pivot at hip */}
-      <group ref={legRPivot} position={[-0.14, 1.06, 0]}>
-        <mesh geometry={limbGeo} position={[0, -0.28, 0]} castShadow>
-          <meshToonMaterial color="#2A1500" />
+        {/* Shin / calf */}
+        <mesh position={[0, -0.7, 0]}>
+          <capsuleGeometry args={[0.09, 0.2, 6, 16]} />
+          <meshToonMaterial color={pant} />
         </mesh>
-        <mesh position={[0, -0.58, 0.06]}>
-          <boxGeometry args={[0.19, 0.1, 0.3]} />
-          <meshToonMaterial color="#111" />
+        {/* Boot top (ankle cuff) */}
+        <mesh geometry={BOOT_TOP} position={[0, -0.935, 0.022]} castShadow>
+          <meshToonMaterial color={boot} />
+        </mesh>
+        {/* Boot sole */}
+        <mesh geometry={BOOT_SOLE} position={[0.01, -1.07, 0.06]} castShadow>
+          <meshToonMaterial color="#0A0A0A" />
+        </mesh>
+        {/* Toe cap */}
+        <mesh geometry={TOE_GEO} position={[0.01, -1.04, 0.2]} rotation={[-0.3, 0, 0]} scale={[1, 0.7, 1]}>
+          <meshToonMaterial color={boot} />
+        </mesh>
+        {/* Boot sole edge highlight */}
+        <mesh position={[0.01, -1.097, 0.06]}>
+          <boxGeometry args={[0.22, 0.018, 0.345]} />
+          <meshToonMaterial color="#3A3A3A" />
         </mesh>
       </group>
 
+      {/* ── RIGHT LEG — mirror of left ───────────────────────────────── */}
+      <group ref={legRPivot} position={[-0.15, 1.035, 0]}>
+        <mesh geometry={LIMB_GEO} position={[0, -0.25, 0]} castShadow>
+          <meshToonMaterial color={pant} />
+        </mesh>
+        <mesh position={[0, -0.49, 0]}>
+          <sphereGeometry args={[0.1, 14, 10]} />
+          <meshToonMaterial color={pantD} />
+        </mesh>
+        <mesh position={[0, -0.7, 0]}>
+          <capsuleGeometry args={[0.09, 0.2, 6, 16]} />
+          <meshToonMaterial color={pant} />
+        </mesh>
+        <mesh geometry={BOOT_TOP} position={[0, -0.935, 0.022]} castShadow>
+          <meshToonMaterial color={boot} />
+        </mesh>
+        <mesh geometry={BOOT_SOLE} position={[-0.01, -1.07, 0.06]} castShadow>
+          <meshToonMaterial color="#0A0A0A" />
+        </mesh>
+        <mesh geometry={TOE_GEO} position={[-0.01, -1.04, 0.2]} rotation={[-0.3, 0, 0]} scale={[1, 0.7, 1]}>
+          <meshToonMaterial color={boot} />
+        </mesh>
+        <mesh position={[-0.01, -1.097, 0.06]}>
+          <boxGeometry args={[0.22, 0.018, 0.345]} />
+          <meshToonMaterial color="#3A3A3A" />
+        </mesh>
+      </group>
+
+      {/* Name tag for remote players */}
       {!isLocal && username && (
-        <mesh position={[0, 2.55, 0]}>
-          <planeGeometry args={[1.2, 0.35]} />
-          <meshBasicMaterial color="#000000" transparent opacity={0.6} />
+        <mesh position={[0, 2.65, 0]}>
+          <planeGeometry args={[1.2, 0.32]} />
+          <meshBasicMaterial color="#000000" transparent opacity={0.65} />
         </mesh>
       )}
     </group>
@@ -1116,54 +1314,112 @@ function Fireflies({ count = 25, isNight = false }: { count?: number; isNight?: 
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, count]}>
-      <sphereGeometry args={[0.05, 5, 4]} />
-      <meshBasicMaterial color={isNight ? '#FFD700' : '#FFFFFF'} transparent />
+      <sphereGeometry args={[0.055, 10, 8]} />
+      <meshBasicMaterial color={isNight ? '#FFE840' : '#FFFFFF'} transparent />
     </instancedMesh>
   );
 }
 
 // ─── Scene lighting that responds to sky state ────────────────────────────────
 function SceneLighting({ skyState }: { skyState: any }) {
-  const ambientRef = useRef<THREE.AmbientLight>(null);
-  const sunRef = useRef<THREE.DirectionalLight>(null);
-  const ambColor = useRef(new THREE.Color('#FFFBF0'));
-  const sunColor = useRef(new THREE.Color('#FFF5D0'));
+  const sunRef  = useRef<THREE.DirectionalLight>(null);
+  const fillRef = useRef<THREE.DirectionalLight>(null);
+  const hemiRef = useRef<THREE.HemisphereLight>(null);
+
+  const isNight  = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
 
   useFrame(() => {
     if (!skyState) return;
-    if (ambientRef.current) {
-      ambientRef.current.intensity = skyState.ambientIntensity * 0.9;
-      ambientRef.current.color.set(skyState.ambientColor);
-    }
+    const [sx, sy, sz] = sunPosFromAngles(skyState.sunAltitude, skyState.sunAzimuth, 60);
+    const amb = skyState.ambientIntensity ?? 0.65;
+
     if (sunRef.current) {
-      const [sx, sy, sz] = sunPosFromAngles(skyState.sunAltitude, skyState.sunAzimuth, 60);
-      sunRef.current.position.set(sx, Math.max(sy, 2), sz);
-      sunRef.current.intensity = Math.max(0.05, skyState.ambientIntensity * 1.2);
-      sunRef.current.color.set(skyState.sunColor);
+      sunRef.current.position.set(sx, Math.max(sy, 1.5), sz);
+      sunRef.current.intensity = Math.max(0.08, amb * 2.2);
+      sunRef.current.color.set(skyState.sunColor ?? '#FFF5D0');
+    }
+    if (fillRef.current) {
+      // Fill comes from the opposite-ish side — cool sky tone
+      fillRef.current.position.set(-sx * 0.6, Math.max(sy * 0.7, 6), -sz * 0.6);
+      fillRef.current.intensity = Math.max(0.02, amb * 0.5);
+      fillRef.current.color.set(isNight ? '#3050C0' : isGolden ? '#FF9944' : '#BDE0FF');
+    }
+    if (hemiRef.current) {
+      hemiRef.current.intensity = Math.max(0.15, amb * 0.75);
+      (hemiRef.current as any).color.set(isNight ? '#1A2550' : isGolden ? '#FF8833' : '#7BBFDC');
+      (hemiRef.current as any).groundColor.set(isNight ? '#0C0F18' : '#3D5A25');
     }
   });
 
-  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
-  const initSunPos = sunPosFromAngles(skyState?.sunAltitude ?? 45, skyState?.sunAzimuth ?? 180, 60);
+  const initPos = sunPosFromAngles(skyState?.sunAltitude ?? 45, skyState?.sunAzimuth ?? 180, 60);
+  const amb0    = skyState?.ambientIntensity ?? 0.65;
 
   return (
     <>
-      <ambientLight ref={ambientRef}
-        intensity={skyState?.ambientIntensity ?? 0.65}
-        color={ambColor.current}
+      {/* Hemisphere — sky above, earth below — richest ambient */}
+      <hemisphereLight
+        ref={hemiRef}
+        args={[
+          isNight ? '#1A2550' : '#7BBFDC',
+          isNight ? '#0C0F18' : '#3D5A25',
+          amb0 * 0.75,
+        ]}
       />
+
+      {/* Primary sun — main key light, casts crisp soft shadows */}
       <directionalLight
         ref={sunRef}
-        position={initSunPos}
-        intensity={Math.max(0.1, (skyState?.ambientIntensity ?? 0.65) * 1.2)}
-        color={sunColor.current}
+        position={initPos}
+        intensity={Math.max(0.1, amb0 * 2.2)}
+        color={skyState?.sunColor ?? '#FFF5D0'}
         castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
+        shadow-mapSize-width={2048}
+        shadow-mapSize-height={2048}
+        shadow-camera-near={0.5}
+        shadow-camera-far={90}
+        shadow-camera-left={-24}
+        shadow-camera-right={24}
+        shadow-camera-top={24}
+        shadow-camera-bottom={-24}
+        shadow-bias={-0.0003}
+        shadow-normalBias={0.02}
       />
-      <pointLight position={[0, 3, 0]} intensity={isNight ? 0.8 : 0.2} color="#FF6B2B" />
+
+      {/* Fill light — opposite side, no shadows, cool/warm tone */}
+      <directionalLight
+        ref={fillRef}
+        position={[-15, 18, 10]}
+        intensity={amb0 * 0.45}
+        color={isNight ? '#3050C0' : '#BDE0FF'}
+      />
+
+      {/* Ground bounce light — subtle warm upfill */}
+      <directionalLight
+        position={[0, -10, 0]}
+        intensity={isNight ? 0.03 : 0.1}
+        color={isNight ? '#1A1A2A' : '#D0C898'}
+      />
+
+      {/* Sacred fire — central village glow, warm orange */}
+      <pointLight
+        position={[0, 1.8, 0]}
+        intensity={isNight ? 4.0 : 1.2}
+        color="#FF7020"
+        distance={16}
+        decay={2}
+        castShadow={false}
+      />
+
+      {/* Village accent lights — give depth/warmth to each quadrant */}
+      <pointLight position={[-9, 1.5, -5]}  intensity={isNight ? 1.5 : 0.18} color="#4488FF" distance={13} decay={2} />
+      <pointLight position={[ 9, 1.5, -5]}  intensity={isNight ? 1.2 : 0.14} color="#8855FF" distance={13} decay={2} />
+      <pointLight position={[-9, 1.5,  5]}  intensity={isNight ? 1.0 : 0.12} color="#44FFBB" distance={13} decay={2} />
+      <pointLight position={[ 9, 1.5,  5]}  intensity={isNight ? 1.3 : 0.15} color="#FFB040" distance={13} decay={2} />
+
+      {/* Night-only moon/backlight for dramatic rim lighting */}
       {isNight && (
-        <pointLight position={[20, 30, -20]} intensity={0.15} color="#B0B8FF" />
+        <directionalLight position={[-22, 28, -22]} intensity={0.4} color="#C8DCFF" />
       )}
     </>
   );
@@ -1578,11 +1834,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       onTouchEnd={handleTwoFingerEnd}
     >
       <Canvas
-        shadows
-        gl={{ antialias: false, powerPreference: 'high-performance', pixelRatio: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.5) }}
+        shadows={{ type: THREE.PCFSoftShadowMap }}
+        gl={{
+          antialias: false,
+          powerPreference: 'high-performance',
+          pixelRatio: Math.min(typeof window !== 'undefined' ? window.devicePixelRatio : 1, 1.5),
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.15,
+        }}
         style={{ background: bgColor, transition: 'background 4s ease' }}
         performance={{ min: 0.5 }}
-        camera={{ position: [0, 8, 12], fov: 60 }}
+        camera={{ position: [0, 8, 12], fov: 58, near: 0.1, far: 200 }}
       >
         <WorldScene
           playerPos={playerPos}
