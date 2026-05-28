@@ -347,9 +347,16 @@ export default function DreamLinePage() {
             }}
           />
           <div className="flex items-center justify-between mt-2">
-            <p className="text-xs" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
-              {postCount >= 3 ? 'Max 3 posts/day to keep quality high ✓' : `${3 - postCount} posts left today`}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs" style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>
+                {postCount >= 3 ? 'Max 3 posts/day ✓' : `${3 - postCount} posts left`}
+              </p>
+              <Link href="/village/studio"
+                className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full transition-all"
+                style={{ background: isNight ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.25)' }}>
+                🎬 Studio
+              </Link>
+            </div>
             <button
               onClick={submitPost}
               disabled={posting || !newPost.trim() || postCount >= 3}

@@ -506,7 +506,7 @@ function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: 
 
   return (
     <group position={[x, 0, z]}
-      onClick={() => onEnter(loc.href, loc.label)}
+      onPointerUp={e => { e.stopPropagation(); onEnter(loc.href, loc.label); }}
       onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
       onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}>
       {/* Ground shadow */}
@@ -945,102 +945,119 @@ function WindParticles({ windStrength = 0, windAngle = 0 }: { windStrength?: num
 
 // ─── Player character ──────────────────────────────────────────────────────────
 function PlayerCharacter({
-  position, rotation, skinColor, isLocal, username,
+  position, rotation, skinColor, isLocal, username, isMovingRef,
 }: {
   position: THREE.Vector3;
   rotation: number;
   skinColor: string;
   isLocal: boolean;
   username?: string;
+  isMovingRef?: React.MutableRefObject<boolean>;
 }) {
-  const groupRef = useRef<THREE.Group>(null);
-  const legLRef  = useRef<THREE.Mesh>(null);
-  const legRRef  = useRef<THREE.Mesh>(null);
-  const armLRef  = useRef<THREE.Mesh>(null);
-  const armRRef  = useRef<THREE.Mesh>(null);
+  const groupRef  = useRef<THREE.Group>(null);
+  // Pivot groups for shoulder/hip rotation — arms rotate from shoulder, legs from hip
+  const armLPivot = useRef<THREE.Group>(null);
+  const armRPivot = useRef<THREE.Group>(null);
+  const legLPivot = useRef<THREE.Group>(null);
+  const legRPivot = useRef<THREE.Group>(null);
+  const bobRef    = useRef(0);
   const tunicColor = isLocal ? '#1877F2' : '#E8770A';
 
-  const headGeo = useMemo(() => {
-    const g = new THREE.SphereGeometry(0.35, 12, 10);
-    g.computeVertexNormals();
-    return g;
-  }, []);
-  const limbGeo = useMemo(() => {
-    const g = new THREE.CapsuleGeometry(0.1, 0.45, 4, 8);
-    g.computeVertexNormals();
-    return g;
-  }, []);
+  const headGeo = useMemo(() => new THREE.SphereGeometry(0.35, 16, 12), []);
+  const limbGeo = useMemo(() => new THREE.CapsuleGeometry(0.1, 0.42, 4, 10), []);
+  const handGeo = useMemo(() => new THREE.SphereGeometry(0.1, 8, 6), []);
 
   useFrame(state => {
     if (!groupRef.current) return;
-    groupRef.current.position.lerp(position, 0.15);
+    groupRef.current.position.lerp(position, 0.18);
     groupRef.current.rotation.y = rotation;
 
-    const t = state.clock.elapsedTime;
-    const moving = position.distanceTo(groupRef.current.position) > 0.05;
-    const swing  = moving ? Math.sin(t * 6) * 0.4 : 0;
-    if (legLRef.current)  legLRef.current.rotation.x  = swing;
-    if (legRRef.current)  legRRef.current.rotation.x  = -swing;
-    if (armLRef.current)  armLRef.current.rotation.x  = -swing * 0.5;
-    if (armRRef.current)  armRRef.current.rotation.x  = swing * 0.5;
-    groupRef.current.position.y = position.y + (moving ? Math.abs(Math.sin(t * 6)) * 0.05 : 0);
+    const t   = state.clock.elapsedTime;
+    const mov = isMovingRef ? isMovingRef.current : false;
+    const freq  = mov ? 7 : 0;
+    const swing = mov ? Math.sin(t * freq) * 0.65 : 0;
+
+    // Natural arm swing — opposite phase to legs (left arm forward when right leg forward)
+    if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.6, 0.25);
+    if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.6, 0.25);
+    if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing, 0.25);
+    if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing, 0.25);
+
+    // Subtle vertical bob while walking
+    bobRef.current = mov ? Math.abs(Math.sin(t * freq)) * 0.04 : 0;
+    groupRef.current.position.y = position.y + bobRef.current;
   });
 
   return (
     <group ref={groupRef} position={position}>
+      {/* Head */}
       <mesh geometry={headGeo} position={[0, 1.85, 0]} castShadow>
         <meshToonMaterial color={skinColor} />
       </mesh>
-      <mesh position={[0, 2.1, 0]}>
-        <sphereGeometry args={[0.28, 8, 6, 0, Math.PI*2, 0, Math.PI*0.6]} />
+      {/* Hair */}
+      <mesh position={[0, 2.08, 0]}>
+        <sphereGeometry args={[0.29, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55]} />
         <meshToonMaterial color="#1A0A00" />
       </mesh>
-      <mesh position={[0.12, 1.88, 0.33]}>
-        <sphereGeometry args={[0.06, 6, 5]} />
-        <meshBasicMaterial color="#FFFFFF" />
-      </mesh>
-      <mesh position={[-0.12, 1.88, 0.33]}>
-        <sphereGeometry args={[0.06, 6, 5]} />
-        <meshBasicMaterial color="#FFFFFF" />
-      </mesh>
-      <mesh position={[0.12, 1.88, 0.36]}>
-        <sphereGeometry args={[0.035, 5, 4]} />
-        <meshBasicMaterial color="#111" />
-      </mesh>
-      <mesh position={[-0.12, 1.88, 0.36]}>
-        <sphereGeometry args={[0.035, 5, 4]} />
-        <meshBasicMaterial color="#111" />
-      </mesh>
+      {/* Eyes */}
+      <mesh position={[0.11, 1.88, 0.33]}><sphereGeometry args={[0.058, 7, 5]} /><meshBasicMaterial color="#FFF" /></mesh>
+      <mesh position={[-0.11, 1.88, 0.33]}><sphereGeometry args={[0.058, 7, 5]} /><meshBasicMaterial color="#FFF" /></mesh>
+      <mesh position={[0.11, 1.88, 0.365]}><sphereGeometry args={[0.032, 6, 4]} /><meshBasicMaterial color="#111" /></mesh>
+      <mesh position={[-0.11, 1.88, 0.365]}><sphereGeometry args={[0.032, 6, 4]} /><meshBasicMaterial color="#111" /></mesh>
+      {/* Torso */}
       <mesh position={[0, 1.35, 0]} castShadow>
-        <boxGeometry args={[0.5, 0.55, 0.35]} />
+        <boxGeometry args={[0.52, 0.58, 0.36]} />
         <meshToonMaterial color={tunicColor} />
       </mesh>
-      <mesh position={[0, 1.25, 0]}>
-        <boxGeometry args={[0.52, 0.08, 0.37]} />
+      {/* Belt */}
+      <mesh position={[0, 1.08, 0]}>
+        <boxGeometry args={[0.54, 0.07, 0.38]} />
         <meshToonMaterial color="#FFD700" />
       </mesh>
-      <mesh ref={armLRef} geometry={limbGeo} position={[0.35, 1.35, 0]} castShadow>
-        <meshToonMaterial color={tunicColor} />
-      </mesh>
-      <mesh ref={armRRef} geometry={limbGeo} position={[-0.35, 1.35, 0]} castShadow>
-        <meshToonMaterial color={tunicColor} />
-      </mesh>
-      <mesh ref={legLRef} geometry={limbGeo} position={[0.15, 0.8, 0]} castShadow>
-        <meshToonMaterial color="#1A0A00" />
-      </mesh>
-      <mesh ref={legRRef} geometry={limbGeo} position={[-0.15, 0.8, 0]} castShadow>
-        <meshToonMaterial color="#1A0A00" />
-      </mesh>
-      <mesh position={[0.15, 0.5, 0.08]}>
-        <boxGeometry args={[0.18, 0.1, 0.28]} />
-        <meshToonMaterial color="#111111" />
-      </mesh>
-      <mesh position={[-0.15, 0.5, 0.08]}>
-        <boxGeometry args={[0.18, 0.1, 0.28]} />
-        <meshToonMaterial color="#111111" />
-      </mesh>
+
+      {/* Left arm — pivot at shoulder (1.58) */}
+      <group ref={armLPivot} position={[0.31, 1.58, 0]}>
+        <mesh geometry={limbGeo} position={[0, -0.26, 0]} castShadow>
+          <meshToonMaterial color={tunicColor} />
+        </mesh>
+        <mesh geometry={handGeo} position={[0, -0.55, 0]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+      </group>
+      {/* Right arm — pivot at shoulder */}
+      <group ref={armRPivot} position={[-0.31, 1.58, 0]}>
+        <mesh geometry={limbGeo} position={[0, -0.26, 0]} castShadow>
+          <meshToonMaterial color={tunicColor} />
+        </mesh>
+        <mesh geometry={handGeo} position={[0, -0.55, 0]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+      </group>
+
+      {/* Left leg — pivot at hip (1.06) */}
+      <group ref={legLPivot} position={[0.14, 1.06, 0]}>
+        <mesh geometry={limbGeo} position={[0, -0.28, 0]} castShadow>
+          <meshToonMaterial color="#2A1500" />
+        </mesh>
+        {/* Boot */}
+        <mesh position={[0, -0.58, 0.06]}>
+          <boxGeometry args={[0.19, 0.1, 0.3]} />
+          <meshToonMaterial color="#111" />
+        </mesh>
+      </group>
+      {/* Right leg — pivot at hip */}
+      <group ref={legRPivot} position={[-0.14, 1.06, 0]}>
+        <mesh geometry={limbGeo} position={[0, -0.28, 0]} castShadow>
+          <meshToonMaterial color="#2A1500" />
+        </mesh>
+        <mesh position={[0, -0.58, 0.06]}>
+          <boxGeometry args={[0.19, 0.1, 0.3]} />
+          <meshToonMaterial color="#111" />
+        </mesh>
+      </group>
+
       {!isLocal && username && (
-        <mesh position={[0, 2.5, 0]}>
+        <mesh position={[0, 2.55, 0]}>
           <planeGeometry args={[1.2, 0.35]} />
           <meshBasicMaterial color="#000000" transparent opacity={0.6} />
         </mesh>
@@ -1164,11 +1181,12 @@ interface RemotePlayer {
 }
 
 function WorldScene({
-  playerPos, playerRot, remotePlayers, onEnterBuilding, skyState, spiritVariant,
+  playerPos, playerRot, isMoving, remotePlayers, onEnterBuilding, skyState, spiritVariant,
   cameraZoom, cameraAzimuth, weather,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
+  isMoving: React.MutableRefObject<boolean>;
   remotePlayers: RemotePlayer[];
   onEnterBuilding: (href: string, label: string) => void;
   skyState: any;
@@ -1293,6 +1311,7 @@ function WorldScene({
         rotation={playerRot.current}
         skinColor="#8D5524"
         isLocal={true}
+        isMovingRef={isMoving}
       />
 
       {/* Camera follow */}
@@ -1370,6 +1389,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const playerPos    = useRef(new THREE.Vector3(0, 0, 5));
   const playerRot    = useRef(0);
   const moveInput    = useRef({ dx: 0, dy: 0 });
+  const isMoving     = useRef(false);
   const keys         = useRef<Set<string>>(new Set());
   const cameraZoom   = useRef(10);
   const cameraAzimuth = useRef(0);
@@ -1457,6 +1477,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (keys.current.has('s') || keys.current.has('ArrowDown'))  dz =  1;
       if (keys.current.has('a') || keys.current.has('ArrowLeft'))  dx = -1;
       if (keys.current.has('d') || keys.current.has('ArrowRight')) dx =  1;
+
+      isMoving.current = dx !== 0 || dz !== 0;
 
       if (dx !== 0 || dz !== 0) {
         const mag = Math.sqrt(dx*dx + dz*dz);
@@ -1565,6 +1587,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         <WorldScene
           playerPos={playerPos}
           playerRot={playerRot}
+          isMoving={isMoving}
           remotePlayers={remotePlayers}
           onEnterBuilding={handleEnterBuilding}
           skyState={skyState}
