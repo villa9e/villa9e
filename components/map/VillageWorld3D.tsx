@@ -1193,15 +1193,31 @@ function CameraFollow({
   cameraZoom: React.MutableRefObject<number>;
   cameraAzimuth: React.MutableRefObject<number>;
 }) {
-  const { camera } = useThree();
-  const lerpedLook = useRef(new THREE.Vector3());
+  const { camera, gl } = useThree();
+  const lerpedLook   = useRef(new THREE.Vector3());
+  const smoothedZoom = useRef(cameraZoom.current);
+
+  // Mouse wheel zoom (desktop)
+  useEffect(() => {
+    const canvas = gl.domElement;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      // Scrolling down (deltaY > 0) = zoom out (increase distance)
+      cameraZoom.current = Math.max(6, Math.min(36, cameraZoom.current + e.deltaY * 0.02));
+    };
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    return () => canvas.removeEventListener('wheel', onWheel);
+  }, [gl.domElement, cameraZoom]);
 
   useFrame(() => {
-    const dist = cameraZoom.current;
+    // Smooth the zoom so it eases rather than snapping
+    smoothedZoom.current = THREE.MathUtils.lerp(smoothedZoom.current, cameraZoom.current, 0.1);
+
+    const dist = smoothedZoom.current;
     const az   = cameraAzimuth.current;
     const offset = new THREE.Vector3(
       Math.sin(az) * dist,
-      dist * 0.6,
+      dist * 0.58,
       Math.cos(az) * dist,
     );
     const target = targetPos.current.clone().add(offset);
@@ -1738,9 +1754,10 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     const dist = Math.sqrt(dx * dx + dy * dy);
     const midX = (t0.clientX + t1.clientX) / 2;
 
-    // Pinch → zoom (inward = closer, outward = further)
+    // Pinch → zoom: fingers together = zoom in (smaller distance), spread = zoom out
+    // distDelta > 0 means fingers got closer → camera should come closer (decrease zoom)
     const distDelta = gestureRef.current.lastDist - dist;
-    cameraZoom.current = Math.max(5, Math.min(20, cameraZoom.current + distDelta * 0.05));
+    cameraZoom.current = Math.max(6, Math.min(36, cameraZoom.current - distDelta * 0.07));
 
     // Horizontal two-finger drag → orbit camera around player
     const midDelta = midX - gestureRef.current.lastMidX;
@@ -1829,9 +1846,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       {/* Controls hint */}
       <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5"
         style={{ background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.5)' }}>
-        <span className="hidden sm:inline">WASD / Arrows to move · </span>
-        <span className="sm:hidden">Joystick to move · </span>
-        Pinch zoom · 2-finger drag to orbit
+        <span className="hidden sm:inline">WASD · Scroll to zoom · </span>
+        <span className="sm:hidden">Joystick · Pinch to zoom · </span>
+        2-finger drag to orbit
       </div>
     </div>
   );
