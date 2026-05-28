@@ -211,7 +211,7 @@ export default function WorkshopPage() {
 
     const [{ data: templates }, { data: goals }, { data: videos }] = await Promise.all([
       (supabase as any).from('goal_templates').select('*, profiles!creator_id(username, score_tier)').eq('is_public', true).order('clone_count', { ascending: false }).limit(10),
-      user ? supabase.from('goals').select('title, description, category, progress_percentage, probability_score, goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(5) : Promise.resolve({ data: [] }),
+      user ? (supabase as any).from('goals').select('title, description, category, progress_percentage, probability_score, goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(5) : Promise.resolve({ data: [] as any[] }),
       (supabase as any).from('studio_videos').select('*, profiles!creator_id(username)').eq('is_published', true).order('watch_count', { ascending: false }).limit(10).catch(() => ({ data: [] })),
     ]);
 

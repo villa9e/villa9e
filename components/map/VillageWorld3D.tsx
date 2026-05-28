@@ -5,7 +5,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
-const VillageMap3DOverlay = dynamic(() => import('./VillageMap3D'), { ssr: false, loading: () => null });
+// 2D SVG map — avoids second WebGL context conflict with the 3D world canvas
+import { VillageMap2D } from './VillageMap2D';
 import { createClient } from '@/lib/supabase/client';
 import { useWeather } from '@/lib/theme/useWeather';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
@@ -30,9 +31,9 @@ const LOCATIONS = [
   { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number] },
   { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number] },
   { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number] },
-  { id: 'zen',          label: 'Zen',          href: '/village/zen',           pos: [-30, 0,   0] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number] },
+  { id: 'zen',          label: 'Zen Garden',   href: '/village/zen',           pos: [-34, 0,  -8] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number] },
   { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number] },
-  { id: 'hospital',     label: 'Hospital',     href: '/village/hospital',      pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number] },
+  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',   pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number] },
   { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number] },
 ];
 
@@ -612,30 +613,45 @@ function Building({
       >
         {ArchComp && <ArchComp hover={hovered} />}
 
-        {/* ── Animated door — hinge at left edge, opens inward ── */}
-        {/* Door frame */}
-        <mesh position={[0, -0.52, 1.76]} castShadow>
-          <boxGeometry args={[1.15, 2.35, 0.12, 2, 4, 1]} />
+        {/* ── Animated door — bottom at y=0 (world ground), taller than avatar ── */}
+        {/* Door frame — 1.25w × 1.22h local = 3.5w × 3.41h world (1.6× avatar) */}
+        <mesh position={[0, 0.61, 1.76]} castShadow>
+          <boxGeometry args={[1.28, 1.22, 0.13, 2, 4, 1]} />
           <meshToonMaterial color={loc.color} />
         </mesh>
-        {/* Hinge group — pivot left edge of door */}
-        <group position={[-0.575, -0.52, 1.82]}>
+        {/* Arch top of doorway */}
+        <mesh position={[0, 1.28, 1.76]}>
+          <cylinderGeometry args={[0.64, 0.64, 0.15, 16, 1, false, 0, Math.PI]} />
+          <meshToonMaterial color={loc.color} />
+        </mesh>
+        {/* Dark doorway opening */}
+        <mesh position={[0, 0.61, 1.78]}>
+          <boxGeometry args={[1.1, 1.18, 0.05, 1, 1, 1]} />
+          <meshBasicMaterial color="#050810" />
+        </mesh>
+        {/* Hinge pivot at bottom-left of door — y=0 = ground level */}
+        <group position={[-0.64, 0.0, 1.83]}>
           <group ref={doorRef}>
-            {/* Door panel (offset right from hinge so it swings from left edge) */}
-            <mesh position={[0.575, 0, 0.04]} castShadow>
-              <boxGeometry args={[1.15, 2.2, 0.07, 2, 4, 1]} />
+            {/* Door panel extends upward from hinge pivot */}
+            <mesh position={[0.64, 0.59, 0.04]} castShadow>
+              <boxGeometry args={[1.28, 1.18, 0.07, 2, 4, 1]} />
               <meshToonMaterial color={loc.color} />
             </mesh>
             {/* Door handle */}
-            <mesh position={[1.02, 0, 0.1]}>
-              <sphereGeometry args={[0.065, 12, 10]} />
+            <mesh position={[1.18, 0.59, 0.1]}>
+              <sphereGeometry args={[0.07, 12, 10]} />
+              <meshToonMaterial color="#D4A820" />
+            </mesh>
+            {/* Handle bar */}
+            <mesh position={[1.18, 0.59, 0.12]} rotation={[0, 0, Math.PI/2]}>
+              <cylinderGeometry args={[0.025, 0.025, 0.18, 8]} />
               <meshToonMaterial color="#D4A820" />
             </mesh>
           </group>
         </group>
-        {/* Door threshold step */}
-        <mesh position={[0, -1.68, 1.85]}>
-          <boxGeometry args={[1.3, 0.08, 0.55, 2, 1, 1]} />
+        {/* Threshold / welcome mat */}
+        <mesh position={[0, 0.01, 2.05]}>
+          <boxGeometry args={[1.35, 0.04, 0.55, 2, 1, 1]} />
           <meshToonMaterial color="#8B6914" />
         </mesh>
       </group>
@@ -2388,8 +2404,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
               </button>
               <span className="text-white font-black text-base flex-1">🗺️ Village Map</span>
             </div>
-            <div className="flex-1 relative">
-              <VillageMap3DOverlay />
+            <div className="flex-1 overflow-hidden">
+              <VillageMap2D onNavigate={href => { setShowMapOverlay(false); openDrawer(href, href.split('/').pop() ?? 'Enter'); }} />
             </div>
           </motion.div>
         )}
@@ -2430,12 +2446,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         </div>
       )}
 
-      {/* ── Controls hint ─────────────────────────────────────────── */}
-      <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5"
-        style={{ background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.5)' }}>
-        <span className="hidden sm:inline">WASD · Scroll zoom · Tap avatar for menu</span>
-        <span className="sm:hidden">Joystick · Pinch zoom · Tap avatar</span>
-      </div>
+      {/* Controls hint removed per product decision */}
 
       {/* ── Slide-in Drawer ──────────────────────────────────────── */}
       <AnimatePresence>
