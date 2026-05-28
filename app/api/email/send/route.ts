@@ -41,6 +41,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unknown email type' }, { status: 400 });
   }
 
-  const result = await sendEmail(recipientEmail, template.subject, template.html);
+  const result = await sendEmail({ to: recipientEmail, subject: template.subject, html: template.html });
   return NextResponse.json(result);
 }

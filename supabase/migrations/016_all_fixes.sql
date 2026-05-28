@@ -1,16 +1,11 @@
 -- ── Migration 014 fix: spirit_collective missing columns ──────────────────
--- The spirit_collective table was created by an earlier migration without
--- metric, value, sample_size columns. Check what columns exist first.
 
 ALTER TABLE spirit_collective ADD COLUMN IF NOT EXISTS metric      TEXT;
 ALTER TABLE spirit_collective ADD COLUMN IF NOT EXISTS value       NUMERIC;
 ALTER TABLE spirit_collective ADD COLUMN IF NOT EXISTS sample_size INTEGER DEFAULT 0;
 
--- Get the actual column name for insight type (it varies by migration)
--- If "insight_type" exists, we'll use it; if not, we skip it.
 DO $$
 BEGIN
-  -- Only insert if we have the right columns
   INSERT INTO spirit_collective
     (insight, archetype, category, metric, value, sample_size)
   VALUES
@@ -31,19 +26,13 @@ BEGIN
     ('Compasses with clear goal criteria complete at 71% vs 44% for vague goals.', 'compass', 'goals', 'clarity_completion_delta', 0.27, 234)
   ON CONFLICT DO NOTHING;
 EXCEPTION WHEN OTHERS THEN
-  -- If insight_type or other NOT NULL columns block us, insert with defaults
   RAISE NOTICE 'spirit_collective insert skipped: %', SQLERRM;
 END $$;
 
--- ── Migration 015 fix: blockchain RLS policy wrong syntax ──────────────────
--- FOR INSERT policies use WITH CHECK not USING
+-- ── Blockchain ledger (CREATE TABLE FIRST, then policies) ──────────────────
+-- Enable pgcrypto for SHA-256 hashing
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Drop and recreate with correct syntax
-DROP POLICY IF EXISTS "service write ledger" ON blockchain_ledger;
-CREATE POLICY "service write ledger" ON blockchain_ledger
-  FOR INSERT WITH CHECK (true);
-
--- Also add the blockchain_ledger table if it doesn't exist yet
 CREATE TABLE IF NOT EXISTS blockchain_ledger (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entry_index     BIGSERIAL,
@@ -85,9 +74,6 @@ ALTER TABLE user_wallets ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "own wallet" ON user_wallets;
 CREATE POLICY "own wallet" ON user_wallets USING (auth.uid() = user_id);
 
--- Enable pgcrypto for SHA-256 hashing
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
 -- Block chaining function
 CREATE OR REPLACE FUNCTION record_ledger_entry(
   p_event_type      TEXT,
@@ -128,7 +114,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- ── Sprints + Achievements (migration 013) safe re-run ─────────────────────
+-- ── Sprints + Achievements (safe re-run) ───────────────────────────────────
 CREATE TABLE IF NOT EXISTS sprints (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -182,16 +168,16 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 );
 
 INSERT INTO achievements (id, title, description, icon, category, points, rarity) VALUES
-  ('first_goal',     'Pioneer',          'Set your first goal',                 '🎯', 'goals',     50,   'common'),
-  ('first_complete', 'Finisher',         'Complete your first goal',            '🏆', 'goals',     250,  'rare'),
-  ('streak_7',       '7-Day Streak',     'Check in 7 days in a row',            '🔥', 'habits',    150,  'rare'),
-  ('streak_30',      '30-Day Streak',    'Check in 30 days in a row',           '🌟', 'habits',    500,  'epic'),
-  ('first_oowop',    'Validator',        'Give your first OoWop',               '✊', 'community',  25,  'common'),
-  ('oowop_10',       'Supporter',        'Give 10 OoWops',                      '🤜', 'community', 100,  'rare'),
-  ('first_referral', 'Recruiter',        'Invite your first villager',          '🤝', 'growth',    100,  'common'),
-  ('first_tribe',    'Tribe Member',     'Join your first tribe',               '👥', 'community',  50,  'common'),
-  ('first_sprint',   'Sprinter',         'Complete your first weekly sprint',   '⚡', 'goals',     150,  'rare'),
-  ('archetype_set',  'Self-Aware',       'Discover your archetype',             '🧭', 'spirit',     75,  'common'),
-  ('first_checkin',  'Present',          'Complete your first Spirit check-in', '✅', 'habits',     25,  'common'),
-  ('founding',       'Founding Villager','One of the first 1,000 villagers',    '🏕️', 'special',  500,  'legendary')
+  ('first_goal',     'Pioneer',           'Set your first goal',                 '🎯', 'goals',     50,   'common'),
+  ('first_complete', 'Finisher',          'Complete your first goal',            '🏆', 'goals',     250,  'rare'),
+  ('streak_7',       '7-Day Streak',      'Check in 7 days in a row',            '🔥', 'habits',    150,  'rare'),
+  ('streak_30',      '30-Day Streak',     'Check in 30 days in a row',           '🌟', 'habits',    500,  'epic'),
+  ('first_oowop',    'Validator',         'Give your first OoWop',               '✊', 'community',  25,  'common'),
+  ('oowop_10',       'Supporter',         'Give 10 OoWops',                      '🤜', 'community', 100,  'rare'),
+  ('first_referral', 'Recruiter',         'Invite your first villager',          '🤝', 'growth',    100,  'common'),
+  ('first_tribe',    'Tribe Member',      'Join your first tribe',               '👥', 'community',  50,  'common'),
+  ('first_sprint',   'Sprinter',          'Complete your first weekly sprint',   '⚡', 'goals',     150,  'rare'),
+  ('archetype_set',  'Self-Aware',        'Discover your archetype',             '🧭', 'spirit',     75,  'common'),
+  ('first_checkin',  'Present',           'Complete your first Spirit check-in', '✅', 'habits',     25,  'common'),
+  ('founding',       'Founding Villager', 'One of the first 1,000 villagers',    '🏕️', 'special',  500,  'legendary')
 ON CONFLICT (id) DO NOTHING;
