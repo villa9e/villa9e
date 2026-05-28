@@ -17,14 +17,14 @@ import {
 
 // ─── Location data with collision boxes ───────────────────────────────────────
 const LOCATIONS = [
-  { id: 'workshop',     label: 'Workshop',     href: '/village/workshop',     pos: [-7, 0, -4] as [number,number,number],  color: '#E8770A', size: [3, 4, 3] as [number,number,number] },
-  { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [7,  0, -4] as [number,number,number],  color: '#7C3AED', size: [3, 3.5, 3] as [number,number,number] },
-  { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-7, 0, 4] as [number,number,number],   color: '#059669', size: [3, 3, 3] as [number,number,number] },
-  { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [7,  0, 4] as [number,number,number],   color: '#D97706', size: [3, 4, 3] as [number,number,number] },
-  { id: 'zen',          label: 'Zen',          href: '/village/zen',           pos: [-10, 0, 0] as [number,number,number],  color: '#0D9488', size: [3, 3, 3] as [number,number,number] },
-  { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [10,  0, 0] as [number,number,number],  color: '#BE185D', size: [3, 3.5, 3] as [number,number,number] },
-  { id: 'hospital',     label: 'Hospital',     href: '/village/hospital',      pos: [0,   0, -8] as [number,number,number], color: '#16A34A', size: [3, 3.5, 3] as [number,number,number] },
-  { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [0,   0, 7] as [number,number,number],  color: '#EA580C', size: [2.5, 3, 2.5] as [number,number,number] },
+  { id: 'workshop',     label: 'Workshop',     href: '/village/workshop',     pos: [-15, 0, -9]  as [number,number,number], color: '#E8770A', size: [3.5, 4, 3.5] as [number,number,number] },
+  { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [ 15, 0, -9]  as [number,number,number], color: '#7C3AED', size: [3.5, 3.5, 3.5] as [number,number,number] },
+  { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-15, 0,  9]  as [number,number,number], color: '#059669', size: [3.5, 3, 3.5] as [number,number,number] },
+  { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [ 15, 0,  9]  as [number,number,number], color: '#D97706', size: [3.5, 4, 3.5] as [number,number,number] },
+  { id: 'zen',          label: 'Zen',          href: '/village/zen',           pos: [-20, 0,  0]  as [number,number,number], color: '#0D9488', size: [3.5, 3, 3.5] as [number,number,number] },
+  { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [ 20, 0,  0]  as [number,number,number], color: '#BE185D', size: [3.5, 3.5, 3.5] as [number,number,number] },
+  { id: 'hospital',     label: 'Hospital',     href: '/village/hospital',      pos: [  0, 0, -17] as [number,number,number], color: '#16A34A', size: [3.5, 3.5, 3.5] as [number,number,number] },
+  { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  16] as [number,number,number], color: '#EA580C', size: [3, 3, 3] as [number,number,number] },
 ];
 
 const SPIRIT_POS: [number,number,number] = [0, 0, 0];
@@ -642,7 +642,7 @@ function Ground({ isNight }: { isNight: boolean }) {
   return (
     <>
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[60, 60, 40, 40]} />
+        <planeGeometry args={[90, 90, 50, 50]} />
         <meshToonMaterial color={grassColor} map={groundTex.current} />
       </mesh>
       {LOCATIONS.map(loc => {
@@ -756,22 +756,22 @@ function ForestRing({ windStrength = 0, isNight = false }: { windStrength?: numb
   const trees = useMemo(() => {
     const result: { x: number; z: number; h: number; r: number; type: string; phase: number }[] = [];
     const types = ['tall', 'broad', 'conifer', 'palm', 'baobab'];
-    for (let i = 0; i < 80; i++) {
-      const angle  = (i / 80) * Math.PI * 2 + Math.random() * 0.15;
-      const radius = 16 + Math.random() * 10;
+    for (let i = 0; i < 100; i++) {
+      const angle  = (i / 100) * Math.PI * 2 + Math.random() * 0.15;
+      const radius = 28 + Math.random() * 12;
       result.push({
         x:     Math.cos(angle) * radius,
         z:     Math.sin(angle) * radius,
-        h:     3 + Math.random() * 5,
-        r:     0.6 + Math.random() * 1.4,
+        h:     3 + Math.random() * 6,
+        r:     0.7 + Math.random() * 1.6,
         type:  types[Math.floor(Math.random() * types.length)],
         phase: Math.random() * Math.PI * 2,
       });
     }
-    // Interior forest patches
-    for (let i = 0; i < 30; i++) {
+    // Interior forest patches — fill between center and ring
+    for (let i = 0; i < 40; i++) {
       const angle  = Math.random() * Math.PI * 2;
-      const radius = 12 + Math.random() * 4;
+      const radius = 22 + Math.random() * 6;
       result.push({
         x:     Math.cos(angle) * radius,
         z:     Math.sin(angle) * radius,
@@ -955,22 +955,18 @@ function WindParticles({ windStrength = 0, windAngle = 0 }: { windStrength?: num
 }
 
 // ─── Player character ──────────────────────────────────────────────────────────
-// ── Pre-computed shared geometry (defined outside component so they're created once) ──
-const HEAD_GEO  = new THREE.SphereGeometry(0.35, 32, 24);
-const HAIR_GEO  = new THREE.SphereGeometry(0.315, 28, 18, 0, Math.PI * 2, 0, Math.PI * 0.58);
-const EYE_W_GEO = new THREE.SphereGeometry(0.065, 14, 10);
-const IRIS_GEO  = new THREE.SphereGeometry(0.042, 12, 10);
-const PUPIL_GEO = new THREE.SphereGeometry(0.026, 10, 8);
-const EAR_GEO   = new THREE.SphereGeometry(0.07, 12, 10);
-const NOSE_GEO  = new THREE.SphereGeometry(0.045, 10, 8);
-const NECK_GEO  = new THREE.CylinderGeometry(0.12, 0.14, 0.24, 20, 2);
-const SHLD_GEO  = new THREE.SphereGeometry(0.155, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55);
-const LIMB_GEO  = new THREE.CapsuleGeometry(0.095, 0.44, 8, 20);
-const HAND_GEO  = new THREE.SphereGeometry(0.105, 16, 12);
-const KNUCK_GEO = new THREE.BoxGeometry(0.17, 0.07, 0.08);
-const BOOT_TOP  = new THREE.CylinderGeometry(0.115, 0.125, 0.22, 20, 2);
-const BOOT_SOLE = new THREE.BoxGeometry(0.215, 0.055, 0.34);
-const TOE_GEO   = new THREE.SphereGeometry(0.095, 14, 10, 0, Math.PI * 2, 0, Math.PI * 0.52);
+// ── Memoji-style avatar geometry (module-level, shared across instances) ────
+// All organic — spheres and capsules only, no hard angles
+const AV_HEAD   = new THREE.SphereGeometry(0.44, 36, 26);
+const AV_EYE    = new THREE.SphereGeometry(0.052, 14, 10);
+const AV_NOSE   = new THREE.SphereGeometry(0.055, 14, 10);
+const AV_NECK   = new THREE.CylinderGeometry(0.155, 0.185, 0.22, 24, 2);
+const AV_BODY   = new THREE.SphereGeometry(0.48, 30, 22);
+const AV_SHLD   = new THREE.SphereGeometry(0.26, 22, 16);
+const AV_ARM    = new THREE.CapsuleGeometry(0.115, 0.20, 6, 18);
+const AV_HAND   = new THREE.SphereGeometry(0.12, 18, 14);
+const AV_THIGH  = new THREE.CapsuleGeometry(0.13, 0.22, 6, 16);
+const AV_FOOT   = new THREE.SphereGeometry(0.135, 20, 14);
 
 function PlayerCharacter({
   position, rotation, skinColor, isLocal, username, isMovingRef,
@@ -987,13 +983,13 @@ function PlayerCharacter({
   const armRPivot = useRef<THREE.Group>(null);
   const legLPivot = useRef<THREE.Group>(null);
   const legRPivot = useRef<THREE.Group>(null);
+  const bodyRef   = useRef<THREE.Mesh>(null);
 
-  const tunic  = isLocal ? '#1877F2' : '#E8770A';
-  const tunicD = isLocal ? '#0D5CBF' : '#BF5500'; // darker shade for depth
-  const pant   = '#1E2A3A';
-  const pantD  = '#141C28';
-  const boot   = '#1A1A1A';
-  const gold   = '#D4A820';
+  // Vibrant clothing color per player type
+  const shirt = isLocal ? '#1877F2' : '#E8770A';
+  const pant  = isLocal ? '#1E3A5F' : '#3D1F00';
+  const shoe  = '#111827';
+  const hat   = isLocal ? '#0D4FA8' : '#BF5500';
 
   useFrame(state => {
     if (!groupRef.current) return;
@@ -1002,261 +998,194 @@ function PlayerCharacter({
 
     const t   = state.clock.elapsedTime;
     const mov = isMovingRef ? isMovingRef.current : false;
-    const swing = mov ? Math.sin(t * 7) * 0.62 : 0;
+    // Gentle waddle — short limbs don't swing far
+    const swing = mov ? Math.sin(t * 6.5) * 0.48 : 0;
 
-    if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.55, 0.22);
-    if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.55, 0.22);
-    if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing, 0.22);
-    if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing, 0.22);
-
-    groupRef.current.position.y = position.y + (mov ? Math.abs(Math.sin(t * 7)) * 0.038 : 0);
+    if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.45, 0.2);
+    if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.45, 0.2);
+    if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing * 0.85, 0.2);
+    if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing * 0.85, 0.2);
+    // Cute body sway while walking
+    if (groupRef.current) {
+      groupRef.current.rotation.z = mov ? Math.sin(t * 6.5) * 0.04 : 0;
+      groupRef.current.position.y = position.y + (mov ? Math.abs(Math.sin(t * 6.5 * 2)) * 0.025 : 0);
+    }
   });
 
   return (
     <group ref={groupRef} position={position}>
 
-      {/* ── HEAD GROUP ──────────────────────────────────────────────── */}
-      <group position={[0, 1.88, 0]}>
-        {/* Skull */}
-        <mesh geometry={HEAD_GEO} castShadow>
-          <meshToonMaterial color={skinColor} />
+      {/* ── BEANIE HAT ───────────────────────────────────────────────── */}
+      <group position={[0, 2.09, 0]}>
+        {/* Hat cuff ring */}
+        <mesh>
+          <cylinderGeometry args={[0.44, 0.45, 0.14, 32, 1]} />
+          <meshToonMaterial color={hat} />
         </mesh>
-        {/* Hair cap — domed partial sphere sitting on top */}
-        <mesh geometry={HAIR_GEO} position={[0, 0.08, -0.02]}>
-          <meshToonMaterial color="#1A0800" />
+        {/* Hat dome — smooth partial sphere */}
+        <mesh position={[0, 0.14, 0]}>
+          <sphereGeometry args={[0.44, 32, 22, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+          <meshToonMaterial color={hat} />
         </mesh>
-        {/* Hair fade strip along sides */}
-        <mesh position={[0, -0.1, 0]}>
-          <cylinderGeometry args={[0.345, 0.32, 0.14, 28, 1, true, 0, Math.PI * 2]} />
-          <meshToonMaterial color="#2A1200" />
-        </mesh>
-        {/* Left ear */}
-        <mesh geometry={EAR_GEO} position={[0.345, -0.04, 0]} scale={[0.55, 0.9, 0.55]}>
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        {/* Right ear */}
-        <mesh geometry={EAR_GEO} position={[-0.345, -0.04, 0]} scale={[0.55, 0.9, 0.55]}>
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        {/* Left eye white */}
-        <mesh geometry={EYE_W_GEO} position={[0.115, 0.03, 0.325]} scale={[1, 0.85, 0.6]}>
-          <meshBasicMaterial color="#F8F4EE" />
-        </mesh>
-        {/* Right eye white */}
-        <mesh geometry={EYE_W_GEO} position={[-0.115, 0.03, 0.325]} scale={[1, 0.85, 0.6]}>
-          <meshBasicMaterial color="#F8F4EE" />
-        </mesh>
-        {/* Left iris */}
-        <mesh geometry={IRIS_GEO} position={[0.115, 0.03, 0.352]} scale={[1, 1, 0.4]}>
-          <meshBasicMaterial color="#3B2000" />
-        </mesh>
-        {/* Right iris */}
-        <mesh geometry={IRIS_GEO} position={[-0.115, 0.03, 0.352]} scale={[1, 1, 0.4]}>
-          <meshBasicMaterial color="#3B2000" />
-        </mesh>
-        {/* Left pupil */}
-        <mesh geometry={PUPIL_GEO} position={[0.115, 0.03, 0.356]} scale={[1, 1, 0.3]}>
-          <meshBasicMaterial color="#040404" />
-        </mesh>
-        {/* Right pupil */}
-        <mesh geometry={PUPIL_GEO} position={[-0.115, 0.03, 0.356]} scale={[1, 1, 0.3]}>
-          <meshBasicMaterial color="#040404" />
-        </mesh>
-        {/* Left eyebrow */}
-        <mesh position={[0.115, 0.1, 0.325]} rotation={[0, 0, -0.12]}>
-          <boxGeometry args={[0.13, 0.022, 0.025]} />
-          <meshBasicMaterial color="#1A0800" />
-        </mesh>
-        {/* Right eyebrow */}
-        <mesh position={[-0.115, 0.1, 0.325]} rotation={[0, 0, 0.12]}>
-          <boxGeometry args={[0.13, 0.022, 0.025]} />
-          <meshBasicMaterial color="#1A0800" />
-        </mesh>
-        {/* Nose bridge + tip */}
-        <mesh geometry={NOSE_GEO} position={[0, -0.04, 0.355]} scale={[0.7, 0.6, 0.55]}>
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        {/* Mouth crease — subtle dark line */}
-        <mesh position={[0, -0.13, 0.34]} rotation={[0.18, 0, 0]}>
-          <boxGeometry args={[0.1, 0.018, 0.018]} />
-          <meshBasicMaterial color="#5A2A18" />
-        </mesh>
-        {/* Chin */}
-        <mesh position={[0, -0.285, 0.2]}>
-          <sphereGeometry args={[0.08, 12, 8]} />
-          <meshToonMaterial color={skinColor} />
+        {/* Pom-pom on top */}
+        <mesh position={[0, 0.42, 0]}>
+          <sphereGeometry args={[0.1, 16, 12]} />
+          <meshToonMaterial color="#FFFFFF" />
         </mesh>
       </group>
 
-      {/* ── NECK ─────────────────────────────────────────────────────── */}
-      <mesh geometry={NECK_GEO} position={[0, 1.63, 0]} castShadow>
+      {/* ── HEAD ─────────────────────────────────────────────────────── */}
+      <group position={[0, 1.68, 0]}>
+        {/* Main rounded head — large and dominant */}
+        <mesh geometry={AV_HEAD} castShadow>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Hair — smooth dark cap under the hat */}
+        <mesh position={[0, -0.02, -0.04]}>
+          <sphereGeometry args={[0.425, 30, 18, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.26]} />
+          <meshToonMaterial color="#1A0800" />
+        </mesh>
+        {/* Left ear — round nub */}
+        <mesh position={[0.425, -0.03, 0]} scale={[0.5, 0.72, 0.5]}>
+          <sphereGeometry args={[0.12, 16, 12]} />
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Right ear */}
+        <mesh position={[-0.425, -0.03, 0]} scale={[0.5, 0.72, 0.5]}>
+          <sphereGeometry args={[0.12, 16, 12]} />
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Left eye — solid black dot (Memoji style) */}
+        <mesh geometry={AV_EYE} position={[0.148, 0.055, 0.38]} scale={[1, 1.1, 0.45]}>
+          <meshBasicMaterial color="#111111" />
+        </mesh>
+        {/* Right eye */}
+        <mesh geometry={AV_EYE} position={[-0.148, 0.055, 0.38]} scale={[1, 1.1, 0.45]}>
+          <meshBasicMaterial color="#111111" />
+        </mesh>
+        {/* Left eye catch light (white glint) */}
+        <mesh position={[0.162, 0.076, 0.398]}>
+          <sphereGeometry args={[0.016, 8, 6]} />
+          <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        {/* Right eye catch light */}
+        <mesh position={[-0.134, 0.076, 0.398]}>
+          <sphereGeometry args={[0.016, 8, 6]} />
+          <meshBasicMaterial color="#FFFFFF" />
+        </mesh>
+        {/* Nose — single soft bump, centered */}
+        <mesh geometry={AV_NOSE} position={[0, -0.035, 0.432]} scale={[0.75, 0.65, 0.48]}>
+          <meshToonMaterial color={skinColor} />
+        </mesh>
+        {/* Smile — two tiny corner dots */}
+        <mesh position={[0.09, -0.115, 0.422]}>
+          <sphereGeometry args={[0.022, 10, 8]} />
+          <meshBasicMaterial color="#5A1A0A" />
+        </mesh>
+        <mesh position={[-0.09, -0.115, 0.422]}>
+          <sphereGeometry args={[0.022, 10, 8]} />
+          <meshBasicMaterial color="#5A1A0A" />
+        </mesh>
+        {/* Smile arc — tiny torus segment */}
+        <mesh position={[0, -0.128, 0.422]} rotation={[0.1, 0, 0]}>
+          <torusGeometry args={[0.072, 0.016, 8, 14, Math.PI * 0.72]} />
+          <meshBasicMaterial color="#5A1A0A" />
+        </mesh>
+        {/* Left cheek blush */}
+        <mesh position={[0.25, -0.06, 0.36]} scale={[1.6, 0.7, 0.18]}>
+          <sphereGeometry args={[0.09, 16, 10]} />
+          <meshBasicMaterial color="#FF9898" transparent opacity={0.55} />
+        </mesh>
+        {/* Right cheek blush */}
+        <mesh position={[-0.25, -0.06, 0.36]} scale={[1.6, 0.7, 0.18]}>
+          <sphereGeometry args={[0.09, 16, 10]} />
+          <meshBasicMaterial color="#FF9898" transparent opacity={0.55} />
+        </mesh>
+      </group>
+
+      {/* ── NECK — short, smooth ──────────────────────────────────────── */}
+      <mesh geometry={AV_NECK} position={[0, 1.17, 0]}>
         <meshToonMaterial color={skinColor} />
       </mesh>
 
-      {/* ── TORSO ────────────────────────────────────────────────────── */}
-      <group position={[0, 1.33, 0]}>
-        {/* Main shirt body */}
-        <mesh castShadow>
-          <boxGeometry args={[0.52, 0.62, 0.36, 2, 2, 2]} />
-          <meshToonMaterial color={tunic} />
+      {/* ── BODY — puffy rounded pillow shape ────────────────────────── */}
+      <group position={[0, 0.92, 0]}>
+        {/* Main inflated shirt — ovoid shape */}
+        <mesh ref={bodyRef} geometry={AV_BODY} scale={[1.14, 1.08, 0.96]} castShadow>
+          <meshToonMaterial color={shirt} />
         </mesh>
-        {/* Chest pocket / panel detail */}
-        <mesh position={[0.1, 0.08, 0.185]}>
-          <boxGeometry args={[0.18, 0.22, 0.01]} />
-          <meshToonMaterial color={tunicD} />
+        {/* Left shoulder — smooth rounded extension of body */}
+        <mesh geometry={AV_SHLD} position={[0.48, 0.14, 0]} scale={[1, 0.9, 0.85]}>
+          <meshToonMaterial color={shirt} />
         </mesh>
-        {/* Collar band */}
-        <mesh position={[0, 0.32, 0]}>
-          <cylinderGeometry args={[0.145, 0.14, 0.07, 20, 1, true]} />
-          <meshToonMaterial color={tunicD} />
+        {/* Right shoulder */}
+        <mesh geometry={AV_SHLD} position={[-0.48, 0.14, 0]} scale={[1, 0.9, 0.85]}>
+          <meshToonMaterial color={shirt} />
         </mesh>
-        {/* Left shoulder cap (muscle bulk) */}
-        <mesh geometry={SHLD_GEO} position={[0.295, 0.25, 0]} rotation={[0, 0, -Math.PI / 2]}>
-          <meshToonMaterial color={tunic} />
-        </mesh>
-        {/* Right shoulder cap */}
-        <mesh geometry={SHLD_GEO} position={[-0.295, 0.25, 0]} rotation={[0, 0, Math.PI / 2]}>
-          <meshToonMaterial color={tunic} />
-        </mesh>
-        {/* Belt */}
-        <mesh position={[0, -0.305, 0]}>
-          <boxGeometry args={[0.545, 0.085, 0.385]} />
-          <meshToonMaterial color={gold} />
-        </mesh>
-        {/* Belt buckle */}
-        <mesh position={[0, -0.305, 0.2]}>
-          <boxGeometry args={[0.1, 0.09, 0.03]} />
-          <meshToonMaterial color="#D4A820" />
-        </mesh>
-        <mesh position={[0, -0.305, 0.215]}>
-          <boxGeometry args={[0.055, 0.048, 0.02]} />
-          <meshBasicMaterial color="#FFE066" />
+        {/* Bottom hip rounding — smooth transition to legs */}
+        <mesh position={[0, -0.34, 0]} scale={[1.06, 0.68, 0.9]}>
+          <sphereGeometry args={[0.44, 26, 18]} />
+          <meshToonMaterial color={pant} />
         </mesh>
       </group>
 
       {/* ── LEFT ARM — pivot at shoulder ─────────────────────────────── */}
-      <group ref={armLPivot} position={[0.32, 1.565, 0]}>
-        {/* Sleeve / upper arm */}
-        <mesh geometry={LIMB_GEO} position={[0, -0.27, 0]} castShadow>
-          <meshToonMaterial color={tunic} />
+      <group ref={armLPivot} position={[0.58, 1.04, 0]}>
+        {/* Arm — single puffy capsule (no hard elbow) */}
+        <mesh geometry={AV_ARM} position={[0, -0.16, 0]} castShadow>
+          <meshToonMaterial color={shirt} />
         </mesh>
-        {/* Elbow cap */}
-        <mesh position={[0, -0.5, 0]}>
-          <sphereGeometry args={[0.1, 14, 10]} />
-          <meshToonMaterial color={tunicD} />
-        </mesh>
-        {/* Forearm / cuff */}
-        <mesh position={[0, -0.7, 0]}>
-          <capsuleGeometry args={[0.085, 0.22, 6, 16]} />
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        {/* Sleeve cuff band */}
-        <mesh position={[0, -0.57, 0]}>
-          <cylinderGeometry args={[0.098, 0.098, 0.055, 18, 1]} />
-          <meshToonMaterial color={tunicD} />
-        </mesh>
-        {/* Hand */}
-        <mesh geometry={HAND_GEO} position={[0, -0.88, 0]} castShadow>
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        {/* Knuckle detail */}
-        <mesh geometry={KNUCK_GEO} position={[0, -0.88, 0.06]}>
+        {/* Rounded hand */}
+        <mesh geometry={AV_HAND} position={[0, -0.38, 0]}>
           <meshToonMaterial color={skinColor} />
         </mesh>
       </group>
 
-      {/* ── RIGHT ARM — mirror of left ───────────────────────────────── */}
-      <group ref={armRPivot} position={[-0.32, 1.565, 0]}>
-        <mesh geometry={LIMB_GEO} position={[0, -0.27, 0]} castShadow>
-          <meshToonMaterial color={tunic} />
+      {/* ── RIGHT ARM — mirror ────────────────────────────────────────── */}
+      <group ref={armRPivot} position={[-0.58, 1.04, 0]}>
+        <mesh geometry={AV_ARM} position={[0, -0.16, 0]} castShadow>
+          <meshToonMaterial color={shirt} />
         </mesh>
-        <mesh position={[0, -0.5, 0]}>
-          <sphereGeometry args={[0.1, 14, 10]} />
-          <meshToonMaterial color={tunicD} />
-        </mesh>
-        <mesh position={[0, -0.7, 0]}>
-          <capsuleGeometry args={[0.085, 0.22, 6, 16]} />
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        <mesh position={[0, -0.57, 0]}>
-          <cylinderGeometry args={[0.098, 0.098, 0.055, 18, 1]} />
-          <meshToonMaterial color={tunicD} />
-        </mesh>
-        <mesh geometry={HAND_GEO} position={[0, -0.88, 0]} castShadow>
-          <meshToonMaterial color={skinColor} />
-        </mesh>
-        <mesh geometry={KNUCK_GEO} position={[0, -0.88, 0.06]}>
+        <mesh geometry={AV_HAND} position={[0, -0.38, 0]}>
           <meshToonMaterial color={skinColor} />
         </mesh>
       </group>
 
       {/* ── LEFT LEG — pivot at hip ───────────────────────────────────── */}
-      <group ref={legLPivot} position={[0.15, 1.035, 0]}>
-        {/* Thigh */}
-        <mesh geometry={LIMB_GEO} position={[0, -0.25, 0]} castShadow>
+      <group ref={legLPivot} position={[0.18, 0.52, 0]}>
+        {/* Thigh — smooth capsule */}
+        <mesh geometry={AV_THIGH} position={[0, -0.18, 0]} castShadow>
           <meshToonMaterial color={pant} />
         </mesh>
-        {/* Knee */}
-        <mesh position={[0, -0.49, 0]}>
-          <sphereGeometry args={[0.1, 14, 10]} />
-          <meshToonMaterial color={pantD} />
+        {/* Shoe — rounded blob foot (no hard angles) */}
+        <mesh geometry={AV_FOOT} position={[0.02, -0.44, 0.08]} scale={[1, 0.72, 1.45]} castShadow>
+          <meshToonMaterial color={shoe} />
         </mesh>
-        {/* Shin / calf */}
-        <mesh position={[0, -0.7, 0]}>
-          <capsuleGeometry args={[0.09, 0.2, 6, 16]} />
-          <meshToonMaterial color={pant} />
-        </mesh>
-        {/* Boot top (ankle cuff) */}
-        <mesh geometry={BOOT_TOP} position={[0, -0.935, 0.022]} castShadow>
-          <meshToonMaterial color={boot} />
-        </mesh>
-        {/* Boot sole */}
-        <mesh geometry={BOOT_SOLE} position={[0.01, -1.07, 0.06]} castShadow>
-          <meshToonMaterial color="#0A0A0A" />
-        </mesh>
-        {/* Toe cap */}
-        <mesh geometry={TOE_GEO} position={[0.01, -1.04, 0.2]} rotation={[-0.3, 0, 0]} scale={[1, 0.7, 1]}>
-          <meshToonMaterial color={boot} />
-        </mesh>
-        {/* Boot sole edge highlight */}
-        <mesh position={[0.01, -1.097, 0.06]}>
-          <boxGeometry args={[0.22, 0.018, 0.345]} />
-          <meshToonMaterial color="#3A3A3A" />
+        {/* Shoe sole highlight */}
+        <mesh position={[0.02, -0.49, 0.08]} scale={[1.05, 0.28, 1.5]}>
+          <sphereGeometry args={[0.13, 16, 10]} />
+          <meshToonMaterial color="#2A2A2A" />
         </mesh>
       </group>
 
-      {/* ── RIGHT LEG — mirror of left ───────────────────────────────── */}
-      <group ref={legRPivot} position={[-0.15, 1.035, 0]}>
-        <mesh geometry={LIMB_GEO} position={[0, -0.25, 0]} castShadow>
+      {/* ── RIGHT LEG — mirror ───────────────────────────────────────── */}
+      <group ref={legRPivot} position={[-0.18, 0.52, 0]}>
+        <mesh geometry={AV_THIGH} position={[0, -0.18, 0]} castShadow>
           <meshToonMaterial color={pant} />
         </mesh>
-        <mesh position={[0, -0.49, 0]}>
-          <sphereGeometry args={[0.1, 14, 10]} />
-          <meshToonMaterial color={pantD} />
+        <mesh geometry={AV_FOOT} position={[-0.02, -0.44, 0.08]} scale={[1, 0.72, 1.45]} castShadow>
+          <meshToonMaterial color={shoe} />
         </mesh>
-        <mesh position={[0, -0.7, 0]}>
-          <capsuleGeometry args={[0.09, 0.2, 6, 16]} />
-          <meshToonMaterial color={pant} />
-        </mesh>
-        <mesh geometry={BOOT_TOP} position={[0, -0.935, 0.022]} castShadow>
-          <meshToonMaterial color={boot} />
-        </mesh>
-        <mesh geometry={BOOT_SOLE} position={[-0.01, -1.07, 0.06]} castShadow>
-          <meshToonMaterial color="#0A0A0A" />
-        </mesh>
-        <mesh geometry={TOE_GEO} position={[-0.01, -1.04, 0.2]} rotation={[-0.3, 0, 0]} scale={[1, 0.7, 1]}>
-          <meshToonMaterial color={boot} />
-        </mesh>
-        <mesh position={[-0.01, -1.097, 0.06]}>
-          <boxGeometry args={[0.22, 0.018, 0.345]} />
-          <meshToonMaterial color="#3A3A3A" />
+        <mesh position={[-0.02, -0.49, 0.08]} scale={[1.05, 0.28, 1.5]}>
+          <sphereGeometry args={[0.13, 16, 10]} />
+          <meshToonMaterial color="#2A2A2A" />
         </mesh>
       </group>
 
       {/* Name tag for remote players */}
       {!isLocal && username && (
-        <mesh position={[0, 2.65, 0]}>
-          <planeGeometry args={[1.2, 0.32]} />
+        <mesh position={[0, 2.55, 0]}>
+          <planeGeometry args={[1.1, 0.30]} />
           <meshBasicMaterial color="#000000" transparent opacity={0.65} />
         </mesh>
       )}
@@ -1378,10 +1307,10 @@ function SceneLighting({ skyState }: { skyState: any }) {
         shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
         shadow-camera-far={90}
-        shadow-camera-left={-24}
-        shadow-camera-right={24}
-        shadow-camera-top={24}
-        shadow-camera-bottom={-24}
+        shadow-camera-left={-38}
+        shadow-camera-right={38}
+        shadow-camera-top={38}
+        shadow-camera-bottom={-38}
         shadow-bias={-0.0003}
         shadow-normalBias={0.02}
       />
@@ -1483,8 +1412,8 @@ function WorldScene({
       {/* Atmospheric fog — forest mist + rain visibility */}
       <fog attach="fog" args={[
         isNight ? '#0A1218' : (rainIntensity > 0.3 ? '#A8B8C8' : '#C8E4D0'),
-        rainIntensity > 0.5 ? 10 : isNight ? 20 : 28,
-        rainIntensity > 0.5 ? 28 : isNight ? 55 : 70,
+        rainIntensity > 0.5 ? 14 : isNight ? 28 : 38,
+        rainIntensity > 0.5 ? 40 : isNight ? 80 : 100,
       ]} />
 
       {/* Physics world — ground floor + building colliders */}
@@ -1642,12 +1571,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   }, [mood]);
 
   const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
-  const playerPos    = useRef(new THREE.Vector3(0, 0, 5));
+  const playerPos    = useRef(new THREE.Vector3(0, 0, 9));
   const playerRot    = useRef(0);
   const moveInput    = useRef({ dx: 0, dy: 0 });
   const isMoving     = useRef(false);
   const keys         = useRef<Set<string>>(new Set());
-  const cameraZoom   = useRef(10);
+  const cameraZoom   = useRef(14);
   const cameraAzimuth = useRef(0);
   const gestureRef   = useRef({ lastDist: 0, lastMidX: 0, active: false });
 
@@ -1723,7 +1652,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED = 0.08;
+    const SPEED = 0.13;
 
     const loop = setInterval(() => {
       let dx = moveInput.current.dx;
@@ -1754,8 +1683,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           }
         }
         // River boundary (left edge)
-        if (nx < -15) blocked = true;
-        if (Math.abs(nx) > 22 || Math.abs(nz) > 20) blocked = true;
+        if (nx < -25) blocked = true;
+        if (Math.abs(nx) > 28 || Math.abs(nz) > 26) blocked = true;
 
         if (!blocked) {
           playerPos.current.set(nx, 0, nz);
@@ -1766,7 +1695,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         for (const loc of LOCATIONS) {
           const [bx,,bz] = loc.pos;
           const dist = Math.sqrt((playerPos.current.x-bx)**2 + (playerPos.current.z-bz)**2);
-          if (dist < 3.5 && (!nearest || dist < nearest.dist)) {
+          if (dist < 4.5 && (!nearest || dist < nearest.dist)) {
             nearest = { href: loc.href, label: loc.label, dist };
           }
         }
