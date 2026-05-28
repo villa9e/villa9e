@@ -75,12 +75,12 @@ export function PlayerCharacter({
     if (leftArmRef.current)  leftArmRef.current.rotation.x  =  armSwing;
     if (rightArmRef.current) rightArmRef.current.rotation.x = -armSwing;
 
-    // ── Upper body sway + idle breathe ──
+    // ── Upper body sway + idle breathe — base offset 1.02 ──
     if (upperRef.current) {
       upperRef.current.rotation.z = speed * Math.sin(t * freq + ph) * 0.032;
-      upperRef.current.position.y = moving
+      upperRef.current.position.y = 1.02 + (moving
         ? Math.abs(Math.sin(t * freq * 2 + ph)) * 0.016
-        : Math.sin(t * 1.1 + ph) * 0.006; // gentle breathing
+        : Math.sin(t * 1.1 + ph) * 0.006);
     }
 
     // ── Head bob — base offset 0.73 (local to upperRef) ──

@@ -599,8 +599,8 @@ function MushroomCluster({ pos }: { pos: [number, number, number] }) {
             <cylinderGeometry args={[0.022, 0.028, c.h, 8, 2]} />
             <meshToonMaterial color="#E8DCC8" />
           </mesh>
-          <mesh position={[0, c.h + 0.02, 0]}>
-            <sphereGeometry args={[c.r, 12, 8]} scale={[1, 0.65, 1] as any} />
+          <mesh position={[0, c.h + 0.02, 0]} scale={[1, 0.65, 1]}>
+            <sphereGeometry args={[c.r, 12, 8]} />
             <meshToonMaterial color={c.color} />
           </mesh>
           {/* Spots */}
@@ -978,8 +978,8 @@ export function WildflowerClusters() {
                     const pa = (pi / 6) * Math.PI * 2;
                     const pr = 0.065 + Math.random() * 0.025;
                     return (
-                      <mesh key={pi} position={[Math.cos(pa) * pr, fh, Math.sin(pa) * pr]}>
-                        <sphereGeometry args={[0.048, 8, 6]} scale={[1, 0.55, 1] as any} />
+                      <mesh key={pi} position={[Math.cos(pa) * pr, fh, Math.sin(pa) * pr]} scale={[1, 0.55, 1]}>
+                        <sphereGeometry args={[0.048, 8, 6]} />
                         <meshToonMaterial color={palette.color} />
                       </mesh>
                     );
