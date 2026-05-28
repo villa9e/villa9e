@@ -1680,6 +1680,12 @@ function WorldScene({
       {/* River — animated flow + positional audio */}
       <River skyState={skyState} playerPos={playerPos} />
 
+      {/* Mountain with waterfall — feeds into river */}
+      <MountainWithWaterfall isNight={isNight} />
+
+      {/* Stone bridge over river */}
+      <StoneBridge isNight={isNight} />
+
       {/* Sacred fire */}
       <SacredFire />
 
@@ -1765,16 +1771,26 @@ function SpiritCompanion({
   spiritVariant: SpiritVariantId;
   onTap: () => void;
 }) {
-  const groupRef  = useRef<THREE.Group>(null);
-  const glowRef   = useRef<THREE.Mesh>(null);
+  const groupRef   = useRef<THREE.Group>(null);
+  const glowRef    = useRef<THREE.Mesh>(null);
   const floatPhase = useRef(Math.random() * Math.PI * 2);
+  const glowColorRef = useRef('#60A5FA');
+
+  useEffect(() => {
+    const saved = localStorage.getItem('spirit_glow_color');
+    if (saved) {
+      glowColorRef.current = saved;
+      if (glowRef.current) {
+        (glowRef.current.material as THREE.MeshBasicMaterial).color.set(saved);
+      }
+    }
+  }, []);
 
   useFrame(state => {
     if (!groupRef.current) return;
     const t   = state.clock.elapsedTime;
     const ph  = floatPhase.current;
 
-    // Float lazily behind player
     const targetX = playerPos.current.x - Math.sin(playerPos.current.x * 0.05 + t * 0.3) * 1.5;
     const targetZ = playerPos.current.z + 2.2;
     const targetY = 1.8 + Math.sin(t * 0.9 + ph) * 0.18;
@@ -1784,7 +1800,6 @@ function SpiritCompanion({
     groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.04);
     groupRef.current.rotation.y = t * 0.4;
 
-    // Pulse the glow
     if (glowRef.current) {
       const mat = glowRef.current.material as THREE.MeshBasicMaterial;
       mat.opacity = 0.15 + Math.sin(t * 1.6 + ph) * 0.08;
@@ -1798,20 +1813,165 @@ function SpiritCompanion({
       position={[playerPos.current.x, 1.8, playerPos.current.z + 2.2]}
       onPointerUp={e => { e.stopPropagation(); onTap(); }}
     >
-      {/* Outer luminescent glow sphere */}
       <mesh ref={glowRef}>
         <sphereGeometry args={[0.55, 24, 18]} />
-        <meshBasicMaterial color="#60A5FA" transparent opacity={0.15} />
+        <meshBasicMaterial color={glowColorRef.current} transparent opacity={0.15} />
       </mesh>
-      {/* Mid glow ring */}
       <mesh rotation={[Math.PI / 2, 0, 0]}>
         <torusGeometry args={[0.45, 0.06, 10, 32]} />
         <meshBasicMaterial color="#7C3AED" transparent opacity={0.35} />
       </mesh>
-      {/* Spirit figure — scaled down to 0.55 */}
       <group scale={0.55}>
         <SpiritFigure variant={spiritVariant} scale={1} index={0} />
       </group>
+    </group>
+  );
+}
+
+// ─── Mountain with waterfall ──────────────────────────────────────────────────
+function MountainWithWaterfall({ isNight }: { isNight: boolean }) {
+  const dropRef = useRef<THREE.InstancedMesh>(null);
+  const mistRef = useRef<THREE.InstancedMesh>(null);
+
+  const dropData = useMemo(() => Array.from({ length: 80 }, (_, i) => ({
+    x: -0.3 + (Math.random() - 0.5) * 0.6,
+    speed: 4 + Math.random() * 3,
+    phase: Math.random() * 12,
+    scale: 0.05 + Math.random() * 0.08,
+  })), []);
+
+  useFrame(state => {
+    if (!dropRef.current) return;
+    const t = state.clock.elapsedTime;
+    const dummy = new THREE.Object3D();
+    dropData.forEach((d, i) => {
+      const yRaw = 14 - ((t * d.speed + d.phase) % 14);
+      const y = yRaw;
+      dummy.position.set(-42 + d.x, y, -22);
+      dummy.scale.setScalar(d.scale * (0.6 + 0.4 * (1 - y / 14)));
+      dummy.updateMatrix();
+      dropRef.current!.setMatrixAt(i, dummy.matrix);
+    });
+    dropRef.current.instanceMatrix.needsUpdate = true;
+
+    if (!mistRef.current) return;
+    const mistDummy = new THREE.Object3D();
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      const r = 0.8 + Math.sin(t * 0.6 + i) * 0.3;
+      mistDummy.position.set(-42 + Math.cos(a) * r * 0.5, 0.3 + Math.sin(t * 0.4 + i * 0.8) * 0.2, -22 + Math.sin(a) * r);
+      mistDummy.scale.setScalar(0.4 + Math.sin(t * 0.5 + i) * 0.15);
+      mistDummy.updateMatrix();
+      mistRef.current.setMatrixAt(i, mistDummy.matrix);
+    }
+    mistRef.current.instanceMatrix.needsUpdate = true;
+  });
+
+  const rockColor  = isNight ? '#2A2830' : '#6B6068';
+  const snowColor  = isNight ? '#C8CCFF' : '#FFFFFF';
+  const waterColor = isNight ? '#3A5A8A' : '#60A8D8';
+
+  return (
+    <group position={[-42, 0, -22]}>
+      {/* Mountain base — wide */}
+      <mesh position={[0, 0, 0]}>
+        <coneGeometry args={[14, 10, 28, 1]} />
+        <meshToonMaterial color={rockColor} />
+      </mesh>
+      {/* Mountain mid */}
+      <mesh position={[0, 7, 0]}>
+        <coneGeometry args={[9, 9, 24, 1]} />
+        <meshToonMaterial color={isNight ? '#241C2A' : '#5A5060'} />
+      </mesh>
+      {/* Mountain upper */}
+      <mesh position={[0, 12, 0]}>
+        <coneGeometry args={[5.5, 7, 22, 1]} />
+        <meshToonMaterial color={isNight ? '#1E1828' : '#4A4858'} />
+      </mesh>
+      {/* Snow cap */}
+      <mesh position={[0, 15.5, 0]}>
+        <coneGeometry args={[3, 4.5, 20, 1]} />
+        <meshToonMaterial color={snowColor} />
+      </mesh>
+      {/* Waterfall channel — carved into mountain face */}
+      <mesh position={[0, 8, 4.2]} rotation={[0.2, 0, 0]}>
+        <planeGeometry args={[1.2, 14, 3, 12]} />
+        <meshBasicMaterial color={waterColor} transparent opacity={0.65} side={THREE.DoubleSide} />
+      </mesh>
+      {/* Falling water drops */}
+      <instancedMesh ref={dropRef} args={[undefined, undefined, 80]}>
+        <sphereGeometry args={[1, 6, 4]} />
+        <meshBasicMaterial color={waterColor} transparent opacity={0.7} />
+      </instancedMesh>
+      {/* Splash mist at base */}
+      <instancedMesh ref={mistRef} args={[undefined, undefined, 12]}>
+        <sphereGeometry args={[1, 8, 6]} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.15} />
+      </instancedMesh>
+      {/* Splash pool */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 4.5]}>
+        <circleGeometry args={[2.2, 24]} />
+        <meshBasicMaterial color={waterColor} transparent opacity={0.55} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Stone bridge over the river ──────────────────────────────────────────────
+function StoneBridge({ isNight }: { isNight: boolean }) {
+  const stoneColor = isNight ? '#2A2530' : '#7A7080';
+  const mortarColor = isNight ? '#1E1A24' : '#5A5060';
+
+  return (
+    <group position={[-17, 0, 0]}>
+      {/* Bridge deck */}
+      <mesh position={[0, 1.4, 0]} rotation={[0, Math.PI / 2, 0]}>
+        <boxGeometry args={[6, 0.35, 5.5, 4, 1, 3]} />
+        <meshToonMaterial color={stoneColor} />
+      </mesh>
+      {/* Stone arch left */}
+      <mesh position={[0, 0.7, -2]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.15, 0.28, 10, 20, Math.PI]} />
+        <meshToonMaterial color={mortarColor} />
+      </mesh>
+      {/* Stone arch right */}
+      <mesh position={[0, 0.7, 2]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.15, 0.28, 10, 20, Math.PI]} />
+        <meshToonMaterial color={mortarColor} />
+      </mesh>
+      {/* Left pier */}
+      <mesh position={[0, 0.6, -2.5]}>
+        <cylinderGeometry args={[0.45, 0.55, 1.2, 10]} />
+        <meshToonMaterial color={stoneColor} />
+      </mesh>
+      {/* Right pier */}
+      <mesh position={[0, 0.6, 2.5]}>
+        <cylinderGeometry args={[0.45, 0.55, 1.2, 10]} />
+        <meshToonMaterial color={stoneColor} />
+      </mesh>
+      {/* Parapet left */}
+      {[-2, -1, 0, 1, 2].map(z => (
+        <mesh key={`l${z}`} position={[-2.5, 1.9, z]}>
+          <boxGeometry args={[0.2, 0.55, 0.7]} />
+          <meshToonMaterial color={stoneColor} />
+        </mesh>
+      ))}
+      {/* Parapet right */}
+      {[-2, -1, 0, 1, 2].map(z => (
+        <mesh key={`r${z}`} position={[2.5, 1.9, z]}>
+          <boxGeometry args={[0.2, 0.55, 0.7]} />
+          <meshToonMaterial color={stoneColor} />
+        </mesh>
+      ))}
+      {/* Railing top */}
+      <mesh position={[-2.5, 2.25, 0]}>
+        <boxGeometry args={[0.12, 0.12, 5.5]} />
+        <meshToonMaterial color={mortarColor} />
+      </mesh>
+      <mesh position={[2.5, 2.25, 0]}>
+        <boxGeometry args={[0.12, 0.12, 5.5]} />
+        <meshToonMaterial color={mortarColor} />
+      </mesh>
     </group>
   );
 }
@@ -2000,7 +2160,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const [remotePlayers, setRemotePlayers]   = useState<RemotePlayer[]>([]);
   const [nearBuilding, setNearBuilding]     = useState<{ id: string; href: string; label: string } | null>(null);
   const [enterPrompt, setEnterPrompt]       = useState(false);
-  const nearBuildingRef = useRef<{ id: string; href: string; label: string } | null>(null);
+  const nearBuildingRef    = useRef<{ id: string; href: string; label: string } | null>(null);
+  const lastAutoEntryRef   = useRef<string | null>(null); // building id of last auto-entered building
+  const lastAutoEntryTimeRef = useRef(0);                 // timestamp of last auto-entry
 
   // ── Avatar crescent menu ──────────────────────────────────────────────────
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
@@ -2148,14 +2310,28 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           if (dist < 8.5 && (!nearest || dist < nearest.dist)) {
             nearest = { id: loc.id, href: loc.href, label: loc.label, dist };
           }
+          // Auto-enter: walk through the open door when close enough and moving
+          if (dist < 5.2 && isMoving.current) {
+            const now = Date.now();
+            const cooldownOk = lastAutoEntryRef.current !== loc.id && (now - lastAutoEntryTimeRef.current) > 2500;
+            if (cooldownOk && Math.abs(playerPos.current.x - bx) < 5) {
+              lastAutoEntryRef.current   = loc.id;
+              lastAutoEntryTimeRef.current = now;
+              handleEnterBuilding(loc.href, loc.label);
+              break;
+            }
+          }
         }
         nearBuildingRef.current = nearest;
         setNearBuilding(nearest);
         setEnterPrompt(!!nearest);
+        // Reset auto-entry cooldown if player has moved away from the last entered building
+        if (lastAutoEntryRef.current && !nearest) lastAutoEntryRef.current = null;
       } else {
         nearBuildingRef.current = null;
         setNearBuilding(null);
         setEnterPrompt(false);
+        lastAutoEntryRef.current = null;
       }
     }, 16);
 
