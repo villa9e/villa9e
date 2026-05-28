@@ -1553,7 +1553,7 @@ interface RemotePlayer {
 function WorldScene({
   playerPos, playerRot, isMoving, remotePlayers, onEnterBuilding, skyState, spiritVariant,
   cameraZoom, cameraAzimuth, weather, nearBuildingId,
-  avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap,
+  avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap, pointerTarget,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
