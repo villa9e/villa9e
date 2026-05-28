@@ -10,25 +10,20 @@ interface Props {
   type?: 'text' | 'textarea' | 'color' | 'number';
   className?: string;
   style?: React.CSSProperties;
-  tag?: React.ElementType;
+  tag?: string;
 }
 
-/**
- * Wraps any element so admins can click it to edit its config value inline.
- * Only active when admin Edit Mode is on.
- *
- * Usage:
- *   <AdminEditable configKey="home.hero.title" tag="h1" className="...">
- *     {config['home.hero.title'] ?? 'Default text'}
- *   </AdminEditable>
- */
+type SafeTag = React.ComponentType<React.HTMLAttributes<HTMLElement>>;
+
 export function AdminEditable({ configKey, children, type = 'text', className, style, tag }: Props) {
-  const Tag: React.ElementType = tag ?? 'div';
   const { editMode, saveConfig, config } = useAdminEdit();
   const [open, setOpen]     = useState(false);
   const [draft, setDraft]   = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+
+  // Cast through unknown to avoid Three.js JSX namespace pollution (primitive element requires `object` prop)
+  const Tag = (tag ?? 'div') as unknown as SafeTag;
 
   if (!editMode) {
     return <Tag className={className} style={style}>{children}</Tag>;
@@ -65,7 +60,6 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
         title={`Edit: ${configKey}`}
       >
         {children}
-        {/* Pencil badge */}
         <span style={{
           position:       'absolute',
           top:            '-10px',
@@ -80,11 +74,10 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
           zIndex:         1,
           whiteSpace:     'nowrap',
         }}>
-          ✏️ {configKey.split('.').pop()}
+          {configKey.split('.').pop()}
         </span>
       </Tag>
 
-      {/* Edit popover */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -102,7 +95,7 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
             }}
           >
             <div className="flex items-center justify-between">
-              <p style={{ color: '#60A5FA', fontSize: '12px', fontWeight: 700 }}>✏️ {configKey}</p>
+              <p style={{ color: '#60A5FA', fontSize: '12px', fontWeight: 700 }}>{configKey}</p>
               <button onClick={() => setOpen(false)} style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>×</button>
             </div>
 
@@ -140,7 +133,7 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
                 disabled={saving}
                 style={{ background: saved ? 'rgba(34,197,94,0.25)' : '#1877F2', color: saved ? '#4ADE80' : '#fff', border: 'none', borderRadius: 10, padding: '8px 20px', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
               >
-                {saved ? '✓ Saved' : saving ? '…' : 'Save'}
+                {saved ? 'Saved' : saving ? '...' : 'Save'}
               </button>
             </div>
           </motion.div>
