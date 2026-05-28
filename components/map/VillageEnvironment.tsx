@@ -6,8 +6,8 @@ import {
   createGrassTexture, createDirtPathTexture,
 } from './VillageTextures';
 
-// ─── Terrain height function — gentle rolling hills, flat center ──────────────
-function terrainH(x: number, z: number): number {
+// ─── Terrain height function — exported so movement loop can snap player to surface
+export function terrainH(x: number, z: number): number {
   const r      = Math.sqrt(x * x + z * z);
   const flatten = Math.max(0, 1 - r / 14) * 0.92;        // flat center courtyard
   const raw =

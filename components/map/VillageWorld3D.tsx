@@ -23,7 +23,7 @@ import {
 import {
   VillageTerrain, StonePaths, TreeSystem, FlowerPatches, StoneLanterns,
   Fireflies, RockClusters, SacredFire as EnvSacredFire,
-  DenseGrass, WildflowerClusters,
+  DenseGrass, WildflowerClusters, terrainH,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
 
@@ -1665,7 +1665,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         if (Math.abs(nx) > 40 || Math.abs(nz) > 38) blocked = true;
 
         if (!blocked) {
-          playerPos.current.set(nx, 0, nz);
+          playerPos.current.set(nx, terrainH(nx, nz), nz);
           playerRot.current = Math.atan2(dx, dz);
         }
 

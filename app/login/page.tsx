@@ -1,6 +1,6 @@
 'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -11,20 +11,38 @@ const FIELD_STYLE = { background: 'rgba(255,255,255,0.06)', border: '1px solid r
 const FIELD_FOCUS = { border: '1px solid rgba(24,119,242,0.7)', background: 'rgba(24,119,242,0.06)' };
 
 export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
+  const router        = useRouter();
+  const searchParams  = useSearchParams();
+  const supabase      = createClient();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    if (urlError === 'auth_failed') setError('Authentication failed. Please try again.');
+    else if (urlError) setError(decodeURIComponent(urlError));
+  }, [searchParams]);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError('');
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); return; }
+    if (error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('email not confirmed')) {
+        setError('Please check your email and click the confirmation link first.');
+      } else if (msg.includes('invalid login') || msg.includes('invalid credentials')) {
+        setError('Incorrect email or password.');
+      } else {
+        setError(error.message);
+      }
+      setLoading(false);
+      return;
+    }
     router.push('/village/map');
     router.refresh();
   }

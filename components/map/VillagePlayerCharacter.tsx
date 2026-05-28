@@ -83,11 +83,11 @@ export function PlayerCharacter({
         : Math.sin(t * 1.1 + ph) * 0.006; // gentle breathing
     }
 
-    // ── Head bob ──
+    // ── Head bob — base offset 0.73 (local to upperRef) ──
     if (headRef.current) {
-      headRef.current.position.y = moving
-        ? 0 + Math.abs(Math.sin(t * freq * 2 + ph)) * 0.016
-        : 0;
+      headRef.current.position.y = 0.73 + (moving
+        ? Math.abs(Math.sin(t * freq * 2 + ph)) * 0.016
+        : Math.sin(t * 0.9 + ph) * 0.004);
     }
   });
 

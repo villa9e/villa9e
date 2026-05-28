@@ -58,7 +58,7 @@ function SignupPageInner() {
     const { data: existing } = await (supabase as any).from('profiles').select('id').eq('username', username.toLowerCase()).single();
     if (existing) { setError('That username is taken. Try another.'); setLoading(false); return; }
 
-    const { error: signupError } = await supabase.auth.signUp({
+    const { data: signupData, error: signupError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -67,8 +67,25 @@ function SignupPageInner() {
       },
     });
 
-    if (signupError) { setError(signupError.message); setLoading(false); return; }
+    if (signupError) {
+      // Common errors with cleaner messages
+      const msg = signupError.message.toLowerCase();
+      if (msg.includes('already registered') || msg.includes('user already exists')) {
+        setError('An account with that email already exists. Try logging in.');
+      } else {
+        setError(signupError.message);
+      }
+      setLoading(false);
+      return;
+    }
 
+    // If Supabase auto-confirms (no email verification required), session is returned immediately
+    if (signupData?.session) {
+      router.push('/village/map?welcome=1');
+      return;
+    }
+
+    // Email confirmation required — tell user to check inbox
     setStep('sent');
     setLoading(false);
   }
