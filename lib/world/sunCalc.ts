@@ -91,10 +91,20 @@ export function getSunTimes(date: Date, lat: number, lon: number): SunTimes {
   }
 
   const sunrise       = findCrossing(3, 12, 0);
-  const sunset        = findCrossing(12, 21, 0);
-  const noon          = findCrossing(10, 14, 89);  // max altitude
-  const dawn          = findCrossing(3, sunrise.getHours(), -6);
-  const dusk          = new Date(sunset.getTime() + (sunset.getTime() - dawn.getTime() - 86400000/2));
+  const sunset        = findCrossing(12, 22, 0);
+  // Solar noon = peak altitude; find by scanning every 6 minutes between 10-14h local
+  let peakAlt = -90, peakH = 12;
+  for (let h = 10; h <= 14; h += 0.1) {
+    const d = new Date(midnight.getTime() + h * 3600000);
+    const a = getSunPosition(d, lat, lon).altitude;
+    if (a > peakAlt) { peakAlt = a; peakH = h; }
+  }
+  const noon          = new Date(midnight.getTime() + peakH * 3600000);
+  // Dawn = civil twilight start (sun at -6°), symmetric with dusk
+  const twilightMins  = Math.max(20, (sunrise.getTime() - midnight.getTime()) / 3600000 * 15);  // ~15min per hour before SR
+  const dawn          = new Date(sunrise.getTime() - twilightMins * 60000);
+  // Dusk = civil twilight end — symmetric with dawn (same twilight duration after sunset)
+  const dusk          = new Date(sunset.getTime() + twilightMins * 60000);
   const goldenMorning = new Date(sunrise.getTime() + 3600000);
   const goldenEvening = new Date(sunset.getTime() - 3600000);
 

@@ -1,270 +1,383 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { VillageHeader } from '@/components/village/VillageHeader';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 
-export default function WorkshopPage() {
-  const [goalInput, setGoalInput] = useState('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [analysis, setAnalysis] = useState<any>(null);
-  const [goals, setGoals] = useState<any[]>([]);
-  const [savedMsg, setSavedMsg] = useState('');
-  const [trending, setTrending] = useState<any[]>([]);
-  const supabase = createClient();
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
-  const bg       = isNight ? '#0A0B12' : '#FFF8EE';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#FED7AA';
-  const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
-  const textMute = isNight ? '#4A4F72' : '#8B6F47';
-  const accent   = isNight ? '#FF6B2B' : '#EA580C';
+// ── Card types ────────────────────────────────────────────────────────────────
+type CardType = 'template' | 'video' | 'sprint' | 'achievement' | 'goal';
 
-  useEffect(() => {
-    loadGoals();
-    fetch('/api/trending').then(r => r.json()).then(setTrending).catch(() => {});
-    const prefill = new URLSearchParams(window.location.search).get('goal');
-    if (prefill) setGoalInput(decodeURIComponent(prefill));
-  }, []);
+interface FeedCard {
+  id:       string;
+  type:     CardType;
+  title:    string;
+  subtitle: string;
+  content:  string;
+  author:   { username: string; avatar?: string; score_tier?: string };
+  media?:   { videoId?: string; thumbnail?: string; url?: string };
+  color:    string;
+  accent:   string;
+  data?:    any;
+  oowops?:  number;
+}
 
-  async function loadGoals() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('goals').select('*, goal_steps(id,status)').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).limit(10);
-    if (data) setGoals(data);
-  }
+// ── Icon SVGs (monotone) ─────────────────────────────────────────────────────
+const HeartSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>;
+const OoWopSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>;
+const ShareSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>;
+const PlaySvg     = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>;
+const PlusSvg     = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>;
 
-  async function analyzeGoal() {
-    if (!goalInput.trim()) return;
-    setAnalyzing(true);
-    setAnalysis(null);
-    try {
-      const res = await fetch('/api/claude/goal-analysis', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal: goalInput }),
-      });
-      const data = await res.json();
-      setAnalysis(data);
-    } catch (e) { console.error(e); }
-    setAnalyzing(false);
-  }
-
-  async function saveGoal() {
-    if (!analysis || !goalInput.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/goals/save', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: goalInput, ai_analysis: analysis, estimated_weeks: analysis.estimated_weeks }),
-      });
-      const data = await res.json();
-      if (data.goal) {
-        setSavedMsg(data.isFirstGoal ? '🎉 First goal! +25 VLG earned' : '✅ Goal saved to your GPS!');
-        setGoalInput('');
-        setAnalysis(null);
-        loadGoals();
-        setTimeout(() => setSavedMsg(''), 4000);
-      }
-    } catch (e) { console.error(e); }
-    setSaving(false);
-  }
-
-  function stepsDone(g: any) { return g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0; }
-  function stepsTotal(g: any) { return g.goal_steps?.length ?? 0; }
-
+// ── Card components ───────────────────────────────────────────────────────────
+function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
+  const steps = card.data?.steps ?? [];
   return (
-    <div className="min-h-screen" style={{ background: bg }}>
-      <VillageHeader title="Workshop" subtitle="Goal GPS Engine" icon="🔨" accentColor={accent} />
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, #06080E 60%)` }}>
+      {/* Gradient overlay */}
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)' }} />
 
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Creator Studio banner */}
-        <Link href="/village/studio">
-          <motion.div whileHover={{ scale: 1.01 }} className="village-card bg-gradient-to-r from-purple-700 to-village-blue text-white cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-bold">🎬 Creator Studio</p>
-                <p className="text-purple-200 text-xs mt-0.5">Make content · Get AI tips · Track engagement</p>
-              </div>
-              <span className="text-3xl">›</span>
+      {/* Header badge */}
+      <div className="relative z-10 px-5 pt-14 flex items-center gap-2">
+        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: card.accent + '33', color: card.accent, border: `1px solid ${card.accent}55` }}>
+          📋 Goal Template
+        </span>
+        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{steps.length} steps</span>
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
+        <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
+        <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>{card.subtitle}</p>
+
+        {/* First 3 steps preview */}
+        <div className="space-y-2 mb-4">
+          {steps.slice(0, 3).map((s: any, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
+                style={{ background: card.accent + '33', color: card.accent }}>{i + 1}</div>
+              {s.title}
             </div>
-          </motion.div>
-        </Link>
-
-        {/* Goal DNA banner */}
-        <Link href="/village/workshop/templates">
-          <motion.div whileHover={{ scale: 1.01 }} className="village-card bg-gradient-to-r from-orange-500 to-amber-400 text-white cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-bold">🧬 Goal DNA Templates</p>
-                <p className="text-orange-100 text-xs mt-0.5">Start from a proven blueprint — clone in 1 tap</p>
-              </div>
-              <span className="text-3xl">›</span>
-            </div>
-          </motion.div>
-        </Link>
-
-        {/* Trending goals */}
-        {trending.length > 0 && !analysis && (
-          <div className="village-card">
-            <h2 className="font-bold text-sm mb-3 flex items-center gap-2">
-              <span>🔥</span> Trending Goals in the Village
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {trending.map((t, i) => (
-                <button key={i} onClick={() => setGoalInput(t.title)}
-                  className="flex items-center gap-1.5 bg-orange-50 border border-orange-100 text-orange-800 rounded-full px-3 py-1.5 text-xs font-medium hover:bg-orange-100 transition-colors">
-                  <span>{t.emoji}</span>
-                  {t.title}
-                  {t.momentum === 'hot' && <span className="text-red-500">🔥</span>}
-                  {t.momentum === 'rising' && <span className="text-green-500">↑</span>}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Active goals */}
-        {goals.length > 0 && (
-          <div className="village-card">
-            <h2 className="font-bold mb-3 text-sm village-text-muted uppercase tracking-wide">Active Goals</h2>
-            <div className="space-y-3">
-              {goals.map(g => {
-                const done = stepsDone(g); const total = stepsTotal(g);
-                const pct = total ? Math.round((done / total) * 100) : 0;
-                return (
-                  <div key={g.id} className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm truncate">{g.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="flex-1 rounded-full h-1.5 village-progress-bg">
-                          <div className="h-1.5 rounded-full village-gradient" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-xs village-text-sub">{done}/{total} steps</span>
-                        <span className="text-xs font-bold text-village-blue">{g.probability_score}%</span>
-                      </div>
-                    </div>
-                    <Link href={`/village/workshop/goal/${g.id}`} className="text-xs text-village-blue font-medium hover:underline">
-                      View →
-                    </Link>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* New goal */}
-        <div className="village-card">
-          <h2 className="font-bold text-lg mb-1">Set a New Goal</h2>
-          <p className="text-sm village-text-muted mb-4">Spirit will build your full GPS plan — steps, resources, timeline, and probability score.</p>
-          <textarea
-            value={goalInput}
-            onChange={e => setGoalInput(e.target.value)}
-            placeholder="What would you like to achieve? Be specific. (e.g. 'Record and release my first EP on Spotify within 3 months')"
-            rows={3}
-            className="w-full rounded-xl p-3 focus:outline-none resize-none text-sm village-text" style={{ background: 'var(--v-bg)', border: '1px solid var(--v-card-border)' }}
-          />
-          <button
-            onClick={analyzeGoal}
-            disabled={analyzing || !goalInput.trim()}
-            className="mt-3 bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 py-2.5 font-semibold w-full disabled:opacity-50 transition-colors"
-          >
-            {analyzing ? '🤖 Spirit is analyzing…' : '📡 Get My GPS Plan'}
-          </button>
+          ))}
+          {steps.length > 3 && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>+{steps.length - 3} more steps</p>}
         </div>
 
-        {/* Success message */}
-        <AnimatePresence>
-          {savedMsg && (
-            <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="bg-green-50 border border-green-200 rounded-2xl p-4 text-center text-green-700 font-medium">
-              {savedMsg}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Clone button */}
+        <Link href={`/village/workshop/chat?template=${card.id}`}
+          className="w-full py-3.5 rounded-2xl text-sm font-black text-white text-center"
+          style={{ background: `linear-gradient(135deg, ${card.accent}, #1877F2)`, boxShadow: `0 4px 20px ${card.accent}55` }}>
+          Clone This Plan
+        </Link>
+      </div>
+    </div>
+  );
+}
 
-        {/* Analysis result */}
-        {analysis && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-            {/* Probability score */}
-            <div className="village-card">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h3 className="font-bold">GPS Probability Score</h3>
-                  <p className="text-xs village-text-muted">Live score — improves as you complete steps</p>
-                </div>
-                <span className={`text-3xl font-bold ${analysis.probability_score >= 70 ? 'text-green-600' : analysis.probability_score >= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
-                  {analysis.probability_score}%
-                </span>
-              </div>
-              <div className="w-full rounded-full h-3 village-progress-bg">
-                <div className="h-3 rounded-full village-gradient" style={{ width: `${analysis.probability_score}%` }} />
-              </div>
-              {analysis.probability_reason && <p className="text-xs village-text-muted mt-2">{analysis.probability_reason}</p>}
-            </div>
+function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
+  const [playing, setPlaying] = useState(false);
+  const { speak } = useSpiritVoice();
+  const thumb = card.media?.thumbnail || `https://img.youtube.com/vi/${card.media?.videoId}/maxresdefault.jpg`;
 
-            {/* Steps */}
-            {analysis.steps?.length > 0 && (
-              <div className="village-card">
-                <h3 className="font-bold mb-3">📍 GPS Steps ({analysis.steps.length})</h3>
-                <ol className="space-y-3">
-                  {analysis.steps.map((step: any, i: number) => (
-                    <li key={i} className="flex items-start gap-3 p-2 rounded-xl transition-colors" style={{ borderRadius:'12px' }}>
-                      <span className="w-6 h-6 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i + 1}</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{step.title}</p>
-                        {step.description && <p className="text-xs village-text-muted mt-0.5">{step.description}</p>}
-                        {step.estimated_hours && <p className="text-xs text-orange-500 mt-0.5">~{step.estimated_hours}h</p>}
-                      </div>
-                    </li>
-                  ))}
-                </ol>
+  return (
+    <div className="absolute inset-0 flex flex-col" style={{ background: '#000' }}>
+      {/* Video / thumbnail */}
+      <div className="flex-1 relative">
+        {playing && card.media?.videoId ? (
+          <iframe
+            src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&controls=1`}
+            className="absolute inset-0 w-full h-full"
+            allow="autoplay; fullscreen"
+            allowFullScreen
+          />
+        ) : (
+          <>
+            {thumb && <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />}
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%)' }} />
+            <button onClick={() => { setPlaying(true); speak(card.title, 'casual'); }}
+              className="absolute inset-0 flex items-center justify-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)' }}>
+                <PlaySvg />
               </div>
-            )}
-
-            {/* Cost + timeline + roles */}
-            <div className="grid grid-cols-3 gap-3">
-              <div className="village-card text-center">
-                <p className="text-xs village-text-muted">Est. Cost</p>
-                <p className="text-lg font-bold text-orange-500">${analysis.estimated_cost?.toLocaleString() ?? '—'}</p>
-              </div>
-              <div className="village-card text-center">
-                <p className="text-xs village-text-muted">Timeline</p>
-                <p className="text-lg font-bold text-village-blue">{analysis.estimated_weeks ?? '—'}w</p>
-              </div>
-              <div className="village-card text-center">
-                <p className="text-xs village-text-muted">Hrs/Week</p>
-                <p className="text-lg font-bold text-purple-600">{analysis.weekly_hours_needed ?? '—'}h</p>
-              </div>
-            </div>
-
-            {/* Roles needed */}
-            {analysis.roles_needed?.length > 0 && (
-              <div className="village-card">
-                <h3 className="font-bold mb-2 text-sm">👥 Villagers You'll Need</h3>
-                <div className="flex flex-wrap gap-2">
-                  {analysis.roles_needed.map((role: string, i: number) => (
-                    <span key={i} className="bg-purple-50 text-purple-700 text-xs px-3 py-1 rounded-full border border-purple-100">{role}</span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Save */}
-            <button
-              onClick={saveGoal}
-              disabled={saving}
-              className="bg-village-blue hover:bg-village-blueDark text-white rounded-2xl px-6 py-4 font-bold w-full text-lg disabled:opacity-50 transition-colors"
-            >
-              {saving ? 'Saving…' : '🗺️ Save Goal to My GPS'}
             </button>
-          </motion.div>
+          </>
         )}
       </div>
+
+      {/* Info overlay */}
+      <div className="absolute bottom-0 left-0 right-0 px-5 pb-28">
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block" style={{ background: 'rgba(255,107,43,0.25)', color: '#FF6B2B', border: '1px solid rgba(255,107,43,0.4)' }}>
+          🎬 Training
+        </span>
+        <h2 className="text-xl font-black text-white leading-tight mt-1">{card.title}</h2>
+        <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>{card.subtitle}</p>
+      </div>
+    </div>
+  );
+}
+
+function GoalCard({ card }: { card: FeedCard }) {
+  const progress = card.data?.progress ?? 0;
+  const probability = card.data?.probability ?? 0;
+  return (
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, #06080E 70%)` }}>
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
+
+      <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block" style={{ background: `${card.accent}22`, color: card.accent, border: `1px solid ${card.accent}44` }}>
+          🎯 Active Goal
+        </span>
+        <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
+        <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{card.subtitle}</p>
+
+        {/* Progress bar */}
+        <div className="rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.1)', height: 6 }}>
+          <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: card.accent }} />
+        </div>
+        <div className="flex justify-between text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
+          <span>{progress}% complete</span>
+          <span>{probability}% probability</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Sidebar action buttons ─────────────────────────────────────────────────────
+function SideActions({ card, onOoWop, owopped, oowopCount }: {
+  card: FeedCard; onOoWop: () => void; owopped: boolean; oowopCount: number;
+}) {
+  const BUTTONS = [
+    { icon: <HeartSvg />, label: oowopCount.toString(), action: onOoWop, active: owopped, color: owopped ? '#FF6B2B' : 'white' },
+    { icon: <OoWopSvg />, label: 'OoWop', action: onOoWop, active: owopped, color: owopped ? '#FFD700' : 'white' },
+    { icon: <ShareSvg />, label: 'Share', action: () => { if (navigator.share) navigator.share({ title: card.title, url: window.location.href }); }, active: false, color: 'white' },
+  ];
+  return (
+    <div className="absolute right-4 bottom-36 flex flex-col items-center gap-6 z-20">
+      {BUTTONS.map((btn, i) => (
+        <motion.button key={i} whileTap={{ scale: 0.85 }} onClick={btn.action}
+          className="flex flex-col items-center gap-1.5">
+          <div className="w-12 h-12 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: btn.color }}>
+            {btn.icon}
+          </div>
+          <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>{btn.label}</span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+// ── Author bar ─────────────────────────────────────────────────────────────────
+function AuthorBar({ card }: { card: FeedCard }) {
+  return (
+    <div className="absolute bottom-20 left-5 right-20 z-20 flex items-center gap-2.5">
+      <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-black flex-shrink-0"
+        style={{ background: card.color, border: '2px solid white' }}>
+        {card.author.username?.[0]?.toUpperCase() || '?'}
+      </div>
+      <div>
+        <p className="text-sm font-bold text-white">@{card.author.username}</p>
+        {card.author.score_tier && (
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{card.author.score_tier}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Workshop Page ─────────────────────────────────────────────────────────
+export default function WorkshopPage() {
+  const router   = useRouter();
+  const supabase = createClient();
+  const { theme } = useVillageTheme();
+  const { speak } = useSpiritVoice();
+  const isNight = theme === 'night';
+
+  const [cards,        setCards]        = useState<FeedCard[]>([]);
+  const [current,      setCurrent]      = useState(0);
+  const [owopped,      setOwopped]      = useState<Set<string>>(new Set());
+  const [loading,      setLoading]      = useState(true);
+  const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartY  = useRef(0);
+
+  useEffect(() => { loadFeed(); }, []);
+
+  async function loadFeed() {
+    setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const [{ data: templates }, { data: goals }, { data: videos }] = await Promise.all([
+      (supabase as any).from('goal_templates').select('*, profiles!creator_id(username, score_tier)').eq('is_public', true).order('clone_count', { ascending: false }).limit(10),
+      user ? supabase.from('goals').select('title, description, category, progress_percentage, probability_score, goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(5) : Promise.resolve({ data: [] }),
+      (supabase as any).from('studio_videos').select('*, profiles!creator_id(username)').eq('is_published', true).order('watch_count', { ascending: false }).limit(10).catch(() => ({ data: [] })),
+    ]);
+
+    if (user && goals?.data) setActiveGoals(goals.data as any[]);
+
+    const feed: FeedCard[] = [];
+    const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
+
+    // Add user's active goals first
+    ((goals?.data ?? []) as any[]).forEach((g: any, i: number) => {
+      const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
+      const total = g.goal_steps?.length ?? 1;
+      feed.push({
+        id: `goal-${i}`, type: 'goal', title: g.title,
+        subtitle: `${done}/${total} steps complete · ${g.category ?? 'personal'}`,
+        content: g.description ?? '',
+        author: { username: 'You' },
+        color: COLORS[i % COLORS.length],
+        accent: COLORS[i % COLORS.length],
+        data: { progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
+      });
+    });
+
+    // Add templates
+    ((templates ?? []) as any[]).forEach((t: any, i: number) => {
+      feed.push({
+        id: t.id, type: 'template', title: t.title,
+        subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
+        content: t.description ?? '',
+        author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
+        color: COLORS[(i + 2) % COLORS.length],
+        accent: COLORS[(i + 2) % COLORS.length],
+        data: { steps: t.steps ?? [] },
+        oowops: t.oowop_count ?? 0,
+      });
+    });
+
+    // Add studio videos
+    ((videos?.data ?? []) as any[]).forEach((v: any, i: number) => {
+      feed.push({
+        id: v.id, type: 'video', title: v.title,
+        subtitle: v.category ?? 'Training',
+        content: v.description ?? '',
+        author: { username: v.profiles?.username ?? 'creator' },
+        media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
+        color: '#FF6B2B', accent: '#FF6B2B',
+      });
+    });
+
+    // Shuffle: interleave goal + templates + videos
+    const shuffled = feed.length > 0 ? feed : [{
+      id: 'empty', type: 'template' as CardType, title: 'Start Your First Goal',
+      subtitle: 'Talk to Spirit and build your GPS',
+      content: '', author: { username: 'Spirit' },
+      color: '#7C3AED', accent: '#7C3AED', data: { steps: [] }, oowops: 0,
+    }];
+
+    setCards(shuffled);
+    if (shuffled[0]) speak(shuffled[0].title, 'casual');
+    setLoading(false);
+  }
+
+  // Swipe up/down navigation
+  function onTouchStart(e: React.TouchEvent) { touchStartY.current = e.touches[0].clientY; }
+  function onTouchEnd(e: React.TouchEvent) {
+    const dy = touchStartY.current - e.changedTouches[0].clientY;
+    if (dy > 60 && current < cards.length - 1) {
+      const next = current + 1;
+      setCurrent(next);
+      if (cards[next]) speak(cards[next].title, 'casual');
+    }
+    if (dy < -60 && current > 0) {
+      const prev = current - 1;
+      setCurrent(prev);
+      if (cards[prev]) speak(cards[prev].title, 'casual');
+    }
+  }
+
+  function onWheel(e: React.WheelEvent) {
+    if (e.deltaY > 50 && current < cards.length - 1) setCurrent(c => c + 1);
+    if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
+  }
+
+  function handleOoWop(cardId: string) {
+    setOwopped(prev => { const n = new Set(prev); n.has(cardId) ? n.delete(cardId) : n.add(cardId); return n; });
+  }
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center" style={{ background: '#06080E' }}>
+        <div className="space-y-3 text-center">
+          <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-3xl font-black" style={{ color: '#E8770A', fontFamily: 'monospace' }}>
+            Workshop
+          </motion.div>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Loading your feed…</p>
+        </div>
+      </div>
+    );
+  }
+
+  const card = cards[current];
+
+  return (
+    <div ref={containerRef} className="fixed inset-0 overflow-hidden select-none"
+      style={{ background: '#000', touchAction: 'none' }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+      onWheel={onWheel}
+    >
+      {/* Current card */}
+      <AnimatePresence mode="wait">
+        <motion.div key={card?.id}
+          initial={{ y: '100%', opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: '-100%', opacity: 0 }}
+          transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+          className="absolute inset-0"
+        >
+          {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+          {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+          {card?.type === 'goal'        && <GoalCard card={card} />}
+          {card?.type === 'achievement' && <GoalCard card={card} />}
+
+          {/* Author + actions */}
+          {card && <AuthorBar card={card} />}
+          {card && card.type !== 'goal' && (
+            <SideActions card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)} />
+          )}
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Top bar */}
+      <div className="absolute top-0 left-0 right-0 z-30 px-5 pt-12 pb-3 flex items-center justify-between"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }}>
+        <span className="text-base font-black text-white">Workshop</span>
+        <div className="flex gap-3">
+          <Link href="/village/workshop/chat"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white"
+            style={{ background: '#E8770A' }}>
+            <PlusSvg /> New Goal
+          </Link>
+        </div>
+      </div>
+
+      {/* Progress dots */}
+      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
+        {cards.slice(0, 8).map((_, i) => (
+          <div key={i} className="rounded-full transition-all"
+            style={{ width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.25)' }} />
+        ))}
+      </div>
+
+      {/* Swipe hint */}
+      {current === 0 && cards.length > 1 && (
+        <motion.div
+          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1"
+          initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -6, 0] }}
+          transition={{ delay: 2, duration: 1.5, repeat: 3 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Swipe up</p>
+        </motion.div>
+      )}
+
+      {/* Bottom nav space */}
+      <div className="absolute bottom-0 left-0 right-0 h-20" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }} />
     </div>
   );
 }
