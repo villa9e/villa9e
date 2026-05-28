@@ -1,5 +1,6 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState } from 'react';
+import type React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAdminEdit } from '@/lib/admin/adminContext';
 
@@ -9,7 +10,7 @@ interface Props {
   type?: 'text' | 'textarea' | 'color' | 'number';
   className?: string;
   style?: React.CSSProperties;
-  tag?: keyof JSX.IntrinsicElements;
+  tag?: React.ElementType;
 }
 
 /**
@@ -21,13 +22,13 @@ interface Props {
  *     {config['home.hero.title'] ?? 'Default text'}
  *   </AdminEditable>
  */
-export function AdminEditable({ configKey, children, type = 'text', className, style, tag: Tag = 'div' }: Props) {
+export function AdminEditable({ configKey, children, type = 'text', className, style, tag }: Props) {
+  const Tag: React.ElementType = tag ?? 'div';
   const { editMode, saveConfig, config } = useAdminEdit();
   const [open, setOpen]     = useState(false);
   const [draft, setDraft]   = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
-  const ref = useRef<HTMLElement>(null);
 
   if (!editMode) {
     return <Tag className={className} style={style}>{children}</Tag>;
@@ -51,7 +52,6 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
   return (
     <>
       <Tag
-        ref={ref as any}
         className={className}
         style={{
           ...style,
