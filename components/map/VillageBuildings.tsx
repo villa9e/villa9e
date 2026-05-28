@@ -2,6 +2,32 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import {
+  createWoodGrainTexture, createMudBrickTexture, createMarbleTexture,
+  createThatchTexture, createStoneTexture, createBambooTexture,
+  createCedarTexture, createDarkWoodTexture, createEbonyTexture,
+} from './VillageTextures';
+
+// ─── Singleton texture cache — created once, reused across all buildings ──────
+// Uses typeof document check so it's safe during SSR
+let _texCache: Record<string, THREE.CanvasTexture> | null = null;
+function getTex() {
+  if (typeof document === 'undefined') return null;
+  if (!_texCache) {
+    _texCache = {
+      mudBrick: createMudBrickTexture(),
+      wood:     createWoodGrainTexture('#7A4A20', '#3D1E08'),
+      cedar:    createCedarTexture(),
+      marble:   createMarbleTexture(),
+      thatch:   createThatchTexture(),
+      stone:    createStoneTexture(),
+      bamboo:   createBambooTexture(),
+      darkWood: createDarkWoodTexture(),
+      ebony:    createEbonyTexture(),
+    };
+  }
+  return _texCache;
+}
 
 // ─── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -80,13 +106,13 @@ function RichWindow({ pos, w = 0.6, h = 0.8, frame = '#4A2C10', glass = '#A8CCFF
   );
 }
 
-function ThatchedRoof({ w, d, h, color }: { w: number; d: number; h: number; color: string }) {
+function ThatchedRoof({ w, d, h, color, tex }: { w: number; d: number; h: number; color: string; tex?: THREE.CanvasTexture }) {
   return (
     <group>
       {/* Main conical/hip roof */}
       <mesh position={[0, h / 2, 0]} castShadow>
         <coneGeometry args={[Math.max(w, d) / 2 + 0.5, h, 28, 4]} />
-        <meshToonMaterial color={color} />
+        <meshToonMaterial color={color} map={tex ?? undefined} />
       </mesh>
       {/* Eave shadow band */}
       <mesh position={[0, 0.06, 0]}>
@@ -109,6 +135,7 @@ function ThatchedRoof({ w, d, h, color }: { w: number; d: number; h: number; col
 
 // ─── WORKSHOP — Malian mud-brick forge × Blacksmith guild hall ────────────────
 export function WorkshopBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const smokeRef = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!smokeRef.current) return;
@@ -127,30 +154,30 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
         <meshToonMaterial color="#4A3018" />
       </mesh>
 
-      {/* ── Main hall — thick mud-brick walls ── */}
+      {/* ── Main hall — thick mud-brick walls with procedural texture ── */}
       {/* Back wall */}
       <mesh position={[0, -0.15, -1.95]} castShadow>
         <boxGeometry args={[4.8, 3.4, 0.42, 5, 5, 1]} />
-        <meshToonMaterial color="#8A5C2A" />
+        <meshToonMaterial color="#8A5C2A" map={tex?.mudBrick ?? undefined} />
       </mesh>
       {/* Left wall */}
       <mesh position={[-2.28, -0.15, 0]} castShadow>
         <boxGeometry args={[0.42, 3.4, 3.9, 1, 5, 4]} />
-        <meshToonMaterial color="#7A5020" />
+        <meshToonMaterial color="#7A5020" map={tex?.mudBrick ?? undefined} />
       </mesh>
       {/* Right wall */}
       <mesh position={[2.28, -0.15, 0]} castShadow>
         <boxGeometry args={[0.42, 3.4, 3.9, 1, 5, 4]} />
-        <meshToonMaterial color="#7A5020" />
+        <meshToonMaterial color="#7A5020" map={tex?.mudBrick ?? undefined} />
       </mesh>
       {/* Front wall — split around door */}
       <mesh position={[-1.35, -0.15, 1.95]} castShadow>
         <boxGeometry args={[1.7, 3.4, 0.42, 2, 5, 1]} />
-        <meshToonMaterial color="#8A5C2A" />
+        <meshToonMaterial color="#8A5C2A" map={tex?.mudBrick ?? undefined} />
       </mesh>
       <mesh position={[1.35, -0.15, 1.95]} castShadow>
         <boxGeometry args={[1.7, 3.4, 0.42, 2, 5, 1]} />
-        <meshToonMaterial color="#8A5C2A" />
+        <meshToonMaterial color="#8A5C2A" map={tex?.mudBrick ?? undefined} />
       </mesh>
       {/* Lintel above door */}
       <mesh position={[0, 1.12, 1.95]} castShadow>
@@ -160,7 +187,7 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
 
       {/* ── Thatched hip roof ── */}
       <group position={[0, 1.78, 0]}>
-        <ThatchedRoof w={4.8} d={3.9} h={2.0} color="#8A6210" />
+        <ThatchedRoof w={4.8} d={3.9} h={2.0} color="#8A6210" tex={tex?.thatch ?? undefined} />
       </group>
 
       {/* ── Chimney — forge stack ── */}
@@ -245,6 +272,7 @@ export function WorkshopBuilding({ hover }: { hover: boolean }) {
 
 // ─── DREAM LINE — Greek amphitheater × Nubian night stage ─────────────────────
 export function DreamLineBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const torchRef1 = useRef<THREE.Mesh>(null);
   const torchRef2 = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
@@ -293,7 +321,7 @@ export function DreamLineBuilding({ hover }: { hover: boolean }) {
       {/* ── Skene — backdrop building ── */}
       <mesh position={[0, 0.35, -2.35]} castShadow>
         <boxGeometry args={[4.5, 3.2, 0.7, 5, 5, 1]} />
-        <meshToonMaterial color={marbleColor} />
+        <meshToonMaterial color={marbleColor} map={tex?.marble ?? undefined} />
       </mesh>
       {/* Skene pediment */}
       <mesh position={[0, 2.05, -2.35]} castShadow>
@@ -375,6 +403,7 @@ export function DreamLineBuilding({ hover }: { hover: boolean }) {
 
 // ─── TRADING POST — Moroccan souk × West African market ──────────────────────
 export function TradingPostBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const flagRef = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     if (!flagRef.current) return;
@@ -533,6 +562,7 @@ export function TradingPostBuilding({ hover }: { hover: boolean }) {
 
 // ─── BANK — Nubian pyramid treasury × Egyptian-inspired columns ───────────────
 export function BankBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const capRef = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     if (!capRef.current) return;
@@ -659,6 +689,7 @@ export function BankBuilding({ hover }: { hover: boolean }) {
 
 // ─── ZEN GARDEN — Japanese pagoda × Korean hanok × Bamboo garden ──────────────
 export function ZenBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const groupRef = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
@@ -823,6 +854,7 @@ export function ZenBuilding({ hover }: { hover: boolean }) {
 
 // ─── TRIBES — Zulu great house × Mesoamerican council ring ───────────────────
 export function TribesBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const fireRef = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
     if (!fireRef.current) return;
@@ -978,6 +1010,7 @@ export function TribesBuilding({ hover }: { hover: boolean }) {
 
 // ─── WELLNESS CENTER — Scandinavian healing pavilion × African apothecary ─────
 export function HospitalBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const steamRef = useRef<THREE.InstancedMesh>(null);
   useFrame(({ clock }) => {
     if (!steamRef.current) return;
@@ -1010,7 +1043,7 @@ export function HospitalBuilding({ hover }: { hover: boolean }) {
       {/* ── Main building — clean white ── */}
       <mesh position={[0, -0.05, 0]} castShadow>
         <boxGeometry args={[4.6, 3.6, 3.8, 5, 5, 4]} />
-        <meshToonMaterial color={wallC} />
+        <meshToonMaterial color={wallC} map={tex?.mudBrick ?? undefined} />
       </mesh>
 
       {/* ── Living green roof ── */}
@@ -1129,6 +1162,7 @@ export function HospitalBuilding({ hover }: { hover: boolean }) {
 
 // ─── HUT — Dogon compound × Bamana earthen home ───────────────────────────────
 export function HutBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const groupRef = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!groupRef.current) return;
@@ -1261,7 +1295,7 @@ export function HutBuilding({ hover }: { hover: boolean }) {
         <group key={i} position={[x, -1.0, z]}>
           <mesh castShadow>
             <cylinderGeometry args={[0.55, 0.62, 1.9, 28, 6]} />
-            <meshToonMaterial color={mud} />
+            <meshToonMaterial color={mud} map={tex?.mudBrick ?? undefined} />
           </mesh>
           {/* Painted band */}
           <mesh position={[0, 0.1, 0]}>
@@ -1359,6 +1393,7 @@ export function HutBuilding({ hover }: { hover: boolean }) {
 
 // ─── SPIRIT SHRINE — Kemetic obelisk × Sacred crystal formation ───────────────
 export function SpiritShrine({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
   const crystalRef = useRef<THREE.Group>(null);
   const orbRef     = useRef<THREE.Mesh>(null);
   const glowRef    = useRef<THREE.Mesh>(null);

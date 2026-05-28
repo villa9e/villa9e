@@ -1,7 +1,10 @@
 'use client';
-import { useRef, useMemo } from 'react';
+import { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import {
+  createGrassTexture, createDirtPathTexture,
+} from './VillageTextures';
 
 // ─── Terrain height function — gentle rolling hills, flat center ──────────────
 function terrainH(x: number, z: number): number {
@@ -786,6 +789,212 @@ export function SacredFire() {
           <meshBasicMaterial color="#FF9900" />
         </mesh>
       ))}
+    </group>
+  );
+}
+
+// ─── Dense grass blades — 3 layers with wind animation ───────────────────────
+// Each layer uses an InstancedMesh with cone geometry (tapering blade shape)
+// Blades are scattered avoiding paths, center courtyard, and world boundary
+export function DenseGrass({ windStr = 0 }: { windStr?: number }) {
+  const shortRef = useRef<THREE.InstancedMesh>(null);
+  const medRef   = useRef<THREE.InstancedMesh>(null);
+  const tallRef  = useRef<THREE.InstancedMesh>(null);
+
+  const SHORT_N = 1800;
+  const MED_N   = 1400;
+  const TALL_N  = 700;
+
+  // Pre-compute blade positions — expensive, only runs once
+  const blades = useMemo(() => {
+    function scatter(n: number, minR: number, pathThresh: number) {
+      const arr: { x: number; z: number; rot: number; ph: number; h: number; w: number }[] = [];
+      let tries = 0;
+      while (arr.length < n && tries < n * 12) {
+        tries++;
+        const x = (Math.random() - 0.5) * 108;
+        const z = (Math.random() - 0.5) * 108;
+        const r = Math.sqrt(x * x + z * z);
+        if (r < minR || r > 52 || pathness(x, z) < pathThresh) continue;
+        arr.push({
+          x, z,
+          rot: Math.random() * Math.PI * 2,
+          ph:  Math.random() * Math.PI * 2,
+          h:   0.9 + Math.random() * 0.4,  // height scale relative
+          w:   0.9 + Math.random() * 0.3,  // width scale relative
+        });
+      }
+      return arr;
+    }
+    return {
+      short: scatter(SHORT_N, 7.5, 0.55),
+      med:   scatter(MED_N,   7.0, 0.52),
+      tall:  scatter(TALL_N,  7.0, 0.58),
+    };
+  }, []);
+
+  // Color palettes per layer
+  const shortColors = useMemo(() => [
+    new THREE.Color('#2A5C14'), new THREE.Color('#306818'),
+    new THREE.Color('#246010'), new THREE.Color('#387020'),
+    new THREE.Color('#266214'),
+  ], []);
+  const medColors = useMemo(() => [
+    new THREE.Color('#327020'), new THREE.Color('#3A7A24'),
+    new THREE.Color('#2E6618'), new THREE.Color('#40801C'),
+  ], []);
+  const tallColors = useMemo(() => [
+    new THREE.Color('#429028'), new THREE.Color('#4A9830'),
+    new THREE.Color('#3A8824'), new THREE.Color('#5AA034'),
+    new THREE.Color('#7AB840'), // yellower tips on tallest
+  ], []);
+
+  useFrame(({ clock }) => {
+    const t     = clock.elapsedTime;
+    const dummy = new THREE.Object3D();
+
+    // ── Short blades — tight clusters, minimal sway ──
+    if (shortRef.current) {
+      blades.short.forEach((b, i) => {
+        const gY   = terrainH(b.x, b.z);
+        const wind = Math.sin(t * 2.0 + b.x * 0.32 + b.ph) * windStr * 0.065;
+        const h    = 0.10 * b.h;
+        dummy.position.set(b.x, gY + h * 0.5, b.z);
+        dummy.rotation.set(wind, b.rot, 0);
+        dummy.scale.set(0.019 * b.w, h, 0.019 * b.w);
+        dummy.updateMatrix();
+        shortRef.current!.setMatrixAt(i, dummy.matrix);
+        shortRef.current!.setColorAt(i, shortColors[i % shortColors.length]);
+      });
+      shortRef.current.instanceMatrix.needsUpdate = true;
+      if (shortRef.current.instanceColor) shortRef.current.instanceColor.needsUpdate = true;
+    }
+
+    // ── Medium blades ──
+    if (medRef.current) {
+      blades.med.forEach((b, i) => {
+        const gY   = terrainH(b.x, b.z);
+        const wind = Math.sin(t * 1.7 + b.x * 0.28 + b.ph + 0.7) * windStr * 0.095;
+        const h    = 0.175 * b.h;
+        dummy.position.set(b.x, gY + h * 0.5, b.z);
+        dummy.rotation.set(wind, b.rot, 0);
+        dummy.scale.set(0.024 * b.w, h, 0.024 * b.w);
+        dummy.updateMatrix();
+        medRef.current!.setMatrixAt(i, dummy.matrix);
+        medRef.current!.setColorAt(i, medColors[i % medColors.length]);
+      });
+      medRef.current.instanceMatrix.needsUpdate = true;
+      if (medRef.current.instanceColor) medRef.current.instanceColor.needsUpdate = true;
+    }
+
+    // ── Tall blades — most visible sway ──
+    if (tallRef.current) {
+      blades.tall.forEach((b, i) => {
+        const gY   = terrainH(b.x, b.z);
+        const wind = Math.sin(t * 1.4 + b.x * 0.25 + b.ph + 1.4) * windStr * 0.14;
+        const h    = 0.265 * b.h;
+        dummy.position.set(b.x, gY + h * 0.5, b.z);
+        dummy.rotation.set(wind, b.rot, 0);
+        dummy.scale.set(0.028 * b.w, h, 0.028 * b.w);
+        dummy.updateMatrix();
+        tallRef.current!.setMatrixAt(i, dummy.matrix);
+        tallRef.current!.setColorAt(i, tallColors[i % tallColors.length]);
+      });
+      tallRef.current.instanceMatrix.needsUpdate = true;
+      if (tallRef.current.instanceColor) tallRef.current.instanceColor.needsUpdate = true;
+    }
+  });
+
+  return (
+    <>
+      {/* Short blades — triangular cone, 3 radial segments */}
+      <instancedMesh ref={shortRef} args={[undefined, undefined, SHORT_N]}>
+        <coneGeometry args={[0.5, 1, 3, 2]} />
+        <meshToonMaterial side={THREE.DoubleSide} />
+      </instancedMesh>
+
+      {/* Medium blades */}
+      <instancedMesh ref={medRef} args={[undefined, undefined, MED_N]}>
+        <coneGeometry args={[0.5, 1, 3, 3]} />
+        <meshToonMaterial side={THREE.DoubleSide} />
+      </instancedMesh>
+
+      {/* Tall blades — 4 radial segments for slight oval cross-section */}
+      <instancedMesh ref={tallRef} args={[undefined, undefined, TALL_N]}>
+        <coneGeometry args={[0.4, 1, 4, 4]} />
+        <meshToonMaterial side={THREE.DoubleSide} />
+      </instancedMesh>
+    </>
+  );
+}
+
+// ─── Wildflower patches — clusters of 3-5 flowers at specific spots ───────────
+// More detailed than FlowerPatches — each cluster has stems + petal rings
+export function WildflowerClusters() {
+  const CLUSTER_SPOTS: [number, number][] = [
+    [-8, -12], [9, -10], [-10, 14], [12, 10],
+    [-20, -25], [18, -24], [-22, 26], [20, 28],
+    [5, -18], [-6, 20], [28, -10], [-26, 12],
+    [14, -32], [-12, 32], [0, -20], [0, 22],
+  ];
+
+  const PETALS = [
+    { color: '#FFD700', center: '#FF8C00' }, // sunflower
+    { color: '#FF6B6B', center: '#CC2020' }, // red poppy
+    { color: '#C084FC', center: '#7C3AED' }, // lavender
+    { color: '#FFFFFF', center: '#FFE040' }, // daisy
+    { color: '#FF9F40', center: '#DD6600' }, // marigold
+    { color: '#F9A8D4', center: '#BE185D' }, // pink blossom
+    { color: '#86EFAC', center: '#16A34A' }, // small green
+    { color: '#7DD3FC', center: '#0284C7' }, // blue cornflower
+  ];
+
+  return (
+    <group>
+      {CLUSTER_SPOTS.map(([cx, cz], ci) => {
+        const palette = PETALS[ci % PETALS.length];
+        const gy      = terrainH(cx, cz);
+        return (
+          <group key={ci} position={[cx, gy, cz]}>
+            {Array.from({ length: 3 + (ci % 3) }, (_, fi) => {
+              const fx  = (Math.random() - 0.5) * 1.2;
+              const fz  = (Math.random() - 0.5) * 1.2;
+              const fh  = 0.18 + Math.random() * 0.14;
+              const fgy = terrainH(cx + fx, cz + fz) - gy;
+              return (
+                <group key={fi} position={[fx, fgy, fz]}>
+                  {/* Stem */}
+                  <mesh position={[0, fh * 0.45, 0]}>
+                    <cylinderGeometry args={[0.014, 0.018, fh * 0.9, 6, 2]} />
+                    <meshToonMaterial color="#3A7020" />
+                  </mesh>
+                  {/* Leaf on stem */}
+                  <mesh position={[0.04, fh * 0.35, 0]} rotation={[0, 0, 0.55]}>
+                    <boxGeometry args={[0.12, 0.04, 0.05, 2, 1, 1]} />
+                    <meshToonMaterial color="#3A6820" />
+                  </mesh>
+                  {/* Petals — 6 around center */}
+                  {Array.from({ length: 6 }, (_, pi) => {
+                    const pa = (pi / 6) * Math.PI * 2;
+                    const pr = 0.065 + Math.random() * 0.025;
+                    return (
+                      <mesh key={pi} position={[Math.cos(pa) * pr, fh, Math.sin(pa) * pr]}>
+                        <sphereGeometry args={[0.048, 8, 6]} scale={[1, 0.55, 1] as any} />
+                        <meshToonMaterial color={palette.color} />
+                      </mesh>
+                    );
+                  })}
+                  {/* Center disc */}
+                  <mesh position={[0, fh, 0]}>
+                    <sphereGeometry args={[0.038, 10, 7]} />
+                    <meshToonMaterial color={palette.center} />
+                  </mesh>
+                </group>
+              );
+            })}
+          </group>
+        );
+      })}
     </group>
   );
 }

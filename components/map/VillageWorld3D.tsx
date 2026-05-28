@@ -23,6 +23,7 @@ import {
 import {
   VillageTerrain, StonePaths, TreeSystem, FlowerPatches, StoneLanterns,
   Fireflies, RockClusters, SacredFire as EnvSacredFire,
+  DenseGrass, WildflowerClusters,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
 
@@ -1004,6 +1005,8 @@ function WorldScene({
       <StonePaths isNight={isNight} />
       <TreeSystem windStr={windStrength} />
       <FlowerPatches windStr={windStrength} />
+      <DenseGrass windStr={windStrength} />
+      <WildflowerClusters />
       <RockClusters />
       <StoneLanterns isNight={isNight} />
       <Fireflies visible={isNight || skyState?.phase === 'dusk'} />
