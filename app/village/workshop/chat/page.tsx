@@ -208,15 +208,18 @@ export default function GoalChatPage() {
   const [gpsData,    setGpsData]    = useState<any>(null);
   const [gpsSteps,   setGpsSteps]   = useState<any[]>([]);
   const [affiliates, setAffiliates] = useState<AffiliateProduct[]>([]);
-  const [countdown,  setCountdown]  = useState(false);
-  const [goalId,     setGoalId]     = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [userName,   setUserName]   = useState('');
+  const [countdown,         setCountdown]         = useState(false);
+  const [showTemplatePrompt,setShowTemplatePrompt] = useState(false);
+  const [templateSaving,    setTemplateSaving]     = useState(false);
+  const [goalId,            setGoalId]             = useState<string | null>(null);
+  const [generating,        setGenerating]         = useState(false);
+  const [userName,          setUserName]           = useState('');
 
   const scrollRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
 
   // Load user name and start conversation
+  // Note: don't call speak() here — browsers block autoplay before user interaction
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
@@ -224,7 +227,6 @@ export default function GoalChatPage() {
         .then(({ data }: any) => {
           const name = data?.display_name || data?.username || 'Villager';
           setUserName(name);
-          // Open with Spirit's greeting
           const greeting = `Hey ${name}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nWhat goal are we building today?`;
           setMessages([{
             id:        spiritId(),
@@ -232,7 +234,8 @@ export default function GoalChatPage() {
             content:   greeting,
             timestamp: new Date(),
           }]);
-          speak(greeting.split('\n')[0], 'casual');
+          // Store greeting so we can speak it after first user interaction
+          sessionStorage.setItem('spirit_pending_speak', greeting.split('\n')[0]);
         });
     });
   }, []);
@@ -252,6 +255,10 @@ export default function GoalChatPage() {
 
   const sendMessage = useCallback(async () => {
     if (!input.trim() || typing || generating) return;
+
+    // Speak any pending greeting (must happen after user interaction for autoplay to work)
+    const pending = sessionStorage.getItem('spirit_pending_speak');
+    if (pending) { sessionStorage.removeItem('spirit_pending_speak'); speak(pending, 'casual'); }
 
     const userMsg: ChatMessage = {
       id: userId(), role: 'user', content: input.trim(), timestamp: new Date(),
@@ -337,22 +344,45 @@ export default function GoalChatPage() {
   function handleCountdownComplete() {
     setCountdown(false);
     setPhase('launched');
+    // Ask about template before navigating
+    setShowTemplatePrompt(true);
+    const prompt = `Your GPS is live! 🎉 Before you head in — would you like to share this goal plan as a template? Other villagers working toward the same thing can clone it and get a headstart.`;
+    speak(prompt, 'casual');
+  }
 
-    // Check first-time flags
-    const needsTradingTour  = localStorage.getItem('villa9e_needs_trading_tour') === '1';
-    const needsBudgetSetup  = localStorage.getItem('villa9e_needs_budget_setup') === '1';
+  function navigateToGoal() {
+    const needsTradingTour = localStorage.getItem('villa9e_needs_trading_tour') === '1';
+    const needsBudgetSetup = localStorage.getItem('villa9e_needs_budget_setup') === '1';
+    if (needsTradingTour) {
+      localStorage.removeItem('villa9e_needs_trading_tour');
+      router.push('/village/workshop/goal/' + goalId + '?tour=trading');
+    } else if (needsBudgetSetup) {
+      localStorage.removeItem('villa9e_needs_budget_setup');
+      router.push('/village/workshop/goal/' + goalId + '?tour=budget');
+    } else {
+      router.push('/village/workshop/goal/' + goalId);
+    }
+  }
 
-    setTimeout(() => {
-      if (needsTradingTour) {
-        localStorage.removeItem('villa9e_needs_trading_tour');
-        router.push('/village/workshop/goal/' + goalId + '?tour=trading');
-      } else if (needsBudgetSetup) {
-        localStorage.removeItem('villa9e_needs_budget_setup');
-        router.push('/village/workshop/goal/' + goalId + '?tour=budget');
-      } else {
-        router.push('/village/workshop/goal/' + goalId);
-      }
-    }, 800);
+  async function handleShareTemplate() {
+    if (!goalId) { navigateToGoal(); return; }
+    setTemplateSaving(true);
+    try {
+      await fetch('/api/goals/template', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ goalId }),
+      });
+      speak('Template shared! Other villagers can now clone your plan. That\'s leadership.', 'casual');
+    } catch { /* non-blocking */ }
+    setTemplateSaving(false);
+    setShowTemplatePrompt(false);
+    setTimeout(navigateToGoal, 1000);
+  }
+
+  function handleSkipTemplate() {
+    setShowTemplatePrompt(false);
+    navigateToGoal();
   }
 
   // Enter key sends
@@ -508,6 +538,73 @@ export default function GoalChatPage() {
       {/* ── Countdown ───────────────────────────────────────────────── */}
       <AnimatePresence>
         {countdown && <CountdownOverlay onComplete={handleCountdownComplete} />}
+      </AnimatePresence>
+
+      {/* ── Template prompt — appears after countdown ───────────────── */}
+      <AnimatePresence>
+        {showTemplatePrompt && (
+          <motion.div
+            className="fixed inset-0 z-[90] flex items-end justify-center pb-8 px-4"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-3xl p-6 space-y-5"
+              style={{ background: isNight ? '#0D1020' : '#FFFFFF', border: `1px solid ${border}` }}
+              initial={{ y: 60, opacity: 0, scale: 0.95 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+            >
+              {/* Spirit asking */}
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-lg"
+                  style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)' }}>
+                  🌿
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm leading-relaxed" style={{ color: text }}>
+                    Your GPS is live! 🎉 Would you like to share this goal plan as a <strong>template</strong> that other villagers can clone and use?
+                  </p>
+                  <p className="text-xs mt-1.5" style={{ color: muted }}>
+                    You get +5 $VLG every time someone clones it. That&apos;s leadership.
+                  </p>
+                </div>
+              </div>
+
+              {/* Action buttons */}
+              <div className="grid grid-cols-2 gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleShareTemplate}
+                  disabled={templateSaving}
+                  className="py-3.5 rounded-2xl text-sm font-black transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg,#7C3AED,#1877F2)',
+                    color:      '#fff',
+                    boxShadow:  '0 4px 20px rgba(124,58,237,0.4)',
+                  }}
+                >
+                  {templateSaving ? '…' : '🌟 Yes, share it'}
+                </motion.button>
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleSkipTemplate}
+                  className="py-3.5 rounded-2xl text-sm font-bold transition-all"
+                  style={{
+                    background: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                    color:      muted,
+                    border:     `1px solid ${border}`,
+                  }}
+                >
+                  Keep it private
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );

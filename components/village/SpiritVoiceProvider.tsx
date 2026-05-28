@@ -74,7 +74,11 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
         signal:  ctrl.signal,
       });
 
-      if (!res.ok || ctrl.signal.aborted) { setSpeaking(false); return; }
+      if (!res.ok || ctrl.signal.aborted) {
+        setSpeaking(false);
+        if (!res.ok) console.warn(`Spirit voice API error ${res.status} — check ELEVENLABS_API_KEY in Vercel env vars`);
+        return;
+      }
 
       const blob = await res.blob();
       if (ctrl.signal.aborted) { setSpeaking(false); return; }
@@ -86,9 +90,18 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
       audio.onended = () => { URL.revokeObjectURL(url); setSpeaking(false); };
       audio.onerror = () => { URL.revokeObjectURL(url); setSpeaking(false); };
 
+      // audio.play() throws DOMException if called before user interaction
+      // Caller is responsible for ensuring this runs after a user gesture
       await audio.play();
     } catch (e: any) {
-      if (e.name !== 'AbortError') console.error('Spirit voice error:', e.message);
+      if (e.name !== 'AbortError') {
+        // NotAllowedError = browser blocked autoplay; user must interact first
+        if (e.name === 'NotAllowedError') {
+          console.warn('Spirit voice blocked — needs user interaction first');
+        } else {
+          console.error('Spirit voice error:', e.message);
+        }
+      }
       setSpeaking(false);
     }
   }, [stop]);
