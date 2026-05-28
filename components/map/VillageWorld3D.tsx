@@ -36,13 +36,14 @@ const LOCATIONS = [
   { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number] },
 ];
 
-// ─── Radial crescent menu ─────────────────────────────────────────────────────
+// ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
+// Using simple Unicode symbols that read as flat/monotone
 const MENU_ITEMS = [
-  { id: 'messages', icon: '💬', label: 'Messages', href: '/messages' },
-  { id: 'goal',     icon: '🎯', label: 'New Goal',  href: '/village/workshop?new=1' },
-  { id: 'studio',  icon: '📷', label: 'Create',    href: '/village/studio' },
-  { id: 'map',     icon: '🗺️', label: 'Map',       href: null },
-  { id: 'settings',icon: '⚙️', label: 'Settings',  href: '/village/hut/settings' },
+  { id: 'messages', icon: '◉', label: 'Messages', href: '/messages',             svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
+  { id: 'goal',     icon: '◎', label: 'New Goal',  href: '/village/workshop?new=1', svg: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 14l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L19 9l-7 7z' },
+  { id: 'studio',  icon: '◌', label: 'Create',    href: '/village/studio',        svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
+  { id: 'map',     icon: '◈', label: 'Map',       href: null,                     svg: 'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z' },
+  { id: 'settings',icon: '◇', label: 'Settings',  href: '/village/hut/settings',  svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
 ] as const;
 type MenuId = typeof MENU_ITEMS[number]['id'];
 
@@ -1591,14 +1592,10 @@ function WorldScene({
       {/* Sacred fire */}
       <SacredFire />
 
-      {/* Floating Spirit figure above the fire — user's selected variant */}
-      <group position={[0, 1.8, 0]}>
-        <SpiritFigure variant={spiritVariant} scale={1.2} index={0} />
-      </group>
-      {/* Gentle glow beneath Spirit */}
+      {/* Fire ground glow only — Spirit companion follows the player now */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
         <circleGeometry args={[1.2, 32]} />
-        <meshBasicMaterial color="#1877F2" transparent opacity={0.08} />
+        <meshBasicMaterial color="#FF6020" transparent opacity={0.06} />
       </mesh>
 
       {/* Buildings */}
@@ -1967,9 +1964,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   }, [router]);
 
   const SPIRIT_ITEMS = [
-    { id: 'spirit-chat', icon: '💬', label: 'Talk to Spirit', href: '/village/spirit' },
-    { id: 'spirit-mute', icon: voiceEnabled ? '🔇' : '🔊', label: voiceEnabled ? 'Mute Spirit' : 'Unmute Spirit', href: null },
-    { id: 'spirit-gear', icon: '⚙️', label: 'Spirit Settings', href: '/village/spirit/settings' },
+    { id: 'spirit-chat', label: 'Talk to Spirit',     href: '/village/spirit',           svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
+    { id: 'spirit-mute', label: voiceEnabled ? 'Mute' : 'Unmute', href: null,            svg: voiceEnabled ? 'M16.5 12A4.5 4.5 0 0014 7.97v1.79l2.48 2.48c.01-.08.02-.16.02-.24zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06A8.99 8.99 0 0011.07 19H11v-4.73L6.27 9H3V7.97c0 .01 0 .01 0 0L4.27 3zM12 4L9.91 6.09 12 8.18V4z' : 'M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z' },
+    { id: 'spirit-gear', label: 'Spirit Settings',   href: '/village/spirit/settings',   svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
   ] as const;
 
   function handleTwoFingerStart(e: React.TouchEvent) {
@@ -2066,29 +2063,37 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                 initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
                 animate={{ x: cp.x, y: cp.y, scale: 1, opacity: 1 }}
                 exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                whileHover={{ scale: 1.22 }}
+                whileTap={{ scale: 0.92 }}
                 transition={{ type: 'spring', stiffness: 480, damping: 28, delay: i * 0.045 }}
                 style={{
                   position: 'absolute',
                   pointerEvents: 'all',
-                  width: 46,
-                  height: 46,
+                  width: 44,
+                  height: 44,
                   borderRadius: '50%',
-                  background: 'rgba(6,8,18,0.88)',
-                  border: '2px solid rgba(255,255,255,0.18)',
-                  backdropFilter: 'blur(12px)',
+                  background: 'rgba(8,10,22,0.92)',
+                  border: '1.5px solid rgba(255,255,255,0.14)',
+                  backdropFilter: 'blur(16px)',
                   cursor: 'pointer',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 20,
                   transform: 'translate(-50%,-50%)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                  boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
                 }}
-                onClick={() => handleAvatarMenuAction(item.id as MenuId, item.href as string | null)}
+                onClick={() => {
+                  if (navigator.vibrate) navigator.vibrate(8);
+                  handleAvatarMenuAction(item.id as MenuId, item.href as string | null);
+                }}
+                onPointerEnter={() => { if (navigator.vibrate) navigator.vibrate(4); }}
                 title={item.label}
               >
-                {item.icon}
+                {/* Monotone SVG icon */}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" xmlns="http://www.w3.org/2000/svg">
+                  <path d={item.svg} />
+                </svg>
               </motion.button>
             );
           })}
@@ -2117,10 +2122,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       >
         <AnimatePresence>
           {spiritMenuOpen && SPIRIT_ITEMS.map((item, i) => {
-            // 3 icons above spirit: left, top, right
             const angles = [135, 90, 45];
             const a = (angles[i] * Math.PI) / 180;
-            const r = 58;
+            const r = 60;
             const sx = Math.cos(a) * r;
             const sy = -Math.sin(a) * r;
             return (
@@ -2129,33 +2133,38 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                 initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
                 animate={{ x: sx, y: sy, scale: 1, opacity: 1 }}
                 exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                whileHover={{ scale: 1.2 }}
+                whileTap={{ scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 28, delay: i * 0.06 }}
                 style={{
                   position: 'absolute',
                   pointerEvents: 'all',
-                  width: 40,
-                  height: 40,
+                  width: 42,
+                  height: 42,
                   borderRadius: '50%',
-                  background: 'rgba(124,58,237,0.82)',
-                  border: '2px solid rgba(167,139,250,0.5)',
-                  backdropFilter: 'blur(10px)',
+                  background: 'rgba(8,10,22,0.92)',
+                  border: '1.5px solid rgba(167,139,250,0.4)',
+                  backdropFilter: 'blur(16px)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 17,
                   transform: 'translate(-50%,-50%)',
-                  boxShadow: '0 0 16px rgba(124,58,237,0.6)',
+                  boxShadow: '0 0 20px rgba(124,58,237,0.5)',
                 }}
                 onClick={() => {
+                  if (navigator.vibrate) navigator.vibrate(8);
                   setSpiritMenuOpen(false);
                   VillageSound.tap();
                   if (item.id === 'spirit-mute') { toggleVoice(); return; }
                   if (item.href) router.push(item.href);
                 }}
+                onPointerEnter={() => { if (navigator.vibrate) navigator.vibrate(4); }}
                 title={item.label}
               >
-                {item.icon}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(167,139,250,0.95)" xmlns="http://www.w3.org/2000/svg">
+                  <path d={item.svg} />
+                </svg>
               </motion.button>
             );
           })}
