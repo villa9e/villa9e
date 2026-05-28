@@ -750,7 +750,7 @@ export function HutBuilding({ hover }: { hover: boolean }) {
         </mesh>
         {/* Offering bowl on top */}
         <mesh position={[0, 1.1, 0]}>
-          <cylinderGeometry args={[0.18, 0.12, 0.1, 8]} />
+          <cylinderGeometry args={[0.18, 0.12, 0.1, 22]} />
           <meshToonMaterial color={deco} />
         </mesh>
       </group>

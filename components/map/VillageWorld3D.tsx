@@ -27,14 +27,14 @@ const BUILDING_SCALE = 2.8;
 // ─── Location data — positions spread for larger scaled buildings ─────────────
 // Collision sizes are geometry × BUILDING_SCALE
 const LOCATIONS = [
-  { id: 'workshop',     label: 'Workshop',     href: '/village/workshop',     pos: [-22, 0, -16] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number] },
-  { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number] },
-  { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number] },
-  { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number] },
-  { id: 'zen',          label: 'Zen Garden',   href: '/village/zen',           pos: [-34, 0,  -8] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number] },
-  { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number] },
-  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',   pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number] },
-  { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number] },
+  { id: 'workshop',     label: 'Workshop',        href: '/village/workshop',     pos: [-22, 0, -16] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number], doorColor: '#2A1500', doorType: 'cedar'  },
+  { id: 'dreamline',   label: 'Dream Line',       href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number], doorColor: '#D4C8B4', doorType: 'marble' },
+  { id: 'trading-post',label: 'Trading Post',     href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number], doorColor: '#5A3520', doorType: 'carved' },
+  { id: 'bank',         label: 'Bank',            href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number], doorColor: '#8B6914', doorType: 'brass'  },
+  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-34, 0,  -8] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
+  { id: 'tribes',       label: 'Tribes',          href: '/village/tribes',       pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
+  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',     pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number], doorColor: '#A8C8FF', doorType: 'glass'  },
+  { id: 'hut',          label: 'My Hut',          href: '/village/hut',          pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number], doorColor: '#3D2200', doorType: 'plank'  },
 ];
 
 // ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
@@ -286,7 +286,7 @@ function Stars({ visible }: { visible: boolean }) {
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, 200]}>
-      <sphereGeometry args={[1, 4, 3]} />
+      <sphereGeometry args={[1, 8, 6]} />
       <meshBasicMaterial color="#E8E8FF" />
     </instancedMesh>
   );
@@ -504,7 +504,7 @@ function River({ skyState, playerPos }: {
         <group key={i} position={pos as [number,number,number]}>
           {[0, 0.3, -0.3].map((dx, j) => (
             <mesh key={j} position={[dx * 0.4, 0, 0]}>
-              <coneGeometry args={[0.04, 0.55 + Math.random() * 0.3, 4]} />
+              <coneGeometry args={[0.04, 0.55 + Math.random() * 0.3, 7]} />
               <meshToonMaterial color={isNight ? '#2A4A2A' : '#4A7A2A'} />
             </mesh>
           ))}
@@ -518,12 +518,12 @@ function River({ skyState, playerPos }: {
       ].map((pos, i) => (
         <group key={i} position={pos as [number,number,number]}>
           <mesh castShadow>
-            <sphereGeometry args={[0.18 + Math.sin(i * 1.7) * 0.08, 8, 6]} />
+            <sphereGeometry args={[0.18 + Math.sin(i * 1.7) * 0.08, 16, 12]} />
             <meshToonMaterial color={isNight ? '#5A5040' : '#8A8070'} />
           </mesh>
           {/* Ripple ring around stone */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-            <ringGeometry args={[0.28, 0.38, 16]} />
+            <ringGeometry args={[0.28, 0.38, 32]} />
             <meshBasicMaterial color="#FFFFFF" transparent opacity={0.15} />
           </mesh>
         </group>
@@ -617,12 +617,12 @@ function Building({
         {/* Door frame — 1.25w × 1.22h local = 3.5w × 3.41h world (1.6× avatar) */}
         <mesh position={[0, 0.61, 1.76]} castShadow>
           <boxGeometry args={[1.28, 1.22, 0.13, 2, 4, 1]} />
-          <meshToonMaterial color={loc.color} />
+          <meshToonMaterial color={loc.doorColor} />
         </mesh>
         {/* Arch top of doorway */}
         <mesh position={[0, 1.28, 1.76]}>
-          <cylinderGeometry args={[0.64, 0.64, 0.15, 16, 1, false, 0, Math.PI]} />
-          <meshToonMaterial color={loc.color} />
+          <cylinderGeometry args={[0.64, 0.64, 0.15, 28, 1, false, 0, Math.PI]} />
+          <meshToonMaterial color={loc.doorColor} />
         </mesh>
         {/* Dark doorway opening */}
         <mesh position={[0, 0.61, 1.78]}>
@@ -632,11 +632,42 @@ function Building({
         {/* Hinge pivot at bottom-left of door — y=0 = ground level */}
         <group position={[-0.64, 0.0, 1.83]}>
           <group ref={doorRef}>
-            {/* Door panel extends upward from hinge pivot */}
-            <mesh position={[0.64, 0.59, 0.04]} castShadow>
-              <boxGeometry args={[1.28, 1.18, 0.07, 2, 4, 1]} />
-              <meshToonMaterial color={loc.color} />
-            </mesh>
+            {loc.doorType === 'glass' ? (
+              /* Glass sliding door — frosted panes */
+              <>
+                <mesh position={[0.64, 0.59, 0.04]} castShadow>
+                  <boxGeometry args={[1.28, 1.18, 0.04, 1, 1, 1]} />
+                  <meshPhongMaterial color={loc.doorColor} transparent opacity={0.38} shininess={120} />
+                </mesh>
+                {/* Frame rails */}
+                {[-0.6, 0.6].map((ox, i) => (
+                  <mesh key={i} position={[0.64 + ox * 0.0, 0.59, 0.06]}>
+                    <boxGeometry args={[0.06, 1.18, 0.04]} />
+                    <meshToonMaterial color="#AABBCC" />
+                  </mesh>
+                ))}
+              </>
+            ) : loc.doorType === 'bamboo' ? (
+              /* Bamboo shoji — vertical poles */
+              <>
+                <mesh position={[0.64, 0.59, 0.04]} castShadow>
+                  <boxGeometry args={[1.28, 1.18, 0.04, 1, 1, 1]} />
+                  <meshPhongMaterial color="#F5F0DC" transparent opacity={0.55} />
+                </mesh>
+                {[-0.44, -0.14, 0.14, 0.44].map((ox, i) => (
+                  <mesh key={i} position={[0.64 + ox, 0.59, 0.07]}>
+                    <cylinderGeometry args={[0.03, 0.03, 1.18, 10]} />
+                    <meshToonMaterial color={loc.doorColor} />
+                  </mesh>
+                ))}
+              </>
+            ) : (
+              /* Default solid door — cedar / marble / carved / brass / ebony / plank */
+              <mesh position={[0.64, 0.59, 0.04]} castShadow>
+                <boxGeometry args={[1.28, 1.18, 0.07, 2, 4, 1]} />
+                <meshToonMaterial color={loc.doorColor} />
+              </mesh>
+            )}
             {/* Door handle */}
             <mesh position={[1.18, 0.59, 0.1]}>
               <sphereGeometry args={[0.07, 12, 10]} />
@@ -644,7 +675,7 @@ function Building({
             </mesh>
             {/* Handle bar */}
             <mesh position={[1.18, 0.59, 0.12]} rotation={[0, 0, Math.PI/2]}>
-              <cylinderGeometry args={[0.025, 0.025, 0.18, 8]} />
+              <cylinderGeometry args={[0.025, 0.025, 0.18, 18]} />
               <meshToonMaterial color="#D4A820" />
             </mesh>
           </group>
@@ -845,7 +876,7 @@ function RainSystem({ intensity = 0, windAngle = 0 }: { intensity?: number; wind
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, 600]}>
-      <capsuleGeometry args={[0.015, 0.28, 2, 4]} />
+      <capsuleGeometry args={[0.015, 0.28, 3, 8]} />
       <meshBasicMaterial color="#C8E8FF" transparent opacity={0.4} />
     </instancedMesh>
   );
@@ -880,7 +911,7 @@ function WindGrass({ windStrength = 0, isNight = false }: { windStrength?: numbe
 
   return (
     <instancedMesh ref={ref} args={[undefined, undefined, 300]}>
-      <coneGeometry args={[0.04, 0.28, 3]} />
+      <coneGeometry args={[0.04, 0.28, 6]} />
       <meshToonMaterial color={isNight ? '#1A3A1A' : '#4A8A2A'} />
     </instancedMesh>
   );
@@ -1232,7 +1263,7 @@ function PlayerCharacter({
         </mesh>
         {/* Smile arc — tiny torus segment */}
         <mesh position={[0, -0.128, 0.422]} rotation={[0.1, 0, 0]}>
-          <torusGeometry args={[0.072, 0.016, 8, 14, Math.PI * 0.72]} />
+          <torusGeometry args={[0.072, 0.016, 12, 24, Math.PI * 0.72]} />
           <meshBasicMaterial color="#5A1A0A" />
         </mesh>
         {/* Left cheek blush */}
@@ -1843,7 +1874,7 @@ function SideDrawer({
   const [dragX, setDragX] = useState(0);
   const dragging = useRef(false);
 
-  const glassBg   = isNight ? 'rgba(6,8,18,0.90)' : 'rgba(240,244,255,0.90)';
+  const glassBg   = isNight ? 'rgba(6,8,18,0.80)' : 'rgba(240,244,255,0.80)';
   const glassEdge = isNight ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
   const headerBg  = isNight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.45)';
   const textColor = isNight ? '#F0EBE0' : '#1E1B4B';
@@ -2306,7 +2337,18 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'all',
           }}
-          onClick={() => { setAvatarMenuOpen(m => !m); setSpiritMenuOpen(false); }}
+          onClick={(e) => {
+            // Only open avatar menu if click is closer to avatar than to spirit
+            const al = parseFloat(avatarDivRef.current?.style.left ?? '0');
+            const at = parseFloat(avatarDivRef.current?.style.top ?? '0');
+            const sl = parseFloat(spiritDivRef.current?.style.left ?? '0');
+            const st = parseFloat(spiritDivRef.current?.style.top ?? '0');
+            const distToAvatar = Math.hypot(e.clientX - al, e.clientY - at);
+            const distToSpirit = Math.hypot(e.clientX - sl, e.clientY - st);
+            if (distToSpirit < distToAvatar) return;
+            setAvatarMenuOpen(m => !m);
+            setSpiritMenuOpen(false);
+          }}
         />
       </div>
 
@@ -2377,7 +2419,18 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             transform: 'translate(-50%, -50%)',
             pointerEvents: 'all',
           }}
-          onClick={() => { setSpiritMenuOpen(m => !m); setAvatarMenuOpen(false); }}
+          onClick={(e) => {
+            // Only open spirit menu if click is closer to spirit than to avatar
+            const sl = parseFloat(spiritDivRef.current?.style.left ?? '0');
+            const st = parseFloat(spiritDivRef.current?.style.top ?? '0');
+            const al = parseFloat(avatarDivRef.current?.style.left ?? '0');
+            const at = parseFloat(avatarDivRef.current?.style.top ?? '0');
+            const distToSpirit = Math.hypot(e.clientX - sl, e.clientY - st);
+            const distToAvatar = Math.hypot(e.clientX - al, e.clientY - at);
+            if (distToAvatar < distToSpirit) return;
+            setSpiritMenuOpen(m => !m);
+            setAvatarMenuOpen(false);
+          }}
         />
       </div>
 
