@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { WorkshopInterior } from '@/components/interiors/WorkshopInterior';
 
 export const metadata: Metadata = {
   title: 'Workshop — Goal GPS Engine | villa9e',
@@ -11,5 +12,5 @@ export const metadata: Metadata = {
 };
 
 export default function WorkshopLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return <WorkshopInterior>{children}</WorkshopInterior>;
 }
