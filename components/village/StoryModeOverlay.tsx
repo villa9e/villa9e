@@ -262,107 +262,128 @@ function StepPanel() {
         {showXP && <XPFloat xp={currentStep.xp} vlg={currentStep.vlg} />}
       </AnimatePresence>
 
-      {/* Main panel */}
-      <motion.div
-        initial={{ y: 100 }}
-        animate={{ y: 0 }}
-        className="fixed bottom-0 left-0 right-0 z-[100]"
+      {/* Collapse tab — always visible on right edge */}
+      <button
+        onClick={() => setExpanded(e => !e)}
+        className="fixed z-[101] flex items-center justify-center"
         style={{
-          background: 'linear-gradient(180deg, rgba(8,9,20,0.0) 0%, rgba(8,9,20,0.95) 15%)',
-          paddingTop: '20px',
+          right: expanded ? 'min(88vw, 340px)' : 0,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 24,
+          height: 56,
+          borderRadius: '8px 0 0 8px',
+          background: 'rgba(15,12,35,0.96)',
+          border: '1px solid rgba(124,58,237,0.5)',
+          borderRight: 'none',
+          transition: 'right 0.3s cubic-bezier(0.4,0,0.2,1)',
+          cursor: 'pointer',
         }}
       >
-        {/* Collapse toggle */}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-12 h-5 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(8,9,20,0.9)', border: '1px solid rgba(124,58,237,0.4)' }}
-        >
-          <span className="text-xs" style={{ color: '#7C3AED' }}>{expanded ? '▾' : '▴'}</span>
-        </button>
+        <span className="text-xs" style={{ color: '#7C3AED' }}>{expanded ? '›' : '‹'}</span>
+      </button>
 
-        <AnimatePresence>
-          {expanded && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="px-4 pb-safe-bottom"
-              style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}
+      {/* Side panel — slides in from the right */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            key="story-panel"
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+            className="fixed top-0 right-0 bottom-0 z-[100] flex flex-col"
+            style={{ width: 'min(88vw, 340px)' }}
+          >
+            {/* Glass background */}
+            <div className="flex flex-col h-full"
+              style={{
+                background: 'rgba(8,9,20,0.88)',
+                backdropFilter: 'blur(24px) saturate(150%)',
+                borderLeft: '1px solid rgba(124,58,237,0.3)',
+              }}
             >
-              <div className="max-w-2xl mx-auto">
-                {/* Sprint label */}
-                {sprintLabel && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px flex-1" style={{ background: 'rgba(124,58,237,0.3)' }} />
-                    <span className="text-xs font-bold px-2" style={{ color: '#7C3AED' }}>{sprintLabel}</span>
-                    <div className="h-px flex-1" style={{ background: 'rgba(124,58,237,0.3)' }} />
-                  </div>
-                )}
-
+              {/* Spirit header */}
+              <div className="flex items-center gap-2 px-4 pt-5 pb-3 flex-shrink-0"
+                style={{ borderBottom: '1px solid rgba(124,58,237,0.18)' }}>
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-base flex-shrink-0"
+                  style={{ background: 'rgba(124,58,237,0.2)', border: '1px solid rgba(124,58,237,0.5)' }}
+                >
+                  🌀
+                </motion.div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-black text-white text-xs leading-none">SPIRIT</p>
+                  <p className="text-[10px] mt-0.5 truncate" style={{ color: '#7C3AED' }}>
+                    {sprintLabel ?? 'Story Mode'}
+                  </p>
+                </div>
                 {/* Progress dots */}
                 {progress && (
-                  <div className="flex gap-1.5 justify-center mb-3">
+                  <div className="flex gap-1 flex-shrink-0">
                     {Array.from({ length: progress.total }).map((_, i) => (
                       <motion.div
                         key={i}
                         className="h-1.5 rounded-full"
                         style={{
-                          width: i < progress.done ? '20px' : '6px',
+                          width: i < progress.done ? 14 : 5,
                           background: i < progress.done ? '#7C3AED' : 'rgba(255,255,255,0.15)',
                         }}
-                        animate={{ width: i < progress.done ? '20px' : '6px' }}
+                        animate={{ width: i < progress.done ? 14 : 5 }}
                         transition={{ duration: 0.3 }}
                       />
                     ))}
                   </div>
                 )}
+              </div>
 
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarWidth: 'none' }}>
                 {/* Step card */}
-                <div className="rounded-2xl p-4 mb-3"
-                  style={{ background: 'rgba(15,12,35,0.92)', border: '1px solid rgba(124,58,237,0.35)' }}>
-
-                  {/* Header */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">{currentStep.emoji}</span>
-                    <div className="flex-1">
-                      <p className="font-black text-white text-sm">{currentStep.title}</p>
+                <div className="rounded-2xl p-4 mb-4"
+                  style={{ background: 'rgba(15,12,35,0.7)', border: '1px solid rgba(124,58,237,0.3)' }}>
+                  <div className="flex items-start gap-2 mb-3">
+                    <span className="text-2xl flex-shrink-0">{currentStep.emoji}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-black text-white text-sm leading-snug">{currentStep.title}</p>
+                      {currentStep.xp > 0 && (
+                        <span className="inline-block mt-1 text-xs font-bold px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(255,215,0,0.15)', color: '#FFD700' }}>
+                          +{currentStep.xp} XP
+                        </span>
+                      )}
                     </div>
-                    {currentStep.xp > 0 && (
-                      <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                        style={{ background: 'rgba(255,215,0,0.15)', color: '#FFD700' }}>
-                        +{currentStep.xp} XP
-                      </span>
-                    )}
                   </div>
 
-                  {/* Spirit text — typewriter */}
+                  {/* Spirit typewriter text */}
                   <div className="text-sm leading-relaxed mb-3" style={{ color: '#C4B5FD' }}>
                     <TypewriterText text={currentStep.body} speed={24} onDone={() => setTextDone(true)} />
                   </div>
 
                   {/* Action cue */}
-                  <div className="flex items-center gap-2 py-2 px-3 rounded-xl"
+                  <div className="flex items-start gap-2 py-2.5 px-3 rounded-xl"
                     style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)' }}>
-                    <span className="text-xs font-black" style={{ color: '#7C3AED' }}>ACTION</span>
-                    <span className="text-xs" style={{ color: '#A78BFA' }}>{currentStep.action}</span>
+                    <span className="text-[10px] font-black flex-shrink-0 mt-0.5" style={{ color: '#7C3AED' }}>ACTION</span>
+                    <span className="text-xs leading-snug" style={{ color: '#A78BFA' }}>{currentStep.action}</span>
                   </div>
                 </div>
 
                 {/* Buttons */}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <AnimatePresence>
                     {textDone && (
                       <motion.button
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
                         whileTap={{ scale: 0.96 }}
                         onClick={handleNavigate}
                         disabled={completing}
-                        className="flex-1 py-3.5 rounded-2xl font-black text-white text-sm transition-all disabled:opacity-50"
+                        className="w-full py-3.5 rounded-2xl font-black text-white text-sm disabled:opacity-50"
                         style={{
                           background: 'linear-gradient(135deg, #7C3AED, #1877F2)',
-                          boxShadow: '0 0 30px rgba(124,58,237,0.4)',
+                          boxShadow: '0 0 24px rgba(124,58,237,0.4)',
                         }}
                       >
                         {completing ? '⟳ Completing…' : currentStep.routeLabel}
@@ -370,7 +391,6 @@ function StepPanel() {
                     )}
                   </AnimatePresence>
 
-                  {/* "I did it" — manual complete if on the right page */}
                   {textDone && !currentStep.autoComplete && (
                     <motion.button
                       initial={{ opacity: 0 }}
@@ -378,25 +398,24 @@ function StepPanel() {
                       whileTap={{ scale: 0.95 }}
                       onClick={handleComplete}
                       disabled={completing}
-                      className="px-4 py-3.5 rounded-2xl font-bold text-sm transition-all"
-                      style={{ background: 'rgba(255,255,255,0.06)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.3)' }}
+                      className="w-full py-3 rounded-2xl font-bold text-sm"
+                      style={{ background: 'rgba(255,255,255,0.05)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.3)' }}
                     >
                       ✓ Done
                     </motion.button>
                   )}
-                </div>
 
-                {/* Exit story mode */}
-                <button onClick={exitStoryMode}
-                  className="w-full text-center text-xs mt-2 py-1.5 transition-colors"
-                  style={{ color: 'rgba(255,255,255,0.2)' }}>
-                  Exit Story Mode
-                </button>
+                  <button onClick={exitStoryMode}
+                    className="w-full text-center text-xs py-2"
+                    style={{ color: 'rgba(255,255,255,0.18)' }}>
+                    Exit Story Mode
+                  </button>
+                </div>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }
@@ -628,38 +647,66 @@ export function StoryModeOverlay() {
   return <StepPanel />;
 }
 
-// ─── Story Mode Trigger Button (shows on map) ─────────────────────────────────
+// ─── Story Mode Trigger Button — right-side tab ──────────────────────────────
 export function StoryModeTrigger() {
-  const { active, startStoryMode, selectGoal } = useStoryMode();
-  const [showBadge, setShowBadge] = useState(true);
+  const { active, startStoryMode } = useStoryMode();
 
   if (active) return null;
 
   return (
-    <AnimatePresence>
-      {showBadge && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          whileTap={{ scale: 0.94 }}
-          onClick={() => {
-            VillageSound.tap();
-            startStoryMode();
-          }}
-          className="flex items-center gap-2 rounded-full px-4 py-2.5 font-black text-white text-sm transition-all"
-          style={{
-            background: 'linear-gradient(135deg, #7C3AED, #1877F2)',
-            boxShadow: '0 0 30px rgba(124,58,237,0.5)',
-          }}
-        >
-          <motion.span animate={{ rotate: [0, 15, -15, 0] }} transition={{ duration: 2, repeat: Infinity }}>
-            🎮
-          </motion.span>
-          Story Mode
-          <span className="text-xs opacity-80">NEW</span>
-        </motion.button>
-      )}
-    </AnimatePresence>
+    <motion.button
+      initial={{ x: 80, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ delay: 1.2, type: 'spring', stiffness: 260, damping: 22 }}
+      whileHover={{ x: -4 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={() => { VillageSound.tap(); startStoryMode(); }}
+      className="fixed z-[90]"
+      style={{
+        right: 0,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 6,
+        padding: '14px 10px',
+        background: 'linear-gradient(180deg, #7C3AED, #1877F2)',
+        borderRadius: '12px 0 0 12px',
+        boxShadow: '-4px 0 24px rgba(124,58,237,0.45)',
+        cursor: 'pointer',
+        border: 'none',
+      }}
+    >
+      <motion.span
+        animate={{ rotate: [0, 15, -15, 0] }}
+        transition={{ duration: 2.5, repeat: Infinity }}
+        style={{ fontSize: 18 }}
+      >
+        🎮
+      </motion.span>
+      {/* Vertical text */}
+      <span style={{
+        fontSize: 10,
+        fontWeight: 900,
+        color: '#fff',
+        letterSpacing: '0.08em',
+        writingMode: 'vertical-rl',
+        textOrientation: 'mixed',
+        transform: 'rotate(180deg)',
+      }}>
+        STORY MODE
+      </span>
+      <span style={{
+        fontSize: 8,
+        fontWeight: 800,
+        color: 'rgba(255,255,255,0.7)',
+        background: 'rgba(255,255,255,0.2)',
+        padding: '2px 4px',
+        borderRadius: 4,
+      }}>
+        NEW
+      </span>
+    </motion.button>
   );
 }

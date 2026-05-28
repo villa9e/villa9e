@@ -283,10 +283,8 @@ function VillageMapPageInner() {
       {/* Story mode */}
       <StoryModeOverlay />
 
-      {/* Story mode trigger — bottom of screen */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
-        <StoryModeTrigger />
-      </div>
+      {/* Story mode trigger — fixed right-side tab (self-positioned) */}
+      <StoryModeTrigger />
 
       {/* Bottom hint */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-xs text-white/40 pointer-events-none" style={{ marginBottom: '48px' }}>
