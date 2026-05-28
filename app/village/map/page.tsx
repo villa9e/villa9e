@@ -12,7 +12,6 @@ import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 import { VillageLogo } from '@/components/brand/VillageLogo';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import VillageIllustration from '@/components/map/VillageIllustration';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
   loading: () => (
@@ -79,7 +78,7 @@ function VillageMapPageInner() {
   const [unreadCount, setUnreadCount]   = useState(0);
   const [showWelcome, setShowWelcome]   = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
-  const [mapMode, setMapMode]           = useState<'illustrated'|'world'|'3d'>('illustrated');
+  const [mapMode, setMapMode]           = useState<'world'|'3d'>('world');
   const [activeBuilding, setActiveBuilding] = useState<{ href: string; label: string } | null>(null);
   const searchParams = useSearchParams();
   const router       = useRouter();
@@ -275,8 +274,8 @@ function VillageMapPageInner() {
       {/* Map mode toggle */}
       <div className="absolute top-14 right-4 z-10 flex items-center gap-1 rounded-full p-0.5"
         style={{ background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(8px)' }}>
-        {([['illustrated','🖼','Art'],['world','🎮','World'],['3d','🗺','Map']] as const).map(([mode, icon, label]) => (
-          <button key={mode} onClick={() => setMapMode(mode)}
+        {([['world','🎮','World'],['3d','🗺','Map']] as const).map(([mode, icon, label]) => (
+          <button key={mode} onClick={() => setMapMode(mode as 'world'|'3d')}
             className="px-2.5 py-1 rounded-full text-xs font-bold transition-all flex items-center gap-1"
             style={{
               background: mapMode === mode ? 'rgba(255,255,255,0.25)' : 'transparent',
@@ -294,9 +293,8 @@ function VillageMapPageInner() {
       {/* Map — absolute fill so h-full works inside the flex child */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <div className="absolute inset-0 overflow-hidden">
-          {mapMode === 'illustrated' && <VillageIllustration onEnter={(href, label) => setActiveBuilding({ href, label })} />}
-          {mapMode === 'world'       && <VillageWorld3D onNavigate={(href, label) => setActiveBuilding({ href, label })} />}
-          {mapMode === '3d'          && <VillageMap3D />}
+          {mapMode === 'world' && <VillageWorld3D onNavigate={(href, label) => setActiveBuilding({ href, label })} />}
+          {mapMode === '3d'   && <VillageMap3D />}
         </div>
       </div>
 

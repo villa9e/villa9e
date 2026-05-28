@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useAdminEdit } from './AdminBar';
+import { useAdminEdit } from '@/lib/admin/adminContext';
 
 interface Props {
   configKey: string;

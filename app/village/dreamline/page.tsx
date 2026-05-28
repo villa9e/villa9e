@@ -319,7 +319,7 @@ export default function DreamLinePage() {
                           color:      given ? '#4ADE80' : '#fff',
                         }}
                       >
-                        {given ? '✓ OoWop'd' : '✊ OoWop'}
+                        {given ? "✓ OoWop'd" : '✊ OoWop'}
                       </motion.button>
                     </div>
                   </motion.div>
