@@ -240,7 +240,7 @@ function PostCard({
         <OoWopButton
           count={post.oowop_count || 0}
           hasGiven={givenOoWops.has(post.id)}
-          onGive={() => onOoWop(post)}
+          onGive={async () => { onOoWop(post); }}
           size="sm"
         />
 
