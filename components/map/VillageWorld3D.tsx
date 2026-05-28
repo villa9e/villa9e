@@ -1,7 +1,11 @@
 'use client';
-import { useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { AnimatePresence, motion } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+
+const VillageMap3DOverlay = dynamic(() => import('./VillageMap3D'), { ssr: false, loading: () => null });
 import { createClient } from '@/lib/supabase/client';
 import { useWeather } from '@/lib/theme/useWeather';
 import { VillageSound } from '@/lib/sounds/village';
@@ -15,21 +19,83 @@ import {
   ZenBuilding, TribesBuilding, HospitalBuilding, HutBuilding, SpiritShrine,
 } from './VillageBuildings';
 
-// ─── Location data with collision boxes ───────────────────────────────────────
+// ─── Building scale factor — buildings are 2.8× bigger than their geometry ───
+const BUILDING_SCALE = 2.8;
+
+// ─── Location data — positions spread for larger scaled buildings ─────────────
+// Collision sizes are geometry × BUILDING_SCALE
 const LOCATIONS = [
-  { id: 'workshop',     label: 'Workshop',     href: '/village/workshop',     pos: [-15, 0, -9]  as [number,number,number], color: '#E8770A', size: [3.5, 4, 3.5] as [number,number,number] },
-  { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [ 15, 0, -9]  as [number,number,number], color: '#7C3AED', size: [3.5, 3.5, 3.5] as [number,number,number] },
-  { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-15, 0,  9]  as [number,number,number], color: '#059669', size: [3.5, 3, 3.5] as [number,number,number] },
-  { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [ 15, 0,  9]  as [number,number,number], color: '#D97706', size: [3.5, 4, 3.5] as [number,number,number] },
-  { id: 'zen',          label: 'Zen',          href: '/village/zen',           pos: [-20, 0,  0]  as [number,number,number], color: '#0D9488', size: [3.5, 3, 3.5] as [number,number,number] },
-  { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [ 20, 0,  0]  as [number,number,number], color: '#BE185D', size: [3.5, 3.5, 3.5] as [number,number,number] },
-  { id: 'hospital',     label: 'Hospital',     href: '/village/hospital',      pos: [  0, 0, -17] as [number,number,number], color: '#16A34A', size: [3.5, 3.5, 3.5] as [number,number,number] },
-  { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  16] as [number,number,number], color: '#EA580C', size: [3, 3, 3] as [number,number,number] },
+  { id: 'workshop',     label: 'Workshop',     href: '/village/workshop',     pos: [-22, 0, -16] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number] },
+  { id: 'dreamline',   label: 'Dream Line',   href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number] },
+  { id: 'trading-post',label: 'Trading Post', href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number] },
+  { id: 'bank',         label: 'Bank',         href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number] },
+  { id: 'zen',          label: 'Zen',          href: '/village/zen',           pos: [-30, 0,   0] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number] },
+  { id: 'tribes',       label: 'Tribes',       href: '/village/tribes',        pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number] },
+  { id: 'hospital',     label: 'Hospital',     href: '/village/hospital',      pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number] },
+  { id: 'hut',          label: 'My Hut',       href: '/village/hut',           pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number] },
 ];
+
+// ─── Radial crescent menu ─────────────────────────────────────────────────────
+const MENU_ITEMS = [
+  { id: 'messages', icon: '💬', label: 'Messages', href: '/messages' },
+  { id: 'goal',     icon: '🎯', label: 'New Goal',  href: '/village/workshop?new=1' },
+  { id: 'studio',  icon: '📷', label: 'Create',    href: '/village/studio' },
+  { id: 'map',     icon: '🗺️', label: 'Map',       href: null },
+  { id: 'settings',icon: '⚙️', label: 'Settings',  href: '/village/hut/settings' },
+] as const;
+type MenuId = typeof MENU_ITEMS[number]['id'];
+
+// Crescent arc above the avatar head (angles in degrees, 0=right, CCW positive)
+// Positions relative to avatar head center, radius 78px
+const CRESCENT_R = 78;
+const CRESCENT_ANGLES_DEG = [135, 112, 90, 68, 45];
+const CRESCENT_POSITIONS = CRESCENT_ANGLES_DEG.map(deg => {
+  const rad = (deg * Math.PI) / 180;
+  return { x: Math.cos(rad) * CRESCENT_R, y: -Math.sin(rad) * CRESCENT_R };
+});
 
 const SPIRIT_POS: [number,number,number] = [0, 0, 0];
 
 // ─── Sun position from altitude/azimuth ──────────────────────────────────────
+// ─── HUDBridge — projects 3D avatar head to 2D screen coords every frame ─────
+// Updates DOM element directly (no setState) to avoid 60fps re-renders
+function HUDBridge({
+  playerPos,
+  avatarDivRef,
+  spiritDivRef,
+}: {
+  playerPos: React.MutableRefObject<THREE.Vector3>;
+  avatarDivRef: React.MutableRefObject<HTMLDivElement | null>;
+  spiritDivRef: React.MutableRefObject<HTMLDivElement | null>;
+}) {
+  const { camera, size } = useThree();
+  useFrame(() => {
+    // Avatar head position
+    const headWorld = playerPos.current.clone();
+    headWorld.y += 2.3;
+    headWorld.project(camera);
+    const ax = Math.round((headWorld.x * 0.5 + 0.5) * size.width);
+    const ay = Math.round((headWorld.y * -0.5 + 0.5) * size.height);
+    if (avatarDivRef.current) {
+      avatarDivRef.current.style.left = `${ax}px`;
+      avatarDivRef.current.style.top  = `${ay}px`;
+    }
+    // Spirit position (floats behind player)
+    const spiritWorld = playerPos.current.clone();
+    spiritWorld.x -= Math.sin(playerPos.current.x * 0.1) * 0.8;
+    spiritWorld.y += 2.8;
+    spiritWorld.z += 1.2;
+    spiritWorld.project(camera);
+    const sx = Math.round((spiritWorld.x * 0.5 + 0.5) * size.width);
+    const sy = Math.round((spiritWorld.y * -0.5 + 0.5) * size.height);
+    if (spiritDivRef.current) {
+      spiritDivRef.current.style.left = `${sx}px`;
+      spiritDivRef.current.style.top  = `${sy}px`;
+    }
+  });
+  return null;
+}
+
 function sunPosFromAngles(altitude: number, azimuth: number, dist = 60): [number,number,number] {
   const altR = (altitude * Math.PI) / 180;
   const azR  = (azimuth  * Math.PI) / 180;
@@ -487,28 +553,94 @@ const BUILDING_MAP: Record<string, React.FC<{ hover: boolean }>> = {
   spirit:         SpiritShrine,
 };
 
-function Building({ loc, onEnter }: { loc: typeof LOCATIONS[0]; onEnter: (href: string, label: string) => void }) {
+function Building({
+  loc, onEnter, isNear,
+}: {
+  loc: typeof LOCATIONS[0];
+  onEnter: (href: string, label: string) => void;
+  isNear: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
   const [x,, z]  = loc.pos;
   const ArchComp = BUILDING_MAP[loc.id];
+  // Door hinge pivot — swings open when player is near
+  const doorRef  = useRef<THREE.Group>(null);
+  const glowRef  = useRef<THREE.Mesh>(null);
+
+  useFrame(state => {
+    // Door swings inward (−Y axis rotation = opens toward player at +Z)
+    if (doorRef.current) {
+      const target = isNear ? -Math.PI * 0.75 : 0;
+      doorRef.current.rotation.y = THREE.MathUtils.lerp(doorRef.current.rotation.y, target, 0.055);
+    }
+    // Entrance glow pulses when near
+    if (glowRef.current) {
+      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = isNear
+        ? 0.22 + Math.sin(state.clock.elapsedTime * 3) * 0.1
+        : 0;
+    }
+  });
+
+  // Scale the shadow circle to match building scale
+  const shadowR = 6.5;
 
   return (
-    <group position={[x, 0, z]}
-      onPointerUp={e => { e.stopPropagation(); onEnter(loc.href, loc.label); }}
-      onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
-      onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}>
-      {/* Ground shadow */}
+    <group position={[x, 0, z]}>
+      {/* Large ground shadow */}
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
-        <circleGeometry args={[2.4, 48]} />
-        <meshBasicMaterial color="#000000" transparent opacity={0.08} />
+        <circleGeometry args={[shadowR, 48]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.07} />
       </mesh>
-      {/* Distinct architecture per location */}
-      {ArchComp && <ArchComp hover={hovered} />}
-      {/* Hover selection ring */}
-      {hovered && (
-        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.03, 0]}>
-          <ringGeometry args={[2.2, 2.6, 24]} />
-          <meshBasicMaterial color={loc.color} transparent opacity={0.45} />
+
+      {/* Entrance glow ring — pulses when player nearby */}
+      <mesh ref={glowRef} rotation={[-Math.PI/2, 0, 0]} position={[0, 0.04, shadowR * 0.45]}>
+        <ringGeometry args={[2.5, 3.8, 40]} />
+        <meshBasicMaterial color={loc.color} transparent opacity={0} />
+      </mesh>
+
+      {/* Building geometry at 2.8× scale */}
+      <group
+        scale={BUILDING_SCALE}
+        onPointerUp={e => { e.stopPropagation(); onEnter(loc.href, loc.label); }}
+        onPointerOver={() => { setHovered(true); document.body.style.cursor = 'pointer'; }}
+        onPointerOut={() => { setHovered(false); document.body.style.cursor = 'default'; }}
+      >
+        {ArchComp && <ArchComp hover={hovered} />}
+
+        {/* ── Animated door — hinge at left edge, opens inward ── */}
+        {/* Door frame */}
+        <mesh position={[0, -0.52, 1.76]} castShadow>
+          <boxGeometry args={[1.15, 2.35, 0.12, 2, 4, 1]} />
+          <meshToonMaterial color={loc.color} />
+        </mesh>
+        {/* Hinge group — pivot left edge of door */}
+        <group position={[-0.575, -0.52, 1.82]}>
+          <group ref={doorRef}>
+            {/* Door panel (offset right from hinge so it swings from left edge) */}
+            <mesh position={[0.575, 0, 0.04]} castShadow>
+              <boxGeometry args={[1.15, 2.2, 0.07, 2, 4, 1]} />
+              <meshToonMaterial color={loc.color} />
+            </mesh>
+            {/* Door handle */}
+            <mesh position={[1.02, 0, 0.1]}>
+              <sphereGeometry args={[0.065, 12, 10]} />
+              <meshToonMaterial color="#D4A820" />
+            </mesh>
+          </group>
+        </group>
+        {/* Door threshold step */}
+        <mesh position={[0, -1.68, 1.85]}>
+          <boxGeometry args={[1.3, 0.08, 0.55, 2, 1, 1]} />
+          <meshToonMaterial color="#8B6914" />
+        </mesh>
+      </group>
+
+      {/* Hover ring at ground level */}
+      {(hovered || isNear) && (
+        <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.06, 0]}>
+          <ringGeometry args={[shadowR - 0.6, shadowR + 0.4, 48]} />
+          <meshBasicMaterial color={loc.color} transparent opacity={isNear ? 0.55 : 0.35} />
         </mesh>
       )}
     </group>
@@ -625,7 +757,7 @@ function Ground({ isNight }: { isNight: boolean }) {
   return (
     <>
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]} receiveShadow>
-        <planeGeometry args={[90, 90, 50, 50]} />
+        <planeGeometry args={[130, 130, 60, 60]} />
         <meshToonMaterial color={grassColor} map={groundTex.current} />
       </mesh>
       {LOCATIONS.map(loc => {
@@ -741,7 +873,7 @@ function ForestRing({ windStrength = 0, isNight = false }: { windStrength?: numb
     const types = ['tall', 'broad', 'conifer', 'palm', 'baobab'];
     for (let i = 0; i < 100; i++) {
       const angle  = (i / 100) * Math.PI * 2 + Math.random() * 0.15;
-      const radius = 28 + Math.random() * 12;
+      const radius = 40 + Math.random() * 14;
       result.push({
         x:     Math.cos(angle) * radius,
         z:     Math.sin(angle) * radius,
@@ -754,7 +886,7 @@ function ForestRing({ windStrength = 0, isNight = false }: { windStrength?: numb
     // Interior forest patches — fill between center and ring
     for (let i = 0; i < 40; i++) {
       const angle  = Math.random() * Math.PI * 2;
-      const radius = 22 + Math.random() * 6;
+      const radius = 32 + Math.random() * 8;
       result.push({
         x:     Math.cos(angle) * radius,
         z:     Math.sin(angle) * radius,
@@ -1315,10 +1447,10 @@ function SceneLighting({ skyState }: { skyState: any }) {
         shadow-mapSize-height={2048}
         shadow-camera-near={0.5}
         shadow-camera-far={90}
-        shadow-camera-left={-38}
-        shadow-camera-right={38}
-        shadow-camera-top={38}
-        shadow-camera-bottom={-38}
+        shadow-camera-left={-55}
+        shadow-camera-right={55}
+        shadow-camera-top={55}
+        shadow-camera-bottom={-55}
         shadow-bias={-0.0003}
         shadow-normalBias={0.02}
       />
@@ -1375,7 +1507,8 @@ interface RemotePlayer {
 
 function WorldScene({
   playerPos, playerRot, isMoving, remotePlayers, onEnterBuilding, skyState, spiritVariant,
-  cameraZoom, cameraAzimuth, weather,
+  cameraZoom, cameraAzimuth, weather, nearBuildingId,
+  avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
@@ -1387,6 +1520,11 @@ function WorldScene({
   cameraZoom: React.MutableRefObject<number>;
   cameraAzimuth: React.MutableRefObject<number>;
   weather?: { rain?: number; wind?: number; windAngle?: number };
+  nearBuildingId: string | null;
+  avatarDivRef: React.MutableRefObject<HTMLDivElement | null>;
+  spiritDivRef: React.MutableRefObject<HTMLDivElement | null>;
+  onAvatarTap: () => void;
+  onSpiritTap: () => void;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -1464,7 +1602,7 @@ function WorldScene({
 
       {/* Buildings */}
       {LOCATIONS.map(loc => (
-        <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} />
+        <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} isNear={nearBuildingId === loc.id} />
       ))}
 
       {/* Tribal village forest — dense ring + interior trees */}
@@ -1498,19 +1636,27 @@ function WorldScene({
         />
       ))}
 
-      {/* Local player — pass refs so useFrame reads live values every tick */}
-      <PlayerCharacter
-        position={playerPos.current}
-        rotation={playerRot.current}
-        posRef={playerPos}
-        rotRef={playerRot}
-        skinColor="#8D5524"
-        isLocal={true}
-        isMovingRef={isMoving}
-      />
+      {/* Local player — tap to open crescent menu */}
+      <group onPointerUp={e => { e.stopPropagation(); onAvatarTap(); }}>
+        <PlayerCharacter
+          position={playerPos.current}
+          rotation={playerRot.current}
+          posRef={playerPos}
+          rotRef={playerRot}
+          skinColor="#8D5524"
+          isLocal={true}
+          isMovingRef={isMoving}
+        />
+      </group>
+
+      {/* Spirit companion — smaller, floats behind player, glows */}
+      <SpiritCompanion playerPos={playerPos} spiritVariant={spiritVariant} onTap={onSpiritTap} />
 
       {/* Camera follow */}
       <CameraFollow targetPos={playerPos} cameraZoom={cameraZoom} cameraAzimuth={cameraAzimuth} />
+
+      {/* HUDBridge — projects screen positions for DOM overlays */}
+      <HUDBridge playerPos={playerPos} avatarDivRef={avatarDivRef} spiritDivRef={spiritDivRef} />
 
       {/* Fireflies */}
       <Fireflies count={isNight ? 35 : 12} isNight={isNight} />
@@ -1519,6 +1665,65 @@ function WorldScene({
 }
 
 // ─── Virtual joystick (mobile) ────────────────────────────────────────────────
+// ─── Spirit companion — small, follows player, luminescent glow ───────────────
+function SpiritCompanion({
+  playerPos, spiritVariant, onTap,
+}: {
+  playerPos: React.MutableRefObject<THREE.Vector3>;
+  spiritVariant: SpiritVariantId;
+  onTap: () => void;
+}) {
+  const groupRef  = useRef<THREE.Group>(null);
+  const glowRef   = useRef<THREE.Mesh>(null);
+  const floatPhase = useRef(Math.random() * Math.PI * 2);
+
+  useFrame(state => {
+    if (!groupRef.current) return;
+    const t   = state.clock.elapsedTime;
+    const ph  = floatPhase.current;
+
+    // Float lazily behind player
+    const targetX = playerPos.current.x - Math.sin(playerPos.current.x * 0.05 + t * 0.3) * 1.5;
+    const targetZ = playerPos.current.z + 2.2;
+    const targetY = 1.8 + Math.sin(t * 0.9 + ph) * 0.18;
+
+    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetX, 0.04);
+    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetY, 0.06);
+    groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, targetZ, 0.04);
+    groupRef.current.rotation.y = t * 0.4;
+
+    // Pulse the glow
+    if (glowRef.current) {
+      const mat = glowRef.current.material as THREE.MeshBasicMaterial;
+      mat.opacity = 0.15 + Math.sin(t * 1.6 + ph) * 0.08;
+      glowRef.current.scale.setScalar(1 + Math.sin(t * 1.2) * 0.06);
+    }
+  });
+
+  return (
+    <group
+      ref={groupRef}
+      position={[playerPos.current.x, 1.8, playerPos.current.z + 2.2]}
+      onPointerUp={e => { e.stopPropagation(); onTap(); }}
+    >
+      {/* Outer luminescent glow sphere */}
+      <mesh ref={glowRef}>
+        <sphereGeometry args={[0.55, 24, 18]} />
+        <meshBasicMaterial color="#60A5FA" transparent opacity={0.15} />
+      </mesh>
+      {/* Mid glow ring */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <torusGeometry args={[0.45, 0.06, 10, 32]} />
+        <meshBasicMaterial color="#7C3AED" transparent opacity={0.35} />
+      </mesh>
+      {/* Spirit figure — scaled down to 0.55 */}
+      <group scale={0.55}>
+        <SpiritFigure variant={spiritVariant} scale={1} index={0} />
+      </group>
+    </group>
+  );
+}
+
 function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void }) {
   const stickRef = useRef<HTMLDivElement>(null);
   const touching = useRef(false);
@@ -1590,10 +1795,22 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const cameraAzimuth = useRef(0);
   const gestureRef   = useRef({ lastDist: 0, lastMidX: 0, active: false });
 
-  const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
-  const [nearBuilding, setNearBuilding]   = useState<{ href: string; label: string } | null>(null);
-  const [enterPrompt, setEnterPrompt]     = useState(false);
-  const nearBuildingRef = useRef<{ href: string; label: string } | null>(null);
+  const [remotePlayers, setRemotePlayers]   = useState<RemotePlayer[]>([]);
+  const [nearBuilding, setNearBuilding]     = useState<{ id: string; href: string; label: string } | null>(null);
+  const [enterPrompt, setEnterPrompt]       = useState(false);
+  const nearBuildingRef = useRef<{ id: string; href: string; label: string } | null>(null);
+
+  // ── Avatar crescent menu ──────────────────────────────────────────────────
+  const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const avatarDivRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Spirit companion menu ─────────────────────────────────────────────────
+  const [spiritMenuOpen, setSpiritMenuOpen] = useState(false);
+  const spiritDivRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Map overlay (triggered from avatar menu) ──────────────────────────────
+  const [showMapOverlay, setShowMapOverlay] = useState(false);
+
   const channelRef = useRef<any>(null);
 
   // ── Multiplayer presence ──────────────────────────────────────────────────
@@ -1701,20 +1918,20 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           }
         }
         // River boundary (left edge)
-        if (nx < -25) blocked = true;
-        if (Math.abs(nx) > 28 || Math.abs(nz) > 26) blocked = true;
+        if (nx < -38) blocked = true;
+        if (Math.abs(nx) > 40 || Math.abs(nz) > 38) blocked = true;
 
         if (!blocked) {
           playerPos.current.set(nx, 0, nz);
           playerRot.current = Math.atan2(dx, dz);
         }
 
-        let nearest: { href: string; label: string; dist: number } | null = null;
+        let nearest: { id: string; href: string; label: string; dist: number } | null = null;
         for (const loc of LOCATIONS) {
           const [bx,,bz] = loc.pos;
           const dist = Math.sqrt((playerPos.current.x-bx)**2 + (playerPos.current.z-bz)**2);
           if (dist < 4.5 && (!nearest || dist < nearest.dist)) {
-            nearest = { href: loc.href, label: loc.label, dist };
+            nearest = { id: loc.id, href: loc.href, label: loc.label, dist };
           }
         }
         nearBuildingRef.current = nearest;
@@ -1732,9 +1949,26 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
+    setAvatarMenuOpen(false);
     if (onNavigate) onNavigate(href, label);
     else router.push(href);
   }
+
+  const handleAvatarMenuAction = useCallback((id: MenuId, href: string | null) => {
+    setAvatarMenuOpen(false);
+    VillageSound.tap();
+    if (id === 'map') {
+      setShowMapOverlay(true);
+      return;
+    }
+    if (href) router.push(href);
+  }, [router]);
+
+  const SPIRIT_ITEMS = [
+    { id: 'spirit-chat', icon: '💬', label: 'Talk to Spirit', href: '/village/spirit' },
+    { id: 'spirit-mute', icon: '🔇', label: 'Mute Spirit',    href: null },
+    { id: 'spirit-gear', icon: '⚙️', label: 'Spirit Settings',href: '/village/spirit/settings' },
+  ] as const;
 
   function handleTwoFingerStart(e: React.TouchEvent) {
     if (e.touches.length !== 2) return;
@@ -1783,6 +2017,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       onTouchMove={handleTwoFingerMove}
       onTouchEnd={handleTwoFingerEnd}
     >
+      {/* ── 3D Canvas ──────────────────────────────────────────────── */}
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         gl={{
@@ -1807,48 +2042,208 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           cameraZoom={cameraZoom}
           cameraAzimuth={cameraAzimuth}
           weather={weatherData}
+          nearBuildingId={nearBuilding?.id ?? null}
+          avatarDivRef={avatarDivRef}
+          spiritDivRef={spiritDivRef}
+          onAvatarTap={() => { setAvatarMenuOpen(m => !m); setSpiritMenuOpen(false); }}
+          onSpiritTap={() => { setSpiritMenuOpen(m => !m); setAvatarMenuOpen(false); }}
         />
       </Canvas>
 
-      {/* Virtual joystick (mobile) */}
+      {/* ── Avatar crescent menu — positioned over avatar head ─────── */}
+      <div
+        ref={avatarDivRef}
+        style={{ position: 'absolute', pointerEvents: 'none', transform: 'translate(-50%, -50%)' }}
+      >
+        <AnimatePresence>
+          {avatarMenuOpen && MENU_ITEMS.map((item, i) => {
+            const cp = CRESCENT_POSITIONS[i];
+            return (
+              <motion.button
+                key={item.id}
+                initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                animate={{ x: cp.x, y: cp.y, scale: 1, opacity: 1 }}
+                exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 480, damping: 28, delay: i * 0.045 }}
+                style={{
+                  position: 'absolute',
+                  pointerEvents: 'all',
+                  width: 46,
+                  height: 46,
+                  borderRadius: '50%',
+                  background: 'rgba(6,8,18,0.88)',
+                  border: '2px solid rgba(255,255,255,0.18)',
+                  backdropFilter: 'blur(12px)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 20,
+                  transform: 'translate(-50%,-50%)',
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                }}
+                onClick={() => handleAvatarMenuAction(item.id as MenuId, item.href as string | null)}
+                title={item.label}
+              >
+                {item.icon}
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+        {/* Tap-target ring on the avatar — invisible but clickable */}
+        <button
+          style={{
+            position: 'absolute',
+            width: 60,
+            height: 60,
+            borderRadius: '50%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'all',
+          }}
+          onClick={() => { setAvatarMenuOpen(m => !m); setSpiritMenuOpen(false); }}
+        />
+      </div>
+
+      {/* ── Spirit companion menu — 3 items above Spirit ───────────── */}
+      <div
+        ref={spiritDivRef}
+        style={{ position: 'absolute', pointerEvents: 'none', transform: 'translate(-50%, -50%)' }}
+      >
+        <AnimatePresence>
+          {spiritMenuOpen && SPIRIT_ITEMS.map((item, i) => {
+            // 3 icons above spirit: left, top, right
+            const angles = [135, 90, 45];
+            const a = (angles[i] * Math.PI) / 180;
+            const r = 58;
+            const sx = Math.cos(a) * r;
+            const sy = -Math.sin(a) * r;
+            return (
+              <motion.button
+                key={item.id}
+                initial={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                animate={{ x: sx, y: sy, scale: 1, opacity: 1 }}
+                exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 28, delay: i * 0.06 }}
+                style={{
+                  position: 'absolute',
+                  pointerEvents: 'all',
+                  width: 40,
+                  height: 40,
+                  borderRadius: '50%',
+                  background: 'rgba(124,58,237,0.82)',
+                  border: '2px solid rgba(167,139,250,0.5)',
+                  backdropFilter: 'blur(10px)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 17,
+                  transform: 'translate(-50%,-50%)',
+                  boxShadow: '0 0 16px rgba(124,58,237,0.6)',
+                }}
+                onClick={() => {
+                  setSpiritMenuOpen(false);
+                  VillageSound.tap();
+                  if (item.href) router.push(item.href);
+                }}
+                title={item.label}
+              >
+                {item.icon}
+              </motion.button>
+            );
+          })}
+        </AnimatePresence>
+        {/* Tap-target on Spirit */}
+        <button
+          style={{
+            position: 'absolute',
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            transform: 'translate(-50%, -50%)',
+            pointerEvents: 'all',
+          }}
+          onClick={() => { setSpiritMenuOpen(m => !m); setAvatarMenuOpen(false); }}
+        />
+      </div>
+
+      {/* ── Village Map overlay — triggered from avatar menu ─────────── */}
+      <AnimatePresence>
+        {showMapOverlay && (
+          <motion.div
+            key="map-overlay"
+            initial={{ scale: 0.15, opacity: 0, y: '40%' }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.1, opacity: 0, y: '50%' }}
+            transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+            className="fixed inset-0 z-50 flex flex-col"
+            style={{ background: '#0a0e1a', transformOrigin: 'center 80%' }}
+          >
+            <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+              style={{ background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+              <button
+                onClick={() => setShowMapOverlay(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center text-xl"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}
+              >
+                ←
+              </button>
+              <span className="text-white font-black text-base flex-1">🗺️ Village Map</span>
+            </div>
+            <div className="flex-1 relative">
+              <VillageMap3DOverlay />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Virtual joystick (mobile) ──────────────────────────────── */}
       <VirtualJoystick onMove={(dx, dy) => { moveInput.current = { dx, dy }; }} />
 
-      {/* Enter building prompt */}
+      {/* ── Enter building prompt ──────────────────────────────────── */}
       {enterPrompt && nearBuilding && (
         <div className="absolute bottom-32 left-1/2 -translate-x-1/2 z-10">
-          <button
+          <motion.button
+            initial={{ y: 10, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
             onClick={() => handleEnterBuilding(nearBuilding.href, nearBuilding.label)}
-            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-white animate-bounce"
+            className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-white"
             style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)', boxShadow: '0 0 30px rgba(24,119,242,0.5)' }}>
             <span>↑</span> Enter {nearBuilding.label}
             <span className="hidden sm:inline text-xs font-normal opacity-60 ml-1">[Space]</span>
-          </button>
+          </motion.button>
         </div>
       )}
 
-      {/* Sky phase indicator */}
+      {/* ── Sky phase indicator ────────────────────────────────────── */}
       {skyState && (
-        <div className="absolute top-16 left-4 z-10 px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
+        <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
           style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: skyState.sunColor, border: `1px solid ${skyState.sunColor}30` }}>
           {skyState.phase} · {skyState.sunAltitude > 0 ? `☀ ${skyState.sunAltitude.toFixed(0)}°` : '🌙'}
         </div>
       )}
 
-      {/* Online players count */}
+      {/* ── Online players count ───────────────────────────────────── */}
       {remotePlayers.length > 0 && (
-        <div className="absolute top-16 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
+        <div className="absolute top-4 right-4 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs"
           style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', color: '#4ADE80' }}>
           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
           {remotePlayers.length + 1} online
         </div>
       )}
 
-      {/* Controls hint */}
+      {/* ── Controls hint ─────────────────────────────────────────── */}
       <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5"
         style={{ background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.5)' }}>
-        <span className="hidden sm:inline">WASD · Scroll to zoom · </span>
-        <span className="sm:hidden">Joystick · Pinch to zoom · </span>
-        2-finger drag to orbit
+        <span className="hidden sm:inline">WASD · Scroll zoom · Tap avatar for menu</span>
+        <span className="sm:hidden">Joystick · Pinch zoom · Tap you</span>
       </div>
     </div>
   );
