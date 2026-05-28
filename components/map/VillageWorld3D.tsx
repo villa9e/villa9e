@@ -26,6 +26,9 @@ import {
   DenseGrass, WildflowerClusters, terrainH,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
+import { useWebRTC } from '@/lib/webrtc/useWebRTC';
+import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
+import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
 
 // ─── Building scale factor — buildings are 2.8× bigger than their geometry ───
 const BUILDING_SCALE = 2.8;
@@ -982,6 +985,7 @@ function WorldScene({
   playerPos, playerRot, isMoving, remotePlayers, onEnterBuilding, skyState, spiritVariant,
   cameraZoom, cameraAzimuth, weather, nearBuildingId,
   avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap, pointerTarget,
+  tribeMembers, onTribeMemberClick,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
@@ -999,6 +1003,8 @@ function WorldScene({
   onAvatarTap: () => void;
   onSpiritTap: () => void;
   pointerTarget: React.MutableRefObject<{ x: number; z: number } | null>;
+  tribeMembers?: TribeMember[];
+  onTribeMemberClick?: (member: TribeMember, screenX: number, screenY: number) => void;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -1089,16 +1095,49 @@ function WorldScene({
       <RainSystem intensity={rainIntensity} windAngle={windAngle} />
       {windStrength > 0.2 && <WindParticles windStrength={windStrength} windAngle={windAngle} />}
 
-      {/* Remote players */}
+      {/* Remote players (realtime presence) */}
       {remotePlayers.map(p => (
         <PlayerCharacter key={p.userId}
-          position={new THREE.Vector3(p.x, p.y, p.z)}
+          position={new THREE.Vector3(p.x, terrainH(p.x, p.z), p.z)}
           rotation={p.rotation}
           skinColor={p.skinColor}
           isLocal={false}
           username={p.username}
         />
       ))}
+
+      {/* Tribe member persistent avatars — click to interact */}
+      {tribeMembers?.map((m, i) => {
+        // Scatter tribe members in a ring around the village center
+        const angle = (i / Math.max(tribeMembers.length, 1)) * Math.PI * 2;
+        const r     = 8 + (i % 3) * 3;
+        const tx    = Math.cos(angle) * r;
+        const tz    = Math.sin(angle) * r;
+        const ty    = terrainH(tx, tz);
+        return (
+          <group
+            key={m.userId}
+            onPointerUp={e => {
+              e.stopPropagation();
+              // Project 3D position to screen coords is handled by the click event
+              // Use clientX/clientY from the pointer event
+              onTribeMemberClick?.(m, (e as any).clientX ?? 200, (e as any).clientY ?? 200);
+            }}
+          >
+            <PlayerCharacter
+              position={new THREE.Vector3(tx, ty, tz)}
+              skinColor={m.skinColor ?? '#8D5524'}
+              isLocal={false}
+              username={m.username}
+            />
+            {/* Name label indicator — small glowing ring above head */}
+            <mesh position={[tx, ty + 2.4, tz]}>
+              <torusGeometry args={[0.22, 0.035, 8, 24]} />
+              <meshBasicMaterial color="#7C3AED" transparent opacity={0.7} />
+            </mesh>
+          </group>
+        );
+      })}
 
       {/* Ground hit plane — drag/tap to walk there */}
       <GroundPointer pointerTarget={pointerTarget} />
@@ -1500,6 +1539,55 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   // ── Side drawer ────────────────────────────────────────────────────────────
   const [drawer, setDrawer] = useState<{ href: string; title: string } | null>(null);
 
+  // ── Current user identity ──────────────────────────────────────────────────
+  const [currentUserId,   setCurrentUserId]   = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState('Villager');
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      setCurrentUserId(user.id);
+      supabase.from('profiles').select('username, display_name').eq('id', user.id).single()
+        .then(({ data: p }: any) => {
+          if (p) setCurrentUserName(p.display_name || p.username || 'Villager');
+        });
+    });
+  }, []);
+
+  // ── Tribe members & WebRTC ────────────────────────────────────────────────
+  const [tribeMembers,   setTribeMembers]   = useState<TribeMember[]>([]);
+  const [clickedMember,  setClickedMember]  = useState<TribeMember | null>(null);
+  const webrtc = useWebRTC(currentUserId, currentUserName);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+    // Load tribe members from all tribes this user belongs to
+    (supabase as any)
+      .from('tribe_members')
+      .select(`
+        user_id, tribe_id,
+        profiles!inner(username, display_name, avatar_url, avatar_config)
+      `)
+      .neq('user_id', currentUserId)
+      .limit(20)
+      .then(({ data }: any) => {
+        if (!data) return;
+        const members: TribeMember[] = data.map((m: any, i: number) => ({
+          userId:      m.user_id,
+          username:    m.profiles.username,
+          displayName: m.profiles.display_name || m.profiles.username,
+          avatar:      m.profiles.avatar_config?.emoji ?? '👤',
+          skinColor:   m.profiles.avatar_config?.skin_color ?? '#8D5524',
+          tribeId:     m.tribe_id,
+          isOnline:    false,
+          // Scatter tribe members around the village in a ring
+          screenX:     0,
+          screenY:     0,
+        }));
+        setTribeMembers(members);
+      });
+  }, [currentUserId]);
+
   // Derive weather from mood palette
   const weatherData = useMemo(() => {
     const isRainy  = mood === 'stormy' || mood === 'rainy';
@@ -1812,6 +1900,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           onAvatarTap={() => { setAvatarMenuOpen(m => !m); setSpiritMenuOpen(false); }}
           onSpiritTap={() => { setSpiritMenuOpen(m => !m); setAvatarMenuOpen(false); }}
           pointerTarget={pointerTarget}
+          tribeMembers={tribeMembers}
+          onTribeMemberClick={(member, sx, sy) => setClickedMember({ ...member, screenX: sx, screenY: sy })}
         />
       </Canvas>
 
@@ -2053,6 +2143,38 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             isNight={isNightUI}
             onClose={() => setDrawer(null)}
             onFullPage={() => { router.push(drawer.href); setDrawer(null); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Incoming call notification ────────────────────────────── */}
+      <AnimatePresence>
+        {webrtc.callState === 'ringing' && webrtc.remoteUser && (
+          <IncomingCallOverlay
+            callerName={webrtc.remoteUser.name}
+            callerAvatar={webrtc.remoteUser.avatar}
+            onAccept={() => webrtc.acceptCall()}
+            onDecline={() => webrtc.declineCall()}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ── Active call panel — right side ───────────────────────── */}
+      <AnimatePresence>
+        {(webrtc.callState === 'calling' || webrtc.callState === 'connecting' || webrtc.callState === 'active') && (
+          <TribeCallPanel webrtc={webrtc} isNight={isNightUI} currentUserId={currentUserId} />
+        )}
+      </AnimatePresence>
+
+      {/* ── Tribe member click menu ───────────────────────────────── */}
+      <AnimatePresence>
+        {clickedMember && (
+          <TribeMemberMenu
+            member={clickedMember}
+            currentUserId={currentUserId ?? ''}
+            isNight={isNightUI}
+            webrtc={webrtc}
+            onClose={() => setClickedMember(null)}
           />
         )}
       </AnimatePresence>
