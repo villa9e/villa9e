@@ -358,21 +358,9 @@ function River({ skyState, playerPos }: {
     if (mat2Ref.current){ mat2Ref.current.map = flowTex2.current; mat2Ref.current.needsUpdate = true; }
   }, [waterColor, shimColor]);
 
-  // Start audio on first user gesture
-  useEffect(() => {
-    const start = () => {
-      if (audioReady.current) return;
-      audioReady.current = true;
-      audioRef.current = createRiverAudio();
-    };
-    window.addEventListener('click', start, { once: true });
-    window.addEventListener('touchstart', start, { once: true });
-    return () => {
-      window.removeEventListener('click', start);
-      window.removeEventListener('touchstart', start);
-      audioRef.current?.ctx.close();
-    };
-  }, []);
+  // River audio disabled per product decision
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _audioDisabled = audioReady;
 
   useFrame(state => {
     const t = state.clock.elapsedTime;
@@ -394,12 +382,7 @@ function River({ skyState, playerPos }: {
         0.08 + Math.sin(t * 3.5) * 0.06;
     }
 
-    // Distance-based audio volume (river at x ≈ -17)
-    if (audioRef.current) {
-      const dist   = Math.abs(playerPos.current.x + 17) + Math.abs(playerPos.current.z) * 0.2;
-      const vol    = Math.max(0, Math.min(0.75, 1 - dist / 14)) * 0.75;
-      audioRef.current.gain.gain.setTargetAtTime(vol, audioRef.current.ctx.currentTime, 0.3);
-    }
+    // River audio disabled
   });
 
   return (
@@ -970,6 +953,7 @@ const AV_FOOT   = new THREE.SphereGeometry(0.135, 20, 14);
 
 function PlayerCharacter({
   position, rotation, skinColor, isLocal, username, isMovingRef,
+  posRef, rotRef,
 }: {
   position: THREE.Vector3;
   rotation: number;
@@ -977,6 +961,9 @@ function PlayerCharacter({
   isLocal: boolean;
   username?: string;
   isMovingRef?: React.MutableRefObject<boolean>;
+  // Live refs for local player so useFrame always reads current values
+  posRef?: React.MutableRefObject<THREE.Vector3>;
+  rotRef?: React.MutableRefObject<number>;
 }) {
   const groupRef  = useRef<THREE.Group>(null);
   const armLPivot = useRef<THREE.Group>(null);
@@ -985,7 +972,6 @@ function PlayerCharacter({
   const legRPivot = useRef<THREE.Group>(null);
   const bodyRef   = useRef<THREE.Mesh>(null);
 
-  // Vibrant clothing color per player type
   const shirt = isLocal ? '#1877F2' : '#E8770A';
   const pant  = isLocal ? '#1E3A5F' : '#3D1F00';
   const shoe  = '#111827';
@@ -993,23 +979,29 @@ function PlayerCharacter({
 
   useFrame(state => {
     if (!groupRef.current) return;
-    groupRef.current.position.lerp(position, 0.18);
-    groupRef.current.rotation.y = rotation;
+
+    // Use live refs if provided (local player), else use prop snapshots (remote players)
+    const targetPos = posRef ? posRef.current : position;
+    const targetRot = rotRef ? rotRef.current : rotation;
+
+    groupRef.current.position.lerp(targetPos, 0.18);
+
+    // Shortest-path rotation lerp to avoid spinning the long way around
+    let rotDiff = targetRot - groupRef.current.rotation.y;
+    while (rotDiff >  Math.PI) rotDiff -= Math.PI * 2;
+    while (rotDiff < -Math.PI) rotDiff += Math.PI * 2;
+    groupRef.current.rotation.y += rotDiff * 0.18;
 
     const t   = state.clock.elapsedTime;
     const mov = isMovingRef ? isMovingRef.current : false;
-    // Gentle waddle — short limbs don't swing far
     const swing = mov ? Math.sin(t * 6.5) * 0.48 : 0;
 
     if (armLPivot.current) armLPivot.current.rotation.x = THREE.MathUtils.lerp(armLPivot.current.rotation.x, -swing * 0.45, 0.2);
     if (armRPivot.current) armRPivot.current.rotation.x = THREE.MathUtils.lerp(armRPivot.current.rotation.x,  swing * 0.45, 0.2);
     if (legLPivot.current) legLPivot.current.rotation.x = THREE.MathUtils.lerp(legLPivot.current.rotation.x,  swing * 0.85, 0.2);
     if (legRPivot.current) legRPivot.current.rotation.x = THREE.MathUtils.lerp(legRPivot.current.rotation.x, -swing * 0.85, 0.2);
-    // Cute body sway while walking
-    if (groupRef.current) {
-      groupRef.current.rotation.z = mov ? Math.sin(t * 6.5) * 0.04 : 0;
-      groupRef.current.position.y = position.y + (mov ? Math.abs(Math.sin(t * 6.5 * 2)) * 0.025 : 0);
-    }
+    groupRef.current.rotation.z = mov ? Math.sin(t * 6.5) * 0.04 : 0;
+    groupRef.current.position.y = targetPos.y + (mov ? Math.abs(Math.sin(t * 6.5 * 2)) * 0.025 : 0);
   });
 
   return (
@@ -1490,10 +1482,12 @@ function WorldScene({
         />
       ))}
 
-      {/* Local player */}
+      {/* Local player — pass refs so useFrame reads live values every tick */}
       <PlayerCharacter
         position={playerPos.current}
         rotation={playerRot.current}
+        posRef={playerPos}
+        rotRef={playerRot}
         skinColor="#8D5524"
         isLocal={true}
         isMovingRef={isMoving}
@@ -1583,6 +1577,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const [remotePlayers, setRemotePlayers] = useState<RemotePlayer[]>([]);
   const [nearBuilding, setNearBuilding]   = useState<{ href: string; label: string } | null>(null);
   const [enterPrompt, setEnterPrompt]     = useState(false);
+  const nearBuildingRef = useRef<{ href: string; label: string } | null>(null);
   const channelRef = useRef<any>(null);
 
   // ── Multiplayer presence ──────────────────────────────────────────────────
@@ -1643,8 +1638,15 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Keyboard controls ─────────────────────────────────────────────────────
   useEffect(() => {
-    const down = (e: KeyboardEvent) => keys.current.add(e.key);
-    const up   = (e: KeyboardEvent) => keys.current.delete(e.key);
+    const down = (e: KeyboardEvent) => {
+      keys.current.add(e.key);
+      // Spacebar enters nearby building (desktop shortcut)
+      if (e.key === ' ' && nearBuildingRef.current) {
+        e.preventDefault();
+        handleEnterBuilding(nearBuildingRef.current.href, nearBuildingRef.current.label);
+      }
+    };
+    const up = (e: KeyboardEvent) => keys.current.delete(e.key);
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
     return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
@@ -1699,9 +1701,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             nearest = { href: loc.href, label: loc.label, dist };
           }
         }
+        nearBuildingRef.current = nearest;
         setNearBuilding(nearest);
         setEnterPrompt(!!nearest);
       } else {
+        nearBuildingRef.current = null;
         setNearBuilding(null);
         setEnterPrompt(false);
       }
@@ -1800,6 +1804,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             className="flex items-center gap-2 px-5 py-3 rounded-2xl font-black text-white animate-bounce"
             style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)', boxShadow: '0 0 30px rgba(24,119,242,0.5)' }}>
             <span>↑</span> Enter {nearBuilding.label}
+            <span className="hidden sm:inline text-xs font-normal opacity-60 ml-1">[Space]</span>
           </button>
         </div>
       )}
