@@ -7,7 +7,14 @@ export const maxDuration = 45;
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const { data: { user: tokenUser } } = await supabase.auth.getUser(authHeader.slice(7));
+      user = tokenUser;
+    }
+  }
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { messages, context: prevContext } = await req.json() as {

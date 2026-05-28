@@ -3,9 +3,21 @@ import { createServerClient } from '@/lib/supabase/server';
 import { callSpirit, storeMemory, fetchSpiritContext, buildSpiritSystemPrompt } from '@/lib/claude/spirit';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
 
-export async function POST(req: NextRequest) {
+async function getUser(req: NextRequest) {
   const supabase = createServerClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user: cookieUser } } = await supabase.auth.getUser();
+  if (cookieUser) return { user: cookieUser, supabase };
+  // Fallback: read Bearer token from Authorization header
+  const authHeader = req.headers.get('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const { data: { user: tokenUser } } = await supabase.auth.getUser(authHeader.slice(7));
+    if (tokenUser) return { user: tokenUser, supabase };
+  }
+  return { user: null, supabase };
+}
+
+export async function POST(req: NextRequest) {
+  const { user, supabase } = await getUser(req);
 
   const body = await req.json();
   const { type, mood, mood_score, energy_level, focus_area, message: chatMessage } = body;

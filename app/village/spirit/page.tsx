@@ -141,9 +141,14 @@ export default function SpiritHubPage() {
     setMessages(prev => [...prev, { id: typingId, role: 'spirit', content: '...', time: new Date() }]);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch('/api/claude/spirit-response', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body:    JSON.stringify({ message: msg }),
       });
       const data = await res.json();

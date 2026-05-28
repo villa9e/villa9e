@@ -2310,12 +2310,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           if (dist < 8.5 && (!nearest || dist < nearest.dist)) {
             nearest = { id: loc.id, href: loc.href, label: loc.label, dist };
           }
-          // Auto-enter: walk through the open door when close enough and moving
-          if (dist < 5.2 && isMoving.current) {
+          // Auto-enter: door is open (dist < 8.5), player steps within doorway threshold
+          if (dist < 5.0) {
             const now = Date.now();
-            const cooldownOk = lastAutoEntryRef.current !== loc.id && (now - lastAutoEntryTimeRef.current) > 2500;
-            if (cooldownOk && Math.abs(playerPos.current.x - bx) < 5) {
-              lastAutoEntryRef.current   = loc.id;
+            const cooldownOk = lastAutoEntryRef.current !== loc.id && (now - lastAutoEntryTimeRef.current) > 3000;
+            if (cooldownOk) {
+              lastAutoEntryRef.current     = loc.id;
               lastAutoEntryTimeRef.current = now;
               handleEnterBuilding(loc.href, loc.label);
               break;

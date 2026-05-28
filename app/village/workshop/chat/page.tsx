@@ -269,9 +269,14 @@ export default function GoalChatPage() {
     setTyping(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch('/api/spirit/goal-chat', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body:    JSON.stringify({
           messages: newMessages.map(m => ({
             role:    m.role === 'spirit' ? 'assistant' : 'user',
