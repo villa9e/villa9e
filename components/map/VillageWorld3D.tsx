@@ -49,8 +49,10 @@ type MenuId = typeof MENU_ITEMS[number]['id'];
 
 // Crescent arc above the avatar head (angles in degrees, 0=right, CCW positive)
 // Positions relative to avatar head center, radius 78px
-const CRESCENT_R = 78;
-const CRESCENT_ANGLES_DEG = [135, 112, 90, 68, 45];
+// R=130 → chord between adjacent icons at 25° spacing = 2*130*sin(12.5°) ≈ 56px
+// Button size = 44px → 12px gap between icons, no overlap
+const CRESCENT_R = 130;
+const CRESCENT_ANGLES_DEG = [140, 115, 90, 65, 40];
 const CRESCENT_POSITIONS = CRESCENT_ANGLES_DEG.map(deg => {
   const rad = (deg * Math.PI) / 180;
   return { x: Math.cos(rad) * CRESCENT_R, y: -Math.sin(rad) * CRESCENT_R };
@@ -1766,12 +1768,119 @@ function VirtualJoystick({ onMove }: { onMove: (dx: number, dy: number) => void 
 }
 
 // ─── Main export ─────────────────────────────────────────────────────────────
+// ─── Side Drawer — slides in from right, swipe-right to close ────────────────
+function SideDrawer({
+  href, title, isNight, onClose, onFullPage,
+}: {
+  href: string;
+  title: string;
+  isNight: boolean;
+  onClose: () => void;
+  onFullPage: () => void;
+}) {
+  const touchStartX = useRef(0);
+  const [dragX, setDragX] = useState(0);
+  const dragging = useRef(false);
+
+  const glassBg   = isNight ? 'rgba(6,8,18,0.90)' : 'rgba(240,244,255,0.90)';
+  const glassEdge = isNight ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
+  const headerBg  = isNight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.45)';
+  const textColor = isNight ? '#F0EBE0' : '#1E1B4B';
+  const mutedCol  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    dragging.current = true;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    if (dx > 0) setDragX(Math.min(dx, 220));
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    dragging.current = false;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (dx > 90) { onClose(); }
+    else { setDragX(0); }
+  }
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-[60] flex justify-end"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.18 }}
+      onClick={onClose}
+    >
+      {/* Backdrop — semi-transparent so 3D world is faintly visible */}
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }} />
+
+      {/* Drawer panel */}
+      <motion.div
+        className="relative flex flex-col h-full"
+        style={{ width: 'min(88vw, 480px)', willChange: 'transform' }}
+        initial={{ x: '100%' }}
+        animate={{ x: dragX }}
+        exit={{ x: '100%' }}
+        transition={dragging.current
+          ? { duration: 0 }
+          : { type: 'spring', damping: 26, stiffness: 240 }}
+        onClick={e => e.stopPropagation()}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+      >
+        {/* Glass panel */}
+        <div className="flex flex-col h-full" style={{ background: glassBg, backdropFilter: 'blur(28px) saturate(160%)', borderLeft: `1px solid ${glassEdge}` }}>
+          {/* Swipe handle hint */}
+          <div style={{ position: 'absolute', left: -5, top: '50%', transform: 'translateY(-50%)', width: 4, height: 48, borderRadius: 2, background: mutedCol }} />
+
+          {/* Header */}
+          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+            style={{ background: headerBg, borderBottom: `1px solid ${glassEdge}`, backdropFilter: 'blur(8px)' }}>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 transition-all active:scale-90"
+              style={{ background: mutedCol, color: textColor, border: 'none', cursor: 'pointer' }}
+            >
+              ×
+            </button>
+            <span className="flex-1 font-black text-sm truncate" style={{ color: textColor }}>{title}</span>
+            <button
+              onClick={onFullPage}
+              className="text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 transition-all active:scale-95"
+              style={{ background: 'rgba(24,119,242,0.14)', color: '#1877F2', border: '1px solid rgba(24,119,242,0.25)', cursor: 'pointer' }}
+            >
+              Full ↗
+            </button>
+          </div>
+
+          {/* Content iframe */}
+          <iframe
+            src={href}
+            className="flex-1 border-none"
+            style={{ width: '100%', background: 'transparent' }}
+            title={title}
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: string, label: string) => void }) {
   const router       = useRouter();
   const supabase     = createClient();
   const { toggleVoice, voiceEnabled } = useSpiritVoice();
   const { mood } = useWeather();
   const { skyState } = useSkySystem();
+
+  // Day/night for UI styling — menus and drawer adapt to sky phase
+  const isNightUI = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+
+  // ── Side drawer ────────────────────────────────────────────────────────────
+  const [drawer, setDrawer] = useState<{ href: string; title: string } | null>(null);
 
   // Derive weather from mood palette
   const weatherData = useMemo(() => {
@@ -1929,7 +2038,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         for (const loc of LOCATIONS) {
           const [bx,,bz] = loc.pos;
           const dist = Math.sqrt((playerPos.current.x-bx)**2 + (playerPos.current.z-bz)**2);
-          if (dist < 4.5 && (!nearest || dist < nearest.dist)) {
+          if (dist < 8.5 && (!nearest || dist < nearest.dist)) {
             nearest = { id: loc.id, href: loc.href, label: loc.label, dist };
           }
         }
@@ -1946,22 +2055,19 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     return () => clearInterval(loop);
   }, []);
 
+  // All navigation opens the slide-in drawer except Map (full overlay) and Mute
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
     setAvatarMenuOpen(false);
-    if (onNavigate) onNavigate(href, label);
-    else router.push(href);
+    setDrawer({ href, title: label });
   }
 
   const handleAvatarMenuAction = useCallback((id: MenuId, href: string | null) => {
     setAvatarMenuOpen(false);
     VillageSound.tap();
-    if (id === 'map') {
-      setShowMapOverlay(true);
-      return;
-    }
-    if (href) router.push(href);
-  }, [router]);
+    if (id === 'map') { setShowMapOverlay(true); return; }
+    if (href) setDrawer({ href, title: MENU_ITEMS.find(m => m.id === id)?.label ?? '' });
+  }, []);
 
   const SPIRIT_ITEMS = [
     { id: 'spirit-chat', label: 'Talk to Spirit',     href: '/village/spirit',           svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
@@ -2057,6 +2163,10 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         <AnimatePresence>
           {avatarMenuOpen && MENU_ITEMS.map((item, i) => {
             const cp = CRESCENT_POSITIONS[i];
+            // Day/night responsive colors
+            const btnBg  = isNightUI ? 'rgba(8,10,22,0.94)' : 'rgba(240,244,255,0.94)';
+            const btnBdr = isNightUI ? 'rgba(255,255,255,0.18)' : 'rgba(30,27,75,0.18)';
+            const iconFill = isNightUI ? 'rgba(255,255,255,0.92)' : 'rgba(30,27,75,0.88)';
             return (
               <motion.button
                 key={item.id}
@@ -2064,7 +2174,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                 animate={{ x: cp.x, y: cp.y, scale: 1, opacity: 1 }}
                 exit={{ x: 0, y: 0, scale: 0, opacity: 0 }}
                 whileHover={{ scale: 1.22 }}
-                whileTap={{ scale: 0.92 }}
+                whileTap={{ scale: 0.90 }}
                 transition={{ type: 'spring', stiffness: 480, damping: 28, delay: i * 0.045 }}
                 style={{
                   position: 'absolute',
@@ -2072,16 +2182,15 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                   width: 44,
                   height: 44,
                   borderRadius: '50%',
-                  background: 'rgba(8,10,22,0.92)',
-                  border: '1.5px solid rgba(255,255,255,0.14)',
-                  backdropFilter: 'blur(16px)',
+                  background: btnBg,
+                  border: `1.5px solid ${btnBdr}`,
+                  backdropFilter: 'blur(20px)',
                   cursor: 'pointer',
                   display: 'flex',
-                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
                   transform: 'translate(-50%,-50%)',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+                  boxShadow: isNightUI ? '0 4px 24px rgba(0,0,0,0.7)' : '0 4px 20px rgba(0,0,0,0.25)',
                 }}
                 onClick={() => {
                   if (navigator.vibrate) navigator.vibrate(8);
@@ -2090,8 +2199,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                 onPointerEnter={() => { if (navigator.vibrate) navigator.vibrate(4); }}
                 title={item.label}
               >
-                {/* Monotone SVG icon */}
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.9)" xmlns="http://www.w3.org/2000/svg">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={iconFill} xmlns="http://www.w3.org/2000/svg">
                   <path d={item.svg} />
                 </svg>
               </motion.button>
@@ -2142,8 +2250,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                   width: 42,
                   height: 42,
                   borderRadius: '50%',
-                  background: 'rgba(8,10,22,0.92)',
-                  border: '1.5px solid rgba(167,139,250,0.4)',
+                  background: isNightUI ? 'rgba(8,10,22,0.94)' : 'rgba(240,244,255,0.94)',
+                  border: `1.5px solid ${isNightUI ? 'rgba(167,139,250,0.4)' : 'rgba(124,58,237,0.3)'}`,
                   backdropFilter: 'blur(16px)',
                   cursor: 'pointer',
                   display: 'flex',
@@ -2157,12 +2265,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
                   setSpiritMenuOpen(false);
                   VillageSound.tap();
                   if (item.id === 'spirit-mute') { toggleVoice(); return; }
-                  if (item.href) router.push(item.href);
+                  if (item.href) setDrawer({ href: item.href, title: item.label });
                 }}
                 onPointerEnter={() => { if (navigator.vibrate) navigator.vibrate(4); }}
                 title={item.label}
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="rgba(167,139,250,0.95)" xmlns="http://www.w3.org/2000/svg">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill={isNightUI ? 'rgba(167,139,250,0.95)' : 'rgba(124,58,237,0.9)'} xmlns="http://www.w3.org/2000/svg">
                   <path d={item.svg} />
                 </svg>
               </motion.button>
@@ -2255,8 +2363,22 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       <div className="absolute bottom-6 right-4 z-10 text-xs rounded-full px-3 py-1.5"
         style={{ background: 'rgba(0,0,0,0.4)', color: 'rgba(255,255,255,0.5)' }}>
         <span className="hidden sm:inline">WASD · Scroll zoom · Tap avatar for menu</span>
-        <span className="sm:hidden">Joystick · Pinch zoom · Tap you</span>
+        <span className="sm:hidden">Joystick · Pinch zoom · Tap avatar</span>
       </div>
+
+      {/* ── Slide-in Drawer ──────────────────────────────────────── */}
+      <AnimatePresence>
+        {drawer && (
+          <SideDrawer
+            key={drawer.href}
+            href={drawer.href}
+            title={drawer.title}
+            isNight={isNightUI}
+            onClose={() => setDrawer(null)}
+            onFullPage={() => { router.push(drawer.href); setDrawer(null); }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
