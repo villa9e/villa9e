@@ -69,17 +69,43 @@ function XPFloat({ xp, vlg }: { xp: number; vlg: number }) {
 }
 
 // ─── Goal Selection Screen ────────────────────────────────────────────────────
-function GoalSelectionScreen({ onSelect }: { onSelect: (id: GoalId) => void }) {
+function GoalSelectionScreen({ onSelect, onDismiss }: { onSelect: (id: GoalId) => void; onDismiss: () => void }) {
   const [hovered, setHovered] = useState<GoalId | null>(null);
   const [textDone, setTextDone] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const touchStartY = useRef(0);
+  const dragging = useRef(false);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartY.current = e.touches[0].clientY;
+    dragging.current = true;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return;
+    const dy = e.touches[0].clientY - touchStartY.current;
+    if (dy > 0) setDragY(Math.min(dy, 200));
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    dragging.current = false;
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (dy > 100) { onDismiss(); } else { setDragY(0); }
+  }
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, y: 40 }}
+      animate={{ opacity: 1, y: dragY }}
+      exit={{ opacity: 0, y: 80 }}
+      transition={dragging.current ? { duration: 0 } : { type: 'spring', damping: 26, stiffness: 240 }}
       className="fixed inset-0 z-[150] flex flex-col"
-      style={{ background: 'linear-gradient(180deg, #0A0010 0%, #0D0020 50%, #0A0015 100%)' }}
+      style={{ background: 'linear-gradient(180deg, #0A0010 0%, #0D0020 50%, #0A0015 100%)', touchAction: 'none' }}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
+      {/* Swipe-down hint */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full" style={{ background: 'rgba(255,255,255,0.2)' }} />
+
       {/* Particle dots background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {Array.from({ length: 40 }).map((_, i) => (
@@ -114,9 +140,19 @@ function GoalSelectionScreen({ onSelect }: { onSelect: (id: GoalId) => void }) {
             <p className="font-black text-white text-sm">SPIRIT</p>
             <p className="text-xs" style={{ color: '#7C3AED' }}>Your Guide</p>
           </div>
-          <div className="ml-auto text-xs font-bold px-3 py-1 rounded-full"
-            style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid #7C3AED' }}>
-            CHOOSE MISSION
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="text-xs font-bold px-3 py-1 rounded-full"
+              style={{ background: 'rgba(124,58,237,0.2)', color: '#A78BFA', border: '1px solid #7C3AED' }}>
+              CHOOSE MISSION
+            </div>
+            {/* Dismiss button */}
+            <button
+              onClick={onDismiss}
+              className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-bold transition-all active:scale-90"
+              style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              ×
+            </button>
           </div>
         </div>
 
@@ -614,7 +650,7 @@ function IntroScreen({ onContinue }: { onContinue: () => void }) {
 
 // ─── Main Story Mode Overlay (mounts on all pages) ────────────────────────────
 export function StoryModeOverlay() {
-  const { active, selectedGoal, currentStepIndex, selectGoal, startStoryMode } = useStoryMode();
+  const { active, selectedGoal, currentStepIndex, selectGoal, startStoryMode, exitStoryMode } = useStoryMode();
   const currentStep = useCurrentStep();
   const [showIntro, setShowIntro] = useState(false);
 
@@ -629,11 +665,12 @@ export function StoryModeOverlay() {
     return <IntroScreen onContinue={() => setShowIntro(false)} />;
   }
 
-  // Goal selection phase
+  // Goal selection phase — swipe down or tap × to dismiss
   if (!selectedGoal) {
     return (
       <GoalSelectionScreen
         onSelect={goal => selectGoal(goal)}
+        onDismiss={exitStoryMode}
       />
     );
   }
