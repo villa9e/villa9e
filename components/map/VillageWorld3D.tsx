@@ -43,11 +43,7 @@ import { SpiritFigure } from '@/components/spirit/SpiritFigure';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
-import {
-  WorkshopBuilding, DreamLineBuilding, TradingPostBuilding, BankBuilding,
-  ZenBuilding, TribesBuilding, HospitalBuilding, HutBuilding, SpiritShrine,
-  PavilionBuilding,
-} from './VillageBuildings';
+import { HutBuilding } from './VillageBuildings';
 import {
   VillageTerrain, StonePaths, TreeSystem, StoneLanterns, Fireflies,
   SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
@@ -79,7 +75,7 @@ const BUILDING_SCALE = 2.8;
 // Stage: East — Pavilion screening/concert venue
 // ─── Admin object type (shared between LiveAdminObjects and movement system) ──
 interface AdminObj {
-  id: string; model_url: string; label: string;
+  id: string; model_url: string; label: string; world_name?: string;
   pos_x: number; pos_y: number; pos_z: number;
   rot_y: number; scale: number; elevation: number;
   behavior: string; linked_page: string | null; dialog_title: string | null;
@@ -612,18 +608,9 @@ function River({ skyState, playerPos }: {
   );
 }
 
-// ─── Distinct building router — Fortnite-standard polygon architecture ────────
+// ─── Building map — hut is the only permanent building ───────────────────────
 const BUILDING_MAP: Record<string, React.FC<{ hover: boolean }>> = {
-  workshop:       WorkshopBuilding,
-  dreamline:      DreamLineBuilding,
-  'trading-post': TradingPostBuilding,
-  bank:           BankBuilding,
-  zen:            ZenBuilding,
-  tribes:         TribesBuilding,
-  hospital:       HospitalBuilding,
-  hut:            HutBuilding,
-  pavilion:       PavilionBuilding,
-  spirit:         SpiritShrine,
+  hut: HutBuilding,
 };
 
 function Building({
