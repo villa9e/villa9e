@@ -1,6 +1,7 @@
 'use client';
 import React, { useRef, useState, useEffect, useMemo, useCallback, Component } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
+import { useGLTF } from '@react-three/drei';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -1073,7 +1074,7 @@ function LiveAdminObjects({
     const supabase = createClient();
     supabase
       .from('admin_world_objects')
-      .select('id,model_url,label,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled')
+      .select('id,model_url,label,world_name,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled,trail_passable')
       .eq('is_live', true)
       .then(({ data, error }) => {
         if (!error && data) {
