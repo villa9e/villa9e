@@ -41,7 +41,7 @@ const LOCATIONS = [
   { id: 'dreamline',   label: 'Dream Line',       href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number], doorColor: '#D4C8B4', doorType: 'marble' },
   { id: 'trading-post',label: 'Trading Post',     href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number], doorColor: '#5A3520', doorType: 'carved' },
   { id: 'bank',         label: 'Bank',            href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number], doorColor: '#8B6914', doorType: 'brass'  },
-  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-34, 0,  -8] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
+  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-38, 3,  -22] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
   { id: 'tribes',       label: 'Tribes',          href: '/village/tribes',       pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
   { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',     pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number], doorColor: '#A8C8FF', doorType: 'glass'  },
   { id: 'hut',          label: 'My Hut',          href: '/village/hut',          pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number], doorColor: '#3D2200', doorType: 'plank'  },
@@ -1087,14 +1087,11 @@ function WorldScene({
       </Physics>
 
       {/* Ground */}
-      {/* River — animated flow + positional audio */}
-      <River skyState={skyState} playerPos={playerPos} />
+      {/* Circular moat — rings the village with 4 stone bridges */}
+      <CircularMoat isNight={isNight} skyState={skyState} />
 
-      {/* Mountain with waterfall — feeds into river */}
+      {/* Mountain with waterfall — feeds into moat from northwest */}
       <MountainWithWaterfall isNight={isNight} />
-
-      {/* Stone bridge over river */}
-      <StoneBridge isNight={isNight} />
 
       {/* Sacred fire */}
       {/* Sacred fire — center of village */}
@@ -1261,90 +1258,152 @@ function SpiritCompanion({
   );
 }
 
-// ─── Mountain with waterfall ──────────────────────────────────────────────────
+// ─── Mountain with waterfall — northwest of village, Zen Garden on plateau ────
+// Mountain center at [-48, 0, -30]. Peak at y≈22.
+// Waterfall flows down east face into the moat (moat at r=31 from origin).
+// The Zen Garden LOCATION is at [-34, 0, -8] — it sits on the mountain's
+// eastern foothills plateau, which are raised in the terrain.
 function MountainWithWaterfall({ isNight }: { isNight: boolean }) {
   const dropRef = useRef<THREE.InstancedMesh>(null);
   const mistRef = useRef<THREE.InstancedMesh>(null);
 
-  const dropData = useMemo(() => Array.from({ length: 80 }, (_, i) => ({
-    x: -0.3 + (Math.random() - 0.5) * 0.6,
-    speed: 4 + Math.random() * 3,
-    phase: Math.random() * 12,
-    scale: 0.05 + Math.random() * 0.08,
+  // Waterfall drops: 120 particles falling from peak down east face into moat
+  const dropData = useMemo(() => Array.from({ length: 120 }, (_, i) => ({
+    ox:    (Math.random() - 0.5) * 1.4,
+    speed: 5 + Math.random() * 4,
+    phase: Math.random() * 20,
+    s:     0.04 + Math.random() * 0.1,
   })), []);
 
-  useFrame(state => {
+  const FALL_H = 22; // waterfall drop height (peak y to moat level)
+
+  useFrame(({ clock }) => {
     if (!dropRef.current) return;
-    const t = state.clock.elapsedTime;
+    const t     = clock.elapsedTime;
     const dummy = new THREE.Object3D();
+
     dropData.forEach((d, i) => {
-      const yRaw = 14 - ((t * d.speed + d.phase) % 14);
-      const y = yRaw;
-      dummy.position.set(-42 + d.x, y, -22);
-      dummy.scale.setScalar(d.scale * (0.6 + 0.4 * (1 - y / 14)));
+      const frac = ((t * d.speed + d.phase) % FALL_H);
+      const y    = FALL_H - frac;
+      // Waterfall curves slightly east as it falls
+      const zOff = frac * 0.28;
+      dummy.position.set(-48 + d.ox + frac * 0.12, y, -30 + 6 + zOff);
+      dummy.scale.setScalar(d.s * (0.5 + 0.5 * (1 - y / FALL_H)));
       dummy.updateMatrix();
       dropRef.current!.setMatrixAt(i, dummy.matrix);
     });
     dropRef.current.instanceMatrix.needsUpdate = true;
 
     if (!mistRef.current) return;
-    const mistDummy = new THREE.Object3D();
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      const r = 0.8 + Math.sin(t * 0.6 + i) * 0.3;
-      mistDummy.position.set(-42 + Math.cos(a) * r * 0.5, 0.3 + Math.sin(t * 0.4 + i * 0.8) * 0.2, -22 + Math.sin(a) * r);
-      mistDummy.scale.setScalar(0.4 + Math.sin(t * 0.5 + i) * 0.15);
-      mistDummy.updateMatrix();
-      mistRef.current.setMatrixAt(i, mistDummy.matrix);
+    const md = new THREE.Object3D();
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      const r = 1.2 + Math.sin(t * 0.7 + i) * 0.5;
+      md.position.set(-48 + Math.cos(a) * r * 0.6, 0.5 + Math.sin(t * 0.5 + i) * 0.3, -24 + Math.sin(a) * r);
+      md.scale.setScalar(0.6 + Math.sin(t * 0.4 + i) * 0.2);
+      md.updateMatrix();
+      mistRef.current.setMatrixAt(i, md.matrix);
     }
     mistRef.current.instanceMatrix.needsUpdate = true;
   });
 
-  const rockColor  = isNight ? '#2A2830' : '#6B6068';
-  const snowColor  = isNight ? '#C8CCFF' : '#FFFFFF';
-  const waterColor = isNight ? '#3A5A8A' : '#60A8D8';
+  const rock1 = isNight ? '#1E1C24' : '#5A5560';
+  const rock2 = isNight ? '#282430' : '#6B6572';
+  const rock3 = isNight ? '#2E2838' : '#7A7080';
+  const snow  = isNight ? '#C0C8F8' : '#F5F8FF';
+  const wCol  = isNight ? '#2A4A78' : '#50A0D8';
+  const grass = isNight ? '#1C2C1A' : '#3A6828';
 
   return (
-    <group position={[-42, 0, -22]}>
-      {/* Mountain base — wide */}
-      <mesh position={[0, 0, 0]}>
-        <coneGeometry args={[14, 10, 28, 1]} />
-        <meshToonMaterial color={rockColor} />
-      </mesh>
-      {/* Mountain mid */}
-      <mesh position={[0, 7, 0]}>
-        <coneGeometry args={[9, 9, 24, 1]} />
-        <meshToonMaterial color={isNight ? '#241C2A' : '#5A5060'} />
-      </mesh>
-      {/* Mountain upper */}
-      <mesh position={[0, 12, 0]}>
-        <coneGeometry args={[5.5, 7, 22, 1]} />
-        <meshToonMaterial color={isNight ? '#1E1828' : '#4A4858'} />
-      </mesh>
-      {/* Snow cap */}
-      <mesh position={[0, 15.5, 0]}>
-        <coneGeometry args={[3, 4.5, 20, 1]} />
-        <meshToonMaterial color={snowColor} />
-      </mesh>
-      {/* Waterfall channel — carved into mountain face */}
-      <mesh position={[0, 8, 4.2]} rotation={[0.2, 0, 0]}>
-        <planeGeometry args={[1.2, 14, 3, 12]} />
-        <meshBasicMaterial color={waterColor} transparent opacity={0.65} side={THREE.DoubleSide} />
-      </mesh>
-      {/* Falling water drops */}
-      <instancedMesh ref={dropRef} args={[undefined, undefined, 80]}>
+    <group>
+      {/* ── MOUNTAIN — centered at [-48, 0, -30] ── */}
+      <group position={[-48, 0, -30]}>
+
+        {/* Sprawling base — wide foothills */}
+        <mesh position={[0, 0, 0]} castShadow>
+          <coneGeometry args={[22, 8, 32, 3]} />
+          <meshToonMaterial color={grass} />
+        </mesh>
+        {/* Rock base layer */}
+        <mesh position={[0, 4, 0]} castShadow>
+          <coneGeometry args={[16, 10, 30, 3]} />
+          <meshToonMaterial color={rock1} />
+        </mesh>
+        {/* Mid body */}
+        <mesh position={[0, 10, 0]} castShadow>
+          <coneGeometry args={[11, 11, 28, 3]} />
+          <meshToonMaterial color={rock2} />
+        </mesh>
+        {/* Upper peak */}
+        <mesh position={[0, 17, 0]} castShadow>
+          <coneGeometry args={[7, 10, 26, 3]} />
+          <meshToonMaterial color={rock3} />
+        </mesh>
+        {/* Near-peak */}
+        <mesh position={[0, 22, 0]} castShadow>
+          <coneGeometry args={[4, 6, 24, 2]} />
+          <meshToonMaterial color={rock3} />
+        </mesh>
+        {/* Snow cap — dramatic */}
+        <mesh position={[0, 26, 0]} castShadow>
+          <coneGeometry args={[2.8, 5, 22, 2]} />
+          <meshToonMaterial color={snow} />
+        </mesh>
+        <mesh position={[0, 29, 0]}>
+          <sphereGeometry args={[1.6, 18, 14]} />
+          <meshToonMaterial color={snow} />
+        </mesh>
+
+        {/* Rock face details — protruding ledges */}
+        {[[-5, 8, 8], [6, 12, 7], [-8, 14, 5], [4, 18, 4]].map(([x, y, z], i) => (
+          <mesh key={i} position={[x, y, z]} rotation={[0.3, i * 0.8, 0.2]} castShadow>
+            <boxGeometry args={[3 - i * 0.4, 1.5, 2.5 - i * 0.3, 2, 1, 2]} />
+            <meshToonMaterial color={rock2} />
+          </mesh>
+        ))}
+
+        {/* Eastern plateau — where Zen Garden sits */}
+        <mesh position={[10, 1.5, 8]} castShadow>
+          <cylinderGeometry args={[6, 8, 3, 20, 2]} />
+          <meshToonMaterial color={grass} />
+        </mesh>
+        {/* Plateau top surface */}
+        <mesh position={[10, 3.1, 8]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[6, 24]} />
+          <meshToonMaterial color={isNight ? '#1A2A18' : '#4A7830'} />
+        </mesh>
+
+        {/* Waterfall channel groove on east face */}
+        {[0, 1, 2, 3].map(i => (
+          <mesh key={i} position={[1, 22 - i * 5, 5 + i * 1.5]} rotation={[0.25, 0, 0]}>
+            <planeGeometry args={[1.8, 4.5, 2, 6]} />
+            <meshBasicMaterial color={wCol} transparent opacity={0.7} side={THREE.DoubleSide} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* ── WATERFALL PARTICLES ── */}
+      <instancedMesh ref={dropRef} args={[undefined, undefined, 120]}>
         <sphereGeometry args={[1, 6, 4]} />
-        <meshBasicMaterial color={waterColor} transparent opacity={0.7} />
+        <meshBasicMaterial color={wCol} transparent opacity={0.72} />
       </instancedMesh>
-      {/* Splash mist at base */}
-      <instancedMesh ref={mistRef} args={[undefined, undefined, 12]}>
+
+      {/* ── SPLASH MIST at moat entry point ── */}
+      <instancedMesh ref={mistRef} args={[undefined, undefined, 18]}>
         <sphereGeometry args={[1, 8, 6]} />
-        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.15} />
+        <meshBasicMaterial color="#FFFFFF" transparent opacity={0.14} />
       </instancedMesh>
-      {/* Splash pool */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.1, 4.5]}>
-        <circleGeometry args={[2.2, 24]} />
-        <meshBasicMaterial color={waterColor} transparent opacity={0.55} />
+
+      {/* Splash pool where waterfall meets moat */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-40, 0.12, -24]}>
+        <circleGeometry args={[3.2, 28]} />
+        <meshBasicMaterial color={wCol} transparent opacity={0.6} />
+      </mesh>
+
+      {/* Stream from splash pool → moat (short connecting channel) */}
+      <mesh rotation={[-Math.PI / 2, 0.4, 0]} position={[-37, 0.08, -28]}>
+        <planeGeometry args={[2, 5, 2, 4]} />
+        <meshBasicMaterial color={wCol} transparent opacity={0.5} />
       </mesh>
     </group>
   );
@@ -1405,6 +1464,192 @@ function StoneBridge({ isNight }: { isNight: boolean }) {
         <boxGeometry args={[0.12, 0.12, 5.5]} />
         <meshToonMaterial color={mortarColor} />
       </mesh>
+    </group>
+  );
+}
+
+// ─── Circular moat — ring of water surrounding the village ────────────────────
+// Inner radius: 31  Outer radius: 39  Bridge gaps at N/S/E/W (±3.2 units wide)
+function CircularMoat({ isNight, skyState }: { isNight: boolean; skyState: any }) {
+  const waterRef  = useRef<THREE.Mesh>(null);
+  const waterRef2 = useRef<THREE.Mesh>(null);
+  const isGolden  = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
+
+  const waterColor = isNight ? '#1A2E4A' : isGolden ? '#A06820' : '#2A88BA';
+  const glintColor = isNight ? '#3A5A8A' : isGolden ? '#FFB347' : '#87CEEB';
+
+  // Animated UV flow on water surface
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (waterRef.current)  (waterRef.current.material  as THREE.MeshBasicMaterial).color.set(waterColor);
+    if (waterRef2.current) (waterRef2.current.material as THREE.MeshBasicMaterial).color.set(glintColor);
+  });
+
+  const INNER = 31;
+  const OUTER = 39;
+  const BRIDGE_ARC = 0.098; // radians — arc gap per bridge (≈5.6°)
+
+  // 4 water arcs, each ~80° (leaving 10° gap at each bridge)
+  const arcs = [
+    { start: BRIDGE_ARC,              length: Math.PI / 2 - BRIDGE_ARC * 2 },  // NE
+    { start: Math.PI / 2 + BRIDGE_ARC, length: Math.PI / 2 - BRIDGE_ARC * 2 }, // SE
+    { start: Math.PI + BRIDGE_ARC,     length: Math.PI / 2 - BRIDGE_ARC * 2 }, // SW
+    { start: Math.PI * 1.5 + BRIDGE_ARC, length: Math.PI / 2 - BRIDGE_ARC * 2 }, // NW
+  ];
+
+  const stoneC = isNight ? '#2A2428' : '#7A6858';
+  const bankC  = isNight ? '#1A1E14' : '#4A5838';
+
+  return (
+    <group>
+      {/* Water surface arcs */}
+      {arcs.map((arc, i) => (
+        <group key={i}>
+          {/* Main water */}
+          <mesh ref={i === 0 ? waterRef : undefined} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]}>
+            <ringGeometry args={[INNER, OUTER, 64, 1, arc.start, arc.length]} />
+            <meshBasicMaterial color={waterColor} transparent opacity={0.88} />
+          </mesh>
+          {/* Shimmer layer */}
+          <mesh ref={i === 0 ? waterRef2 : undefined} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+            <ringGeometry args={[INNER + 1.5, OUTER - 1.5, 48, 1, arc.start, arc.length]} />
+            <meshBasicMaterial color={glintColor} transparent opacity={0.18} />
+          </mesh>
+        </group>
+      ))}
+
+      {/* Inner bank — grass/stone ring */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[INNER - 1.5, INNER, 60, 1]} />
+        <meshToonMaterial color={bankC} />
+      </mesh>
+      {/* Outer bank */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[OUTER, OUTER + 1.5, 60, 1]} />
+        <meshToonMaterial color={bankC} />
+      </mesh>
+
+      {/* Inner stone edge */}
+      {Array.from({ length: 40 }, (_, i) => {
+        const a = (i / 40) * Math.PI * 2;
+        const x = Math.cos(a) * INNER;
+        const z = Math.sin(a) * INNER;
+        // Skip bridge gaps
+        const ang = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+        const nearBridge = [0, Math.PI/2, Math.PI, Math.PI*1.5].some(ba =>
+          Math.abs(ang - ba) < BRIDGE_ARC * 1.5
+        );
+        if (nearBridge) return null;
+        return (
+          <mesh key={i} position={[x, 0.18, z]} rotation={[0, a, 0]}>
+            <boxGeometry args={[0.55, 0.32, 0.38, 2, 1, 1]} />
+            <meshToonMaterial color={stoneC} />
+          </mesh>
+        );
+      })}
+
+      {/* Water ripple rings */}
+      {[33, 35, 37].map((r, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06 + i * 0.01, 0]}>
+          <ringGeometry args={[r, r + 0.06, 60, 1]} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.06 - i * 0.015} />
+        </mesh>
+      ))}
+
+      {/* 4 Stone bridges — N/S/E/W — each spans inner→outer radius */}
+      {/* North bridge — crosses z-axis at top */}
+      <MoatBridge cx={0} cz={-(INNER + OUTER) / 2} rot={0}   isNight={isNight} />
+      {/* South bridge */}
+      <MoatBridge cx={0} cz={ (INNER + OUTER) / 2} rot={0}   isNight={isNight} />
+      {/* East bridge */}
+      <MoatBridge cx={ (INNER + OUTER) / 2} cz={0} rot={Math.PI / 2} isNight={isNight} />
+      {/* West bridge */}
+      <MoatBridge cx={-(INNER + OUTER) / 2} cz={0} rot={Math.PI / 2} isNight={isNight} />
+    </group>
+  );
+}
+
+// Single stone bridge spanning the moat at the given center point
+function MoatBridge({ cx, cz, rot, isNight }: {
+  cx: number; cz: number; rot: number; isNight: boolean;
+}) {
+  const stoneC  = isNight ? '#2A2430' : '#7A7068';
+  const mortarC = isNight ? '#1C1820' : '#5A5048';
+  const SPAN    = 8.5; // slightly wider than moat
+
+  return (
+    <group position={[cx, 0.14, cz]} rotation={[0, rot, 0]}>
+      {/* Bridge deck — slightly above water */}
+      <mesh position={[0, 1.28, 0]} castShadow>
+        <boxGeometry args={[SPAN, 0.32, 5.8, 5, 1, 4]} />
+        <meshToonMaterial color={stoneC} />
+      </mesh>
+      {/* Deck surface texture — darker planks */}
+      <mesh position={[0, 1.46, 0]}>
+        <boxGeometry args={[SPAN, 0.06, 5.4, 6, 1, 4]} />
+        <meshToonMaterial color={mortarC} />
+      </mesh>
+
+      {/* Left arch */}
+      <mesh position={[0, 0.72, -2.2]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.2, 0.28, 10, 22, Math.PI]} />
+        <meshToonMaterial color={mortarC} />
+      </mesh>
+      {/* Right arch */}
+      <mesh position={[0, 0.72, 2.2]} rotation={[0, Math.PI / 2, 0]}>
+        <torusGeometry args={[1.2, 0.28, 10, 22, Math.PI]} />
+        <meshToonMaterial color={mortarC} />
+      </mesh>
+
+      {/* Piers (2 per side) */}
+      {[-2.2, 2.2].map((z, i) => (
+        <mesh key={i} position={[0, 0.55, z]}>
+          <cylinderGeometry args={[0.46, 0.56, 1.1, 12, 2]} />
+          <meshToonMaterial color={stoneC} />
+        </mesh>
+      ))}
+
+      {/* Parapet left */}
+      {[-3, -1.5, 0, 1.5, 3].map((x, i) => (
+        <mesh key={`l${i}`} position={[x, 1.75, -2.78]}>
+          <boxGeometry args={[0.88, 0.55, 0.22, 2, 2, 1]} />
+          <meshToonMaterial color={stoneC} />
+        </mesh>
+      ))}
+      {/* Parapet right */}
+      {[-3, -1.5, 0, 1.5, 3].map((x, i) => (
+        <mesh key={`r${i}`} position={[x, 1.75, 2.78]}>
+          <boxGeometry args={[0.88, 0.55, 0.22, 2, 2, 1]} />
+          <meshToonMaterial color={stoneC} />
+        </mesh>
+      ))}
+      {/* Railing bars */}
+      <mesh position={[0, 2.1, -2.78]}>
+        <boxGeometry args={[SPAN, 0.1, 0.12, 5, 1, 1]} />
+        <meshToonMaterial color={mortarC} />
+      </mesh>
+      <mesh position={[0, 2.1, 2.78]}>
+        <boxGeometry args={[SPAN, 0.1, 0.12, 5, 1, 1]} />
+        <meshToonMaterial color={mortarC} />
+      </mesh>
+
+      {/* Lantern posts at bridge entrance */}
+      {[-1, 1].map((side, i) => (
+        <group key={i} position={[SPAN / 2 * side, 1.45, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.08, 0.1, 1.2, 10, 2]} />
+            <meshToonMaterial color={stoneC} />
+          </mesh>
+          <mesh position={[0, 0.72, 0]}>
+            <boxGeometry args={[0.28, 0.28, 0.28, 2, 2, 2]} />
+            <meshToonMaterial color={isNight ? '#FFB840' : '#F0ECE0'} transparent opacity={isNight ? 0.85 : 0.5} />
+          </mesh>
+          <mesh position={[0, 0.88, 0]}>
+            <coneGeometry args={[0.2, 0.18, 8, 1]} />
+            <meshToonMaterial color={mortarC} />
+          </mesh>
+        </group>
+      ))}
     </group>
   );
 }
@@ -1786,9 +2031,20 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             blocked = true; break;
           }
         }
-        // River boundary (left edge)
-        if (nx < -38) blocked = true;
-        if (Math.abs(nx) > 40 || Math.abs(nz) > 38) blocked = true;
+        // Circular moat — ring of water at radius 32–39 around village center
+        // Players must use one of the 4 stone bridges to cross
+        const pDist = Math.sqrt(nx * nx + nz * nz);
+        if (pDist > 31.5 && pDist < 40) {
+          // Check if player is on a bridge (4 bridges at N/S/E/W, 5 units wide)
+          const BRIDGE_HALF = 3.2;
+          const onNorth  = nz < -30 && Math.abs(nx) < BRIDGE_HALF;
+          const onSouth  = nz >  30 && Math.abs(nx) < BRIDGE_HALF;
+          const onEast   = nx >  30 && Math.abs(nz) < BRIDGE_HALF;
+          const onWest   = nx < -30 && Math.abs(nz) < BRIDGE_HALF;
+          if (!onNorth && !onSouth && !onEast && !onWest) blocked = true;
+        }
+        // Hard outer wall beyond moat
+        if (pDist > 46) blocked = true;
 
         if (!blocked) {
           playerPos.current.set(nx, terrainH(nx, nz), nz);
