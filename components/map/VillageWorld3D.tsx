@@ -26,6 +26,7 @@ import {
   SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
   AnimalSystem, CoastalFish, CoastalOcean, GroundClutter,
   preloadWorldModels, terrainH, SeasonalWeatherSystem, AdminWorldObjects,
+  WorldLandmarks,
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
@@ -1153,6 +1154,9 @@ function WorldScene({
 
       {/* Seasonal weather — snow, autumn leaves, spring blossoms, fog */}
       <SeasonalWeatherSystem season={season} />
+
+      {/* World landmarks — dock, windmill, sawmill, watchtower, market, temple */}
+      <WorldLandmarks />
 
       {/* Admin-placed world objects (live = true in DB) */}
       <AdminWorldObjects />

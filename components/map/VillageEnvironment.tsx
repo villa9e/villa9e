@@ -512,6 +512,35 @@ export function CoastalFish() {
   );
 }
 
+// ─── World landmarks — dock, windmill, watchtower, etc. ──────────────────────
+export function WorldLandmarks() {
+  return (
+    <Suspense fallback={null}>
+      {/* Coastal dock — by wellness center (north coast) */}
+      <Model url={M('Environment_Dock')}      position={[6,  0, -40]} rotation={0}           scale={1.2} yOffset={0} />
+      <Model url={M('Environment_Dock_Pole')} position={[9,  0, -42]} rotation={0}           scale={1.0} yOffset={0} />
+      <Model url={M('Environment_Dock_Pole')} position={[3,  0, -42]} rotation={0}           scale={1.0} yOffset={0} />
+      <Model url={M('Environment_Dock_Pole')} position={[12, 0, -38]} rotation={0.3}         scale={0.9} yOffset={0} />
+
+      {/* Windmill — farm zone near workshop */}
+      <Model url={M('Windmill_FirstAge')}     position={[-28, 0, -24]} rotation={0.8}        scale={1.0} yOffset={0} />
+
+      {/* Sawmill — farm zone */}
+      <Model url={M('Environment_Sawmill')}   position={[-26, 0, -10]} rotation={-0.4}       scale={1.0} yOffset={0} />
+
+      {/* Watch tower — northeast forest sentinel */}
+      <Model url={M('WatchTower_FirstAge_Level1')} position={[38, 0, -8]} rotation={1.6}    scale={1.0} yOffset={0} />
+
+      {/* Market buildings — near Trading Post / Bank square */}
+      <Model url={M('Market_FirstAge_Level1')}  position={[-14, 0, 24]} rotation={0.5}      scale={0.8} yOffset={0} />
+      <Model url={M('Market_SecondAge_Level1')} position={[14,  0, 24]} rotation={-0.5}     scale={0.8} yOffset={0} />
+
+      {/* Temple — spiritual zone near Zen/Sacred fire */}
+      <Model url={M('Temple_FirstAge_Level1')} position={[0, 0, 0]}    rotation={0}         scale={0.7} yOffset={0} />
+    </Suspense>
+  );
+}
+
 // ─── Scatter bushes and logs ──────────────────────────────────────────────────
 export function GroundClutter() {
   const items = useMemo(() => {
