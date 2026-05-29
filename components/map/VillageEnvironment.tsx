@@ -1,8 +1,10 @@
 'use client';
-import { useRef, useMemo, Suspense } from 'react';
+import { useRef, useMemo, Suspense, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
+import type { SeasonState } from '@/lib/world/useSeason';
+import { createClient } from '@/lib/supabase/client';
 
 // ─── Model base URL ───────────────────────────────────────────────────────────
 const M = (name: string) => `/models/gltf/${name}.gltf`;
@@ -122,7 +124,7 @@ function SwimmingFish({
 }
 
 // ─── Coastal water plane ───────────────────────────────────────────────────────
-function CoastalOcean({ isNight, skyState }: { isNight: boolean; skyState: any }) {
+export function CoastalOcean({ isNight, skyState }: { isNight: boolean; skyState: any }) {
   const ref  = useRef<THREE.Mesh>(null);
   const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
   const wCol = isNight ? '#1A2E4A' : isGolden ? '#A06820' : '#1E6EA8';
@@ -650,4 +652,320 @@ export function preloadWorldModels() {
     'Casual_Male','Casual_Female',
   ];
   models.forEach(m => useGLTF.preload(M(m)));
+}
+
+// ─── Admin world objects — renders GLTF models placed in admin sandbox ───────
+interface WorldObject {
+  id: string; model_url: string;
+  pos_x: number; pos_y: number; pos_z: number;
+  rot_y: number; scale: number;
+}
+
+function AdminModelInstance({ obj }: { obj: WorldObject }) {
+  const { scene } = useGLTF(obj.model_url);
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse(child => {
+      if ((child as THREE.Mesh).isMesh) {
+        (child as THREE.Mesh).castShadow    = true;
+        (child as THREE.Mesh).receiveShadow = true;
+      }
+    });
+    return c;
+  }, [scene]);
+  return (
+    <primitive
+      object={clone}
+      position={[obj.pos_x, obj.pos_y, obj.pos_z]}
+      rotation={[0, obj.rot_y, 0]}
+      scale={obj.scale}
+    />
+  );
+}
+
+export function AdminWorldObjects() {
+  const [objects, setObjects] = useState<WorldObject[]>([]);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('admin_world_objects')
+      .select('id,model_url,pos_x,pos_y,pos_z,rot_y,scale')
+      .eq('is_live', true)
+      .then(({ data }) => { if (data) setObjects(data); });
+  }, []);
+
+  return (
+    <Suspense fallback={null}>
+      {objects.map(obj => (
+        <AdminModelInstance key={obj.id} obj={obj} />
+      ))}
+    </Suspense>
+  );
+}
+
+// ─── Snow particle system ────────────────────────────────────────────────────
+function SnowSystem() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 800;
+  const flakes = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 120,
+    z: (Math.random() - 0.5) * 120,
+    y: 2 + Math.random() * 22,
+    speed: 0.6 + Math.random() * 1.2,
+    drift: (Math.random() - 0.5) * 0.3,
+    ph: Math.random() * Math.PI * 2,
+    size: 0.04 + Math.random() * 0.09,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(({ clock }, delta) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    flakes.forEach((f, i) => {
+      f.y -= f.speed * delta;
+      f.x += Math.sin(t * 0.4 + f.ph) * 0.01;
+      if (f.y < terrainH(f.x, f.z)) {
+        f.y = 18 + Math.random() * 6;
+        f.x = (Math.random() - 0.5) * 120;
+        f.z = (Math.random() - 0.5) * 120;
+      }
+      dummy.position.set(f.x, f.y, f.z);
+      dummy.scale.setScalar(f.size);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <sphereGeometry args={[1, 4, 3]} />
+      <meshBasicMaterial color="#E8F4FF" transparent opacity={0.82} />
+    </instancedMesh>
+  );
+}
+
+// ─── Snow cover — white cap on terrain ───────────────────────────────────────
+function SnowCover() {
+  return (
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
+      <circleGeometry args={[46, 64]} />
+      <meshBasicMaterial color="#DFF0FF" transparent opacity={0.35} />
+    </mesh>
+  );
+}
+
+// ─── Rain streak system ───────────────────────────────────────────────────────
+function RainSystem({ windStr = 0 }: { windStr?: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 600;
+  const drops = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 110,
+    z: (Math.random() - 0.5) * 110,
+    y: 2 + Math.random() * 18,
+    speed: 8 + Math.random() * 6,
+    ph: Math.random() * Math.PI * 2,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    drops.forEach((d, i) => {
+      d.y -= d.speed * delta;
+      d.x += windStr * delta * 3;
+      if (d.y < 0) {
+        d.y = 16 + Math.random() * 6;
+        d.x = (Math.random() - 0.5) * 110;
+        d.z = (Math.random() - 0.5) * 110;
+      }
+      dummy.position.set(d.x, d.y, d.z);
+      dummy.rotation.set(windStr * 0.4, 0, 0);
+      dummy.scale.set(0.012, 0.22, 0.012);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <capsuleGeometry args={[0.5, 1, 2, 4]} />
+      <meshBasicMaterial color="#A8C8F0" transparent opacity={0.38} />
+    </instancedMesh>
+  );
+}
+
+// ─── Autumn leaf system — drifting leaf sprites ────────────────────────────
+function AutumnLeaves({ leafColor }: { leafColor: string }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 260;
+  const leaves = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 90,
+    z: (Math.random() - 0.5) * 90,
+    y: 1 + Math.random() * 14,
+    speed: 0.4 + Math.random() * 0.7,
+    spin: (Math.random() - 0.5) * 2,
+    driftX: (Math.random() - 0.5) * 0.8,
+    driftZ: (Math.random() - 0.5) * 0.8,
+    ph: Math.random() * Math.PI * 2,
+    size: 0.08 + Math.random() * 0.14,
+    rot: Math.random() * Math.PI * 2,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const color = useMemo(() => new THREE.Color(leafColor), [leafColor]);
+
+  useFrame(({ clock }, delta) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    leaves.forEach((l, i) => {
+      l.y -= l.speed * delta;
+      l.x += Math.sin(t * 0.5 + l.ph) * l.driftX * delta;
+      l.z += Math.cos(t * 0.4 + l.ph) * l.driftZ * delta;
+      l.rot += l.spin * delta;
+      if (l.y < terrainH(l.x, l.z)) {
+        l.y = 8 + Math.random() * 10;
+        l.x = (Math.random() - 0.5) * 90;
+        l.z = (Math.random() - 0.5) * 90;
+      }
+      dummy.position.set(l.x, l.y, l.z);
+      dummy.rotation.set(l.rot * 0.5, l.rot, l.rot * 0.3);
+      dummy.scale.setScalar(l.size);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+      ref.current!.setColorAt(i, color.clone().multiplyScalar(0.7 + Math.random() * 0.4));
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+    if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial color={leafColor} transparent opacity={0.72} side={THREE.DoubleSide} />
+    </instancedMesh>
+  );
+}
+
+// ─── Fog planes — low-lying volumetric fog ───────────────────────────────────
+function FogSystem({ density = 0.4 }: { density?: number }) {
+  const refs = [useRef<THREE.Mesh>(null), useRef<THREE.Mesh>(null), useRef<THREE.Mesh>(null)];
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    refs.forEach((r, i) => {
+      if (!r.current) return;
+      r.current.position.x = Math.sin(t * 0.05 + i * 2.1) * 8;
+      r.current.position.z = Math.cos(t * 0.04 + i * 1.7) * 8;
+      (r.current.material as THREE.MeshBasicMaterial).opacity = density * (0.12 + Math.sin(t * 0.3 + i) * 0.04);
+    });
+  });
+
+  return (
+    <>
+      {refs.map((r, i) => (
+        <mesh key={i} ref={r} rotation={[-Math.PI / 2, 0, i * 1.3]} position={[0, 0.4 + i * 0.3, 0]}>
+          <planeGeometry args={[90, 90]} />
+          <meshBasicMaterial color="#C8E8D8" transparent opacity={density * 0.15} side={THREE.DoubleSide} depthWrite={false} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+// ─── Wind particles ───────────────────────────────────────────────────────────
+function WindParticles({ strength = 0.5 }: { strength?: number }) {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 120;
+  const particles = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 100,
+    z: (Math.random() - 0.5) * 100,
+    y: 0.5 + Math.random() * 5,
+    speed: 3 + Math.random() * 5,
+    ph: Math.random() * Math.PI * 2,
+    length: 0.4 + Math.random() * 1.2,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame((_, delta) => {
+    if (!ref.current) return;
+    particles.forEach((p, i) => {
+      p.x += p.speed * strength * delta * 2;
+      if (p.x > 55) { p.x = -55; p.z = (Math.random() - 0.5) * 100; }
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(0, 0, Math.PI / 2);
+      dummy.scale.set(p.length, 0.018, 0.018);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <capsuleGeometry args={[0.5, 1, 2, 4]} />
+      <meshBasicMaterial color="#C0D8E8" transparent opacity={0.22 * strength} />
+    </instancedMesh>
+  );
+}
+
+// ─── Spring blossom petals — pink petal rain from trees ───────────────────
+function SpringBlossoms() {
+  const ref = useRef<THREE.InstancedMesh>(null);
+  const COUNT = 200;
+  const petals = useMemo(() => Array.from({ length: COUNT }, () => ({
+    x: (Math.random() - 0.5) * 80,
+    z: (Math.random() - 0.5) * 80,
+    y: 2 + Math.random() * 12,
+    speed: 0.3 + Math.random() * 0.5,
+    driftX: (Math.random() - 0.5) * 0.4,
+    ph: Math.random() * Math.PI * 2,
+    rot: Math.random() * Math.PI * 2,
+    spin: (Math.random() - 0.5) * 1.5,
+    size: 0.06 + Math.random() * 0.08,
+  })), []);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+
+  useFrame(({ clock }, delta) => {
+    if (!ref.current) return;
+    const t = clock.elapsedTime;
+    petals.forEach((p, i) => {
+      p.y -= p.speed * delta;
+      p.x += Math.sin(t * 0.6 + p.ph) * p.driftX * delta;
+      p.rot += p.spin * delta;
+      if (p.y < 0) {
+        p.y = 8 + Math.random() * 8;
+        p.x = (Math.random() - 0.5) * 80;
+        p.z = (Math.random() - 0.5) * 80;
+      }
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(p.rot * 0.4, p.rot, 0);
+      dummy.scale.setScalar(p.size);
+      dummy.updateMatrix();
+      ref.current!.setMatrixAt(i, dummy.matrix);
+    });
+    ref.current.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={ref} args={[undefined, undefined, COUNT]}>
+      <planeGeometry args={[1, 1]} />
+      <meshBasicMaterial color="#FFB8D4" transparent opacity={0.65} side={THREE.DoubleSide} depthWrite={false} />
+    </instancedMesh>
+  );
+}
+
+// ─── Master seasonal weather system ──────────────────────────────────────────
+export function SeasonalWeatherSystem({ season }: { season: SeasonState }) {
+  return (
+    <>
+      {season.snowOn    && <SnowSystem />}
+      {season.snowOn    && <SnowCover />}
+      {season.rainOn    && <RainSystem windStr={season.windStr} />}
+      {season.leavesOn  && <AutumnLeaves leafColor={season.leafColor} />}
+      {season.windStr > 0.25 && <WindParticles strength={season.windStr} />}
+      {season.fogDensity > 0  && <FogSystem density={season.fogDensity} />}
+      {season.season === 'spring' && !season.rainOn && <SpringBlossoms />}
+    </>
+  );
 }

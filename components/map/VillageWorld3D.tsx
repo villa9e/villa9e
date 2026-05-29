@@ -25,13 +25,16 @@ import {
   VillageTerrain, StonePaths, TreeSystem, StoneLanterns, Fireflies,
   SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
   AnimalSystem, CoastalFish, CoastalOcean, GroundClutter,
-  preloadWorldModels, terrainH,
+  preloadWorldModels, terrainH, SeasonalWeatherSystem, AdminWorldObjects,
 } from './VillageEnvironment';
+import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG } from '@/lib/avatar/config';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
+import { VLGShop } from '@/components/village/VLGShop';
+import { useVLGBalance } from '@/lib/tokens/useVLGBalance';
 
 // ─── Building scale factor — buildings are 2.8× bigger than their geometry ───
 const BUILDING_SCALE = 2.8;
@@ -1056,6 +1059,7 @@ function WorldScene({
   const rainIntensity  = weather?.rain  ?? 0;
   const windStrength   = weather?.wind  ?? 0;
   const windAngle      = weather?.windAngle ?? 0;
+  const season = useSeason();
 
   return (
     <>
@@ -1142,9 +1146,15 @@ function WorldScene({
       <StoneLanterns isNight={isNight} />
       <Fireflies visible={isNight || skyState?.phase === 'dusk'} />
 
-      {/* Rain system */}
+      {/* Rain system (live weather) */}
       <RainSystem intensity={rainIntensity} windAngle={windAngle} />
       {windStrength > 0.2 && <WindParticles windStrength={windStrength} windAngle={windAngle} />}
+
+      {/* Seasonal weather — snow, autumn leaves, spring blossoms, fog */}
+      <SeasonalWeatherSystem season={season} />
+
+      {/* Admin-placed world objects (live = true in DB) */}
+      <AdminWorldObjects />
 
       {/* Remote players (realtime presence) */}
       {remotePlayers.map(p => (
@@ -1839,7 +1849,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const isNightUI = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
 
   // ── Side drawer ────────────────────────────────────────────────────────────
-  const [drawer, setDrawer] = useState<{ href: string; title: string } | null>(null);
+  const [drawer, setDrawer]       = useState<{ href: string; title: string } | null>(null);
+  const [showVLGShop, setVLGShop] = useState(false);
+  const { balance: vlgBalance, load: loadVLG } = useVLGBalance();
 
   // ── Current user identity ──────────────────────────────────────────────────
   const [currentUserId,   setCurrentUserId]   = useState<string | null>(null);
@@ -1849,6 +1861,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       setCurrentUserId(user.id);
+      loadVLG(user.id);
       supabase.from('profiles').select('username, display_name').eq('id', user.id).single()
         .then(({ data: p }: any) => {
           if (p) setCurrentUserName(p.display_name || p.username || 'Villager');
@@ -2458,6 +2471,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         </div>
       )}
 
+      {/* ── VLG Token balance chip ─────────────────────────────────── */}
+      <button
+        onClick={() => setVLGShop(true)}
+        className="absolute top-4 right-36 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors hover:scale-105"
+        style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.2)' }}
+      >
+        <span>⬡</span>
+        <span className="font-bold">{vlgBalance.toLocaleString()}</span>
+        <span style={{ color: 'rgba(74,222,128,0.5)' }}>VLG</span>
+      </button>
+
       {/* Controls hint removed per product decision */}
 
       {/* ── Slide-in Drawer ──────────────────────────────────────── */}
@@ -2504,6 +2528,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             onClose={() => setClickedMember(null)}
           />
         )}
+      </AnimatePresence>
+
+      {/* ── VLG Shop modal ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showVLGShop && <VLGShop onClose={() => setVLGShop(false)} />}
       </AnimatePresence>
     </div>
   );

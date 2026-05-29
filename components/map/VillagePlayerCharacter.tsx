@@ -131,7 +131,7 @@ function GLTFCharacter({
           color = shirtC.clone();
         }
 
-        return new THREE.MeshToonMaterial({ color, map: baseMap, gradientMap });
+        return new THREE.MeshToonMaterial({ color, map: baseMap, gradientMap: gradMap });
       };
 
       if (Array.isArray(mesh.material)) {
