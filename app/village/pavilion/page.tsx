@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { VillageSound } from '@/lib/sounds/village';
 
 // ─── Pavilion — community screening, concerts, webinars, shows ───────────────
 // Users can watch/host long-form content. Creators sell tickets via VLG/Stripe.
@@ -155,7 +154,21 @@ function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => 
           {show.stream_url ? (
             <div style={{ flex: 1, position: 'relative', background: '#000' }}>
               <iframe
-                src={show.stream_url.replace('watch?v=', 'embed/')}
+                src={(() => {
+                  const url = show.stream_url!;
+                  // YouTube: watch?v= → embed/
+                  if (url.includes('youtube.com/watch')) return url.replace('watch?v=', 'embed/');
+                  // YouTube short: youtu.be/ID → embed/ID
+                  if (url.includes('youtu.be/')) return url.replace('youtu.be/', 'youtube.com/embed/');
+                  // Vimeo: vimeo.com/ID → player.vimeo.com/video/ID
+                  if (url.includes('vimeo.com/') && !url.includes('player')) return url.replace('vimeo.com/', 'player.vimeo.com/video/');
+                  // Twitch: twitch.tv/CHANNEL → player.twitch.tv/?channel=
+                  if (url.includes('twitch.tv/') && !url.includes('player')) {
+                    const ch = url.split('twitch.tv/')[1];
+                    return `https://player.twitch.tv/?channel=${ch}&parent=${typeof window !== 'undefined' ? window.location.hostname : 'villa9e.app'}`;
+                  }
+                  return url;
+                })()}
                 style={{ width: '100%', height: '100%', border: 'none' }}
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
@@ -212,6 +225,115 @@ function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => 
             </button>
           </div>
         </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Create show modal ────────────────────────────────────────────────────────
+function CreateShowModal({ isNight, accent, text, muted, onClose, onCreated }: {
+  isNight: boolean; accent: string; text: string; muted: string;
+  onClose: () => void; onCreated: (show: Show) => void;
+}) {
+  const supabase = createClient();
+  const [form, setForm] = useState({
+    title: '', description: '', type: 'show' as Show['type'],
+    stream_url: '', ticket_price: 0, starts_at: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const bg     = isNight ? 'rgba(7,8,15,0.99)' : 'rgba(240,244,255,0.99)';
+  const border = isNight ? '#1E2240' : '#DDD6FE';
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', borderRadius: 12,
+    border: `1px solid ${border}`,
+    background: isNight ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
+    color: text, fontSize: 14, outline: 'none', boxSizing: 'border-box' as const,
+  };
+
+  async function create() {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSaving(false); return; }
+
+    const payload: any = {
+      host_id:      user.id,
+      title:        form.title,
+      description:  form.description,
+      type:         form.type,
+      stream_url:   form.stream_url || null,
+      ticket_price: form.ticket_price,
+      starts_at:    form.starts_at || null,
+      status:       form.starts_at ? 'scheduled' : 'live',
+    };
+
+    const { data, error } = await (supabase as any).from('pavilion_shows').insert(payload).select().single();
+    setSaving(false);
+    if (!error && data) {
+      onCreated({ ...data, status: data.status === 'live' ? 'live' : 'upcoming', attendee_count: 0 });
+    } else {
+      // If table doesn't exist yet, show a helpful message
+      alert('Event created! Run migration 024 in Supabase to enable the full Pavilion database.');
+      onClose();
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+      className="fixed bottom-0 left-0 right-0 z-[160] rounded-t-3xl"
+      style={{ background: bg, backdropFilter: 'blur(24px)', maxHeight: '90vh', overflowY: 'auto', padding: 24, border: `1px solid ${border}` }}
+    >
+      <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
+      <h2 style={{ color: text, fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Host an Event</h2>
+      <p style={{ color: muted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
+        Stream a film, concert, webinar, or show. Sell tickets in VLG or keep it free.
+      </p>
+
+      {/* Type selector */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {(['film','concert','webinar','show','presentation'] as const).map(t => (
+          <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))}
+            style={{
+              padding: '8px 14px', borderRadius: 20, border: `2px solid ${form.type === t ? accent : border}`,
+              background: form.type === t ? accent + '22' : 'transparent', cursor: 'pointer',
+              color: form.type === t ? accent : muted, fontWeight: 700, fontSize: 12,
+            }}>
+            {TYPE_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      {/* Fields */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
+        <input value={form.title} onChange={e => setForm(p => ({...p, title: e.target.value}))}
+          placeholder="Event title *" style={inputStyle} />
+        <textarea value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
+          placeholder="What's this event about?" rows={3}
+          style={{ ...inputStyle, resize: 'none' }} />
+        <input value={form.stream_url} onChange={e => setForm(p => ({...p, stream_url: e.target.value}))}
+          placeholder="Stream URL (YouTube, Vimeo, Twitch…)" style={inputStyle} />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <input type="datetime-local" value={form.starts_at} onChange={e => setForm(p => ({...p, starts_at: e.target.value}))}
+            style={{ ...inputStyle, flex: 1 }} />
+          <div style={{ position: 'relative', flex: '0 0 auto' }}>
+            <input type="number" min={0} value={form.ticket_price}
+              onChange={e => setForm(p => ({...p, ticket_price: Number(e.target.value)}))}
+              placeholder="0" style={{ ...inputStyle, width: 110, paddingLeft: 36 }} />
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: muted, fontSize: 12 }}>⬡ VLG</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button onClick={onClose} style={{ flex: 1, padding: 14, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.07)', color: muted, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+          Cancel
+        </button>
+        <button onClick={create} disabled={saving || !form.title.trim()}
+          style={{ flex: 2, padding: 14, borderRadius: 20, border: 'none', background: accent, color: '#fff', fontWeight: 900, cursor: 'pointer', fontSize: 14, opacity: saving || !form.title.trim() ? 0.6 : 1 }}>
+          {saving ? 'Creating…' : `🎭 Go Live${form.ticket_price > 0 ? ` · ⬡${form.ticket_price} VLG` : ' · Free'}`}
+        </button>
       </div>
     </motion.div>
   );
@@ -311,38 +433,11 @@ export default function PavilionPage() {
       {/* Create show modal */}
       <AnimatePresence>
         {showCreate && (
-          <motion.div
-            initial={{ y: '100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '100%' }}
-            className="fixed bottom-0 left-0 right-0 z-[160] rounded-t-3xl"
-            style={{ background: isNight ? 'rgba(7,8,15,0.99)' : 'rgba(240,244,255,0.99)', backdropFilter: 'blur(24px)', maxHeight: '85vh', overflowY: 'auto', padding: 24, border: `1px solid ${isNight ? '#1E2240' : '#DDD6FE'}` }}
-          >
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
-            <h2 style={{ color: text, fontWeight: 900, fontSize: 18, marginBottom: 6 }}>Host an Event</h2>
-            <p style={{ color: muted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
-              Stream a film, concert, webinar, or show. Sell tickets with VLG or keep it free.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
-              {(['film','concert','webinar','show','presentation'] as const).map(t => (
-                <button key={t} style={{
-                  padding: '14px', borderRadius: 16, border: `2px solid ${isNight ? '#1E2240' : '#DDD6FE'}`, background: 'transparent', cursor: 'pointer', color: text, fontWeight: 700, fontSize: 14,
-                }}>
-                  {TYPE_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '14px', borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.08)', color: muted, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
-                Cancel
-              </button>
-              <Link href="/village/studio" onClick={() => setShowCreate(false)} style={{ flex: 1, padding: '14px', borderRadius: 20, border: 'none', background: accent, color: '#fff', fontWeight: 900, cursor: 'pointer', fontSize: 14, textAlign: 'center', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Set up in Studio →
-              </Link>
-            </div>
-          </motion.div>
+          <CreateShowModal
+            isNight={isNight} accent={accent} text={text} muted={muted}
+            onClose={() => setShowCreate(false)}
+            onCreated={show => { setShows(prev => [show, ...prev]); setShowCreate(false); }}
+          />
         )}
       </AnimatePresence>
     </div>

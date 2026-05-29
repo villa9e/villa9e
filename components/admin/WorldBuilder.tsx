@@ -667,6 +667,11 @@ function PaletteItem({
 // ─── Main WorldBuilder export ─────────────────────────────────────────────────
 export function WorldBuilder() {
   const supabase = createClient();
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => setAdminUserId(user?.id ?? null));
+  }, []);
 
   // ── State
   const [objects,       setObjects]      = useState<WorldObject[]>([]);
@@ -827,6 +832,7 @@ export function WorldBuilder() {
       trigger_type:      o.trigger_type,
       trigger_distance:  o.trigger_distance,
       item_info_enabled: o.item_info_enabled,
+      placed_by:         adminUserId ?? undefined,
     }));
     const { error } = await supabase.from('admin_world_objects').upsert(rows, { onConflict: 'id' });
     if (error) {
