@@ -1,6 +1,6 @@
 'use client';
 import React, { useRef, useState, useEffect, useMemo, useCallback, Component } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
@@ -52,7 +52,7 @@ import {
   VillageTerrain, StonePaths, TreeSystem, StoneLanterns, Fireflies,
   SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
   AnimalSystem, CoastalFish, CoastalOcean, GroundClutter,
-  preloadWorldModels, terrainH, SeasonalWeatherSystem, AdminWorldObjects,
+  preloadWorldModels, terrainH, SeasonalWeatherSystem,
   WorldLandmarks,
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
@@ -77,25 +77,31 @@ const BUILDING_SCALE = 2.8;
 // Coast: North shore — Wellness Center near water
 // Market:South/center — Trading Post, Bank flanking the square
 // Stage: East — Pavilion screening/concert venue
+// ─── Admin object type (shared between LiveAdminObjects and movement system) ──
+interface AdminObj {
+  id: string; model_url: string; label: string;
+  pos_x: number; pos_y: number; pos_z: number;
+  rot_y: number; scale: number; elevation: number;
+  behavior: string; linked_page: string | null; dialog_title: string | null;
+  dialog_content: string | null; iframe_url: string | null;
+  trigger_type: string; trigger_distance: number;
+  sound_url: string | null; sound_volume: number;
+  sound_trigger_dist: number; sound_max_dist: number; sound_loop: boolean;
+  item_info_enabled: boolean; trail_passable?: boolean;
+}
+
+// ─── Shared ref: live admin objects list (populated by LiveAdminObjects,
+// read by movement system for collision and approach detection)
+const liveAdminObjectsRef: { current: AdminObj[] } = { current: [] };
+
+// ─── Only the Mugsum Hut is a permanent fixture.
+// All other buildings are placed by the admin via the World Builder
+// and rendered through the LiveAdminObjects system.
 const LOCATIONS = [
-  // Workshop — farm zone (SE), surrounded by crop fields + birch trees
-  { id: 'workshop',     label: 'Workshop',        href: '/village/workshop',     pos: [-20, 0, -18] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number], doorColor: '#2A1500', doorType: 'cedar'  },
-  // Dream Line — grand amphitheater, east side near forest
-  { id: 'dreamline',   label: 'Dream Line',       href: '/village/dreamline',    pos: [ 24, 0, -14] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number], doorColor: '#D4C8B4', doorType: 'marble' },
-  // Trading Post — market square south-west
-  { id: 'trading-post',label: 'Trading Post',     href: '/village/trading-post', pos: [-20, 0,  18] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number], doorColor: '#5A3520', doorType: 'carved' },
-  // Bank — market square south-east
-  { id: 'bank',         label: 'Bank',            href: '/village/bank',         pos: [ 20, 0,  18] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number], doorColor: '#8B6914', doorType: 'brass'  },
-  // Zen Garden — icy west, on mountain plateau (y=3)
-  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-36, 3,  -20] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
-  // Tribes — deep forest northeast, surrounded by maple+birch
-  { id: 'tribes',       label: 'Tribes',          href: '/village/tribes',       pos: [ 26, 0,   6] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
-  // Wellness Center — north coast, near water, palm trees
-  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',     pos: [  0, 0, -26] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number], doorColor: '#A8C8FF', doorType: 'glass'  },
-  // Hut — heart of the forest, surrounded by trees
-  { id: 'hut',          label: 'My Hut',          href: '/village/hut',          pos: [  0, 0,  24] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number], doorColor: '#3D2200', doorType: 'plank'  },
-  // Pavilion — outdoor screening + concert venue, east forest clearing
-  { id: 'pavilion',     label: 'Pavilion',        href: '/village/pavilion',     pos: [ 24, 0,  26] as [number,number,number], color: '#6366F1', size: [12, 8,  12] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
+  { id: 'hut', label: 'Mugsum Hut', href: '/village/hut',
+    pos: [0, 0, 24] as [number,number,number],
+    color: '#EA580C', size: [9, 9, 9] as [number,number,number],
+    doorColor: '#3D2200', doorType: 'plank' },
 ];
 
 // ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
@@ -1042,6 +1048,131 @@ function SceneLighting({ skyState }: { skyState: any }) {
   );
 }
 
+// ─── Live admin world object — renders GLTF, handles trigger + spatial audio ──
+// ─── Live admin world object — renders GLTF, handles trigger + spatial audio ──
+function SingleAdminModel({ obj }: { obj: AdminObj }) {
+  const { scene } = useGLTF(obj.model_url);
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse(ch => {
+      if ((ch as THREE.Mesh).isMesh) {
+        (ch as THREE.Mesh).castShadow = true;
+        (ch as THREE.Mesh).receiveShadow = true;
+      }
+    });
+    return c;
+  }, [scene]);
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+  return (
+    <primitive object={clone}
+      position={[obj.pos_x, baseY, obj.pos_z]}
+      rotation={[0, obj.rot_y, 0]}
+      scale={obj.scale}
+    />
+  );
+}
+
+function LiveAdminObjects({
+  playerPos,
+  onInteract,
+}: {
+  playerPos:  React.MutableRefObject<THREE.Vector3>;
+  onInteract: (obj: AdminObj) => void;
+}) {
+  const [objects, setObjects] = useState<AdminObj[]>([]);
+  // Track which sounds are currently playing: id → HTMLAudioElement
+  const audioRefs = useRef<Map<string, HTMLAudioElement>>(new Map());
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase
+      .from('admin_world_objects')
+      .select('id,model_url,label,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled')
+      .eq('is_live', true)
+      .then(({ data, error }) => {
+        if (!error && data) {
+          setObjects(data as AdminObj[]);
+          liveAdminObjectsRef.current = data as AdminObj[];
+        }
+      });
+  }, []);
+
+  // Track which objects the player has already triggered (approach) this proximity visit
+  const triggeredApproach = useRef<Set<string>>(new Set());
+
+  useFrame(() => {
+    const px = playerPos.current.x;
+    const pz = playerPos.current.z;
+
+    objects.forEach(obj => {
+      const dx = px - obj.pos_x;
+      const dz = pz - obj.pos_z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+
+      // ── Spatial audio ──────────────────────────────────────────────────────
+      if (obj.sound_url) {
+        const audio = audioRefs.current.get(obj.id);
+        const inRange = dist <= obj.sound_trigger_dist;
+
+        if (inRange) {
+          if (!audio) {
+            const el = new Audio(obj.sound_url);
+            el.loop = obj.sound_loop;
+            el.volume = 0;
+            el.play().catch(() => {});
+            audioRefs.current.set(obj.id, el);
+          } else {
+            // Linear fade: max volume at sound_max_dist, 0 at trigger_dist
+            const t = Math.max(0, Math.min(1, 1 - (dist - obj.sound_max_dist) / (obj.sound_trigger_dist - obj.sound_max_dist)));
+            audio.volume = Math.min(1, obj.sound_volume * t);
+          }
+        } else if (audio) {
+          audio.volume = 0;
+          audio.pause();
+          audioRefs.current.delete(obj.id);
+        }
+      }
+
+      // ── Approach trigger ──────────────────────────────────────────────────
+      if ((obj.trigger_type === 'approach' || obj.trigger_type === 'both') &&
+          obj.behavior !== 'none' && obj.behavior !== 'sound_zone') {
+        const trigDist = obj.trigger_distance ?? 5;
+        if (dist < trigDist && !triggeredApproach.current.has(obj.id)) {
+          triggeredApproach.current.add(obj.id);
+          onInteract(obj);
+        } else if (dist >= trigDist + 2) {
+          triggeredApproach.current.delete(obj.id); // reset when they walk away
+        }
+      }
+    });
+  });
+
+  // Stop all audio on unmount
+  useEffect(() => () => {
+    audioRefs.current.forEach(a => { a.pause(); a.src = ''; });
+  }, []);
+
+  return (
+    <Suspense fallback={null}>
+      {objects.map(obj => (
+        <group
+          key={obj.id}
+          onClick={(e: ThreeEvent<MouseEvent>) => {
+            if (obj.trigger_type === 'click' || obj.trigger_type === 'both') {
+              if (obj.behavior !== 'none' && obj.behavior !== 'sound_zone') {
+                e.stopPropagation();
+                onInteract(obj);
+              }
+            }
+          }}
+        >
+          <SingleAdminModel obj={obj} />
+        </group>
+      ))}
+    </Suspense>
+  );
+}
+
 // ─── Main scene ───────────────────────────────────────────────────────────────
 interface RemotePlayer {
   userId: string;
@@ -1057,7 +1188,7 @@ function WorldScene({
   playerPos, playerRot, isMoving, remotePlayers, onEnterBuilding, skyState, spiritVariant,
   cameraZoom, cameraAzimuth, weather, nearBuildingId,
   avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap, pointerTarget,
-  tribeMembers, onTribeMemberClick,
+  tribeMembers, onTribeMemberClick, onAdminObjectInteract,
   playerAvatarCfg, playerSkinColor, playerHairColor, playerShirtColor,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
@@ -1065,6 +1196,7 @@ function WorldScene({
   isMoving: React.MutableRefObject<boolean>;
   remotePlayers: RemotePlayer[];
   onEnterBuilding: (href: string, label: string) => void;
+  onAdminObjectInteract: (obj: AdminObj) => void;
   skyState: any;
   spiritVariant: SpiritVariantId;
   cameraZoom: React.MutableRefObject<number>;
@@ -1185,8 +1317,8 @@ function WorldScene({
       {/* World landmarks — dock, windmill, sawmill, watchtower, market, temple */}
       <WorldLandmarks />
 
-      {/* Admin-placed world objects (live = true in DB) */}
-      <AdminWorldObjects />
+      {/* Admin-placed world objects — full trigger + audio + behavior system */}
+      <LiveAdminObjects playerPos={playerPos} onInteract={onAdminObjectInteract} />
 
       {/* Remote players (realtime presence) */}
       {remotePlayers.map(p => (
@@ -1883,8 +2015,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Side drawer ────────────────────────────────────────────────────────────
   const [drawer, setDrawer]       = useState<{ href: string; title: string } | null>(null);
-  const [showVLGShop, setVLGShop]   = useState(false);
-  const [showTour,    setShowTour]  = useState(false);
+  const [showVLGShop, setVLGShop]      = useState(false);
+  const [showTour,    setShowTour]     = useState(false);
+  const [activeAdminObj, setActiveAdminObj] = useState<AdminObj | null>(null);
+  const [itemInfoLoading, setItemInfoLoading] = useState(false);
+  const [itemInfoText, setItemInfoText]    = useState<string | null>(null);
   const { balance: vlgBalance, load: loadVLG } = useVLGBalance();
 
   // ── Current user identity ──────────────────────────────────────────────────
@@ -2115,6 +2250,16 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             blocked = true; break;
           }
         }
+        // Admin-placed buildings that block movement (trail_passable = false)
+        if (!blocked) {
+          for (const obj of liveAdminObjectsRef.current) {
+            if (obj.trail_passable !== false) continue;
+            const halfSize = obj.scale * 2.5;
+            if (Math.abs(nx - obj.pos_x) < halfSize && Math.abs(nz - obj.pos_z) < halfSize) {
+              blocked = true; break;
+            }
+          }
+        }
         // Circular moat — ring of water at radius 32–39 around village center
         // Players must use one of the 4 stone bridges to cross
         const pDist = Math.sqrt(nx * nx + nz * nz);
@@ -2154,6 +2299,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             }
           }
         }
+        // Also check admin-placed buildings with linked_page for the Enter prompt
+        if (!nearest) {
+          for (const obj of liveAdminObjectsRef.current) {
+            if (!obj.linked_page || (obj.trigger_type !== 'click' && obj.trigger_type !== 'both')) continue;
+            const dist = Math.sqrt((playerPos.current.x - obj.pos_x)**2 + (playerPos.current.z - obj.pos_z)**2);
+            if (dist < 8.5 && (!nearest || dist < nearest.dist)) {
+              nearest = { id: obj.id, href: obj.linked_page, label: obj.label ?? '', dist };
+            }
+          }
+        }
+
         nearBuildingRef.current = nearest;
         setNearBuilding(nearest);
         setEnterPrompt(!!nearest);
@@ -2181,6 +2337,47 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   function handleEnterBuilding(href: string, label: string) {
     VillageSound.tap();
     openDrawer(href, label);
+  }
+
+  function handleAdminObjectInteract(obj: AdminObj) {
+    VillageSound.tap();
+    switch (obj.behavior) {
+      case 'page':
+        if (obj.linked_page) openDrawer(obj.linked_page, obj.label ?? '');
+        break;
+      case 'iframe':
+        if (obj.iframe_url) setActiveAdminObj(obj);
+        break;
+      case 'dialog':
+        setActiveAdminObj(obj);
+        break;
+      case 'transport':
+        // Transport: navigate to a page representing another area
+        if (obj.transport_target) router.push(obj.transport_target);
+        break;
+      default:
+        break;
+    }
+  }
+
+  async function loadItemInfo(obj: AdminObj) {
+    setItemInfoLoading(true);
+    setItemInfoText(null);
+    try {
+      const res = await fetch('/api/spirit/goal-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [{ role: 'user', content: `Tell me about "${obj.label ?? obj.world_name}" in 2-3 sentences. What is it in real life? Keep it educational and interesting.` }],
+          context: {},
+        }),
+      });
+      const data = await res.json();
+      setItemInfoText(data.content ?? data.text ?? 'No information available.');
+    } catch {
+      setItemInfoText('Could not load information. Please try again.');
+    }
+    setItemInfoLoading(false);
   }
 
   const handleAvatarMenuAction = useCallback((id: MenuId, href: string | null) => {
@@ -2281,6 +2478,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           pointerTarget={pointerTarget}
           tribeMembers={tribeMembers}
           onTribeMemberClick={(member, sx, sy) => setClickedMember({ ...member, screenX: sx, screenY: sy })}
+          onAdminObjectInteract={handleAdminObjectInteract}
           playerAvatarCfg={playerAvatarCfg}
           playerSkinColor={playerSkinColor}
           playerHairColor={playerHairColor}
@@ -2594,6 +2792,88 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       {/* ── First-time village tour ────────────────────────────────── */}
       <AnimatePresence>
         {showTour && <VillageTour onComplete={() => setShowTour(false)} />}
+      </AnimatePresence>
+
+      {/* ── Admin object interaction overlay ───────────────────────── */}
+      <AnimatePresence>
+        {activeAdminObj && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => { setActiveAdminObj(null); setItemInfoText(null); }}
+          >
+            <motion.div
+              initial={{ scale: 0.94, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-lg bg-[#0D1A0F] border border-[#2A5C14]/40 rounded-2xl overflow-hidden shadow-2xl"
+            >
+              {/* Header */}
+              <div className="px-5 py-4 border-b border-[#1A3A1A]/60 flex items-center justify-between">
+                <h3 className="text-[#C8E8C8] font-black text-base">
+                  {activeAdminObj.dialog_title ?? activeAdminObj.label}
+                </h3>
+                <button onClick={() => { setActiveAdminObj(null); setItemInfoText(null); }}
+                  className="text-[#4A7A4A] hover:text-[#C8E8C8] text-xl transition-colors">×</button>
+              </div>
+
+              {/* Body */}
+              <div className="p-5">
+                {activeAdminObj.behavior === 'dialog' && (
+                  <p className="text-[#8AAA8A] text-sm leading-relaxed mb-4">
+                    {activeAdminObj.dialog_content ?? 'No description set.'}
+                  </p>
+                )}
+
+                {activeAdminObj.behavior === 'iframe' && activeAdminObj.iframe_url && (
+                  <iframe
+                    src={activeAdminObj.iframe_url}
+                    className="w-full rounded-xl border border-[#1A3A1A]/60"
+                    style={{ height: 340 }}
+                    title={activeAdminObj.label ?? 'Content'}
+                  />
+                )}
+
+                {/* Item info (real world description) */}
+                {activeAdminObj.item_info_enabled && (
+                  <div className="mt-3">
+                    {!itemInfoText && !itemInfoLoading && (
+                      <button
+                        onClick={() => loadItemInfo(activeAdminObj)}
+                        className="flex items-center gap-2 text-[#4ADE80] text-sm hover:opacity-80 transition-opacity"
+                      >
+                        <span>🔍</span>
+                        <span>Learn about {activeAdminObj.label ?? 'this item'}</span>
+                      </button>
+                    )}
+                    {itemInfoLoading && (
+                      <p className="text-[#4A7A4A] text-sm animate-pulse">Spirit is looking it up…</p>
+                    )}
+                    {itemInfoText && (
+                      <div className="bg-[#0A1A0A] border border-[#1A3A1A]/60 rounded-xl p-3">
+                        <p className="text-[#4ADE80] text-[10px] font-bold uppercase tracking-widest mb-1">About this</p>
+                        <p className="text-[#C8E8C8] text-sm leading-relaxed">{itemInfoText}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Actions */}
+                {activeAdminObj.linked_page && (
+                  <button
+                    onClick={() => { openDrawer(activeAdminObj.linked_page!, activeAdminObj.label ?? ''); setActiveAdminObj(null); }}
+                    className="w-full mt-4 py-3 bg-[#4ADE80] text-[#040A06] font-black text-sm rounded-xl hover:bg-[#22C55E] transition-colors"
+                  >
+                    Open {activeAdminObj.label} →
+                  </button>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   );
