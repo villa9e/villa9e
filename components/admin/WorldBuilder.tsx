@@ -46,6 +46,10 @@ export interface WorldObject {
   sort_order:          number;
   placed_by?:          string;
   mode?:               'sandbox' | 'production';
+  // Trigger
+  trigger_type:        'click' | 'approach' | 'both';
+  trigger_distance:    number;
+  item_info_enabled:   boolean;   // show "learn about this" info button
 }
 
 function makeDefault(modelUrl: string, label: string, isBuilding = false): WorldObject {
@@ -75,6 +79,9 @@ function makeDefault(modelUrl: string, label: string, isBuilding = false): World
     trail_passable:    !isBuilding,
     trail_points:      [],
     sort_order:        0,
+    trigger_type:      'click',
+    trigger_distance:  5,
+    item_info_enabled: false,
   };
 }
 
@@ -556,6 +563,40 @@ function Inspector({
         )}
       </>)}
 
+      {/* Trigger */}
+      {section('Trigger', <>
+        <div className="mb-2">
+          <p className="text-[#4A7A4A] text-[10px] mb-1">How is this item activated?</p>
+          <div className="flex gap-1">
+            {(['click','approach','both'] as const).map(t => (
+              <button key={t}
+                onClick={() => onChange({ trigger_type: t })}
+                className={`flex-1 py-1.5 rounded text-[10px] font-bold capitalize transition-colors border ${
+                  obj.trigger_type === t
+                    ? 'bg-[#0D2A14] text-[#4ADE80] border-[#2A5C14]'
+                    : 'text-[#3A5A3A] border-[#1A3A1A] hover:text-[#8AAA8A]'
+                }`}>
+                {t === 'click' ? '👆 Click' : t === 'approach' ? '🚶 Approach' : '🔀 Both'}
+              </button>
+            ))}
+          </div>
+        </div>
+        {(obj.trigger_type === 'approach' || obj.trigger_type === 'both') &&
+          slider('Approach distance', 'trigger_distance', 1, 20, 0.5, 'u')
+        }
+        <label className="flex items-center gap-2 mt-1.5 cursor-pointer">
+          <input type="checkbox" checked={obj.item_info_enabled}
+            onChange={e => onChange({ item_info_enabled: e.target.checked })}
+            className="accent-green-400" />
+          <span className="text-[#C8E8C8] text-[11px]">🔍 Show "Learn about this" info button</span>
+        </label>
+        {obj.item_info_enabled && (
+          <p className="text-[#3A5A3A] text-[9px] mt-1 italic">
+            Spirit will describe the real-world item (what a maple tree is, etc.)
+          </p>
+        )}
+      </>)}
+
       {/* Trail */}
       {section('Trail', <>
         <label className="flex items-center gap-2 mb-2 cursor-pointer">
@@ -679,6 +720,9 @@ export function WorldBuilder() {
           trail_passable:    row.trail_passable ?? true,
           trail_points:      row.trail_points ?? [],
           sort_order:        row.sort_order ?? 0,
+          trigger_type:      row.trigger_type ?? 'click',
+          trigger_distance:  row.trigger_distance ?? 5,
+          item_info_enabled: row.item_info_enabled ?? false,
         })));
       });
   }, []);
@@ -771,6 +815,9 @@ export function WorldBuilder() {
       trail_passable:    o.trail_passable,
       trail_points:      o.trail_points,
       sort_order:        i,
+      trigger_type:      o.trigger_type,
+      trigger_distance:  o.trigger_distance,
+      item_info_enabled: o.item_info_enabled,
     }));
     await supabase.from('admin_world_objects').upsert(rows, { onConflict: 'id' });
     if (publishAll) setObjects(prev => prev.map(o => ({ ...o, is_live: true })));

@@ -7,7 +7,7 @@ import { OoWopButton } from '@/components/village/OoWopButton';
 import { VillageSound } from '@/lib/sounds/village';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
-type Tab = 'chat' | 'goals' | 'tasks' | 'members' | 'deals';
+type Tab = 'chat' | 'goals' | 'tasks' | 'members' | 'deals' | 'docs' | 'whiteboard' | 'calendar' | 'video';
 
 // ─── Tribe Deal Creator ────────────────────────────────────────────────────────
 function TribeDealCreator({ tribeId, userId, isNight, cardBg, border, textMain, textMute, accent, onCreated }: {
@@ -256,7 +256,10 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
   );
 
   const isFounder = userRole === 'founder' || userRole === 'admin';
-  const TABS: [Tab, string][] = [['chat','💬'],['goals','🎯'],['tasks','✅'],['members','👥'],['deals','🤝']];
+  const TABS: [Tab, string][] = [
+    ['chat','💬'], ['goals','🎯'], ['tasks','✅'], ['members','👥'], ['deals','🤝'],
+    ['docs','📄'], ['whiteboard','🖊️'], ['calendar','📅'], ['video','📹'],
+  ];
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: bg }}>
@@ -629,6 +632,283 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
           )}
         </div>
       )}
+
+      {/* ── DOCS: Collaborative document editor ── */}
+      {activeTab === 'docs' && (
+        <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+          {/* Doc toolbar */}
+          <div className="flex items-center gap-1 px-3 py-2 border-b" style={{ background: cardBg, borderColor: border }}>
+            {[
+              { cmd: 'bold',        icon: '𝐁', label: 'Bold' },
+              { cmd: 'italic',      icon: '𝐼', label: 'Italic' },
+              { cmd: 'underline',   icon: 'U', label: 'Underline' },
+              { cmd: 'strikeThrough', icon: 'S̶', label: 'Strike' },
+            ].map(({ cmd, icon, label }) => (
+              <button key={cmd}
+                onMouseDown={e => { e.preventDefault(); document.execCommand(cmd, false); }}
+                title={label}
+                className="w-7 h-7 flex items-center justify-center rounded text-xs font-black hover:opacity-70 transition-opacity"
+                style={{ color: textMain, background: 'rgba(255,255,255,0.06)' }}>
+                {icon}
+              </button>
+            ))}
+            <div className="w-px h-5 mx-1" style={{ background: border }} />
+            {(['h1','h2','h3'] as const).map(tag => (
+              <button key={tag}
+                onMouseDown={e => { e.preventDefault(); document.execCommand('formatBlock', false, tag); }}
+                className="px-2 h-7 rounded text-[10px] font-black hover:opacity-70 transition-opacity"
+                style={{ color: textMain, background: 'rgba(255,255,255,0.06)' }}>
+                {tag.toUpperCase()}
+              </button>
+            ))}
+            <div className="w-px h-5 mx-1" style={{ background: border }} />
+            <button
+              onMouseDown={e => { e.preventDefault(); document.execCommand('insertUnorderedList', false); }}
+              className="w-7 h-7 flex items-center justify-center rounded text-xs hover:opacity-70"
+              style={{ color: textMain, background: 'rgba(255,255,255,0.06)' }}>
+              •≡
+            </button>
+            <button
+              onMouseDown={e => { e.preventDefault(); document.execCommand('insertOrderedList', false); }}
+              className="w-7 h-7 flex items-center justify-center rounded text-xs hover:opacity-70"
+              style={{ color: textMain, background: 'rgba(255,255,255,0.06)' }}>
+              1≡
+            </button>
+            <div className="flex-1" />
+            <span className="text-xs" style={{ color: textMute }}>📄 Tribe Document</span>
+          </div>
+
+          {/* Editor canvas */}
+          <div
+            contentEditable
+            suppressContentEditableWarning
+            className="flex-1 overflow-y-auto p-6 outline-none focus:outline-none"
+            style={{
+              background: isNight ? '#0D0F1A' : '#FAFAF8',
+              color: textMain,
+              fontSize: 15, lineHeight: 1.7,
+              maxWidth: 860, margin: '0 auto', width: '100%',
+            }}
+            data-placeholder="Start writing your tribe document here…"
+            onInput={() => {/* auto-save hook point */}}
+          />
+        </div>
+      )}
+
+      {/* ── WHITEBOARD: Excalidraw (open source) ── */}
+      {activeTab === 'whiteboard' && (
+        <div className="flex-1 flex flex-col" style={{ minHeight: 0 }}>
+          <div className="flex items-center justify-between px-4 py-2 border-b" style={{ background: cardBg, borderColor: border }}>
+            <span className="text-sm font-black" style={{ color: textMain }}>🖊️ Tribe Whiteboard</span>
+            <span className="text-xs" style={{ color: textMute }}>Powered by Excalidraw (open source)</span>
+          </div>
+          <iframe
+            src={`https://excalidraw.com/#room=${params.id},${btoa(params.id).slice(0,22)}`}
+            className="flex-1 border-0"
+            allow="clipboard-read; clipboard-write"
+            title="Tribe Whiteboard"
+          />
+        </div>
+      )}
+
+      {/* ── CALENDAR: Tribe events calendar ── */}
+      {activeTab === 'calendar' && (
+        <div className="flex-1 overflow-y-auto p-4 max-w-2xl mx-auto w-full">
+          <TribeCalendar tribeId={params.id} isNight={isNight} accent={accent} textMain={textMain} textMute={textMute} cardBg={cardBg} border={border} />
+        </div>
+      )}
+
+      {/* ── VIDEO: Tribe video conference ── */}
+      {activeTab === 'video' && (
+        <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ background: isNight ? '#07080F' : '#F0F4FF' }}>
+          <div className="text-center max-w-md">
+            <div className="text-5xl mb-4">📹</div>
+            <h2 className="font-black text-xl mb-2" style={{ color: textMain }}>Tribe Video Room</h2>
+            <p className="text-sm mb-6" style={{ color: textMute }}>
+              Walk up to any tribe member's avatar in the village and tap their avatar to start a video call. Your tribe call panel will open on the right side of the screen.
+            </p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <span className="text-2xl">🌍</span>
+                <div>
+                  <p className="font-bold text-sm" style={{ color: textMain }}>In the Village</p>
+                  <p className="text-xs" style={{ color: textMute }}>Find your tribe member's avatar, tap it, then tap 📹 Call</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <span className="text-2xl">💬</span>
+                <div>
+                  <p className="font-bold text-sm" style={{ color: textMain }}>From Chat</p>
+                  <p className="text-xs" style={{ color: textMute }}>Tap any member in the chat to open their profile and call</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <span className="text-2xl">🎭</span>
+                <div>
+                  <p className="font-bold text-sm" style={{ color: textMain }}>Pavilion Events</p>
+                  <p className="text-xs" style={{ color: textMute }}>Host tribe video events in the Pavilion for up to unlimited attendees</p>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => window.open('/village/map', '_self')}
+              className="mt-6 px-6 py-3 rounded-2xl font-black text-white text-sm"
+              style={{ background: `linear-gradient(135deg, ${accent}, #4F46E5)` }}>
+              Enter Village to Call →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Simple tribe calendar ────────────────────────────────────────────────────
+function TribeCalendar({ tribeId, isNight, accent, textMain, textMute, cardBg, border }: {
+  tribeId: string; isNight: boolean; accent: string;
+  textMain: string; textMute: string; cardBg: string; border: string;
+}) {
+  const [events, setEvents]   = useState<any[]>([]);
+  const [view, setView]       = useState<'month'|'week'>('month');
+  const [current, setCurrent] = useState(new Date());
+  const [form, setForm]       = useState({ title: '', date: '', time: '', notes: '' });
+  const [adding, setAdding]   = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    (supabase as any).from('tribe_events')
+      .select('*')
+      .eq('tribe_id', tribeId)
+      .order('event_at', { ascending: true })
+      .then(({ data }: any) => setEvents(data ?? []));
+  }, [tribeId]);
+
+  const year  = current.getFullYear();
+  const month = current.getMonth();
+  const monthName = current.toLocaleString('default', { month: 'long' });
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells = Array.from({ length: firstDay + daysInMonth }, (_, i) => i < firstDay ? null : i - firstDay + 1);
+  const eventsByDay: Record<number, any[]> = {};
+  events.forEach(ev => {
+    const d = new Date(ev.event_at).getDate();
+    if (!eventsByDay[d]) eventsByDay[d] = [];
+    eventsByDay[d].push(ev);
+  });
+
+  async function addEvent() {
+    if (!form.title || !form.date) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await (supabase as any).from('tribe_events').insert({
+      tribe_id:   tribeId,
+      creator_id: user.id,
+      title:      form.title,
+      notes:      form.notes,
+      event_at:   `${form.date}T${form.time || '09:00'}:00`,
+    });
+    setForm({ title:'', date:'', time:'', notes:'' });
+    setAdding(false);
+    const { data } = await (supabase as any).from('tribe_events').select('*').eq('tribe_id', tribeId).order('event_at', { ascending: true });
+    setEvents(data ?? []);
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Calendar header */}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setCurrent(new Date(year, month - 1, 1))} style={{ color: textMute }}>‹</button>
+        <span className="font-black text-base" style={{ color: textMain }}>{monthName} {year}</span>
+        <button onClick={() => setCurrent(new Date(year, month + 1, 1))} style={{ color: textMute }}>›</button>
+      </div>
+
+      {/* Day headers */}
+      <div className="grid grid-cols-7 text-center">
+        {['Su','Mo','Tu','We','Th','Fr','Sa'].map(d => (
+          <div key={d} className="py-1 text-[10px] font-bold" style={{ color: textMute }}>{d}</div>
+        ))}
+      </div>
+
+      {/* Calendar grid */}
+      <div className="grid grid-cols-7 gap-0.5">
+        {cells.map((day, i) => (
+          <div key={i} className="aspect-square flex flex-col items-center justify-start p-0.5 rounded"
+            style={{
+              background: day ? (eventsByDay[day] ? `${accent}20` : 'transparent') : 'transparent',
+              border: day === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear()
+                ? `1px solid ${accent}` : '1px solid transparent',
+            }}>
+            {day && (
+              <>
+                <span className="text-[11px] font-bold" style={{ color: textMain }}>{day}</span>
+                {(eventsByDay[day] ?? []).slice(0, 2).map((ev, ei) => (
+                  <span key={ei} className="w-full truncate text-[8px] font-bold rounded px-0.5 mt-0.5"
+                    style={{ background: accent, color: '#fff' }}>
+                    {ev.title}
+                  </span>
+                ))}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Add event */}
+      <button onClick={() => setAdding(!adding)}
+        className="w-full py-2 rounded-xl text-sm font-black transition-colors"
+        style={{ background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }}>
+        + Add Event
+      </button>
+
+      {adding && (
+        <div className="p-4 rounded-xl space-y-2" style={{ background: cardBg, border: `1px solid ${border}` }}>
+          <input value={form.title} onChange={e => setForm(p => ({...p, title: e.target.value}))}
+            placeholder="Event title…"
+            className="w-full rounded-lg px-3 py-2 text-sm"
+            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${border}`, color: textMain }} />
+          <div className="flex gap-2">
+            <input type="date" value={form.date} onChange={e => setForm(p => ({...p, date: e.target.value}))}
+              className="flex-1 rounded-lg px-3 py-2 text-sm"
+              style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${border}`, color: textMain }} />
+            <input type="time" value={form.time} onChange={e => setForm(p => ({...p, time: e.target.value}))}
+              className="flex-1 rounded-lg px-3 py-2 text-sm"
+              style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${border}`, color: textMain }} />
+          </div>
+          <textarea value={form.notes} onChange={e => setForm(p => ({...p, notes: e.target.value}))}
+            placeholder="Notes…" rows={2}
+            className="w-full rounded-lg px-3 py-2 text-sm resize-none"
+            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${border}`, color: textMain }} />
+          <div className="flex gap-2">
+            <button onClick={addEvent} className="flex-1 py-2 rounded-lg text-sm font-black text-white" style={{ background: accent }}>Save</button>
+            <button onClick={() => setAdding(false)} className="px-4 py-2 rounded-lg text-sm" style={{ color: textMute }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Upcoming events */}
+      <div className="space-y-2">
+        <p className="text-xs font-black uppercase tracking-widest" style={{ color: textMute }}>Upcoming</p>
+        {events.slice(0, 5).map(ev => (
+          <div key={ev.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <div className="text-center min-w-[36px]">
+              <p className="text-[10px] font-bold uppercase" style={{ color: textMute }}>
+                {new Date(ev.event_at).toLocaleString('default', { month: 'short' })}
+              </p>
+              <p className="text-lg font-black" style={{ color: accent }}>{new Date(ev.event_at).getDate()}</p>
+            </div>
+            <div>
+              <p className="font-bold text-sm" style={{ color: textMain }}>{ev.title}</p>
+              <p className="text-xs" style={{ color: textMute }}>
+                {new Date(ev.event_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        ))}
+        {events.length === 0 && (
+          <p className="text-sm text-center py-4" style={{ color: textMute }}>No events yet. Add your first tribe event!</p>
+        )}
+      </div>
     </div>
   );
 }
