@@ -3,40 +3,98 @@ import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// ─── Skin tone palette ────────────────────────────────────────────────────────
-export const SKIN_TONES: Record<string, string> = {
-  porcelain:  '#FDE8D0',
-  beige:      '#F2C9A0',
-  golden:     '#E8A870',
-  tan:        '#C88550',
-  medium:     '#A86030',
-  warm:       '#8A4820',
-  deep:       '#6A3018',
-  ebony:      '#3E1C0A',
-};
-
-// Derive complementary tones from base skin
-function skin(hex: string, lightness = 0): string {
-  const c = new THREE.Color(hex);
-  c.r = Math.min(1, Math.max(0, c.r + lightness * 0.08));
-  c.g = Math.min(1, Math.max(0, c.g + lightness * 0.06));
-  c.b = Math.min(1, Math.max(0, c.b + lightness * 0.04));
-  return `#${c.getHexString()}`;
+// ─── Module-level 2-step toon gradient map ────────────────────────────────────
+// Creates the flat cartoon shading style (shadow + bright, hard edge between)
+// Initialized lazily on first component mount, shared across all instances
+let _gradMap: THREE.DataTexture | null = null;
+function getGradMap(): THREE.DataTexture {
+  if (!_gradMap) {
+    const data = new Uint8Array([90, 255]);           // shadow | bright
+    _gradMap = new THREE.DataTexture(data, 2, 1, THREE.RedFormat);
+    _gradMap.magFilter = THREE.NearestFilter;
+    _gradMap.minFilter = THREE.NearestFilter;
+    _gradMap.needsUpdate = true;
+  }
+  return _gradMap;
 }
 
-function lip(hex: string): string {
-  const c = new THREE.Color(hex);
-  return `#${new THREE.Color(c.r * 0.78, c.g * 0.48, c.b * 0.40).getHexString()}`;
+// Backface outline material — shared, always black
+let _outlineMat: THREE.MeshBasicMaterial | null = null;
+function getOutlineMat(): THREE.MeshBasicMaterial {
+  if (!_outlineMat) {
+    _outlineMat = new THREE.MeshBasicMaterial({ color: '#0A0500', side: THREE.BackSide });
+  }
+  return _outlineMat;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const HAIR     = '#0C0700';
-const SHIRT    = '#3B82F6';   // Bitmoji-blue
-const PANTS    = '#1E3A5F';
-const SHOES    = '#111827';
-const SOLE     = '#F3F4F6';
+// ─── Outlined mesh — renders BackSide first (outline), then fill ──────────────
+// This creates an ink outline effect identical to the cartoon references
+function OL({
+  children, scale = 1.062,
+}: {
+  children: React.ReactNode;
+  scale?: number;
+}) {
+  return (
+    <group>
+      {/* Outline layer — BackSide renders the outline color behind the fill */}
+      <group scale={scale}>
+        {children}
+        {/* Override material to outline */}
+        <primitive object={getOutlineMat()} attach="material" />
+      </group>
+      {/* Fill layer */}
+      {children}
+    </group>
+  );
+}
 
-// ─── Props ───────────────────────────────────────────────────────────────────
+// Simpler approach: explicit outline + fill meshes for key shapes
+function OutlinedSphere({
+  args, color, gradMap, oScale = 1.065,
+}: {
+  args: [number, number, number];
+  color: string;
+  gradMap: THREE.DataTexture;
+  oScale?: number;
+}) {
+  return (
+    <group>
+      <mesh scale={oScale}>
+        <sphereGeometry args={args} />
+        <primitive object={getOutlineMat()} attach="material" />
+      </mesh>
+      <mesh>
+        <sphereGeometry args={args} />
+        <meshToonMaterial color={color} gradientMap={gradMap} />
+      </mesh>
+    </group>
+  );
+}
+
+function OutlinedCapsule({
+  args, color, gradMap, oScale = 1.065,
+}: {
+  args: [number, number, number, number];
+  color: string;
+  gradMap: THREE.DataTexture;
+  oScale?: number;
+}) {
+  return (
+    <group>
+      <mesh scale={oScale}>
+        <capsuleGeometry args={args} />
+        <primitive object={getOutlineMat()} attach="material" />
+      </mesh>
+      <mesh>
+        <capsuleGeometry args={args} />
+        <meshToonMaterial color={color} gradientMap={gradMap} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
 export interface PlayerCharacterProps {
   position:     THREE.Vector3;
   rotation?:    number;
@@ -50,103 +108,81 @@ export interface PlayerCharacterProps {
   isMovingRef?: React.MutableRefObject<boolean>;
 }
 
+// Derive shadow tone of a color (slightly darker)
+function shadowOf(hex: string): string {
+  const c = new THREE.Color(hex);
+  c.multiplyScalar(0.72);
+  return `#${c.getHexString()}`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 export function PlayerCharacter({
   position, rotation = 0,
   posRef, rotRef,
-  skinColor  = '#A86030',
-  hairColor  = HAIR,
-  shirtColor = SHIRT,
+  skinColor  = '#C88550',
+  hairColor  = '#0C0700',
+  shirtColor = '#2563EB',
   isLocal    = false,
   isMovingRef,
 }: PlayerCharacterProps) {
 
-  const root     = useRef<THREE.Group>(null);
-  const upper    = useRef<THREE.Group>(null);
-  const headGrp  = useRef<THREE.Group>(null);
-  const lLeg     = useRef<THREE.Group>(null);
-  const rLeg     = useRef<THREE.Group>(null);
-  const lArm     = useRef<THREE.Group>(null);
-  const rArm     = useRef<THREE.Group>(null);
-  const ph       = useRef(Math.random() * Math.PI * 2);
+  const root    = useRef<THREE.Group>(null);
+  const upper   = useRef<THREE.Group>(null);
+  const headGrp = useRef<THREE.Group>(null);
+  const lLeg    = useRef<THREE.Group>(null);
+  const rLeg    = useRef<THREE.Group>(null);
+  const lArm    = useRef<THREE.Group>(null);
+  const rArm    = useRef<THREE.Group>(null);
+  const ph      = useRef(Math.random() * Math.PI * 2);
 
-  // ── Materials — created once per skin/hair/shirt change ──
-  const mSkin = useMemo(() => new THREE.MeshPhongMaterial({
-    color: skinColor, specular: '#180808', shininess: 22,
-  }), [skinColor]);
+  const gradMap = useMemo(() => getGradMap(), []);
 
-  const mSkinD = useMemo(() => new THREE.MeshPhongMaterial({
-    color: skin(skinColor, -1.2), specular: '#100404', shininess: 14,
-  }), [skinColor]);
+  // Derived colors
+  const skinShadow  = shadowOf(skinColor);
+  const hairShadow  = shadowOf(hairColor);
+  const shirtShadow = shadowOf(shirtColor);
+  const lipColor    = useMemo(() => {
+    const c = new THREE.Color(skinColor);
+    return `#${new THREE.Color(c.r * 0.65, c.g * 0.35, c.b * 0.32).getHexString()}`;
+  }, [skinColor]);
 
-  const mSkinL = useMemo(() => new THREE.MeshPhongMaterial({
-    color: skin(skinColor, +0.6), specular: '#200A0A', shininess: 30,
-  }), [skinColor]);
-
-  const mHair = useMemo(() => new THREE.MeshPhongMaterial({
-    color: hairColor, specular: '#120A02', shininess: 28,
-  }), [hairColor]);
-
-  const mShirt = useMemo(() => new THREE.MeshPhongMaterial({
-    color: shirtColor, specular: '#080820', shininess: 15,
-  }), [shirtColor]);
-
-  const mPants = useMemo(() => new THREE.MeshPhongMaterial({
-    color: PANTS, specular: '#040810', shininess: 10,
-  }), []);
-
-  const mShoe = useMemo(() => new THREE.MeshPhongMaterial({
-    color: SHOES, specular: '#282828', shininess: 45,
-  }), []);
-
-  const mLip = useMemo(() => new THREE.MeshPhongMaterial({
-    color: lip(skinColor), specular: '#0A0404', shininess: 38,
-  }), [skinColor]);
-
-  const mWhite = useMemo(() => new THREE.MeshPhongMaterial({
-    color: '#FEF9F0', specular: '#CCBBAA', shininess: 80,
-  }), []);
-
-  const mIris = useMemo(() => new THREE.MeshBasicMaterial({ color: '#1A0E06' }), []);
-  const mPupil = useMemo(() => new THREE.MeshBasicMaterial({ color: '#030100' }), []);
-  const mCatchL = useMemo(() => new THREE.MeshBasicMaterial({ color: '#FFFFFF' }), []);
-  const mHairD = useMemo(() => new THREE.MeshBasicMaterial({ color: hairColor }), [hairColor]);
-  const mSkinB = useMemo(() => new THREE.MeshBasicMaterial({ color: skin(skinColor, -0.5) }), [skinColor]);
-  const mSole  = useMemo(() => new THREE.MeshBasicMaterial({ color: SOLE }), []);
+  const PANTS    = '#1E2D3D';
+  const SHOES    = '#0D0F14';
+  const SOLE     = '#EAECEF';
+  const OUTLINE  = '#0A0500';
 
   useFrame(({ clock }) => {
     if (!root.current) return;
-    const t      = clock.elapsedTime;
-    const p      = ph.current;
+    const t     = clock.elapsedTime;
+    const p     = ph.current;
     const moving = isMovingRef?.current ?? false;
-    const s      = moving ? 1.0 : 0.0;
-    const freq   = 5.2;
+    const s     = moving ? 1.0 : 0.0;
+    const freq  = 5.4;
 
-    // Sync position & rotation
     if (posRef?.current) root.current.position.copy(posRef.current);
     else                 root.current.position.copy(position);
     if (rotRef?.current !== undefined) root.current.rotation.y = rotRef.current;
     else                               root.current.rotation.y = rotation;
 
-    // Leg swing
-    const sw = s * Math.sin(t * freq + p) * 0.45;
+    // Legs
+    const sw = s * Math.sin(t * freq + p) * 0.44;
     if (lLeg.current) lLeg.current.rotation.x =  sw;
     if (rLeg.current) rLeg.current.rotation.x = -sw;
 
-    // Arm counter-swing
-    const aw = s * Math.sin(t * freq + p + Math.PI) * 0.24;
+    // Arms counter-swing
+    const aw = s * Math.sin(t * freq + p + Math.PI) * 0.22;
     if (lArm.current) lArm.current.rotation.x =  aw;
     if (rArm.current) rArm.current.rotation.x = -aw;
 
-    // Upper body: base at y=1.02 + subtle vertical bob + sway
+    // Upper body — stays at y=1.02 + subtle bob + lateral sway
     if (upper.current) {
       upper.current.position.y = 1.02 + (moving
         ? Math.abs(Math.sin(t * freq * 2 + p)) * 0.012
         : Math.sin(t * 1.05 + p) * 0.004);
-      upper.current.rotation.z = s * Math.sin(t * freq + p) * 0.025;
+      upper.current.rotation.z = s * Math.sin(t * freq + p) * 0.024;
     }
 
-    // Head: base at y=0.66 relative to upper + gentle bob
+    // Head — stays at y=0.66 relative to upper + gentle bob
     if (headGrp.current) {
       headGrp.current.position.y = 0.66 + (moving
         ? Math.abs(Math.sin(t * freq * 2 + p)) * 0.012
@@ -154,515 +190,515 @@ export function PlayerCharacter({
     }
   });
 
-  // ─── Geometry — pre-computed high-segment counts ──────────────────────────
-  // All major shapes use 32+ radial segments for smooth silhouettes
-
   return (
     <group ref={root} position={position}>
 
-      {/* ── Ground shadow ── */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
-        <circleGeometry args={[0.28, 32]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.22} />
+      {/* Ground shadow */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
+        <circleGeometry args={[0.26, 28]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.28} />
       </mesh>
 
-      {/* ════════════════════════════════════════════════════
-          LEFT LEG  — pivot at hip joint
-      ════════════════════════════════════════════════════ */}
+      {/* ═══════════════ LEFT LEG ═══════════════ */}
       <group ref={lLeg} position={[-0.1, 0.72, 0]}>
-        {/* Thigh */}
+        {/* Outline */}
+        <mesh position={[0, -0.17, 0]} scale={1.07}>
+          <capsuleGeometry args={[0.092, 0.24, 6, 18]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
+        {/* Fill */}
         <mesh position={[0, -0.17, 0]}>
-          <capsuleGeometry args={[0.092, 0.24, 8, 22]} />
-          <primitive object={mPants} attach="material" />
+          <capsuleGeometry args={[0.092, 0.24, 6, 18]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
         </mesh>
-        {/* Knee */}
+        <mesh position={[0, -0.36, 0]} scale={1.07}>
+          <sphereGeometry args={[0.096, 16, 12]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, -0.36, 0]}>
-          <sphereGeometry args={[0.096, 20, 16]} />
-          <primitive object={mPants} attach="material" />
+          <sphereGeometry args={[0.096, 16, 12]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
         </mesh>
-        {/* Calf */}
+        <mesh position={[0, -0.53, 0]} scale={1.07}>
+          <capsuleGeometry args={[0.08, 0.2, 6, 16]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, -0.53, 0]}>
-          <capsuleGeometry args={[0.08, 0.2, 8, 20]} />
-          <primitive object={mPants} attach="material" />
-        </mesh>
-        {/* Ankle */}
-        <mesh position={[0, -0.69, 0]}>
-          <sphereGeometry args={[0.078, 18, 14]} />
-          <primitive object={mShoe} attach="material" />
+          <capsuleGeometry args={[0.08, 0.2, 6, 16]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
         </mesh>
         {/* Shoe */}
-        <mesh position={[0.01, -0.73, 0.036]}>
-          <boxGeometry args={[0.158, 0.105, 0.25, 3, 1, 4]} />
-          <primitive object={mShoe} attach="material" />
+        <mesh position={[0.01, -0.74, 0.038]} scale={1.06}>
+          <boxGeometry args={[0.162, 0.108, 0.255, 2, 1, 3]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
         </mesh>
-        {/* Rounded toe */}
-        <mesh position={[0.01, -0.73, 0.148]}>
-          <sphereGeometry args={[0.088, 18, 14]} />
-          <primitive object={mShoe} attach="material" />
+        <mesh position={[0.01, -0.74, 0.038]}>
+          <boxGeometry args={[0.162, 0.108, 0.255, 2, 1, 3]} />
+          <meshToonMaterial color={SHOES} gradientMap={gradMap} />
         </mesh>
-        {/* Sole */}
-        <mesh position={[0.01, -0.775, 0.036]}>
-          <boxGeometry args={[0.165, 0.02, 0.262]} />
-          <primitive object={mSole} attach="material" />
+        <mesh position={[0.01, -0.745, 0.152]}>
+          <sphereGeometry args={[0.086, 16, 12]} />
+          <meshToonMaterial color={SHOES} gradientMap={gradMap} />
+        </mesh>
+        <mesh position={[0.01, -0.782, 0.038]}>
+          <boxGeometry args={[0.17, 0.022, 0.268]} />
+          <meshBasicMaterial color={SOLE} />
         </mesh>
       </group>
 
-      {/* ════════════════════════════════════════════════════
-          RIGHT LEG
-      ════════════════════════════════════════════════════ */}
+      {/* ═══════════════ RIGHT LEG ═══════════════ */}
       <group ref={rLeg} position={[0.1, 0.72, 0]}>
+        <mesh position={[0, -0.17, 0]} scale={1.07}>
+          <capsuleGeometry args={[0.092, 0.24, 6, 18]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, -0.17, 0]}>
-          <capsuleGeometry args={[0.092, 0.24, 8, 22]} />
-          <primitive object={mPants} attach="material" />
+          <capsuleGeometry args={[0.092, 0.24, 6, 18]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
+        </mesh>
+        <mesh position={[0, -0.36, 0]} scale={1.07}>
+          <sphereGeometry args={[0.096, 16, 12]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
         </mesh>
         <mesh position={[0, -0.36, 0]}>
-          <sphereGeometry args={[0.096, 20, 16]} />
-          <primitive object={mPants} attach="material" />
+          <sphereGeometry args={[0.096, 16, 12]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
+        </mesh>
+        <mesh position={[0, -0.53, 0]} scale={1.07}>
+          <capsuleGeometry args={[0.08, 0.2, 6, 16]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
         </mesh>
         <mesh position={[0, -0.53, 0]}>
-          <capsuleGeometry args={[0.08, 0.2, 8, 20]} />
-          <primitive object={mPants} attach="material" />
+          <capsuleGeometry args={[0.08, 0.2, 6, 16]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
         </mesh>
-        <mesh position={[0, -0.69, 0]}>
-          <sphereGeometry args={[0.078, 18, 14]} />
-          <primitive object={mShoe} attach="material" />
+        <mesh position={[-0.01, -0.74, 0.038]} scale={1.06}>
+          <boxGeometry args={[0.162, 0.108, 0.255, 2, 1, 3]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
         </mesh>
-        <mesh position={[-0.01, -0.73, 0.036]}>
-          <boxGeometry args={[0.158, 0.105, 0.25, 3, 1, 4]} />
-          <primitive object={mShoe} attach="material" />
+        <mesh position={[-0.01, -0.74, 0.038]}>
+          <boxGeometry args={[0.162, 0.108, 0.255, 2, 1, 3]} />
+          <meshToonMaterial color={SHOES} gradientMap={gradMap} />
         </mesh>
-        <mesh position={[-0.01, -0.73, 0.148]}>
-          <sphereGeometry args={[0.088, 18, 14]} />
-          <primitive object={mShoe} attach="material" />
+        <mesh position={[-0.01, -0.745, 0.152]}>
+          <sphereGeometry args={[0.086, 16, 12]} />
+          <meshToonMaterial color={SHOES} gradientMap={gradMap} />
         </mesh>
-        <mesh position={[-0.01, -0.775, 0.036]}>
-          <boxGeometry args={[0.165, 0.02, 0.262]} />
-          <primitive object={mSole} attach="material" />
+        <mesh position={[-0.01, -0.782, 0.038]}>
+          <boxGeometry args={[0.17, 0.022, 0.268]} />
+          <meshBasicMaterial color={SOLE} />
         </mesh>
       </group>
 
-      {/* ════════════════════════════════════════════════════
-          UPPER BODY — sway parent, holds torso + arms + neck + head
-      ════════════════════════════════════════════════════ */}
+      {/* ═══════════════ UPPER BODY ═══════════════ */}
       <group ref={upper} position={[0, 1.02, 0]}>
 
         {/* Hips */}
+        <mesh position={[0, -0.22, 0]} scale={1.06}>
+          <capsuleGeometry args={[0.138, 0.1, 6, 18]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, -0.22, 0]}>
-          <capsuleGeometry args={[0.138, 0.1, 8, 22]} />
-          <primitive object={mPants} attach="material" />
+          <capsuleGeometry args={[0.138, 0.1, 6, 18]} />
+          <meshToonMaterial color={PANTS} gradientMap={gradMap} />
         </mesh>
 
         {/* Belt */}
-        <mesh position={[0, -0.135, 0]}>
-          <cylinderGeometry args={[0.145, 0.145, 0.04, 28, 1, true]} />
+        <mesh position={[0, -0.138, 0]}>
+          <cylinderGeometry args={[0.145, 0.145, 0.042, 26, 1, true]} />
           <meshBasicMaterial color="#0A0A0A" />
         </mesh>
+        <mesh position={[0, -0.138, 0.147]}>
+          <boxGeometry args={[0.058, 0.034, 0.01]} />
+          <meshBasicMaterial color="#C9A020" />
+        </mesh>
 
-        {/* Chest / torso — slightly wider at shoulders */}
+        {/* Torso */}
+        <mesh position={[0, 0.09, 0]} scale={[1.06, 1.06, 1.04]}>
+          <capsuleGeometry args={[0.178, 0.3, 8, 22]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, 0.09, 0]} scale={[1, 1, 0.88]}>
-          <capsuleGeometry args={[0.178, 0.3, 10, 24]} />
-          <primitive object={mShirt} attach="material" />
+          <capsuleGeometry args={[0.178, 0.3, 8, 22]} />
+          <meshToonMaterial color={shirtColor} gradientMap={gradMap} />
         </mesh>
 
-        {/* Shirt lower hem */}
-        <mesh position={[0, -0.07, 0]}>
-          <cylinderGeometry args={[0.182, 0.182, 0.04, 28, 1, true]} />
-          <primitive object={mShirt} attach="material" />
-        </mesh>
-
-        {/* Collar — v-neck style */}
-        <mesh position={[0, 0.31, 0.092]}>
-          <torusGeometry args={[0.078, 0.018, 8, 24, Math.PI * 1.15]} />
+        {/* Collar */}
+        <mesh position={[0, 0.315, 0.09]}>
+          <torusGeometry args={[0.076, 0.017, 7, 22, Math.PI * 1.15]} />
           <meshBasicMaterial color="#F5F5FF" />
         </mesh>
 
         {/* ── LEFT ARM ── */}
         <group ref={lArm} position={[-0.235, 0.21, 0]}>
-          {/* Shoulder sphere */}
+          {/* Shoulder */}
+          <mesh position={[-0.04, 0, 0]} scale={1.07}>
+            <sphereGeometry args={[0.098, 18, 14]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+          </mesh>
           <mesh position={[-0.04, 0, 0]}>
-            <sphereGeometry args={[0.098, 22, 16]} />
-            <primitive object={mShirt} attach="material" />
+            <sphereGeometry args={[0.098, 18, 14]} />
+            <meshToonMaterial color={shirtColor} gradientMap={gradMap} />
           </mesh>
           {/* Upper arm */}
-          <mesh position={[-0.06, -0.18, 0]} rotation={[0, 0, 0.14]}>
-            <capsuleGeometry args={[0.078, 0.21, 8, 20]} />
-            <primitive object={mShirt} attach="material" />
+          <mesh position={[-0.06, -0.18, 0]} rotation={[0, 0, 0.14]} scale={1.07}>
+            <capsuleGeometry args={[0.078, 0.21, 6, 18]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          {/* Elbow */}
-          <mesh position={[-0.078, -0.36, 0]}>
-            <sphereGeometry args={[0.078, 18, 14]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[-0.06, -0.18, 0]} rotation={[0, 0, 0.14]}>
+            <capsuleGeometry args={[0.078, 0.21, 6, 18]} />
+            <meshToonMaterial color={shirtColor} gradientMap={gradMap} />
           </mesh>
           {/* Forearm */}
-          <mesh position={[-0.084, -0.505, 0]} rotation={[0, 0, 0.08]}>
-            <capsuleGeometry args={[0.067, 0.2, 8, 18]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[-0.08, -0.5, 0]} rotation={[0, 0, 0.08]} scale={1.07}>
+            <capsuleGeometry args={[0.067, 0.2, 6, 16]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          {/* Wrist */}
-          <mesh position={[-0.088, -0.658, 0]}>
-            <sphereGeometry args={[0.068, 16, 12]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[-0.08, -0.5, 0]} rotation={[0, 0, 0.08]}>
+            <capsuleGeometry args={[0.067, 0.2, 6, 16]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
           {/* Hand */}
-          <mesh position={[-0.09, -0.718, 0]}>
-            <sphereGeometry args={[0.082, 20, 16]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[-0.086, -0.685, 0]} scale={1.07}>
+            <sphereGeometry args={[0.082, 18, 14]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          {/* Thumb */}
-          <mesh position={[-0.048, -0.73, 0.05]} rotation={[0.35, 0, 0.50]}>
-            <capsuleGeometry args={[0.028, 0.056, 6, 10]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          {/* Fingers */}
-          <mesh position={[-0.09, -0.77, 0.025]} rotation={[0.18, 0, 0]}>
-            <capsuleGeometry args={[0.046, 0.042, 6, 12]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[-0.086, -0.685, 0]}>
+            <sphereGeometry args={[0.082, 18, 14]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
         </group>
 
         {/* ── RIGHT ARM ── */}
         <group ref={rArm} position={[0.235, 0.21, 0]}>
+          <mesh position={[0.04, 0, 0]} scale={1.07}>
+            <sphereGeometry args={[0.098, 18, 14]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+          </mesh>
           <mesh position={[0.04, 0, 0]}>
-            <sphereGeometry args={[0.098, 22, 16]} />
-            <primitive object={mShirt} attach="material" />
+            <sphereGeometry args={[0.098, 18, 14]} />
+            <meshToonMaterial color={shirtColor} gradientMap={gradMap} />
+          </mesh>
+          <mesh position={[0.06, -0.18, 0]} rotation={[0, 0, -0.14]} scale={1.07}>
+            <capsuleGeometry args={[0.078, 0.21, 6, 18]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
           <mesh position={[0.06, -0.18, 0]} rotation={[0, 0, -0.14]}>
-            <capsuleGeometry args={[0.078, 0.21, 8, 20]} />
-            <primitive object={mShirt} attach="material" />
+            <capsuleGeometry args={[0.078, 0.21, 6, 18]} />
+            <meshToonMaterial color={shirtColor} gradientMap={gradMap} />
           </mesh>
-          <mesh position={[0.078, -0.36, 0]}>
-            <sphereGeometry args={[0.078, 18, 14]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.08, -0.5, 0]} rotation={[0, 0, -0.08]} scale={1.07}>
+            <capsuleGeometry args={[0.067, 0.2, 6, 16]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          <mesh position={[0.084, -0.505, 0]} rotation={[0, 0, -0.08]}>
-            <capsuleGeometry args={[0.067, 0.2, 8, 18]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.08, -0.5, 0]} rotation={[0, 0, -0.08]}>
+            <capsuleGeometry args={[0.067, 0.2, 6, 16]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
-          <mesh position={[0.088, -0.658, 0]}>
-            <sphereGeometry args={[0.068, 16, 12]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.086, -0.685, 0]} scale={1.07}>
+            <sphereGeometry args={[0.082, 18, 14]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          <mesh position={[0.09, -0.718, 0]}>
-            <sphereGeometry args={[0.082, 20, 16]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          <mesh position={[0.048, -0.73, 0.05]} rotation={[0.35, 0, -0.50]}>
-            <capsuleGeometry args={[0.028, 0.056, 6, 10]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          <mesh position={[0.09, -0.77, 0.025]} rotation={[0.18, 0, 0]}>
-            <capsuleGeometry args={[0.046, 0.042, 6, 12]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.086, -0.685, 0]}>
+            <sphereGeometry args={[0.082, 18, 14]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
         </group>
 
         {/* Neck */}
+        <mesh position={[0, 0.43, 0]} scale={1.06}>
+          <capsuleGeometry args={[0.079, 0.09, 6, 16]} />
+          <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+        </mesh>
         <mesh position={[0, 0.43, 0]}>
-          <capsuleGeometry args={[0.08, 0.09, 8, 18]} />
-          <primitive object={mSkin} attach="material" />
+          <capsuleGeometry args={[0.079, 0.09, 6, 16]} />
+          <meshToonMaterial color={skinColor} gradientMap={gradMap} />
         </mesh>
 
-        {/* ════════════════════════════════════════════════════
-            HEAD GROUP — bob animation parent
-            HEAD RADIUS: 0.38 units = 38% of 2.0 unit total height
-            This creates the iconic cartoon "big head" proportion
-        ════════════════════════════════════════════════════ */}
+        {/* ═══════════════════════════════════════════════════════
+            HEAD — Big cartoon head (38% of 2-unit total height)
+            Outline: BackSide scaled sphere behind the fill sphere
+        ═══════════════════════════════════════════════════════ */}
         <group ref={headGrp} position={[0, 0.66, 0]}>
 
-          {/* ── HEAD BASE — smooth round sphere ── */}
-          {/* Slightly oval: wider across, slightly taller, slightly shallower */}
-          <mesh scale={[1.0, 1.05, 0.95]}>
+          {/* Head outline */}
+          <mesh scale={[1.062, 1.068, 1.055]}>
             <sphereGeometry args={[0.38, 48, 36]} />
-            <primitive object={mSkin} attach="material" />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+          </mesh>
+          {/* Head fill — slightly oval */}
+          <mesh scale={[1.0, 1.06, 0.96]}>
+            <sphereGeometry args={[0.38, 48, 36]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
 
-          {/* Jaw rounding — softens the chin area */}
-          <mesh position={[0, -0.15, 0.04]} scale={[0.92, 0.5, 0.85]}>
-            <sphereGeometry args={[0.38, 36, 28]} />
-            <primitive object={mSkin} attach="material" />
+          {/* Jaw softening — rounds the chin */}
+          <mesh position={[0, -0.14, 0.04]} scale={[0.9, 0.44, 0.85]}>
+            <sphereGeometry args={[0.38, 32, 24]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
 
-          {/* Forehead — slight brow-ridge volume */}
-          <mesh position={[0, 0.18, 0.3]} scale={[0.85, 0.3, 0.5]}>
-            <sphereGeometry args={[0.38, 28, 20]} />
-            <primitive object={mSkin} attach="material" />
+          {/* Cheek puff left */}
+          <mesh position={[-0.235, 0.0, 0.265]} scale={[0.55, 0.48, 0.52]}>
+            <sphereGeometry args={[0.38, 22, 16]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
+          </mesh>
+          {/* Cheek puff right */}
+          <mesh position={[0.235, 0.0, 0.265]} scale={[0.55, 0.48, 0.52]}>
+            <sphereGeometry args={[0.38, 22, 16]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
           </mesh>
 
-          {/* Cheek volume — chubby cheeks give the cartoon look */}
-          <mesh position={[-0.22, 0.0, 0.26]} scale={[0.58, 0.52, 0.55]}>
-            <sphereGeometry args={[0.38, 24, 18]} />
-            <primitive object={mSkinL} attach="material" />
+          {/* ══════════════════════════════════
+              HAIR — Big bold cartoon afro
+              Outline: scale 1.045 BackSide
+          ══════════════════════════════════ */}
+          {/* Hair outline */}
+          <mesh position={[0, 0.1, -0.02]} scale={[1.042, 1.036, 1.036]}>
+            <sphereGeometry args={[0.41, 38, 28]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          <mesh position={[0.22, 0.0, 0.26]} scale={[0.58, 0.52, 0.55]}>
-            <sphereGeometry args={[0.38, 24, 18]} />
-            <primitive object={mSkinL} attach="material" />
+          {/* Hair main mass */}
+          <mesh position={[0, 0.1, -0.02]}>
+            <sphereGeometry args={[0.41, 38, 28]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
-
-          {/* ── HAIR — Big natural afro ── */}
-          {/* Main afro mass — significantly larger than head for cartoon scale */}
-          <mesh position={[0, 0.1, -0.02]} scale={[1.0, 0.98, 0.94]}>
-            <sphereGeometry args={[0.41, 40, 30]} />
-            <primitive object={mHair} attach="material" />
+          {/* Left lobe outline */}
+          <mesh position={[-0.13, 0.07, -0.03]} scale={[0.89, 0.855, 0.89]}>
+            <sphereGeometry args={[0.41, 30, 22]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          {/* Left lobe */}
-          <mesh position={[-0.12, 0.07, -0.03]} scale={[0.86, 0.82, 0.86]}>
-            <sphereGeometry args={[0.41, 34, 26]} />
-            <primitive object={mHair} attach="material" />
+          <mesh position={[-0.13, 0.07, -0.03]} scale={[0.86, 0.83, 0.86]}>
+            <sphereGeometry args={[0.41, 30, 22]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
           {/* Right lobe */}
-          <mesh position={[0.12, 0.07, -0.03]} scale={[0.86, 0.82, 0.86]}>
-            <sphereGeometry args={[0.41, 34, 26]} />
-            <primitive object={mHair} attach="material" />
+          <mesh position={[0.13, 0.07, -0.03]} scale={[0.89, 0.855, 0.89]}>
+            <sphereGeometry args={[0.41, 30, 22]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
           </mesh>
-          {/* Back lobe — fills behind head */}
-          <mesh position={[0, 0.06, -0.1]} scale={[0.9, 0.88, 0.88]}>
-            <sphereGeometry args={[0.41, 34, 26]} />
-            <primitive object={mHair} attach="material" />
+          <mesh position={[0.13, 0.07, -0.03]} scale={[0.86, 0.83, 0.86]}>
+            <sphereGeometry args={[0.41, 30, 22]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
-          {/* Hairline front curve — covers forehead boundary */}
-          <mesh position={[0, -0.15, 0.33]}>
-            <torusGeometry args={[0.15, 0.026, 8, 28, Math.PI * 0.9]} />
-            <primitive object={mHair} attach="material" />
+          {/* Back */}
+          <mesh position={[0, 0.06, -0.11]} scale={[0.91, 0.89, 0.89]}>
+            <sphereGeometry args={[0.41, 30, 22]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
-          {/* Sideburn left */}
-          <mesh position={[-0.355, -0.14, 0.1]}>
-            <sphereGeometry args={[0.068, 14, 11]} />
-            <primitive object={mHair} attach="material" />
+          {/* Hairline front */}
+          <mesh position={[0, -0.15, 0.34]}>
+            <torusGeometry args={[0.152, 0.025, 7, 26, Math.PI * 0.88]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
-          {/* Sideburn right */}
-          <mesh position={[0.355, -0.14, 0.1]}>
-            <sphereGeometry args={[0.068, 14, 11]} />
-            <primitive object={mHair} attach="material" />
+          {/* Sideburns */}
+          <mesh position={[-0.36, -0.135, 0.105]}>
+            <sphereGeometry args={[0.065, 12, 9]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
+          </mesh>
+          <mesh position={[0.36, -0.135, 0.105]}>
+            <sphereGeometry args={[0.065, 12, 9]} />
+            <meshToonMaterial color={hairColor} gradientMap={gradMap} />
           </mesh>
 
-          {/* ── EARS ── */}
-          <group position={[-0.365, -0.02, 0]}>
-            <mesh>
-              <sphereGeometry args={[0.082, 20, 16]} />
-              <primitive object={mSkin} attach="material" />
-            </mesh>
-            {/* Inner ear */}
-            <mesh position={[0.045, 0, 0]}>
-              <sphereGeometry args={[0.046, 14, 11]} />
-              <primitive object={mSkinD} attach="material" />
-            </mesh>
-          </group>
-          <group position={[0.365, -0.02, 0]}>
-            <mesh>
-              <sphereGeometry args={[0.082, 20, 16]} />
-              <primitive object={mSkin} attach="material" />
-            </mesh>
-            <mesh position={[-0.045, 0, 0]}>
-              <sphereGeometry args={[0.046, 14, 11]} />
-              <primitive object={mSkinD} attach="material" />
-            </mesh>
-          </group>
+          {/* ═══════════ EARS ═══════════ */}
+          {/* Left ear */}
+          <mesh position={[-0.37, -0.02, 0]} scale={1.06}>
+            <sphereGeometry args={[0.08, 16, 12]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+          </mesh>
+          <mesh position={[-0.37, -0.02, 0]}>
+            <sphereGeometry args={[0.08, 16, 12]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
+          </mesh>
+          {/* Right ear */}
+          <mesh position={[0.37, -0.02, 0]} scale={1.06}>
+            <sphereGeometry args={[0.08, 16, 12]} />
+            <meshBasicMaterial color={OUTLINE} side={THREE.BackSide} />
+          </mesh>
+          <mesh position={[0.37, -0.02, 0]}>
+            <sphereGeometry args={[0.08, 16, 12]} />
+            <meshToonMaterial color={skinColor} gradientMap={gradMap} />
+          </mesh>
 
-          {/* ════════════════════════════════════════════════
-              FACE FEATURES
-              Head radius = 0.38
-              Face forward = +Z
-              Eye centers at y=+0.022, x=±0.13, z≈0.36 (on surface)
-          ════════════════════════════════════════════════ */}
+          {/* ═══════════════════════════════════════════════════
+              FACE — cartoon references have:
+              · Large ALMOND eyes (oval, not circular)
+              · Very large iris filling most of the eye
+              · Bold, arched eyebrows
+              · Tiny nose (just a hint)
+              · Wide cartoon smile
 
-          {/* ── LEFT EYE ── */}
-          {/* Eye socket — slight depth shadow */}
-          <mesh position={[-0.13, 0.022, 0.34]}>
-            <sphereGeometry args={[0.116, 24, 18]} />
-            <primitive object={mSkinD} attach="material" />
+              Head center = [0,0,0] in this group
+              Face surface at z = 0.38 * 0.96 = 0.365
+              Eyes at y = +0.01, x = ±0.122
+          ═══════════════════════════════════════════════════ */}
+
+          {/* ── LEFT EYE — almond shape via oval scale ── */}
+          {/* Eye socket shadow */}
+          <mesh position={[-0.122, 0.01, 0.335]} scale={[1, 0.76, 1]}>
+            <sphereGeometry args={[0.118, 22, 16]} />
+            <meshToonMaterial color={skinShadow} gradientMap={gradMap} />
           </mesh>
-          {/* Sclera — white sphere, protruding */}
-          <mesh position={[-0.13, 0.022, 0.355]}>
-            <sphereGeometry args={[0.104, 24, 18]} />
-            <primitive object={mWhite} attach="material" />
+          {/* Sclera (white) — almond scaled */}
+          <mesh position={[-0.122, 0.01, 0.352]} scale={[1, 0.76, 1]}>
+            <sphereGeometry args={[0.106, 22, 16]} />
+            <meshBasicMaterial color="#FFFCF0" />
           </mesh>
-          {/* Iris — large, fills most of eye (cartoon look) */}
-          <mesh position={[-0.13, 0.022, 0.415]}>
-            <circleGeometry args={[0.072, 28]} />
-            <meshBasicMaterial color="#1E1208" />
+          {/* Iris — fills most of the eye */}
+          <mesh position={[-0.122, 0.01, 0.416]}>
+            <circleGeometry args={[0.076, 28]} />
+            <meshBasicMaterial color="#140C06" />
           </mesh>
-          {/* Color iris ring (warm brown) */}
-          <mesh position={[-0.13, 0.022, 0.414]}>
-            <torusGeometry args={[0.056, 0.016, 8, 28]} />
-            <meshBasicMaterial color="#5C3218" />
+          {/* Iris color ring */}
+          <mesh position={[-0.122, 0.01, 0.415]}>
+            <torusGeometry args={[0.06, 0.016, 8, 28]} />
+            <meshBasicMaterial color="#5A2E10" />
           </mesh>
           {/* Pupil */}
-          <mesh position={[-0.13, 0.022, 0.417]}>
-            <circleGeometry args={[0.04, 22]} />
-            <primitive object={mPupil} attach="material" />
+          <mesh position={[-0.122, 0.01, 0.418]}>
+            <circleGeometry args={[0.042, 22]} />
+            <meshBasicMaterial color="#040100" />
           </mesh>
           {/* Main catchlight — large, top-left */}
-          <mesh position={[-0.148, 0.044, 0.42]}>
-            <circleGeometry args={[0.018, 10]} />
-            <primitive object={mCatchL} attach="material" />
+          <mesh position={[-0.142, 0.034, 0.421]}>
+            <circleGeometry args={[0.022, 10]} />
+            <meshBasicMaterial color="#FFFFFF" />
           </mesh>
           {/* Small secondary catchlight */}
-          <mesh position={[-0.116, 0.001, 0.42]}>
-            <circleGeometry args={[0.009, 8]} />
-            <meshBasicMaterial color="rgba(255,255,255,0.7)" transparent opacity={0.7} />
+          <mesh position={[-0.106, 0.001, 0.421]}>
+            <circleGeometry args={[0.011, 8]} />
+            <meshBasicMaterial color="rgba(255,255,255,0.75)" transparent opacity={0.75} />
           </mesh>
-          {/* Upper eyelid — gives depth */}
-          <mesh position={[-0.13, 0.075, 0.366]} rotation={[0.3, 0, 0]} scale={[1, 0.38, 1]}>
-            <capsuleGeometry args={[0.048, 0.092, 6, 14]} />
-            <primitive object={mSkin} attach="material" />
+          {/* Top lash bar — bold, cartoon style */}
+          <mesh position={[-0.122, 0.075, 0.366]} scale={[1.0, 0.3, 1]}>
+            <capsuleGeometry args={[0.052, 0.1, 5, 12]} />
+            <meshBasicMaterial color={OUTLINE} />
           </mesh>
-          {/* Lower eyelid */}
-          <mesh position={[-0.13, -0.04, 0.36]} rotation={[-0.15, 0, 0]} scale={[1, 0.28, 1]}>
-            <capsuleGeometry args={[0.04, 0.08, 5, 12]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          {/* Top lash bar */}
-          <mesh position={[-0.13, 0.082, 0.368]}>
-            <boxGeometry args={[0.112, 0.012, 0.005]} />
-            <primitive object={mHairD} attach="material" />
+          {/* Bottom lash hint */}
+          <mesh position={[-0.122, -0.055, 0.362]} scale={[1.0, 0.2, 1]}>
+            <capsuleGeometry args={[0.042, 0.085, 4, 10]} />
+            <meshBasicMaterial color={OUTLINE} transparent opacity={0.55} />
           </mesh>
 
           {/* ── RIGHT EYE ── */}
-          <mesh position={[0.13, 0.022, 0.34]}>
-            <sphereGeometry args={[0.116, 24, 18]} />
-            <primitive object={mSkinD} attach="material" />
+          <mesh position={[0.122, 0.01, 0.335]} scale={[1, 0.76, 1]}>
+            <sphereGeometry args={[0.118, 22, 16]} />
+            <meshToonMaterial color={skinShadow} gradientMap={gradMap} />
           </mesh>
-          <mesh position={[0.13, 0.022, 0.355]}>
-            <sphereGeometry args={[0.104, 24, 18]} />
-            <primitive object={mWhite} attach="material" />
+          <mesh position={[0.122, 0.01, 0.352]} scale={[1, 0.76, 1]}>
+            <sphereGeometry args={[0.106, 22, 16]} />
+            <meshBasicMaterial color="#FFFCF0" />
           </mesh>
-          <mesh position={[0.13, 0.022, 0.415]}>
-            <circleGeometry args={[0.072, 28]} />
-            <meshBasicMaterial color="#1E1208" />
+          <mesh position={[0.122, 0.01, 0.416]}>
+            <circleGeometry args={[0.076, 28]} />
+            <meshBasicMaterial color="#140C06" />
           </mesh>
-          <mesh position={[0.13, 0.022, 0.414]}>
-            <torusGeometry args={[0.056, 0.016, 8, 28]} />
-            <meshBasicMaterial color="#5C3218" />
+          <mesh position={[0.122, 0.01, 0.415]}>
+            <torusGeometry args={[0.06, 0.016, 8, 28]} />
+            <meshBasicMaterial color="#5A2E10" />
           </mesh>
-          <mesh position={[0.13, 0.022, 0.417]}>
-            <circleGeometry args={[0.04, 22]} />
-            <primitive object={mPupil} attach="material" />
+          <mesh position={[0.122, 0.01, 0.418]}>
+            <circleGeometry args={[0.042, 22]} />
+            <meshBasicMaterial color="#040100" />
           </mesh>
-          <mesh position={[0.148, 0.044, 0.42]}>
-            <circleGeometry args={[0.018, 10]} />
-            <primitive object={mCatchL} attach="material" />
+          <mesh position={[0.142, 0.034, 0.421]}>
+            <circleGeometry args={[0.022, 10]} />
+            <meshBasicMaterial color="#FFFFFF" />
           </mesh>
-          <mesh position={[0.116, 0.001, 0.42]}>
-            <circleGeometry args={[0.009, 8]} />
-            <meshBasicMaterial color="rgba(255,255,255,0.7)" transparent opacity={0.7} />
+          <mesh position={[0.106, 0.001, 0.421]}>
+            <circleGeometry args={[0.011, 8]} />
+            <meshBasicMaterial color="rgba(255,255,255,0.75)" transparent opacity={0.75} />
           </mesh>
-          <mesh position={[0.13, 0.075, 0.366]} rotation={[0.3, 0, 0]} scale={[1, 0.38, 1]}>
-            <capsuleGeometry args={[0.048, 0.092, 6, 14]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.122, 0.075, 0.366]} scale={[1.0, 0.3, 1]}>
+            <capsuleGeometry args={[0.052, 0.1, 5, 12]} />
+            <meshBasicMaterial color={OUTLINE} />
           </mesh>
-          <mesh position={[0.13, -0.04, 0.36]} rotation={[-0.15, 0, 0]} scale={[1, 0.28, 1]}>
-            <capsuleGeometry args={[0.04, 0.08, 5, 12]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          <mesh position={[0.13, 0.082, 0.368]}>
-            <boxGeometry args={[0.112, 0.012, 0.005]} />
-            <primitive object={mHairD} attach="material" />
+          <mesh position={[0.122, -0.055, 0.362]} scale={[1.0, 0.2, 1]}>
+            <capsuleGeometry args={[0.042, 0.085, 4, 10]} />
+            <meshBasicMaterial color={OUTLINE} transparent opacity={0.55} />
           </mesh>
 
-          {/* ── EYEBROWS — thick, arched, expressive ── */}
-          {/* Left brow — inner third */}
-          <mesh position={[-0.155, 0.155, 0.348]} rotation={[0, 0, 0.35]}>
-            <capsuleGeometry args={[0.016, 0.052, 6, 12]} />
-            <primitive object={mHairD} attach="material" />
+          {/* ── EYEBROWS — bold, arched ── */}
+          {/* Left — outer arch */}
+          <mesh position={[-0.16, 0.163, 0.35]} rotation={[0, 0, 0.38]}>
+            <capsuleGeometry args={[0.018, 0.052, 5, 10]} />
+            <meshBasicMaterial color={hairColor} />
           </mesh>
-          {/* Left brow — outer third */}
-          <mesh position={[-0.105, 0.168, 0.352]} rotation={[0, 0, 0.12]}>
-            <capsuleGeometry args={[0.014, 0.04, 6, 10]} />
-            <primitive object={mHairD} attach="material" />
+          {/* Left — inner tail */}
+          <mesh position={[-0.105, 0.175, 0.352]} rotation={[0, 0, 0.12]}>
+            <capsuleGeometry args={[0.015, 0.038, 5, 8]} />
+            <meshBasicMaterial color={hairColor} />
           </mesh>
-          {/* Right brow — inner */}
-          <mesh position={[0.155, 0.155, 0.348]} rotation={[0, 0, -0.35]}>
-            <capsuleGeometry args={[0.016, 0.052, 6, 12]} />
-            <primitive object={mHairD} attach="material" />
+          {/* Right — outer arch */}
+          <mesh position={[0.16, 0.163, 0.35]} rotation={[0, 0, -0.38]}>
+            <capsuleGeometry args={[0.018, 0.052, 5, 10]} />
+            <meshBasicMaterial color={hairColor} />
           </mesh>
-          {/* Right brow — outer */}
-          <mesh position={[0.105, 0.168, 0.352]} rotation={[0, 0, -0.12]}>
-            <capsuleGeometry args={[0.014, 0.04, 6, 10]} />
-            <primitive object={mHairD} attach="material" />
-          </mesh>
-
-          {/* ── NOSE — cartoon simple, just tip ── */}
-          {/* Nose bridge (very subtle) */}
-          <mesh position={[0, 0.02, 0.366]}>
-            <sphereGeometry args={[0.022, 12, 9]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          {/* Nose tip — slightly darker, rounded */}
-          <mesh position={[0, -0.025, 0.376]}>
-            <sphereGeometry args={[0.036, 16, 12]} />
-            <primitive object={mSkinD} attach="material" />
-          </mesh>
-          {/* Left alar */}
-          <mesh position={[-0.044, -0.032, 0.364]}>
-            <sphereGeometry args={[0.026, 12, 9]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          {/* Right alar */}
-          <mesh position={[0.044, -0.032, 0.364]}>
-            <sphereGeometry args={[0.026, 12, 9]} />
-            <primitive object={mSkin} attach="material" />
-          </mesh>
-          {/* Nostril left */}
-          <mesh position={[-0.035, -0.044, 0.37]}>
-            <circleGeometry args={[0.012, 8]} />
-            <primitive object={mSkinB} attach="material" />
-          </mesh>
-          {/* Nostril right */}
-          <mesh position={[0.035, -0.044, 0.37]}>
-            <circleGeometry args={[0.012, 8]} />
-            <primitive object={mSkinB} attach="material" />
+          {/* Right — inner tail */}
+          <mesh position={[0.105, 0.175, 0.352]} rotation={[0, 0, -0.12]}>
+            <capsuleGeometry args={[0.015, 0.038, 5, 8]} />
+            <meshBasicMaterial color={hairColor} />
           </mesh>
 
-          {/* ── MOUTH — big cartoon smile ── */}
-          {/* Upper lip — cupid's bow, left arc */}
-          <mesh position={[-0.03, -0.1, 0.364]} rotation={[0.08, 0, 0.24]}>
-            <torusGeometry args={[0.033, 0.015, 8, 18, Math.PI * 0.7]} />
-            <primitive object={mLip} attach="material" />
+          {/* ── NOSE — cartoon minimal (just the tip) ── */}
+          <mesh position={[0, -0.022, 0.382]}>
+            <sphereGeometry args={[0.034, 14, 10]} />
+            <meshToonMaterial color={skinShadow} gradientMap={gradMap} />
           </mesh>
-          {/* Upper lip — right arc */}
-          <mesh position={[0.03, -0.1, 0.364]} rotation={[0.08, 0, -0.24]}>
-            <torusGeometry args={[0.033, 0.015, 8, 18, Math.PI * 0.7]} />
-            <primitive object={mLip} attach="material" />
+          <mesh position={[-0.038, -0.034, 0.37]}>
+            <sphereGeometry args={[0.022, 10, 8]} />
+            <meshToonMaterial color={skinShadow} gradientMap={gradMap} />
           </mesh>
-          {/* Lower lip — fuller, rounder */}
-          <mesh position={[0, -0.122, 0.366]} rotation={[-0.12, 0, Math.PI]}>
-            <torusGeometry args={[0.052, 0.019, 8, 22, Math.PI * 0.65]} />
-            <primitive object={mLip} attach="material" />
+          <mesh position={[0.038, -0.034, 0.37]}>
+            <sphereGeometry args={[0.022, 10, 8]} />
+            <meshToonMaterial color={skinShadow} gradientMap={gradMap} />
+          </mesh>
+
+          {/* ── MOUTH — wide cartoon smile ── */}
+          {/* Upper lip left arc */}
+          <mesh position={[-0.032, -0.105, 0.368]} rotation={[0.06, 0, 0.22]}>
+            <torusGeometry args={[0.036, 0.015, 8, 18, Math.PI * 0.7]} />
+            <meshBasicMaterial color={lipColor} />
+          </mesh>
+          {/* Upper lip right arc */}
+          <mesh position={[0.032, -0.105, 0.368]} rotation={[0.06, 0, -0.22]}>
+            <torusGeometry args={[0.036, 0.015, 8, 18, Math.PI * 0.7]} />
+            <meshBasicMaterial color={lipColor} />
+          </mesh>
+          {/* Lower lip — fuller */}
+          <mesh position={[0, -0.128, 0.369]} rotation={[-0.1, 0, Math.PI]}>
+            <torusGeometry args={[0.054, 0.02, 8, 22, Math.PI * 0.64]} />
+            <meshBasicMaterial color={lipColor} />
+          </mesh>
+          {/* Mouth line — hard dark arc for cartoon look */}
+          <mesh position={[0, -0.115, 0.371]}>
+            <capsuleGeometry args={[0.004, 0.114, 4, 10]} />
+            <meshBasicMaterial color={OUTLINE} />
           </mesh>
           {/* Mouth corners */}
-          <mesh position={[-0.065, -0.104, 0.36]}>
+          <mesh position={[-0.064, -0.11, 0.364]}>
             <sphereGeometry args={[0.016, 10, 8]} />
-            <primitive object={mLip} attach="material" />
+            <meshBasicMaterial color={lipColor} />
           </mesh>
-          <mesh position={[0.065, -0.104, 0.36]}>
+          <mesh position={[0.064, -0.11, 0.364]}>
             <sphereGeometry args={[0.016, 10, 8]} />
-            <primitive object={mLip} attach="material" />
+            <meshBasicMaterial color={lipColor} />
           </mesh>
-          {/* Smile line — dark mouth gap */}
-          <mesh position={[0, -0.113, 0.368]}>
-            <capsuleGeometry args={[0.004, 0.112, 4, 10]} />
-            <meshBasicMaterial color={skin(skinColor, -2.0)} />
-          </mesh>
-          {/* Teeth hint — white strip visible in smile */}
-          <mesh position={[0, -0.11, 0.366]}>
-            <boxGeometry args={[0.065, 0.015, 0.006]} />
+          {/* Teeth hint */}
+          <mesh position={[0, -0.112, 0.368]}>
+            <boxGeometry args={[0.068, 0.016, 0.006]} />
             <meshBasicMaterial color="#F8F4F0" />
           </mesh>
 
-          {/* ── CHEEK BLUSH — warm glow ── */}
-          <mesh position={[-0.24, -0.04, 0.3]} rotation={[0, 0.38, 0]}>
-            <circleGeometry args={[0.075, 16]} />
-            <meshBasicMaterial color="#E87868" transparent opacity={0.16} />
+          {/* ── CHEEK BLUSH ── */}
+          <mesh position={[-0.248, -0.038, 0.296]} rotation={[0, 0.42, 0]}>
+            <circleGeometry args={[0.076, 16]} />
+            <meshBasicMaterial color="#E87068" transparent opacity={0.18} />
           </mesh>
-          <mesh position={[0.24, -0.04, 0.3]} rotation={[0, -0.38, 0]}>
-            <circleGeometry args={[0.075, 16]} />
-            <meshBasicMaterial color="#E87868" transparent opacity={0.16} />
-          </mesh>
-
-          {/* ── CHIN ── */}
-          <mesh position={[0, -0.265, 0.268]}>
-            <sphereGeometry args={[0.08, 18, 14]} />
-            <primitive object={mSkin} attach="material" />
+          <mesh position={[0.248, -0.038, 0.296]} rotation={[0, -0.42, 0]}>
+            <circleGeometry args={[0.076, 16]} />
+            <meshBasicMaterial color="#E87068" transparent opacity={0.18} />
           </mesh>
 
         </group>{/* /headGrp */}
