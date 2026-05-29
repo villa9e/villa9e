@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { motion } from 'framer-motion';
 
 // ─── Market stall awning ──────────────────────────────────────────────────────
@@ -27,9 +28,10 @@ function StallAwning({ x, color1, color2 }: {
 // ─── Merchant goods display ───────────────────────────────────────────────────
 function MerchantGoods({ side }: { side: 'left' | 'right' }) {
   const flip = side === 'right';
+  const pos: React.CSSProperties = side === 'left' ? { left: 0 } : { right: 0 };
   return (
     <div className="fixed pointer-events-none"
-      style={{ [side]: 0, top: 0, bottom: 0, width: 70, zIndex: 1 }}>
+      style={{ ...pos, top: 0, bottom: 0, width: 70, zIndex: 1 }}>
       <svg width="70" height="600" viewBox="0 0 70 600"
         style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
 

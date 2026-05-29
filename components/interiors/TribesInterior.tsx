@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { motion } from 'framer-motion';
 
 // ─── Kente cloth strip ────────────────────────────────────────────────────────
@@ -89,15 +90,16 @@ function CouncilCircle() {
 // ─── Totem pole silhouettes ───────────────────────────────────────────────────
 function TotemPole({ x, side }: { x: number; side: 'left' | 'right' }) {
   const flip = side === 'right';
+  const pos: React.CSSProperties = side === 'left' ? { left: x } : { right: x };
   return (
     <div className="fixed pointer-events-none"
-      style={{ [side]: x, top: 0, bottom: '15%', width: 32, zIndex: 1 }}>
+      style={{ ...pos, top: 0, bottom: '15%', width: 32, zIndex: 1 }}>
       <svg width="32" height="600" viewBox="0 0 32 600" opacity="0.35">
         {/* Post */}
         <rect x="11" y="0" width="10" height="600" fill="#3A2810" />
         {/* Faces stacked */}
         {[60, 160, 260, 360, 460].map((y, i) => (
-          <g key={i} transform={`translate(1,${y})`} style={{ transform: flip ? `scaleX(-1) translate(-30px, ${y}px)` : undefined }}>
+          <g key={i} transform={flip ? `translate(31,${y}) scale(-1,1)` : `translate(1,${y})`}>
             {/* Head */}
             <rect x="4" y="0" width="22" height="28" rx="4" fill="#4A3820" />
             {/* Eyes */}
