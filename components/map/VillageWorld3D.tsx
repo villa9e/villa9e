@@ -1,9 +1,9 @@
 'use client';
 import React, { useRef, useState, useEffect, useMemo, useCallback, Component, Suspense } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
-import { useGLTF } from '@react-three/drei';
+import { useGLTF, OrbitControls } from '@react-three/drei';
+import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 
 // ─── Canvas error boundary — catches R3F render errors gracefully ─────────────
@@ -42,14 +42,11 @@ import { VillageSound } from '@/lib/sounds/village';
 import { useSkySystem } from '@/lib/world/useSkySystem';
 import { SpiritFigure } from '@/components/spirit/SpiritFigure';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
-import { Physics, RigidBody, CuboidCollider } from '@react-three/rapier';
 import * as THREE from 'three';
 import { HutBuilding } from './VillageBuildings';
 import {
-  VillageTerrain, StonePaths, TreeSystem, StoneLanterns, Fireflies,
-  SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
-  AnimalSystem, CoastalFish, CoastalOcean, GroundClutter,
-  preloadWorldModels, terrainH, SeasonalWeatherSystem,
+  VillageTerrain, DenseGrass, CoastalOcean,
+  terrainH, SeasonalWeatherSystem,
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
@@ -90,22 +87,20 @@ interface AdminObj {
 // read by movement system for collision and approach detection)
 const liveAdminObjectsRef: { current: AdminObj[] } = { current: [] };
 
-// ─── Only the Mugsum Hut is a permanent fixture.
-// All other buildings are placed by the admin via the World Builder
-// and rendered through the LiveAdminObjects system.
-const LOCATIONS = [
-  { id: 'hut', label: 'Mugsum Hut', href: '/village/hut',
-    pos: [0, 0, 24] as [number,number,number],
-    color: '#EA580C', size: [9, 9, 9] as [number,number,number],
-    doorColor: '#3D2200', doorType: 'plank' },
-];
+// ─── Clean slate — no permanent buildings. Everything placed via World Builder.
+// The Mugsum Hut is placed by the admin in the sandbox and published live.
+const LOCATIONS: {
+  id: string; label: string; href: string;
+  pos: [number,number,number]; color: string;
+  size: [number,number,number]; doorColor: string; doorType: string;
+}[] = [];
 
 // ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
 // Using simple Unicode symbols that read as flat/monotone
 const MENU_ITEMS = [
   { id: 'messages', icon: '◉', label: 'Messages', href: '/messages',               svg: 'M20 2H4a2 2 0 00-2 2v18l4-4h14a2 2 0 002-2V4a2 2 0 00-2-2z' },
-  { id: 'goal',     icon: '◎', label: 'New Goal',  href: '/village/workshop/chat',  svg: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 14l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L19 9l-7 7z' },
-  { id: 'studio',  icon: '◌', label: 'Create',    href: '/village/studio',        svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
+  { id: 'goal',     icon: '🎯', label: 'New Goal',  href: '/village/workshop/chat',  svg: 'M12 2a10 10 0 100 20 10 10 0 000-20zm0 14l-4-4 1.4-1.4 2.6 2.6 5.6-5.6L19 9l-7 7z' },
+  { id: 'studio',  icon: '📷', label: 'Create',    href: '/village/studio',        svg: 'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 17a5 5 0 100-10 5 5 0 000 10z' },
   { id: 'map',     icon: '◈', label: 'Map',       href: null,                     svg: 'M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z' },
   { id: 'settings',icon: '◇', label: 'Settings',  href: '/village/hut/settings',  svg: 'M12 15.5A3.5 3.5 0 018.5 12 3.5 3.5 0 0112 8.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 01-3.5 3.5m7.43-2.92c.04-.36.07-.73.07-1.08s-.03-.73-.07-1.08l2.32-1.82c.21-.16.27-.46.13-.7l-2.2-3.82c-.13-.25-.42-.33-.67-.25l-2.74 1.1c-.57-.44-1.18-.8-1.85-1.08l-.4-2.91C14.46 2.18 14.25 2 14 2h-4c-.25 0-.46.18-.49.42l-.4 2.91c-.67.28-1.28.64-1.85 1.08L4.52 5.3c-.25-.09-.54 0-.67.25L1.65 9.36c-.14.25-.08.54.13.7l2.32 1.82c-.04.35-.07.72-.07 1.08s.03.73.07 1.08L1.78 16.08c-.21.16-.27.46-.13.7l2.2 3.82c.13.25.42.33.67.25l2.74-1.1c.57.44 1.18.8 1.85 1.08l.4 2.91c.03.24.24.42.49.42h4c.25 0 .46-.18.49-.42l.4-2.91c.67-.28 1.28-.64 1.85-1.08l2.74 1.1c.25.09.54 0 .67-.25l2.2-3.82c.14-.25.08-.54-.13-.7l-2.32-1.82z' },
 ] as const;
@@ -123,6 +118,460 @@ const CRESCENT_POSITIONS = CRESCENT_ANGLES_DEG.map(deg => {
 });
 
 const SPIRIT_POS: [number,number,number] = [0, 0, 0];
+
+// ─── Carousel bottom nav ──────────────────────────────────────────────────────
+const NAV_ITEMS = [
+  { id: 'messages',  icon: '💬', label: 'Messages',    href: '/messages' },
+  { id: 'hut',       icon: '🏠', label: 'My Hut',      href: '/village/hut' },
+  { id: 'discover',  icon: '🔍', label: 'Discover',    href: '/village/discover' },
+  { id: 'tribes',    icon: '👥', label: 'Tribes',      href: '/village/tribes' },
+  { id: 'goal',      icon: '🎯', label: 'New Goal',    href: '/village/workshop/chat' },   // ← center (index 4)
+  { id: 'studio',    icon: '📷', label: 'Create',      href: '/village/studio' },
+  { id: 'pavilion',  icon: '🎪', label: 'Pavilion',    href: '/village/pavilion' },
+  { id: 'hospital',  icon: '🏥', label: 'Wellness',    href: '/village/hospital' },
+  { id: 'trading',   icon: '🛒', label: 'Market',      href: '/village/trading-post' },
+  { id: 'zen',       icon: '🧘', label: 'Zen',         href: '/village/zen' },
+  { id: 'map',       icon: '🗺️', label: 'Map',         href: null },   // opens overlay
+] as const;
+type NavItemId = typeof NAV_ITEMS[number]['id'];
+const NAV_CENTER_IDX = 4; // Goal is the default center
+
+function CarouselNav({
+  isNight,
+  isAdmin,
+  onMapOpen,
+  onNavigate,
+}: {
+  isNight: boolean;
+  isAdmin?: boolean;
+  onMapOpen: () => void;
+  onNavigate: (href: string, label: string) => void;
+}) {
+  const router = useRouter();
+  const items = useMemo(() => {
+    if (!isAdmin) return NAV_ITEMS as unknown as typeof NAV_ITEMS[number][];
+    return [
+      ...NAV_ITEMS,
+      { id: 'sandbox', icon: '🏗️', label: 'Sandbox', href: '/admin/sandbox' } as any,
+    ];
+  }, [isAdmin]);
+  const [center, setCenter] = useState(NAV_CENTER_IDX);
+  const touchStartX = useRef<number | null>(null);
+
+  function go(item: any) {
+    if (!item.href) { onMapOpen(); return; }
+    if (item.id === 'sandbox') { router.push('/admin/sandbox'); return; }
+    onNavigate(item.href, item.label);
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(dx) > 40) {
+      if (dx < 0) setCenter(c => Math.min(items.length - 1, c + 1));
+      else        setCenter(c => Math.max(0, c - 1));
+    }
+    touchStartX.current = null;
+  }
+
+  const SIZE   = [64, 52, 40, 30, 22]; // px for positions 0,1,2,3,4+ from center
+  const OPAC   = [1, 0.82, 0.58, 0.36, 0.18];
+  const GAP    = 14; // px gap between items
+
+  // Visible window: center ± 2
+  const visible = items.map((item, i) => ({ item, i, dist: i - center }))
+    .filter(({ dist }) => Math.abs(dist) <= 2);
+
+  return (
+    <div
+      className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-center pb-safe"
+      style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
+    >
+      <div
+        className="relative flex items-end justify-center"
+        style={{
+          background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF8E8 60%, #FFF0CC 100%)',
+          borderTop: '1.5px solid rgba(212,175,55,0.35)',
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.12), 0 -1px 0 rgba(212,175,55,0.2)',
+          borderRadius: '20px 20px 0 0',
+          width: '100%',
+          maxWidth: 520,
+          paddingTop: 14,
+          paddingBottom: 10,
+          paddingLeft: 12,
+          paddingRight: 12,
+          gap: GAP,
+          display: 'flex',
+          alignItems: 'flex-end',
+          justifyContent: 'center',
+        }}
+      >
+        {visible.map(({ item, i, dist }) => {
+          const absDist = Math.abs(dist);
+          const sz  = SIZE[absDist]  ?? 22;
+          const op  = OPAC[absDist] ?? 0.18;
+          const isCenter = dist === 0;
+
+          return (
+            <motion.button
+              key={item.id}
+              layoutId={`nav-${item.id}`}
+              onClick={() => {
+                if (isCenter) go(item);
+                else setCenter(i);
+              }}
+              animate={{ opacity: op, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 3,
+                background: isCenter ? 'rgba(212,175,55,0.15)' : 'transparent',
+              border: isCenter ? '1.5px solid rgba(212,175,55,0.5)' : '1.5px solid transparent',
+                borderRadius: 16,
+                padding: isCenter ? '8px 14px' : '4px 8px',
+                cursor: 'pointer',
+              }}
+            >
+              <span style={{ fontSize: sz, lineHeight: 1, filter: isCenter ? 'none' : 'grayscale(0.3)' }}>
+                {item.icon}
+              </span>
+              {isCenter && (
+                <span className="text-[10px] font-black tracking-tight" style={{ color: '#B8860B' }}>
+                  {item.label}
+                </span>
+              )}
+            </motion.button>
+          );
+        })}
+
+        {/* Swipe hint dots */}
+        <div className="absolute -top-5 left-0 right-0 flex justify-center gap-1">
+          {items.map((_, i) => (
+            <div key={i}
+              className="rounded-full transition-all"
+              style={{
+                width: i === center ? 12 : 4,
+                height: 4,
+                background: i === center ? '#D4AF37' : 'rgba(212,175,55,0.25)',
+              }} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Village top bar ─────────────────────────────────────────────────────────
+function VillageTopBar({
+  username,
+  avatarConfig,
+  vlgBalance,
+  onHutOpen,
+  onSearch,
+  onMessages,
+  onNotifications,
+}: {
+  username: string;
+  avatarConfig?: { skin_id?: string; hair_color_id?: string; outfit_id?: string };
+  vlgBalance: number;
+  onHutOpen: () => void;
+  onSearch: () => void;
+  onMessages: () => void;
+  onNotifications: () => void;
+}) {
+  const skinColor = SKIN_TONE_MAP[avatarConfig?.skin_id ?? 's5'] ?? '#A86030';
+
+  return (
+    <div
+      className="absolute top-0 left-0 right-0 z-30 flex items-center px-4"
+      style={{
+        height: 56,
+        background: 'linear-gradient(135deg, #FFFFFF 0%, #FFF8E8 60%, #FFF0CC 100%)',
+        borderBottom: '1.5px solid rgba(212,175,55,0.35)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 0 rgba(212,175,55,0.2)',
+      }}
+    >
+      {/* Logo */}
+      <div className="flex items-center gap-2 flex-1">
+        <div className="font-black text-lg tracking-tight" style={{
+          background: 'linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          villa9e
+        </div>
+      </div>
+
+      {/* Right icons */}
+      <div className="flex items-center gap-3">
+        {/* Search */}
+        <button onClick={onSearch}
+          className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5"
+          style={{ color: '#1E1B4B' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+        </button>
+
+        {/* Notifications */}
+        <button onClick={onNotifications}
+          className="w-9 h-9 flex items-center justify-center rounded-full relative transition-all hover:bg-black/5"
+          style={{ color: '#1E1B4B' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
+        </button>
+
+        {/* Messages */}
+        <button onClick={onMessages}
+          className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5"
+          style={{ color: '#1E1B4B' }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+        </button>
+
+        {/* VLG balance */}
+        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+          style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.4)' }}>
+          <span style={{ fontSize: 12 }}>⬡</span>
+          <span className="text-xs font-black" style={{ color: '#B8860B' }}>
+            {vlgBalance >= 1000 ? `${(vlgBalance/1000).toFixed(1)}k` : vlgBalance}
+          </span>
+        </div>
+
+        {/* Profile avatar → opens hut */}
+        <button onClick={onHutOpen}
+          className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0 transition-all hover:scale-105"
+          style={{
+            background: `linear-gradient(135deg, ${skinColor}, ${skinColor}CC)`,
+            border: '2px solid rgba(212,175,55,0.6)',
+            boxShadow: '0 2px 8px rgba(212,175,55,0.25)',
+          }}>
+          {username[0]?.toUpperCase() ?? '?'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Hut interior 3D modal ────────────────────────────────────────────────────
+function HutInteriorFurniture() {
+  const groupRef = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    // Candle flicker - very subtle
+    if (groupRef.current) {
+      groupRef.current.children.forEach((c, i) => {
+        if (c.userData.flicker) {
+          (c as THREE.PointLight).intensity = 0.8 + Math.sin(clock.elapsedTime * 8 + i) * 0.15;
+        }
+      });
+    }
+  });
+  return (
+    <group ref={groupRef}>
+      {/* Floor — warm wood planks */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0, 0]} receiveShadow>
+        <planeGeometry args={[10, 10]} />
+        <meshStandardMaterial color="#8B6332" roughness={0.9} metalness={0.0} />
+      </mesh>
+      {/* Wood plank lines */}
+      {[-4,-2,0,2,4].map((x,i) => (
+        <mesh key={i} rotation={[-Math.PI/2, 0, 0]} position={[x, 0.001, 0]}>
+          <planeGeometry args={[0.04, 10]} />
+          <meshBasicMaterial color="#6A4A22" />
+        </mesh>
+      ))}
+
+      {/* Walls */}
+      {/* Back wall */}
+      <mesh position={[0, 2.5, -5]} receiveShadow castShadow>
+        <planeGeometry args={[10, 5]} />
+        <meshStandardMaterial color="#C4A26A" roughness={1} />
+      </mesh>
+      {/* Left wall */}
+      <mesh position={[-5, 2.5, 0]} rotation={[0, Math.PI/2, 0]} receiveShadow>
+        <planeGeometry args={[10, 5]} />
+        <meshStandardMaterial color="#B89458" roughness={1} />
+      </mesh>
+      {/* Right wall */}
+      <mesh position={[5, 2.5, 0]} rotation={[0, -Math.PI/2, 0]} receiveShadow>
+        <planeGeometry args={[10, 5]} />
+        <meshStandardMaterial color="#B89458" roughness={1} />
+      </mesh>
+
+      {/* Ceiling beams */}
+      {[-3, 0, 3].map((x,i) => (
+        <mesh key={i} position={[x, 4.8, 0]} castShadow>
+          <boxGeometry args={[0.25, 0.25, 10]} />
+          <meshStandardMaterial color="#5A3A18" roughness={0.95} />
+        </mesh>
+      ))}
+
+      {/* Central fire pit */}
+      <mesh position={[0, 0.05, 0.5]} rotation={[-Math.PI/2, 0, 0]}>
+        <circleGeometry args={[0.6, 20]} />
+        <meshStandardMaterial color="#3A2A1A" roughness={1} />
+      </mesh>
+      {/* Fire glow */}
+      <pointLight position={[0, 0.5, 0.5]} intensity={1.6} color="#FF8C00" distance={6} userData={{ flicker: true }} />
+      {/* Flame visual */}
+      <mesh position={[0, 0.35, 0.5]}>
+        <coneGeometry args={[0.15, 0.6, 8]} />
+        <meshBasicMaterial color="#FF6B00" transparent opacity={0.85} />
+      </mesh>
+      <mesh position={[0, 0.55, 0.5]}>
+        <coneGeometry args={[0.08, 0.4, 8]} />
+        <meshBasicMaterial color="#FFD700" transparent opacity={0.75} />
+      </mesh>
+
+      {/* Desk / table against back wall */}
+      <mesh position={[0, 0.75, -4]} castShadow receiveShadow>
+        <boxGeometry args={[2.5, 0.1, 0.8]} />
+        <meshStandardMaterial color="#7A5028" roughness={0.8} />
+      </mesh>
+      {/* Table legs */}
+      {[[-1.1, -0.3], [1.1, -0.3], [-1.1, 0.3], [1.1, 0.3]].map(([x, z], i) => (
+        <mesh key={i} position={[x, 0.35, -4 + (z as number)]} castShadow>
+          <cylinderGeometry args={[0.06, 0.06, 0.7, 8]} />
+          <meshStandardMaterial color="#5A3A18" roughness={0.9} />
+        </mesh>
+      ))}
+
+      {/* Goal scroll / paper on desk */}
+      <mesh position={[0, 0.82, -4.1]} rotation={[-0.1, 0, 0]}>
+        <planeGeometry args={[0.9, 0.65]} />
+        <meshStandardMaterial color="#F5E6C8" roughness={0.5} />
+      </mesh>
+
+      {/* Chair */}
+      <mesh position={[0, 0.4, -3.2]} castShadow>
+        <boxGeometry args={[0.65, 0.08, 0.65]} />
+        <meshStandardMaterial color="#8B5E2E" roughness={0.85} />
+      </mesh>
+      <mesh position={[0, 0.78, -3.52]} castShadow>
+        <boxGeometry args={[0.65, 0.7, 0.08]} />
+        <meshStandardMaterial color="#8B5E2E" roughness={0.85} />
+      </mesh>
+
+      {/* Bookshelf left wall */}
+      <mesh position={[-4.2, 1.5, -2]} castShadow>
+        <boxGeometry args={[0.3, 3, 1.8]} />
+        <meshStandardMaterial color="#6A4018" roughness={0.9} />
+      </mesh>
+      {/* Books */}
+      {[0, 0.28, 0.56, 0.84, 1.12].map((y,i) => (
+        <mesh key={i} position={[-4.12, 0.6 + y, -2 + (i%3)*0.2 - 0.2]} castShadow>
+          <boxGeometry args={[0.08, 0.22, 0.16]} />
+          <meshStandardMaterial color={['#C0392B','#2980B9','#27AE60','#8E44AD','#F39C12'][i]} roughness={0.7} />
+        </mesh>
+      ))}
+
+      {/* Woven rug */}
+      <mesh position={[0, 0.003, 1]} rotation={[-Math.PI/2, 0, 0]}>
+        <planeGeometry args={[3.5, 2.5, 6, 6]} />
+        <meshStandardMaterial color="#A0522D" roughness={1} />
+      </mesh>
+
+      {/* Window on right wall — lets in light */}
+      <mesh position={[4.98, 2.8, -1.5]} rotation={[0, -Math.PI/2, 0]}>
+        <planeGeometry args={[1.2, 1.0]} />
+        <meshBasicMaterial color="#C8E4FF" transparent opacity={0.6} />
+      </mesh>
+      <directionalLight position={[8, 6, -2]} intensity={0.8} color="#FFF5D0" />
+
+      {/* Candle on desk */}
+      <mesh position={[0.8, 0.85, -4.1]} castShadow>
+        <cylinderGeometry args={[0.05, 0.06, 0.2, 10]} />
+        <meshStandardMaterial color="#F5F0E0" />
+      </mesh>
+      <pointLight position={[0.8, 1.1, -4.1]} intensity={0.6} color="#FFA040" distance={3} userData={{ flicker: true }} />
+
+      {/* Trophy / award on shelf */}
+      <mesh position={[-4.1, 2.6, -2.4]} castShadow>
+        <cylinderGeometry args={[0.12, 0.08, 0.3, 8]} />
+        <meshStandardMaterial color="#FFD700" metalness={0.8} roughness={0.3} />
+      </mesh>
+    </group>
+  );
+}
+
+function HutInterior({ onClose, username }: { onClose: () => void; username: string }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
+      className="fixed inset-0 z-50 flex flex-col"
+      style={{ background: '#1A0E06' }}
+    >
+      {/* Top bar */}
+      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
+        style={{ background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(212,175,55,0.2)' }}>
+        <button onClick={onClose}
+          className="w-9 h-9 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
+          ←
+        </button>
+        <div className="flex-1">
+          <p className="font-black text-sm" style={{ color: '#F5E6C8' }}>{username}'s Hut</p>
+          <p className="text-xs" style={{ color: '#8B6A3A' }}>Your personal space</p>
+        </div>
+        <Link href="/village/hut"
+          className="text-xs font-bold px-3 py-1.5 rounded-xl"
+          style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
+          Settings →
+        </Link>
+      </div>
+
+      {/* 3D hut interior */}
+      <div className="flex-1 relative">
+        <Canvas
+          camera={{ position: [0, 2.2, 4.8], fov: 62 }}
+          shadows={{ type: THREE.PCFSoftShadowMap }}
+          gl={{ antialias: true }}
+        >
+          <ambientLight intensity={0.4} color="#FFA060" />
+          <HutInteriorFurniture />
+          <OrbitControls
+            target={[0, 1.2, 0]}
+            enablePan={false}
+            minPolarAngle={Math.PI * 0.15}
+            maxPolarAngle={Math.PI * 0.72}
+            minDistance={2.5}
+            maxDistance={7}
+          />
+        </Canvas>
+      </div>
+
+      {/* Quick links at bottom */}
+      <div className="flex gap-3 px-4 py-3 flex-shrink-0"
+        style={{ background: 'rgba(0,0,0,0.7)', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
+        {[
+          { href: '/village/hut/avatar',   icon: '🎭', label: 'Avatar'   },
+          { href: '/village/hut/vlg-wallet', icon: '🪙', label: 'Wallet'  },
+          { href: '/village/hut/achievements', icon: '🏆', label: 'Badges' },
+          { href: '/village/workshop/chat', icon: '🎯', label: 'Goals'   },
+        ].map(item => (
+          <Link key={item.href} href={item.href}
+            className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-center transition-all"
+            style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
+            <span className="text-xl">{item.icon}</span>
+            <span className="text-xs font-bold" style={{ color: '#D4AF37' }}>{item.label}</span>
+          </Link>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 // ─── Sun position from altitude/azimuth ──────────────────────────────────────
 // ─── HUDBridge — projects 3D avatar head to 2D screen coords every frame ─────
@@ -1239,71 +1688,19 @@ function WorldScene({
         rainIntensity > 0.5 ? 40 : isNight ? 80 : 100,
       ]} />
 
-      {/* Physics world — ground floor + building colliders */}
-      <Physics gravity={[0, -9.81, 0]} colliders={false}>
-        {/* Static ground plane */}
-        <RigidBody type="fixed">
-          <CuboidCollider args={[30, 0.1, 30]} position={[0, -0.1, 0]} />
-        </RigidBody>
-
-        {/* Building static colliders — exact bounds per location */}
-        {LOCATIONS.map(loc => {
-          const [bx, , bz] = loc.pos;
-          const [bw, bh, bd] = loc.size;
-          return (
-            <RigidBody key={loc.id} type="fixed">
-              <CuboidCollider args={[bw / 2 + 0.4, bh / 2, bd / 2 + 0.4]} position={[bx, bh / 2, bz]} />
-            </RigidBody>
-          );
-        })}
-      </Physics>
-
-      {/* Ground */}
-      {/* Circular moat — rings the village with 4 stone bridges */}
-      <CircularMoat isNight={isNight} skyState={skyState} />
-
-      {/* Mountain with waterfall — feeds into moat from northwest */}
-      <MountainWithWaterfall isNight={isNight} />
-
-      {/* Sacred fire */}
-      {/* Sacred fire — center of village */}
-      <EnvSacredFire />
-
-      {/* Buildings */}
-      {LOCATIONS.map(loc => (
-        <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} isNear={nearBuildingId === loc.id} />
-      ))}
-
-      {/* Terrain */}
+      {/* ── Terrain: grass island + ocean ring ────────────────────────── */}
       <VillageTerrain isNight={isNight} season={season.season} />
-      <StonePaths isNight={isNight} />
-
-      {/* Real GLTF trees, rocks, flowers, animals, fish */}
-      <TreeSystem windStr={windStrength} season={season.season} />
-      <RockSystem />
-      <FlowerSystem />
-      <DenseGrass windStr={windStrength} />
-      <GroundClutter />
-      <AnimalSystem />
-      <CoastalFish />
-
-      {/* Coastal ocean surrounding the island */}
       <CoastalOcean isNight={isNight} skyState={skyState} />
 
-      {/* Village lighting */}
-      <StoneLanterns isNight={isNight} />
-      <Fireflies visible={isNight || skyState?.phase === 'dusk'} />
+      {/* ── Subtle grass ground cover ────────────────────────────────── */}
+      <DenseGrass windStr={windStrength} />
 
-      {/* Rain system (live weather) */}
+      {/* ── Live weather particles ────────────────────────────────────── */}
       <RainSystem intensity={rainIntensity} windAngle={windAngle} />
       {windStrength > 0.2 && <WindParticles windStrength={windStrength} windAngle={windAngle} />}
-
-      {/* Seasonal weather — snow, autumn leaves, spring blossoms, fog */}
       <SeasonalWeatherSystem season={season} />
 
-      {/* World landmarks are now placed via the World Builder */}
-
-      {/* Admin-placed world objects — full trigger + audio + behavior system */}
+      {/* ── Everything else comes from the World Builder ─────────────── */}
       <LiveAdminObjects playerPos={playerPos} onInteract={onAdminObjectInteract} />
 
       {/* Remote players (realtime presence) */}
@@ -2003,6 +2400,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const [drawer, setDrawer]       = useState<{ href: string; title: string } | null>(null);
   const [showVLGShop, setVLGShop]      = useState(false);
   const [showTour,    setShowTour]     = useState(false);
+  const [showHutInterior, setShowHutInterior] = useState(false);
   const [activeAdminObj, setActiveAdminObj] = useState<AdminObj | null>(null);
   const [itemInfoLoading, setItemInfoLoading] = useState(false);
   const [itemInfoText, setItemInfoText]    = useState<string | null>(null);
@@ -2011,17 +2409,22 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   // ── Current user identity ──────────────────────────────────────────────────
   const [currentUserId,   setCurrentUserId]   = useState<string | null>(null);
   const [currentUserName, setCurrentUserName] = useState('Villager');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       setCurrentUserId(user.id);
       loadVLG(user.id);
-      supabase.from('profiles').select('username, display_name').eq('id', user.id).single()
+      supabase.from('profiles').select('username, display_name, is_super_admin').eq('id', user.id).single()
         .then(({ data: p }: any) => {
-          if (p) setCurrentUserName(p.display_name || p.username || 'Villager');
+          if (p) {
+            setCurrentUserName(p.display_name || p.username || 'Villager');
+            if (p.is_super_admin || user.email === 'elitehousemusic@gmail.com' || user.email === 'admin@villa9e.app') {
+              setIsAdmin(true);
+            }
+          }
         });
-      // Check tour status separately with graceful fallback
       supabase.from('profiles').select('has_done_tour').eq('id', user.id).single()
         .then(({ data: p, error }: any) => {
           if (!error && p && !p.has_done_tour) setShowTour(true);
@@ -2425,7 +2828,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       onTouchMove={handleTwoFingerMove}
       onTouchEnd={handleTwoFingerEnd}
     >
-      {/* ── 3D Canvas ──────────────────────────────────────────────── */}
+      {/* ── 3D Canvas — full screen background ─────────────────────── */}
       <CanvasErrorBoundary>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
@@ -2467,6 +2870,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         />
       </Canvas>
       </CanvasErrorBoundary>
+
+      {/* ── TOP BAR — overlays the 3D world from above ─────────────── */}
+      <VillageTopBar
+        username={currentUserName}
+        avatarConfig={playerAvatarCfg}
+        vlgBalance={vlgBalance}
+        onHutOpen={() => setShowHutInterior(true)}
+        onSearch={() => openDrawer('/village/discover', 'Discover')}
+        onMessages={() => openDrawer('/messages', 'Messages')}
+        onNotifications={() => openDrawer('/village/hut', 'Notifications')}
+      />
 
       {/* ── Avatar crescent menu — positioned over avatar head ─────── */}
       <div
@@ -2659,8 +3073,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         )}
       </AnimatePresence>
 
-      {/* ── Virtual joystick (mobile) ──────────────────────────────── */}
-      <VirtualJoystick onMove={(dx, dy) => { moveInput.current = { dx, dy }; }} />
+      {/* Joystick removed — users swipe/tap to move on mobile */}
 
       {/* ── Enter building prompt ──────────────────────────────────── */}
       {enterPrompt && nearBuilding && (
@@ -2775,6 +3188,14 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         {showTour && <VillageTour onComplete={() => setShowTour(false)} />}
       </AnimatePresence>
 
+      {/* ── Carousel bottom nav ────────────────────────────────────── */}
+      <CarouselNav
+        isNight={isNightUI}
+        isAdmin={isAdmin}
+        onMapOpen={() => setShowMapOverlay(true)}
+        onNavigate={(href, label) => openDrawer(href, label)}
+      />
+
       {/* ── Admin object interaction overlay ───────────────────────── */}
       <AnimatePresence>
         {activeAdminObj && (
@@ -2854,6 +3275,16 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
               </div>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Hut Interior 3D modal ──────────────────────────────────── */}
+      <AnimatePresence>
+        {showHutInterior && (
+          <HutInterior
+            onClose={() => setShowHutInterior(false)}
+            username={currentUserName}
+          />
         )}
       </AnimatePresence>
     </div>

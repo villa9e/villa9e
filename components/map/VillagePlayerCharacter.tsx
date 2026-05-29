@@ -145,13 +145,14 @@ function ProceduralAvatar({
 // ─── GLTF character — tries to load a real 3D character ──────────────────────
 function GLTFCharacter({
   url, position, rotation = 0, posRef, rotRef,
-  skinColor, hairColor, shirtColor, isMovingRef,
+  skinColor, hairColor, shirtColor, isMovingRef, onLoad,
 }: {
   url: string; position: THREE.Vector3; rotation?: number;
   posRef?: React.MutableRefObject<THREE.Vector3>;
   rotRef?: React.MutableRefObject<number>;
   skinColor?: string; hairColor?: string; shirtColor?: string;
   isMovingRef?: React.MutableRefObject<boolean>;
+  onLoad?: () => void;
 }) {
   const groupRef  = useRef<THREE.Group>(null);
   const mixerRef  = useRef<THREE.AnimationMixer | null>(null);
@@ -160,6 +161,10 @@ function GLTFCharacter({
   const wasMoving = useRef(false);
 
   const { scene, animations } = useGLTF(url);
+
+  useEffect(() => {
+    if (scene) onLoad?.();
+  }, [scene, onLoad]);
 
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
@@ -244,48 +249,48 @@ function GLTFCharacter({
 }
 
 // ─── Main exported component ──────────────────────────────────────────────────
-// Shows the procedural avatar immediately, then upgrades to GLTF when loaded
+// Shows the procedural avatar until the GLTF character loads, then swaps to GLTF
 export function PlayerCharacter(props: PlayerCharacterProps) {
-  const cfg       = props.avatarConfig;
-  const skinColor  = cfg ? (SKIN_TONE_MAP[cfg.skin_id]            ?? '#A86030') : (props.skinColor  ?? '#A86030');
-  const hairColor  = cfg ? (HAIR_COLOR_MAP[cfg.hair_color_id]     ?? '#0C0700') : (props.hairColor  ?? '#0C0700');
-  const shirtColor = cfg ? (SHIRT_COLOR_MAP[cfg.outfit_id]        ?? '#2563EB') : (props.shirtColor ?? '#2563EB');
+  const cfg        = props.avatarConfig;
+  const skinColor  = cfg ? (SKIN_TONE_MAP[cfg.skin_id]        ?? '#A86030') : (props.skinColor  ?? '#A86030');
+  const hairColor  = cfg ? (HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700') : (props.hairColor  ?? '#0C0700');
+  const shirtColor = cfg ? (SHIRT_COLOR_MAP[cfg.outfit_id]    ?? '#2563EB') : (props.shirtColor ?? '#2563EB');
 
   const gltfUrl = cfg ? resolveCharacterURL(cfg) : '/models/gltf/Casual_Male.gltf';
   const [gltfFailed, setGltfFailed] = useState(false);
+  const [gltfLoaded, setGltfLoaded] = useState(false);
 
-  // Test if GLTF file exists before trying to load it
   useEffect(() => {
+    setGltfLoaded(false); // reset when URL changes
     fetch(gltfUrl, { method: 'HEAD' })
       .then(r => { if (!r.ok) setGltfFailed(true); })
       .catch(() => setGltfFailed(true));
   }, [gltfUrl]);
 
-  // Always show procedural avatar as base
-  // Overlay GLTF on top when it loads (GLTF wins visually since it renders last)
+  const sharedProps = {
+    skinColor, hairColor, shirtColor,
+    position: props.position,
+    rotation: props.rotation,
+    posRef:   props.posRef,
+    rotRef:   props.rotRef,
+    isMovingRef: props.isMovingRef,
+    username: props.username,
+  };
+
   return (
     <>
-      {/* Always-visible procedural avatar */}
-      <ProceduralAvatar
-        {...props}
-        skinColor={skinColor}
-        hairColor={hairColor}
-        shirtColor={shirtColor}
-      />
+      {/* Procedural avatar — shows while GLTF loading or if GLTF failed */}
+      {(!gltfLoaded || gltfFailed) && (
+        <ProceduralAvatar {...props} skinColor={skinColor} hairColor={hairColor} shirtColor={shirtColor} />
+      )}
 
-      {/* GLTF upgrade layer — hides procedural when loaded */}
+      {/* GLTF character — replaces procedural once loaded */}
       {!gltfFailed && (
         <Suspense fallback={null}>
           <GLTFCharacter
             url={gltfUrl}
-            position={props.position}
-            rotation={props.rotation}
-            posRef={props.posRef}
-            rotRef={props.rotRef}
-            skinColor={skinColor}
-            hairColor={hairColor}
-            shirtColor={shirtColor}
-            isMovingRef={props.isMovingRef}
+            {...sharedProps}
+            onLoad={() => setGltfLoaded(true)}
           />
         </Suspense>
       )}
