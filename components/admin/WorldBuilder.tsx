@@ -775,8 +775,17 @@ export function WorldBuilder() {
     obj.pos_z = z;
     obj.pos_y = terrainH(x, z);
     obj.scale = pending.defaultScale;
-    // Auto-enable trail for buildings
-    if (pending.isBuilding) { obj.trail_enabled = true; obj.trail_passable = false; }
+    // Auto-enable trail for buildings + compute straight-line trail points from hut
+    if (pending.isBuilding) {
+      obj.trail_enabled  = true;
+      obj.trail_passable = false;
+      // 5 intermediate points from hut [0,24] → placed position
+      const [hx, hz] = HUT_POS;
+      obj.trail_points = Array.from({ length: 6 }, (_, i) => {
+        const t = i / 5;
+        return [hx + (x - hx) * t, hz + (z - hz) * t] as [number, number];
+      });
+    }
     setObjects(prev => [...prev, obj]);
     setSelectedId(obj.id);
     // Keep pending for repeated placement — Escape cancels
@@ -819,7 +828,20 @@ export function WorldBuilder() {
       trigger_distance:  o.trigger_distance,
       item_info_enabled: o.item_info_enabled,
     }));
-    await supabase.from('admin_world_objects').upsert(rows, { onConflict: 'id' });
+    const { error } = await supabase.from('admin_world_objects').upsert(rows, { onConflict: 'id' });
+    if (error) {
+      console.error('[WorldBuilder] save error:', error.message);
+      // If columns are missing (migration not run), try minimal save
+      if (error.message.includes('column') || error.message.includes('does not exist')) {
+        const minRows = rows.map(r => ({
+          id: r.id, model_url: r.model_url, label: r.label,
+          pos_x: r.pos_x, pos_y: r.pos_y, pos_z: r.pos_z,
+          rot_y: r.rot_y, scale: r.scale, is_live: r.is_live,
+          is_building: r.is_building, sort_order: r.sort_order,
+        }));
+        await supabase.from('admin_world_objects').upsert(minRows, { onConflict: 'id' });
+      }
+    }
     if (publishAll) setObjects(prev => prev.map(o => ({ ...o, is_live: true })));
     setSaving(false);
     setSaved(true);

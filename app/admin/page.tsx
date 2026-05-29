@@ -168,7 +168,7 @@ export default function AdminPage() {
           <div className="flex flex-wrap gap-3">
             {[
               { label: '✨ Dream Line Controls', url: '/admin/dreamline', internal: true },
-              { label: '🌍 World Sandbox', url: '/admin/sandbox', internal: true },
+              { label: '🌍 World Builder', url: '/admin/sandbox', internal: true },
             ].map(tool => (
               <a key={tool.label} href={tool.url}
                 className="text-sm bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 px-4 py-2 rounded-xl transition-colors font-medium">
