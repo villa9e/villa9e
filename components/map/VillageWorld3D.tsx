@@ -1869,13 +1869,16 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (!user) return;
       setCurrentUserId(user.id);
       loadVLG(user.id);
-      supabase.from('profiles').select('username, display_name, has_done_tour').eq('id', user.id).single()
+      supabase.from('profiles').select('username, display_name').eq('id', user.id).single()
         .then(({ data: p }: any) => {
-          if (p) {
-            setCurrentUserName(p.display_name || p.username || 'Villager');
-            if (!p.has_done_tour) setShowTour(true);
-          }
+          if (p) setCurrentUserName(p.display_name || p.username || 'Villager');
         });
+      // Check tour status separately with graceful fallback
+      supabase.from('profiles').select('has_done_tour').eq('id', user.id).single()
+        .then(({ data: p }: any) => {
+          if (p && !p.has_done_tour) setShowTour(true);
+        })
+        .catch(() => { /* has_done_tour column may not exist yet */ });
     });
   }, []);
 
