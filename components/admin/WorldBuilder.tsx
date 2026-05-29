@@ -683,6 +683,37 @@ export function WorldBuilder() {
   const [searchQ,       setSearchQ]      = useState('');
   const [activeCategory,setCategory]     = useState<string>('buildings_residential');
   const [activeTab,     setActiveTab]    = useState<'models' | 'pages' | 'features' | 'objects'>('models');
+  const [gridSnap,      setGridSnap]     = useState(true);  // snap to 1-unit grid
+  const [snapSize,      setSnapSize]     = useState(1);      // grid size in world units
+  const [showHelp,      setShowHelp]     = useState(false);
+
+  // ── Undo/Redo history
+  const history    = useRef<WorldObject[][]>([]);
+  const historyIdx = useRef(-1);
+
+  function pushHistory(objs: WorldObject[]) {
+    // Truncate forward history on new action
+    history.current = history.current.slice(0, historyIdx.current + 1);
+    history.current.push(objs.map(o => ({ ...o })));
+    historyIdx.current = history.current.length - 1;
+  }
+
+  function undo() {
+    if (historyIdx.current <= 0) return;
+    historyIdx.current--;
+    setObjects(history.current[historyIdx.current].map(o => ({ ...o })));
+  }
+
+  function redo() {
+    if (historyIdx.current >= history.current.length - 1) return;
+    historyIdx.current++;
+    setObjects(history.current[historyIdx.current].map(o => ({ ...o })));
+  }
+
+  function snap(v: number): number {
+    if (!gridSnap || snapSize === 0) return v;
+    return Math.round(v / snapSize) * snapSize;
+  }
 
   // Hut position (always the origin reference point for trails)
   const HUT_POS: [number, number] = [0, 24];

@@ -79,7 +79,7 @@ interface AdminObj {
   pos_x: number; pos_y: number; pos_z: number;
   rot_y: number; scale: number; elevation: number;
   behavior: string; linked_page: string | null; dialog_title: string | null;
-  dialog_content: string | null; iframe_url: string | null;
+  dialog_content: string | null; iframe_url: string | null; transport_target?: string | null;
   trigger_type: string; trigger_distance: number;
   sound_url: string | null; sound_volume: number;
   sound_trigger_dist: number; sound_max_dist: number; sound_loop: boolean;
