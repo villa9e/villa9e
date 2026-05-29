@@ -5,12 +5,7 @@ import { useGLTF, useAnimations } from '@react-three/drei';
 import * as THREE from 'three';
 import { generateAvatarSVG } from '@/lib/avatar/svgString';
 import type { AvatarConfig } from '@/lib/avatar/config';
-import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP } from '@/lib/avatar/config';
-
-// ─── Avatar GLTF paths — Quaternius Casual characters from /public/models/gltf ─
-const AVATAR_MALE_URL   = '/models/gltf/Casual_Male.gltf';
-const AVATAR_FEMALE_URL = '/models/gltf/Casual_Female.gltf';
-const AVATAR_BASE_URL   = '/models/gltf/Casual2_Male.gltf';
+import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, resolveCharacterURL } from '@/lib/avatar/config';
 
 // ─── Flat 2-step toon gradient map for GLTF characters ───────────────────────
 let _gradMap: THREE.DataTexture | null = null;
@@ -268,7 +263,14 @@ function BillboardAvatar({
 // Checks each avatar URL in order of preference
 function GLTFWithFallback(props: PlayerCharacterProps & { cfg: AvatarConfig }) {
   const [failedUrls, setFailedUrls] = useState<Set<string>>(new Set());
-  const urls = [AVATAR_BASE_URL, AVATAR_MALE_URL, AVATAR_FEMALE_URL];
+  // Primary URL from avatar config character_type + body_type
+  const primaryUrl = resolveCharacterURL(props.cfg);
+  // Fallbacks in case the primary can't load
+  const fallbackUrls = [
+    '/models/gltf/Casual_Male.gltf',
+    '/models/gltf/Casual2_Male.gltf',
+  ].filter(u => u !== primaryUrl);
+  const urls = [primaryUrl, ...fallbackUrls];
   const url  = urls.find(u => !failedUrls.has(u));
 
   if (!url) {

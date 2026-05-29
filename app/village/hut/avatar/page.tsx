@@ -7,10 +7,25 @@ import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
 import {
   SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP,
-  type AvatarConfig, DEFAULT_AVATAR_CONFIG,
+  type AvatarConfig, type CharacterType, type BodyType,
+  DEFAULT_AVATAR_CONFIG, resolveCharacterURL,
 } from '@/lib/avatar/config';
 
 // ─── Avatar config options ────────────────────────────────────────────────────
+
+const CHARACTER_TYPES: { id: CharacterType; label: string; icon: string; description: string }[] = [
+  { id:'casual',  label:'Casual',  icon:'👕', description:'Everyday streetwear — classic look' },
+  { id:'casual2', label:'Casual 2', icon:'🧢', description:'Hoodie + sneakers — relaxed vibe' },
+  { id:'casual3', label:'Casual 3', icon:'🧣', description:'Layered look — trendy style' },
+  { id:'worker',  label:'Worker',   icon:'👷', description:'Builder gear — hard at work' },
+  { id:'doctor',  label:'Healer',   icon:'🩺', description:'Medical coat — wellness focused' },
+  { id:'kimono',  label:'Kimono',   icon:'👘', description:'Traditional Japanese robe — zen mastery' },
+];
+
+const BODY_TYPES: { id: BodyType; label: string; icon: string }[] = [
+  { id:'male',   label:'Male',   icon:'♂️' },
+  { id:'female', label:'Female', icon:'♀️' },
+];
 
 const SKIN_TONES = [
   { id: 's1', label: 'Porcelain' }, { id: 's2', label: 'Beige' },
@@ -326,7 +341,7 @@ export default function AvatarBuilderPage() {
   const [config, setConfig]         = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
-  const [activeTab, setActiveTab]   = useState<'skin'|'hair'|'outfit'|'accessory'>('skin');
+  const [activeTab, setActiveTab]   = useState<'character'|'skin'|'hair'|'outfit'|'accessory'>('character');
   const supabase                    = createClient();
   const { theme }                   = useVillageTheme();
   const isNight                     = theme === 'night';
@@ -364,6 +379,7 @@ export default function AvatarBuilderPage() {
   }
 
   const TABS = [
+    { id: 'character' as const, label: 'Type',   icon: '🧬' },
     { id: 'skin' as const,      label: 'Skin',   icon: '🎨' },
     { id: 'hair' as const,      label: 'Hair',   icon: '✂️'  },
     { id: 'outfit' as const,    label: 'Outfit', icon: '👔' },
@@ -424,8 +440,62 @@ export default function AvatarBuilderPage() {
 
       <div className="max-w-lg mx-auto px-4 pb-10">
 
-        {/* ── SKIN ── */}
+        {/* ── CHARACTER TYPE ── */}
         <AnimatePresence mode="wait">
+          {activeTab === 'character' && (
+            <motion.div key="character" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="pt-5 space-y-5">
+
+              {/* Body type toggle */}
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Body Type</p>
+                <div className="flex gap-3">
+                  {BODY_TYPES.map(b => (
+                    <motion.button key={b.id} whileTap={{ scale: 0.94 }}
+                      onClick={() => update('body_type', b.id)}
+                      className="flex-1 py-3 rounded-2xl font-bold text-sm transition-all"
+                      style={{
+                        background: config.body_type === b.id ? accent : (isNight ? '#1A1D2E' : '#FFF5EE'),
+                        color: config.body_type === b.id ? '#fff' : textMain,
+                        border: `2px solid ${config.body_type === b.id ? accent : border}`,
+                      }}>
+                      {b.icon} {b.label}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Character type cards */}
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Character Style</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {CHARACTER_TYPES.map(ct => (
+                    <motion.button key={ct.id} whileTap={{ scale: 0.96 }}
+                      onClick={() => update('character_type', ct.id)}
+                      className="p-4 rounded-2xl text-left transition-all"
+                      style={{
+                        background: config.character_type === ct.id ? (isNight ? '#1A2240' : '#EEF4FF') : (isNight ? '#0F1124' : '#FFFFFF'),
+                        border: `2px solid ${config.character_type === ct.id ? accent : border}`,
+                        boxShadow: config.character_type === ct.id ? `0 0 0 3px ${accent}20` : 'none',
+                      }}>
+                      <div className="text-2xl mb-2">{ct.icon}</div>
+                      <div className="font-bold text-sm" style={{ color: textMain }}>{ct.label}</div>
+                      <div className="text-xs mt-0.5" style={{ color: textMute }}>{ct.description}</div>
+                      {config.character_type === ct.id && (
+                        <div className="mt-2 text-xs font-bold" style={{ color: accent }}>✓ Selected</div>
+                      )}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <p className="text-xs text-center pt-2" style={{ color: textMute }}>
+                Your character style appears in the 3D village as a real Quaternius character model.
+              </p>
+            </motion.div>
+          )}
+
+        {/* ── SKIN ── */}
           {activeTab === 'skin' && (
             <motion.div key="skin" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
               className="pt-5 space-y-4">

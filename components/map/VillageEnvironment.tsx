@@ -413,26 +413,77 @@ export function FlowerSystem() {
   );
 }
 
+// ─── Forest pocket — dense tree ring creating an animal clearing ──────────────
+// Creates an encircling ring of trees around a center point, leaving a clearing
+function ForestPocket({
+  cx, cz, treeCount = 10, treeRadius = 9, treeUrls,
+}: {
+  cx: number; cz: number; treeCount?: number; treeRadius?: number;
+  treeUrls: string[];
+}) {
+  const trees = useMemo(() => Array.from({ length: treeCount }, (_, i) => {
+    const angle = (i / treeCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+    const r     = treeRadius + (Math.random() - 0.5) * 2.5;
+    const x     = cx + Math.cos(angle) * r;
+    const z     = cz + Math.sin(angle) * r;
+    return {
+      x, z, url: treeUrls[i % treeUrls.length],
+      rot: Math.random() * Math.PI * 2,
+      scale: 0.85 + Math.random() * 0.4,
+    };
+  }), []);
+
+  return (
+    <Suspense fallback={null}>
+      {trees.map((t, i) => (
+        <Model key={i} url={t.url} position={[t.x, 0, t.z]} rotation={t.rot} scale={t.scale} />
+      ))}
+    </Suspense>
+  );
+}
+
 // ─── Wandering animals ────────────────────────────────────────────────────────
 export function AnimalSystem() {
   return (
     <group>
+      {/* ── Hut forest pocket — center of forest (0, 24) ── */}
+      <ForestPocket cx={0} cz={24} treeCount={12} treeRadius={10}
+        treeUrls={[M('BirchTree_2'), M('BirchTree_4'), M('MapleTree_3'), M('MapleTree_5'), M('Resource_PineTree')]} />
+
+      {/* ── Tribes forest pocket — northeast (26, 6) ── */}
+      <ForestPocket cx={26} cz={6} treeCount={10} treeRadius={9}
+        treeUrls={[M('MapleTree_1'), M('MapleTree_4'), M('BirchTree_1'), M('BirchTree_3'), M('DeadTree_1')]} />
+
+      {/* ── Deep north forest pocket — (−10, 10) ── */}
+      <ForestPocket cx={-10} cz={10} treeCount={8} treeRadius={8}
+        treeUrls={[M('BirchTree_1'), M('BirchTree_5'), M('MapleTree_2'), M('Resource_PineTree')]} />
+
       <Suspense fallback={null}>
-        {/* Deer in forest — north/center */}
-        <WanderingAnimal url={M('Deer')} home={[-10, 10]}  scale={1.0} phase={0}   radius={5} speed={0.3} />
-        <WanderingAnimal url={M('Deer')} home={[8,  12]}   scale={0.9} phase={2.5} radius={4} speed={0.35} />
-        {/* Fox in forest */}
-        <WanderingAnimal url={M('Fox')}  home={[-8, 20]}   scale={0.8} phase={1.2} radius={4} speed={0.5} />
-        {/* Wolf in northwest */}
-        <WanderingAnimal url={M('Wolf')} home={[-30,-15]}  scale={1.1} phase={0.8} radius={6} speed={0.25} />
-        {/* Alpaca near mountain */}
-        <WanderingAnimal url={M('Alpaca')} home={[-32,-18]} scale={1.0} phase={1.5} radius={5} speed={0.2} />
-        {/* Dogs in village */}
-        <WanderingAnimal url={M('Husky')}   home={[0, 5]}  scale={0.7} phase={0.3} radius={3} speed={0.6} />
-        <WanderingAnimal url={M('ShibaInu')} home={[5,-5]} scale={0.65}phase={1.8} radius={3} speed={0.65} />
-        <WanderingAnimal url={M('Pug')}     home={[-4, 6]} scale={0.6} phase={3.1} radius={2.5}speed={0.7} />
-        {/* Horse in farm zone */}
-        <WanderingAnimal url={M('Horse')} home={[22,-14]}   scale={1.1} phase={0.5} radius={7} speed={0.2} />
+        {/* ── Hut clearing animals — deer, fox, dogs ── */}
+        <WanderingAnimal url={M('Deer')}    home={[0, 24]}   scale={1.0} phase={0}   radius={6}   speed={0.28} />
+        <WanderingAnimal url={M('Deer')}    home={[-4, 28]}  scale={0.88}phase={2.1} radius={4.5} speed={0.32} />
+        <WanderingAnimal url={M('Fox')}     home={[5, 22]}   scale={0.8} phase={1.4} radius={4}   speed={0.55} />
+        <WanderingAnimal url={M('ShibaInu')}home={[-3, 26]}  scale={0.65}phase={0.7} radius={3}   speed={0.65} />
+        <WanderingAnimal url={M('Pug')}     home={[2, 28]}   scale={0.6} phase={3.0} radius={2.5} speed={0.7}  />
+
+        {/* ── Tribes clearing animals — wolf, deer, alpaca ── */}
+        <WanderingAnimal url={M('Wolf')}   home={[26, 6]}   scale={1.1} phase={0.5} radius={7}  speed={0.22} />
+        <WanderingAnimal url={M('Deer')}   home={[22, 10]}  scale={0.95}phase={1.8} radius={5}  speed={0.3}  />
+        <WanderingAnimal url={M('Alpaca')} home={[30, 4]}   scale={1.0} phase={2.5} radius={5}  speed={0.18} />
+
+        {/* ── North forest pocket animals ── */}
+        <WanderingAnimal url={M('Deer')}   home={[-10, 10]} scale={1.0} phase={0.2} radius={5}  speed={0.28} />
+        <WanderingAnimal url={M('Fox')}    home={[-12, 14]} scale={0.78}phase={3.2} radius={3.5}speed={0.5}  />
+
+        {/* ── Mountain / Zen zone — wolf + alpaca ── */}
+        <WanderingAnimal url={M('Wolf')}   home={[-30,-15]} scale={1.1} phase={0.8} radius={6}  speed={0.25} />
+        <WanderingAnimal url={M('Alpaca')} home={[-32,-18]} scale={1.0} phase={1.5} radius={5}  speed={0.2}  />
+
+        {/* ── Village dogs ── */}
+        <WanderingAnimal url={M('Husky')} home={[0, 5]}    scale={0.7} phase={0.3} radius={3}  speed={0.6}  />
+
+        {/* ── Farm zone horse ── */}
+        <WanderingAnimal url={M('Horse')} home={[22,-14]}  scale={1.1} phase={0.5} radius={7}  speed={0.2}  />
       </Suspense>
     </group>
   );

@@ -34,21 +34,53 @@ export const SHIRT_COLOR_MAP: Record<string, string> = {
   o8: '#DB2777',
 };
 
+// Character types map to specific GLTF model files in /public/models/gltf/
+export type CharacterType =
+  | 'casual'    // Casual_Male / Casual_Female
+  | 'casual2'   // Casual2_Male / Casual2_Female
+  | 'casual3'   // Casual3_Male / Casual3_Female
+  | 'worker'    // Worker_Male / Worker_Female
+  | 'doctor'    // Doctor_Male_Young / Doctor_Female_Young
+  | 'kimono';   // Kimono_Male / Kimono_Female
+
+export type BodyType = 'male' | 'female';
+
 export interface AvatarConfig {
-  skin_id:       string;
-  hair_id:       string;
-  hair_color_id: string;
-  outfit_id:     string;
-  accessory_id:  string;
+  skin_id:        string;
+  hair_id:        string;
+  hair_color_id:  string;
+  outfit_id:      string;
+  accessory_id:   string;
+  character_type?: CharacterType;   // defaults to 'casual'
+  body_type?:      BodyType;        // defaults to 'male'
 }
 
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
-  skin_id:       's5',
-  hair_id:       'h1',
-  hair_color_id: 'c1',
-  outfit_id:     'o2',
-  accessory_id:  'a0',
+  skin_id:        's5',
+  hair_id:        'h1',
+  hair_color_id:  'c1',
+  outfit_id:      'o2',
+  accessory_id:   'a0',
+  character_type: 'casual',
+  body_type:      'male',
 };
+
+// Resolve character_type + body_type → GLTF URL
+export function resolveCharacterURL(cfg: Partial<AvatarConfig>): string {
+  const type = cfg.character_type ?? 'casual';
+  const body = cfg.body_type ?? 'male';
+  const suffix = body === 'female' ? 'Female' : 'Male';
+
+  const MAP: Record<CharacterType, string> = {
+    casual:  `/models/gltf/Casual_${suffix}.gltf`,
+    casual2: `/models/gltf/Casual2_${suffix}.gltf`,
+    casual3: `/models/gltf/Casual3_${suffix}.gltf`,
+    worker:  `/models/gltf/Worker_${suffix}.gltf`,
+    doctor:  `/models/gltf/Doctor_${suffix}_Young.gltf`,
+    kimono:  `/models/gltf/Kimono_${suffix}.gltf`,
+  };
+  return MAP[type] ?? `/models/gltf/Casual_${suffix}.gltf`;
+}
 
 // Resolve avatar config → hex colors for the 3D character
 export function resolveAvatarColors(cfg: Partial<AvatarConfig>) {
