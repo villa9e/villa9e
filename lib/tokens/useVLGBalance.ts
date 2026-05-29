@@ -22,12 +22,13 @@ export const useVLGBalance = create<VLGState>((set, get) => ({
     if (get().loaded && get().userId === userId) return;
     set({ loading: true, userId });
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('vlg_balance')
       .eq('id', userId)
       .single();
-    set({ balance: data?.vlg_balance ?? 0, loading: false, loaded: true });
+    // Column may not exist yet if migration 021 hasn't been run
+    set({ balance: (!error && data?.vlg_balance) ? data.vlg_balance : 0, loading: false, loaded: true });
   },
 
   optimisticDebit: (amount: number) =>

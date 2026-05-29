@@ -41,9 +41,6 @@ function SandboxModel({
     return c;
   }, [scene]);
 
-  const isDragging = useRef(false);
-  const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
-
   return (
     <group
       ref={groupRef}

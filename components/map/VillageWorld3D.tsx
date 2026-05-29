@@ -1,9 +1,36 @@
 'use client';
-import { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, Component } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { AnimatePresence, motion } from 'framer-motion';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
+
+// ─── Canvas error boundary — catches R3F render errors gracefully ─────────────
+class CanvasErrorBoundary extends Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: any) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(e: Error) { console.error('[Canvas] 3D render error:', e); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex-1 flex items-center justify-center bg-[#06080E] text-white/40 text-sm">
+          <div className="text-center p-8">
+            <div className="text-4xl mb-3">🌍</div>
+            <p>Village loading issue. Try refreshing.</p>
+            <button onClick={() => this.setState({ hasError: false })}
+              className="mt-4 px-4 py-2 bg-[#1877F2]/20 border border-[#1877F2]/30 rounded-full text-[#60a5fa] text-xs">
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 // 2D SVG map — avoids second WebGL context conflict with the 3D world canvas
 import { VillageMap2D } from './VillageMap2D';
@@ -2221,6 +2248,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       onTouchEnd={handleTwoFingerEnd}
     >
       {/* ── 3D Canvas ──────────────────────────────────────────────── */}
+      <CanvasErrorBoundary>
       <Canvas
         shadows={{ type: THREE.PCFSoftShadowMap }}
         gl={{
@@ -2259,6 +2287,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           playerShirtColor={playerShirtColor}
         />
       </Canvas>
+      </CanvasErrorBoundary>
 
       {/* ── Avatar crescent menu — positioned over avatar head ─────── */}
       <div
