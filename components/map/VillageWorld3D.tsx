@@ -1845,6 +1845,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const { toggleVoice, voiceEnabled } = useSpiritVoice();
   const { mood } = useWeather();
   const { skyState } = useSkySystem();
+  const season = useSeason();
 
   // Day/night for UI styling — menus and drawer adapt to sky phase
   const isNightUI = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
@@ -2462,11 +2463,23 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         </div>
       )}
 
-      {/* ── Sky phase indicator ────────────────────────────────────── */}
+      {/* ── Sky phase + season indicator ──────────────────────────── */}
       {skyState && (
-        <div className="absolute top-4 left-4 z-10 px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
-          style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: skyState.sunColor, border: `1px solid ${skyState.sunColor}30` }}>
-          {skyState.phase} · {skyState.sunAltitude > 0 ? `☀ ${skyState.sunAltitude.toFixed(0)}°` : '🌙'}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-2">
+          <div className="px-3 py-1.5 rounded-full text-xs font-semibold capitalize"
+            style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(8px)', color: skyState.sunColor, border: `1px solid ${skyState.sunColor}30` }}>
+            {skyState.phase} · {skyState.sunAltitude > 0 ? `☀ ${skyState.sunAltitude.toFixed(0)}°` : '🌙'}
+          </div>
+          {season.season !== 'summer' && (
+            <div className="px-2 py-1.5 rounded-full text-xs"
+              style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', color: '#C8E8C8' }}>
+              {season.season === 'spring'  ? '🌸 Spring' :
+               season.season === 'autumn'  ? '🍂 Autumn' :
+               season.season === 'winter'  ? '❄️ Winter' : ''}
+            </div>
+          )}
+          {season.rainOn && <div className="px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', color: '#93C5FD' }}>🌧️</div>}
+          {season.snowOn && season.season !== 'winter' && <div className="px-2 py-1 rounded-full text-xs" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)', color: '#BAE6FD' }}>❄️</div>}
         </div>
       )}
 
