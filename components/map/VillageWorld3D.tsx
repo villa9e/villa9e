@@ -26,6 +26,7 @@ import {
   DenseGrass, WildflowerClusters, terrainH,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
+import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP } from '@/app/village/hut/avatar/page';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
@@ -599,8 +600,11 @@ function Building({
   // Scale the shadow circle to match building scale
   const shadowR = 6.5;
 
+  // Snap building base to terrain height so buildings sit flush on the ground
+  const groundY = terrainH(x, z);
+
   return (
-    <group position={[x, 0, z]}>
+    <group position={[x, groundY, z]}>
       {/* Large ground shadow */}
       <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, 0.01, 0]}>
         <circleGeometry args={[shadowR, 48]} />
@@ -986,6 +990,7 @@ function WorldScene({
   cameraZoom, cameraAzimuth, weather, nearBuildingId,
   avatarDivRef, spiritDivRef, onAvatarTap, onSpiritTap, pointerTarget,
   tribeMembers, onTribeMemberClick,
+  playerSkinColor, playerHairColor, playerShirtColor,
 }: {
   playerPos: React.MutableRefObject<THREE.Vector3>;
   playerRot: React.MutableRefObject<number>;
@@ -1005,6 +1010,9 @@ function WorldScene({
   pointerTarget: React.MutableRefObject<{ x: number; z: number } | null>;
   tribeMembers?: TribeMember[];
   onTribeMemberClick?: (member: TribeMember, screenX: number, screenY: number) => void;
+  playerSkinColor?: string;
+  playerHairColor?: string;
+  playerShirtColor?: string;
 }) {
   const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const starsVisible = skyState?.phase === 'night' || skyState?.phase === 'dawn';
@@ -1149,7 +1157,9 @@ function WorldScene({
           rotation={playerRot.current}
           posRef={playerPos}
           rotRef={playerRot}
-          skinColor="#8D5524"
+          skinColor={playerSkinColor ?? '#A86030'}
+          hairColor={playerHairColor ?? '#0C0700'}
+          shirtColor={playerShirtColor ?? '#2563EB'}
           isLocal={true}
           isMovingRef={isMoving}
         />
@@ -1599,7 +1609,10 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     };
   }, [mood]);
 
-  const [spiritVariant, setSpiritVariant] = useState<SpiritVariantId>('blue');
+  const [spiritVariant,  setSpiritVariant]  = useState<SpiritVariantId>('blue');
+  const [playerSkinColor, setPlayerSkinColor] = useState('#A86030');
+  const [playerHairColor, setPlayerHairColor] = useState('#0C0700');
+  const [playerShirtColor, setPlayerShirtColor] = useState('#2563EB');
   const playerPos    = useRef(new THREE.Vector3(0, 0, 9));
   const playerRot    = useRef(0);
   const moveInput    = useRef({ dx: 0, dy: 0 });
@@ -1655,9 +1668,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       (supabase as any).from('profiles').select('username, avatar_config').eq('id', user.id).single()
         .then(({ data }: any) => {
           username = data?.username ?? 'villager';
-          if (data?.avatar_config?.spirit_variant) {
-            setSpiritVariant(data.avatar_config.spirit_variant as SpiritVariantId);
-          }
+          const cfg = data?.avatar_config ?? {};
+          if (cfg.spirit_variant) setSpiritVariant(cfg.spirit_variant as SpiritVariantId);
+          // Apply saved avatar colors to 3D character
+          if (cfg.skin_id)       setPlayerSkinColor(SKIN_TONE_MAP[cfg.skin_id]   ?? '#A86030');
+          if (cfg.hair_color_id) setPlayerHairColor(HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700');
+          if (cfg.outfit_id)     setPlayerShirtColor(SHIRT_COLOR_MAP[cfg.outfit_id] ?? '#2563EB');
         });
 
       const channel = supabase.channel('village_world', {
@@ -1902,6 +1918,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           pointerTarget={pointerTarget}
           tribeMembers={tribeMembers}
           onTribeMemberClick={(member, sx, sy) => setClickedMember({ ...member, screenX: sx, screenY: sy })}
+          playerSkinColor={playerSkinColor}
+          playerHairColor={playerHairColor}
+          playerShirtColor={playerShirtColor}
         />
       </Canvas>
 

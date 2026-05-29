@@ -1,210 +1,364 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
 
-// ─── Avatar configuration options ────────────────────────────────────────────
+// ─── Avatar config options ────────────────────────────────────────────────────
+
+export const SKIN_TONE_MAP: Record<string, string> = {
+  s1: '#FDE8D0',  // Porcelain
+  s2: '#F2C9A0',  // Beige
+  s3: '#E8A870',  // Golden
+  s4: '#C88550',  // Tan
+  s5: '#A86030',  // Medium
+  s6: '#8A4820',  // Warm deep
+  s7: '#6A3018',  // Deep
+  s8: '#3E1C0A',  // Ebony
+};
+
+export const HAIR_COLOR_MAP: Record<string, string> = {
+  c1: '#0C0700',   // Jet black
+  c2: '#3D1E08',   // Dark brown
+  c3: '#7A3A10',   // Auburn
+  c4: '#B87830',   // Honey
+  c5: '#E8C060',   // Blonde
+  c6: '#9B59B6',   // Purple
+  c7: '#2980B9',   // Blue
+  c8: '#E74C3C',   // Red
+};
+
+export const SHIRT_COLOR_MAP: Record<string, string> = {
+  o1: '#D97706',   // Kente gold
+  o2: '#2563EB',   // Spirit blue
+  o3: '#16A34A',   // Nature green
+  o4: '#DC2626',   // Tribal red
+  o5: '#7C3AED',   // Galaxy purple
+  o6: '#92400E',   // Earth brown
+  o7: '#0F766E',   // Teal
+  o8: '#DB2777',   // Pink
+};
 
 const SKIN_TONES = [
-  { id: 's1', color: '#FDDBB4', label: 'Fair' },
-  { id: 's2', color: '#F0C27F', label: 'Light' },
-  { id: 's3', color: '#C68642', label: 'Medium' },
-  { id: 's4', color: '#8D5524', label: 'Brown' },
-  { id: 's5', color: '#5C2A0E', label: 'Deep' },
-  { id: 's6', color: '#3B1506', label: 'Ebony' },
+  { id: 's1', label: 'Porcelain' }, { id: 's2', label: 'Beige' },
+  { id: 's3', label: 'Golden' },   { id: 's4', label: 'Tan' },
+  { id: 's5', label: 'Medium' },   { id: 's6', label: 'Warm' },
+  { id: 's7', label: 'Deep' },     { id: 's8', label: 'Ebony' },
 ];
 
 const HAIR_STYLES = [
-  { id: 'h1', label: 'Natural', icon: '🌿' },
-  { id: 'h2', label: 'Locs',    icon: '🌀' },
-  { id: 'h3', label: 'Fade',    icon: '✂️' },
-  { id: 'h4', label: 'Braids',  icon: '🌸' },
-  { id: 'h5', label: 'Afro',    icon: '☁️' },
+  { id: 'h1', label: 'Afro',    icon: '☁️' },
+  { id: 'h2', label: 'Natural', icon: '🌿' },
+  { id: 'h3', label: 'Locs',    icon: '🌀' },
+  { id: 'h4', label: 'Braids',  icon: '〰️' },
+  { id: 'h5', label: 'Fade',    icon: '✂️' },
   { id: 'h6', label: 'Short',   icon: '💈' },
 ];
 
-const HAIR_COLORS = [
-  { id: 'c1', color: '#1A0A00' },
-  { id: 'c2', color: '#4A2800' },
-  { id: 'c3', color: '#8B4513' },
-  { id: 'c4', color: '#FFD700' },
-  { id: 'c5', color: '#7C3AED' },
-  { id: 'c6', color: '#1877F2' },
-];
+const HAIR_COLORS = Object.keys(HAIR_COLOR_MAP).map(id => ({ id }));
 
 const OUTFITS = [
-  { id: 'o1', label: 'Kente',    color: '#D97706', pattern: 'kente',   icon: '🟨' },
-  { id: 'o2', label: 'Spirit',   color: '#1877F2', pattern: 'solid',   icon: '🔵' },
-  { id: 'o3', label: 'Nature',   color: '#16A34A', pattern: 'solid',   icon: '🟢' },
-  { id: 'o4', label: 'Tribal',   color: '#DC2626', pattern: 'tribal',  icon: '🔴' },
-  { id: 'o5', label: 'Galaxy',   color: '#7C3AED', pattern: 'cosmic',  icon: '🟣' },
-  { id: 'o6', label: 'Sand',     color: '#92400E', pattern: 'solid',   icon: '🟤' },
+  { id: 'o1', label: 'Kente',   icon: '🟨' },
+  { id: 'o2', label: 'Spirit',  icon: '🔵' },
+  { id: 'o3', label: 'Nature',  icon: '🟢' },
+  { id: 'o4', label: 'Tribal',  icon: '🔴' },
+  { id: 'o5', label: 'Galaxy',  icon: '🟣' },
+  { id: 'o6', label: 'Earth',   icon: '🟤' },
+  { id: 'o7', label: 'Teal',    icon: '🩵' },
+  { id: 'o8', label: 'Rose',    icon: '🩷' },
 ];
 
 const ACCESSORIES = [
-  { id: 'a0', label: 'None',    icon: '◯' },
-  { id: 'a1', label: 'Crown',   icon: '👑' },
-  { id: 'a2', label: 'Beads',   icon: '📿' },
-  { id: 'a3', label: 'Shades',  icon: '🕶️' },
-  { id: 'a4', label: 'Ankh',    icon: '☥' },
-  { id: 'a5', label: 'Wrap',    icon: '🎀' },
+  { id: 'a0', label: 'None',   icon: '◯'  },
+  { id: 'a1', label: 'Crown',  icon: '👑' },
+  { id: 'a2', label: 'Beads',  icon: '📿' },
+  { id: 'a3', label: 'Shades', icon: '🕶️' },
+  { id: 'a4', label: 'Ankh',   icon: '☥'  },
+  { id: 'a5', label: 'Wrap',   icon: '🎀' },
 ];
 
-interface AvatarConfig {
-  skin_id:        string;
-  hair_id:        string;
-  hair_color_id:  string;
-  outfit_id:      string;
-  accessory_id:   string;
+export interface AvatarConfig {
+  skin_id:       string;
+  hair_id:       string;
+  hair_color_id: string;
+  outfit_id:     string;
+  accessory_id:  string;
 }
 
-const DEFAULT_CONFIG: AvatarConfig = {
-  skin_id:       's4',
+export const DEFAULT_CONFIG: AvatarConfig = {
+  skin_id:       's5',
   hair_id:       'h1',
   hair_color_id: 'c1',
-  outfit_id:     'o1',
+  outfit_id:     'o2',
   accessory_id:  'a0',
 };
 
-// ─── SVG Avatar Preview (Spider-Verse low-poly style) ─────────────────────────
-function AvatarPreview({ config, isNight }: { config: AvatarConfig; isNight: boolean }) {
-  const skin   = SKIN_TONES.find(s => s.id === config.skin_id)?.color ?? '#C68642';
-  const hairC  = HAIR_COLORS.find(c => c.id === config.hair_color_id)?.color ?? '#1A0A00';
-  const outfit = OUTFITS.find(o => o.id === config.outfit_id);
-  const acc    = ACCESSORIES.find(a => a.id === config.accessory_id);
-  const tunic  = outfit?.color ?? '#D97706';
-  const hair   = HAIR_STYLES.find(h => h.id === config.hair_id);
+// ─── High-quality cartoon SVG preview ────────────────────────────────────────
+// Proportions match the 3D character: big head (~38% of height), large eyes
+function AvatarSVG({ config, isNight, size = 200 }: { config: AvatarConfig; isNight: boolean; size?: number }) {
+  const sk  = SKIN_TONE_MAP[config.skin_id] ?? '#A86030';
+  const hc  = HAIR_COLOR_MAP[config.hair_color_id] ?? '#0C0700';
+  const sh  = SHIRT_COLOR_MAP[config.outfit_id] ?? '#2563EB';
 
+  // Derived colors
+  function hex2rgb(hex: string) {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return { r, g, b };
+  }
+  function darker(hex: string, amt = 30) {
+    const { r, g, b } = hex2rgb(hex);
+    return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
+  }
+  function lighter(hex: string, amt = 20) {
+    const { r, g, b } = hex2rgb(hex);
+    return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+  }
+
+  const skD = darker(sk, 22);
+  const skL = lighter(sk, 18);
+  const shD = darker(sh, 30);
+  const pnt = '#1A2A3A';
+  const sho = '#1A1A1A';
+  const lip = `rgb(${Math.max(0,hex2rgb(sk).r-50)},${Math.max(0,hex2rgb(sk).g-90)},${Math.max(0,hex2rgb(sk).b-80)})`;
+
+  // Viewbox: 0 0 140 220
   return (
-    <svg viewBox="0 0 120 200" width="120" height="200" style={{ filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>
+    <svg viewBox="0 0 140 220" width={size} height={size * 220/140}
+      style={{ filter: 'drop-shadow(0 12px 32px rgba(0,0,0,0.35))', overflow: 'visible' }}>
+      <defs>
+        <radialGradient id="headGrad" cx="45%" cy="38%" r="60%">
+          <stop offset="0%" stopColor={skL} />
+          <stop offset="100%" stopColor={skD} />
+        </radialGradient>
+        <radialGradient id="eyeGrad" cx="35%" cy="35%" r="70%">
+          <stop offset="0%" stopColor="#FFFCF5" />
+          <stop offset="100%" stopColor="#F0ECE8" />
+        </radialGradient>
+        <radialGradient id="shirtGrad" cx="40%" cy="30%" r="70%">
+          <stop offset="0%" stopColor={lighter(sh,25)} />
+          <stop offset="100%" stopColor={shD} />
+        </radialGradient>
+        <filter id="softShadow">
+          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2" />
+        </filter>
+      </defs>
+
       {/* ── LEGS ── */}
-      <rect x="45" y="135" width="14" height="45" rx="7" fill="#1A0A00" stroke="#111" strokeWidth="2" />
-      <rect x="61" y="135" width="14" height="45" rx="7" fill="#1A0A00" stroke="#111" strokeWidth="2" />
+      <rect x="50" y="152" width="16" height="50" rx="8" fill={pnt} />
+      <rect x="74" y="152" width="16" height="50" rx="8" fill={pnt} />
       {/* Shoes */}
-      <ellipse cx="52" cy="180" rx="11" ry="7" fill="#111" />
-      <ellipse cx="68" cy="180" rx="11" ry="7" fill="#111" />
+      <ellipse cx="58" cy="202" rx="13" ry="8" fill={sho} />
+      <ellipse cx="82" cy="202" rx="13" ry="8" fill={sho} />
+      <ellipse cx="56" cy="200" rx="11" ry="5" fill="#444" />
+      <ellipse cx="80" cy="200" rx="11" ry="5" fill="#444" />
 
       {/* ── ARMS ── */}
-      <rect x="22" y="82" width="13" height="44" rx="6" fill={tunic} stroke="#111" strokeWidth="2" />
-      <rect x="85" y="82" width="13" height="44" rx="6" fill={tunic} stroke="#111" strokeWidth="2" />
-      {/* Hands */}
-      <circle cx="28" cy="130" r="7" fill={skin} stroke="#111" strokeWidth="1.5" />
-      <circle cx="92" cy="130" r="7" fill={skin} stroke="#111" strokeWidth="1.5" />
+      {/* Left arm */}
+      <path d="M 44 95 Q 28 110 26 138" stroke={sh} strokeWidth="16" fill="none" strokeLinecap="round" />
+      <circle cx="26" cy="140" r="9" fill={sk} stroke={skD} strokeWidth="1" />
+      {/* Right arm */}
+      <path d="M 96 95 Q 112 110 114 138" stroke={sh} strokeWidth="16" fill="none" strokeLinecap="round" />
+      <circle cx="114" cy="140" r="9" fill={sk} stroke={skD} strokeWidth="1" />
 
       {/* ── TORSO ── */}
-      <rect x="34" y="78" width="52" height="62" rx="10" fill="#111" />
-      <rect x="36" y="80" width="48" height="58" rx="8" fill={tunic} />
-      {/* Kente stripes on outfit */}
-      {outfit?.pattern === 'kente' && (
+      <rect x="40" y="88" width="60" height="68" rx="12" fill="url(#shirtGrad)" />
+      {/* Shirt outline */}
+      <rect x="40" y="88" width="60" height="68" rx="12" fill="none" stroke={shD} strokeWidth="1.5" />
+      {/* Collar V-neck */}
+      <path d="M58,90 L70,106 L82,90" fill="none" stroke={lighter(sh,40)} strokeWidth="2.5" strokeLinecap="round" />
+      {/* Kente stripes */}
+      {config.outfit_id === 'o1' && (
         <>
-          <rect x="36" y="98" width="48" height="5" fill={isNight ? '#1877F2' : '#DC2626'} opacity="0.6" />
-          <rect x="36" y="108" width="48" height="3" fill="#FFD700" opacity="0.5" />
-          <rect x="36" y="116" width="48" height="5" fill={isNight ? '#1877F2' : '#DC2626'} opacity="0.6" />
+          <rect x="40" y="112" width="60" height="5" rx="2" fill="#FFD700" opacity="0.55" />
+          <rect x="40" y="122" width="60" height="3" rx="1" fill="#DC2626" opacity="0.5" />
+          <rect x="40" y="130" width="60" height="5" rx="2" fill="#16A34A" opacity="0.45" />
         </>
       )}
-      {outfit?.pattern === 'tribal' && (
-        <>
-          {[90,102,114].map(y => (
-            <path key={y} d={`M36,${y} L84,${y} M36,${y+4} L84,${y+4}`} stroke="#000" strokeWidth="1.5" opacity="0.3" />
-          ))}
-        </>
-      )}
-      {/* Collar */}
-      <path d="M52,80 L60,92 L68,80" fill="none" stroke={isNight ? '#93C5FD' : '#92400E'} strokeWidth="2" />
+      {/* Belt */}
+      <rect x="40" y="148" width="60" height="8" rx="3" fill="#111" />
+      <rect x="64" y="149" width="12" height="6" rx="2" fill="#C9A020" />
 
       {/* ── NECK ── */}
-      <rect x="52" y="70" width="16" height="14" rx="5" fill={skin} stroke="#111" strokeWidth="1.5" />
+      <rect x="57" y="78" width="26" height="18" rx="9" fill={sk} stroke={skD} strokeWidth="1" />
 
-      {/* ── HEAD ── */}
-      {/* Head outline */}
-      <ellipse cx="60" cy="50" rx="30" ry="34" fill="#111" />
-      {/* Face */}
-      <ellipse cx="60" cy="50" rx="27" ry="31" fill={skin} />
-      {/* Eyes */}
-      <ellipse cx="50" cy="48" rx="6" ry="7" fill="#fff" stroke="#111" strokeWidth="1" />
-      <ellipse cx="70" cy="48" rx="6" ry="7" fill="#fff" stroke="#111" strokeWidth="1" />
-      <circle cx="51" cy="49" r="3.5" fill="#111" />
-      <circle cx="71" cy="49" r="3.5" fill="#111" />
-      <circle cx="52" cy="47" r="1" fill="#fff" />
-      <circle cx="72" cy="47" r="1" fill="#fff" />
-      {/* Nose */}
-      <ellipse cx="60" cy="57" rx="3" ry="2" fill="none" stroke={skin === '#FDDBB4' ? '#E0A882' : '#111'} strokeWidth="1.5" />
-      {/* Smile */}
-      <path d="M50,63 Q60,70 70,63" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round" />
+      {/* ── HEAD (big cartoon head) ── */}
+      {/* Head shadow */}
+      <ellipse cx="71" cy="52" rx="35" ry="39" fill="rgba(0,0,0,0.12)" transform="translate(2,3)" />
+      {/* Head */}
+      <ellipse cx="70" cy="50" rx="36" ry="40" fill="url(#headGrad)" stroke={skD} strokeWidth="1.5" />
+      {/* Cheek highlight left */}
+      <ellipse cx="44" cy="55" rx="10" ry="8" fill={skL} opacity="0.4" />
+      {/* Cheek highlight right */}
+      <ellipse cx="96" cy="55" rx="10" ry="8" fill={skL} opacity="0.4" />
+      {/* Cheek blush left */}
+      <ellipse cx="46" cy="56" rx="9" ry="6" fill="#E87868" opacity="0.18" />
+      <ellipse cx="94" cy="56" rx="9" ry="6" fill="#E87868" opacity="0.18" />
+
+      {/* ── EYES (large, expressive — cartoon style) ── */}
+      {/* Left eye socket shadow */}
+      <ellipse cx="55" cy="46" rx="11" ry="12" fill={skD} opacity="0.3" transform="translate(0.5,1)" />
+      {/* Left eye white */}
+      <ellipse cx="54" cy="45" rx="10" ry="11" fill="url(#eyeGrad)" stroke="#ccc" strokeWidth="0.5" />
+      {/* Left iris */}
+      <circle cx="54" cy="46" r="7.5" fill="#1A0E06" />
+      {/* Iris color ring */}
+      <circle cx="54" cy="46" r="6.5" fill="#3E1E0A" />
+      {/* Pupil */}
+      <circle cx="54" cy="46" r="4.2" fill="#050200" />
+      {/* Main catchlight */}
+      <circle cx="50.5" cy="42.5" r="2.2" fill="#FFFFFF" />
+      {/* Secondary catchlight */}
+      <circle cx="56.5" cy="48.5" r="1.1" fill="rgba(255,255,255,0.7)" />
+      {/* Top lash */}
+      <path d="M44,37 Q54,34 64,37" fill={hc} opacity="0.9" stroke={hc} strokeWidth="2.2" strokeLinecap="round" />
+      {/* Lower lash hint */}
+      <path d="M46,55 Q54,58 62,55" fill="none" stroke={skD} strokeWidth="0.8" opacity="0.6" />
+
+      {/* Right eye socket shadow */}
+      <ellipse cx="86" cy="46" rx="11" ry="12" fill={skD} opacity="0.3" transform="translate(0.5,1)" />
+      {/* Right eye white */}
+      <ellipse cx="86" cy="45" rx="10" ry="11" fill="url(#eyeGrad)" stroke="#ccc" strokeWidth="0.5" />
+      <circle cx="86" cy="46" r="7.5" fill="#1A0E06" />
+      <circle cx="86" cy="46" r="6.5" fill="#3E1E0A" />
+      <circle cx="86" cy="46" r="4.2" fill="#050200" />
+      <circle cx="82.5" cy="42.5" r="2.2" fill="#FFFFFF" />
+      <circle cx="88.5" cy="48.5" r="1.1" fill="rgba(255,255,255,0.7)" />
+      <path d="M76,37 Q86,34 96,37" fill={hc} opacity="0.9" stroke={hc} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M78,55 Q86,58 94,55" fill="none" stroke={skD} strokeWidth="0.8" opacity="0.6" />
+
+      {/* ── EYEBROWS ── */}
+      <path d="M44,30 Q54,26 64,30" fill="none" stroke={hc} strokeWidth="3" strokeLinecap="round" />
+      <path d="M76,30 Q86,26 96,30" fill="none" stroke={hc} strokeWidth="3" strokeLinecap="round" />
+
+      {/* ── NOSE ── */}
+      <ellipse cx="70" cy="60" rx="4.5" ry="3.5" fill="none" stroke={darker(sk, 35)} strokeWidth="1.8" strokeLinecap="round" />
+
+      {/* ── MOUTH — wide cartoon smile ── */}
+      {/* Smile arc */}
+      <path d="M55,70 Q70,82 85,70" fill={lip} stroke={darker(sk,55)} strokeWidth="1" />
+      <path d="M55,70 Q70,82 85,70" fill="none" stroke={darker(sk,55)} strokeWidth="2.5" strokeLinecap="round" />
+      {/* Teeth hint */}
+      <path d="M58,70 Q70,78 82,70" fill="white" opacity="0.7" />
+      {/* Mouth corners */}
+      <circle cx="55" cy="70" r="2.5" fill={lip} />
+      <circle cx="85" cy="70" r="2.5" fill={lip} />
 
       {/* ── HAIR ── */}
-      {config.hair_id === 'h5' && ( // Afro
+      {/* Afro */}
+      {config.hair_id === 'h1' && (
         <>
-          <ellipse cx="60" cy="26" rx="32" ry="28" fill={hairC} stroke="#111" strokeWidth="2" />
-          <ellipse cx="34" cy="38" rx="12" ry="16" fill={hairC} stroke="#111" strokeWidth="1.5" />
-          <ellipse cx="86" cy="38" rx="12" ry="16" fill={hairC} stroke="#111" strokeWidth="1.5" />
+          <ellipse cx="70" cy="22" rx="40" ry="36" fill={hc} />
+          <ellipse cx="34" cy="35" rx="14" ry="20" fill={hc} />
+          <ellipse cx="106" cy="35" rx="14" ry="20" fill={hc} />
+          {/* Hairline */}
+          <path d="M34,52 Q70,62 106,52" fill={hc} />
+          {/* Shine */}
+          <ellipse cx="58" cy="14" rx="12" ry="7" fill="rgba(255,255,255,0.08)" />
         </>
       )}
-      {config.hair_id === 'h2' && ( // Locs
+      {/* Natural */}
+      {config.hair_id === 'h2' && (
         <>
-          <ellipse cx="60" cy="22" rx="27" ry="20" fill={hairC} stroke="#111" strokeWidth="2" />
-          {[-14,-7,0,7,14].map(x => (
-            <rect key={x} x={60 + x - 3} y="32" width="6" height="30" rx="3" fill={hairC} stroke="#111" strokeWidth="1" />
+          <ellipse cx="70" cy="20" rx="36" ry="28" fill={hc} />
+          <path d="M34,42 Q70,55 106,42" fill={hc} />
+          {/* Natural texture bumps */}
+          {[-15,-5,5,15].map((ox,i) => (
+            <ellipse key={i} cx={70+ox} cy={14+Math.abs(ox)*0.3} rx="8" ry="7" fill={lighter(hc,10)} opacity="0.4" />
           ))}
         </>
       )}
-      {config.hair_id === 'h4' && ( // Braids
+      {/* Locs */}
+      {config.hair_id === 'h3' && (
         <>
-          <ellipse cx="60" cy="22" rx="27" ry="20" fill={hairC} stroke="#111" strokeWidth="2" />
-          {[-10,0,10].map(x => (
-            <path key={x} d={`M${60+x},35 Q${60+x+4},50 ${60+x},65`} fill="none" stroke={hairC} strokeWidth="5" strokeLinecap="round" />
+          <ellipse cx="70" cy="14" rx="33" ry="22" fill={hc} />
+          {[-18,-9,0,9,18].map((x,i) => (
+            <path key={i} d={`M${70+x},28 Q${70+x+5},45 ${70+x+2},62`}
+              stroke={hc} strokeWidth="7" fill="none" strokeLinecap="round" />
+          ))}
+          {[-12,0,12].map((x,i) => (
+            <path key={i} d={`M${70+x+3},42 Q${70+x+8},55 ${70+x+5},68`}
+              stroke={lighter(hc,15)} strokeWidth="5" fill="none" strokeLinecap="round" opacity="0.7" />
           ))}
         </>
       )}
-      {config.hair_id === 'h1' && ( // Natural
-        <ellipse cx="60" cy="22" rx="27" ry="22" fill={hairC} stroke="#111" strokeWidth="2" />
-      )}
-      {config.hair_id === 'h3' && ( // Fade
+      {/* Braids */}
+      {config.hair_id === 'h4' && (
         <>
-          <ellipse cx="60" cy="22" rx="27" ry="16" fill={hairC} stroke="#111" strokeWidth="1.5" />
-          <ellipse cx="60" cy="28" rx="27" ry="8" fill={hairC} opacity="0.4" />
+          <ellipse cx="70" cy="14" rx="33" ry="20" fill={hc} />
+          {[-16,-6,4,14].map((x,i) => (
+            <g key={i}>
+              <path d={`M${58+x*1.5},28 Q${60+x*1.5},50 ${58+x*1.5},72`}
+                stroke={hc} strokeWidth="6" fill="none" strokeLinecap="round" />
+              <path d={`M${58+x*1.5},28 Q${62+x*1.5},50 ${62+x*1.5},72`}
+                stroke={darker(hc,20)} strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6" />
+            </g>
+          ))}
         </>
       )}
-      {config.hair_id === 'h6' && ( // Short
-        <ellipse cx="60" cy="24" rx="26" ry="14" fill={hairC} stroke="#111" strokeWidth="1.5" />
+      {/* Fade */}
+      {config.hair_id === 'h5' && (
+        <>
+          <ellipse cx="70" cy="18" rx="33" ry="18" fill={hc} />
+          <rect x="37" y="22" width="66" height="16" rx="4" fill={hc} opacity="0.4" />
+          <rect x="37" y="34" width="66" height="8" rx="4" fill={hc} opacity="0.2" />
+        </>
+      )}
+      {/* Short */}
+      {config.hair_id === 'h6' && (
+        <>
+          <rect x="37" y="10" width="66" height="22" rx="10" fill={hc} />
+          <ellipse cx="70" cy="18" rx="33" ry="15" fill={hc} />
+        </>
       )}
 
       {/* ── ACCESSORIES ── */}
-      {acc?.id === 'a1' && ( // Crown
+      {/* Crown */}
+      {config.accessory_id === 'a1' && (
         <>
-          {[-12,-6,0,6,12].map(x => (
-            <rect key={x} x={48+x} y={1} width={4} height={10} rx={2} fill="#FFD700" stroke="#111" strokeWidth="1" />
+          {[-14,-7,0,7,14].map((x,i) => (
+            <polygon key={i} points={`${64+x},4 ${67+x},16 ${61+x},16`} fill="#FFD700" stroke="#B8860B" strokeWidth="1" />
           ))}
-          <rect x="36" y="10" width="48" height="8" rx="3" fill="#FFD700" stroke="#111" strokeWidth="1.5" />
+          <rect x="36" y="15" width="68" height="10" rx="4" fill="#FFD700" stroke="#B8860B" strokeWidth="1.5" />
+          {[0,1,2,3].map(i => <circle key={i} cx={50+i*14} cy={20} r="3" fill="#DC2626" />)}
         </>
       )}
-      {acc?.id === 'a3' && ( // Shades
+      {/* Shades */}
+      {config.accessory_id === 'a3' && (
         <>
-          <rect x="38" y="44" width="18" height="11" rx="5" fill="#111" opacity="0.85" />
-          <rect x="64" y="44" width="18" height="11" rx="5" fill="#111" opacity="0.85" />
-          <line x1="56" y1="49" x2="64" y2="49" stroke="#111" strokeWidth="2" />
-          <line x1="36" y1="49" x2="38" y2="49" stroke="#111" strokeWidth="2" />
-          <line x1="82" y1="49" x2="84" y2="49" stroke="#111" strokeWidth="2" />
+          <rect x="40" y="39" width="22" height="14" rx="7" fill="#111" opacity="0.88" />
+          <rect x="78" y="39" width="22" height="14" rx="7" fill="#111" opacity="0.88" />
+          <line x1="62" y1="46" x2="78" y2="46" stroke="#555" strokeWidth="2" />
+          <line x1="37" y1="46" x2="40" y2="46" stroke="#555" strokeWidth="2" />
+          <line x1="100" y1="46" x2="103" y2="46" stroke="#555" strokeWidth="2" />
+          {/* Tinted lens shimmer */}
+          <ellipse cx="51" cy="44" rx="8" ry="5" fill="rgba(255,255,255,0.08)" />
+          <ellipse cx="89" cy="44" rx="8" ry="5" fill="rgba(255,255,255,0.08)" />
         </>
       )}
-      {acc?.id === 'a2' && ( // Beads
+      {/* Beads (neck) */}
+      {config.accessory_id === 'a2' && (
         <>
-          {[0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170].map((deg, i) => {
-            const rad = (deg * Math.PI) / 180;
-            return <circle key={i} cx={60 + Math.cos(rad) * 22} cy={68 + Math.sin(rad) * 12} r="2.5"
-              fill={['#FFD700','#DC2626','#16A34A'][i % 3]} stroke="#111" strokeWidth="0.5" />;
+          {Array.from({length:18}, (_,i) => {
+            const a = (i/18)*Math.PI*2;
+            return <circle key={i} cx={70+Math.cos(a)*26} cy={90+Math.sin(a)*8} r="3.5"
+              fill={['#FFD700','#DC2626','#16A34A'][i%3]} stroke="#111" strokeWidth="0.5" />;
           })}
         </>
       )}
-      {acc?.id === 'a4' && ( // Ankh on chest
+      {/* Ankh */}
+      {config.accessory_id === 'a4' && (
         <>
-          <rect x="57" y="88" width="6" height="20" rx="2" fill="#FFD700" stroke="#111" strokeWidth="1" />
-          <rect x="50" y="90" width="20" height="5" rx="2" fill="#FFD700" stroke="#111" strokeWidth="1" />
-          <ellipse cx="60" cy="89" rx="6" ry="8" fill="none" stroke="#FFD700" strokeWidth="3" />
+          <rect x="67" y="100" width="7" height="24" rx="3" fill="#FFD700" stroke="#B8860B" strokeWidth="1" />
+          <rect x="58" y="102" width="25" height="7" rx="3" fill="#FFD700" stroke="#B8860B" strokeWidth="1" />
+          <ellipse cx="70.5" cy="101" rx="8" ry="10" fill="none" stroke="#FFD700" strokeWidth="4.5" />
         </>
+      )}
+      {/* Wrap */}
+      {config.accessory_id === 'a5' && (
+        <path d="M34,42 Q44,30 70,28 Q96,30 106,42 Q96,50 70,52 Q44,50 34,42 Z"
+          fill={sh} opacity="0.75" stroke={shD} strokeWidth="1" />
       )}
     </svg>
   );
@@ -212,33 +366,31 @@ function AvatarPreview({ config, isNight }: { config: AvatarConfig; isNight: boo
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AvatarBuilderPage() {
-  const [config, setConfig]   = useState<AvatarConfig>(DEFAULT_CONFIG);
-  const [saving, setSaving]   = useState(false);
-  const [saved, setSaved]     = useState(false);
-  const [activeSection, setActiveSection] = useState<'skin'|'hair'|'outfit'|'accessory'>('skin');
-  const supabase = createClient();
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
+  const [config, setConfig]         = useState<AvatarConfig>(DEFAULT_CONFIG);
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+  const [activeTab, setActiveTab]   = useState<'skin'|'hair'|'outfit'|'accessory'>('skin');
+  const supabase                    = createClient();
+  const { theme }                   = useVillageTheme();
+  const isNight                     = theme === 'night';
 
-  const bg     = isNight ? '#0A0B12' : '#FFF8EE';
-  const cardBg = isNight ? '#12152A' : '#FFFFFF';
-  const border = isNight ? '#1E2240' : '#FED7AA';
+  const bg      = isNight ? '#07080F' : '#FFF5EE';
+  const cardBg  = isNight ? '#0F1124' : '#FFFFFF';
+  const border  = isNight ? '#1E2240' : '#FED7AA';
   const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
   const textMute = isNight ? '#4A4F72' : '#8B6F47';
   const accent   = '#1877F2';
 
   useEffect(() => {
-    async function load() {
-      const { data: { user } } = await supabase.auth.getUser();
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
-      const { data: p } = await (supabase as any).from('profiles').select('avatar_config').eq('id', user.id).single();
-      if (p?.avatar_config) setConfig(p.avatar_config);
-    }
-    load();
+      (supabase as any).from('profiles').select('avatar_config').eq('id', user.id).single()
+        .then(({ data: p }: any) => { if (p?.avatar_config) setConfig({ ...DEFAULT_CONFIG, ...p.avatar_config }); });
+    });
   }, []);
 
-  function update(key: keyof AvatarConfig, value: string) {
-    setConfig(prev => ({ ...prev, [key]: value }));
+  function update(key: keyof AvatarConfig, val: string) {
+    setConfig(prev => ({ ...prev, [key]: val }));
     VillageSound.tap();
   }
 
@@ -250,175 +402,213 @@ export default function AvatarBuilderPage() {
     }
     VillageSound.stepComplete();
     setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setTimeout(() => setSaved(false), 2800);
     setSaving(false);
   }
 
-  const SECTIONS = [
-    { id: 'skin' as const,      label: 'Skin',      icon: '🎨' },
-    { id: 'hair' as const,      label: 'Hair',      icon: '✂️' },
-    { id: 'outfit' as const,    label: 'Outfit',    icon: '👘' },
-    { id: 'accessory' as const, label: 'Accessory', icon: '💎' },
+  const TABS = [
+    { id: 'skin' as const,      label: 'Skin',   icon: '🎨' },
+    { id: 'hair' as const,      label: 'Hair',   icon: '✂️'  },
+    { id: 'outfit' as const,    label: 'Outfit', icon: '👔' },
+    { id: 'accessory' as const, label: 'Extras', icon: '💎' },
   ];
 
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Header */}
-      <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <Link href="/village/hut" className="text-xl text-white">←</Link>
+      <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3"
+        style={{ background: isNight ? 'rgba(7,8,15,0.95)' : 'rgba(255,245,238,0.95)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${border}` }}>
+        <Link href="/village/hut" className="w-9 h-9 rounded-full flex items-center justify-center text-lg"
+          style={{ background: 'rgba(255,255,255,0.1)', color: isNight ? '#fff' : '#2D1F0E' }}>←</Link>
         <div className="flex-1">
-          <h1 className="font-black text-white text-base">Build Your Avatar</h1>
-          <p className="text-white/60 text-xs">Spider-Verse style · Shows in the village</p>
+          <h1 className="font-black text-sm" style={{ color: textMain }}>Build Your Avatar</h1>
+          <p className="text-xs" style={{ color: textMute }}>Cartoon 3D · Shows in the village</p>
         </div>
+        <motion.button
+          whileTap={{ scale: 0.94 }}
+          onClick={save}
+          disabled={saving}
+          className="px-4 py-2 rounded-2xl text-sm font-black text-white disabled:opacity-50"
+          style={{ background: saved ? '#16A34A' : `linear-gradient(135deg, ${accent}, #4F46E5)` }}
+        >
+          {saved ? '✓ Saved!' : saving ? '…' : 'Save'}
+        </motion.button>
       </div>
 
-      {/* Avatar preview */}
-      <div className="flex justify-center py-8" style={{ background: isNight ? 'linear-gradient(180deg, #0A0B12, #0E1020)' : 'linear-gradient(180deg, #FFF8EE, #FFF0E0)' }}>
+      {/* ── Avatar preview ── */}
+      <div className="flex justify-center items-center py-10 relative"
+        style={{ background: isNight ? 'linear-gradient(180deg,#0D0F20,#070810)' : 'linear-gradient(180deg,#FFF0E8,#FDE8D8)' }}>
+        {/* Glow behind avatar */}
+        <div className="absolute w-48 h-48 rounded-full"
+          style={{ background: `radial-gradient(circle, ${SHIRT_COLOR_MAP[config.outfit_id] ?? '#2563EB'}40, transparent)`, filter: 'blur(32px)' }} />
         <motion.div
-          animate={{ y: [0, -8, 0] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 3.2, repeat: Infinity, ease: 'easeInOut' }}
+          className="relative z-10"
         >
-          <AvatarPreview config={config} isNight={isNight} />
+          <AvatarSVG config={config} isNight={isNight} size={200} />
         </motion.div>
       </div>
 
-      {/* Section tabs */}
-      <div className="flex border-b mx-4 mb-4" style={{ borderColor: border }}>
-        {SECTIONS.map(s => (
-          <button key={s.id} onClick={() => setActiveSection(s.id)}
+      {/* ── Tabs ── */}
+      <div className="flex border-b" style={{ borderColor: border }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
             className="flex-1 py-3 text-sm font-bold transition-all"
             style={{
-              color: activeSection === s.id ? accent : textMute,
-              borderBottom: activeSection === s.id ? `2px solid ${accent}` : '2px solid transparent',
+              color: activeTab === t.id ? accent : textMute,
+              borderBottom: activeTab === t.id ? `2.5px solid ${accent}` : '2.5px solid transparent',
+              background: 'transparent',
             }}>
-            {s.icon} {s.label}
+            {t.icon} {t.label}
           </button>
         ))}
       </div>
 
-      <div className="max-w-lg mx-auto px-4 pb-8 space-y-4">
+      <div className="max-w-lg mx-auto px-4 pb-10">
 
-        {/* SKIN */}
-        {activeSection === 'skin' && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: textMute }}>Skin Tone</p>
-            <div className="grid grid-cols-6 gap-2">
-              {SKIN_TONES.map(s => (
-                <motion.button key={s.id} whileTap={{ scale: 0.9 }} onClick={() => update('skin_id', s.id)}
-                  className="aspect-square rounded-2xl flex items-center justify-center transition-all"
-                  style={{
-                    background: s.color,
-                    border: config.skin_id === s.id ? `3px solid ${accent}` : '3px solid transparent',
-                    boxShadow: config.skin_id === s.id ? `0 0 0 2px ${accent}40` : 'none',
-                  }}>
-                  {config.skin_id === s.id && <span className="text-white text-xs font-black drop-shadow">✓</span>}
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* HAIR */}
-        {activeSection === 'hair' && (
-          <>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: textMute }}>Hair Style</p>
-              <div className="grid grid-cols-3 gap-2">
-                {HAIR_STYLES.map(h => (
-                  <motion.button key={h.id} whileTap={{ scale: 0.95 }} onClick={() => update('hair_id', h.id)}
-                    className="rounded-2xl py-3 text-sm font-bold transition-all flex flex-col items-center gap-1"
+        {/* ── SKIN ── */}
+        <AnimatePresence mode="wait">
+          {activeTab === 'skin' && (
+            <motion.div key="skin" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="pt-5 space-y-4">
+              <p className="text-xs font-black uppercase tracking-widest" style={{ color: textMute }}>Skin Tone</p>
+              <div className="grid grid-cols-8 gap-2">
+                {SKIN_TONES.map(s => (
+                  <motion.button key={s.id} whileTap={{ scale: 0.88 }}
+                    onClick={() => update('skin_id', s.id)}
+                    className="aspect-square rounded-2xl relative overflow-hidden"
+                    title={s.label}
                     style={{
-                      background: config.hair_id === h.id ? (isNight ? '#12152A' : '#EEF2FF') : cardBg,
-                      border: `2px solid ${config.hair_id === h.id ? accent : border}`,
-                      color: config.hair_id === h.id ? accent : textMute,
-                    }}>
-                    <span className="text-2xl">{h.icon}</span>
-                    <span className="text-xs">{h.label}</span>
+                      background: SKIN_TONE_MAP[s.id],
+                      border: config.skin_id === s.id ? `3px solid ${accent}` : `3px solid transparent`,
+                      boxShadow: config.skin_id === s.id ? `0 0 0 2px ${accent}55, 0 4px 16px rgba(0,0,0,0.2)` : '0 2px 8px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {config.skin_id === s.id && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-white text-sm font-black drop-shadow-lg">✓</span>
+                      </div>
+                    )}
                   </motion.button>
                 ))}
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: textMute }}>Hair Color</p>
-              <div className="flex gap-2">
-                {HAIR_COLORS.map(c => (
-                  <motion.button key={c.id} whileTap={{ scale: 0.9 }} onClick={() => update('hair_color_id', c.id)}
-                    className="w-10 h-10 rounded-full transition-all"
+              <p className="text-xs font-medium text-center" style={{ color: textMute }}>
+                {SKIN_TONES.find(s => s.id === config.skin_id)?.label}
+              </p>
+            </motion.div>
+          )}
+
+          {/* ── HAIR ── */}
+          {activeTab === 'hair' && (
+            <motion.div key="hair" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="pt-5 space-y-5">
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Style</p>
+                <div className="grid grid-cols-3 gap-2.5">
+                  {HAIR_STYLES.map(h => (
+                    <motion.button key={h.id} whileTap={{ scale: 0.94 }}
+                      onClick={() => update('hair_id', h.id)}
+                      className="rounded-2xl py-3.5 flex flex-col items-center gap-1.5 text-sm font-bold transition-all"
+                      style={{
+                        background: config.hair_id === h.id ? `${accent}18` : cardBg,
+                        border: `2px solid ${config.hair_id === h.id ? accent : border}`,
+                        color: config.hair_id === h.id ? accent : textMute,
+                      }}>
+                      <span className="text-2xl">{h.icon}</span>
+                      <span className="text-xs font-bold">{h.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Color</p>
+                <div className="flex gap-2.5 flex-wrap">
+                  {HAIR_COLORS.map(c => (
+                    <motion.button key={c.id} whileTap={{ scale: 0.88 }}
+                      onClick={() => update('hair_color_id', c.id)}
+                      className="w-11 h-11 rounded-full transition-all"
+                      style={{
+                        background: HAIR_COLOR_MAP[c.id],
+                        border: config.hair_color_id === c.id ? `3px solid ${accent}` : `3px solid ${border}`,
+                        boxShadow: config.hair_color_id === c.id ? `0 0 0 2px ${accent}55` : '0 2px 6px rgba(0,0,0,0.2)',
+                      }} />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── OUTFIT ── */}
+          {activeTab === 'outfit' && (
+            <motion.div key="outfit" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="pt-5">
+              <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Outfit Color</p>
+              <div className="grid grid-cols-4 gap-2.5">
+                {OUTFITS.map(o => (
+                  <motion.button key={o.id} whileTap={{ scale: 0.94 }}
+                    onClick={() => update('outfit_id', o.id)}
+                    className="rounded-2xl py-3.5 flex flex-col items-center gap-1.5 transition-all"
                     style={{
-                      background: c.color,
-                      border: config.hair_color_id === c.id ? `3px solid ${accent}` : `3px solid ${border}`,
-                      boxShadow: config.hair_color_id === c.id ? `0 0 0 2px ${accent}40` : 'none',
-                    }} />
+                      background: config.outfit_id === o.id ? SHIRT_COLOR_MAP[o.id] + '25' : cardBg,
+                      border: `2px solid ${config.outfit_id === o.id ? SHIRT_COLOR_MAP[o.id] : border}`,
+                    }}>
+                    <div className="w-7 h-7 rounded-full"
+                      style={{ background: SHIRT_COLOR_MAP[o.id], boxShadow: `0 2px 8px ${SHIRT_COLOR_MAP[o.id]}60` }} />
+                    <span className="text-xs font-bold" style={{ color: config.outfit_id === o.id ? SHIRT_COLOR_MAP[o.id] : textMute }}>
+                      {o.label}
+                    </span>
+                  </motion.button>
                 ))}
               </div>
-            </div>
-          </>
-        )}
+            </motion.div>
+          )}
 
-        {/* OUTFIT */}
-        {activeSection === 'outfit' && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: textMute }}>Outfit Style</p>
-            <div className="grid grid-cols-3 gap-2">
-              {OUTFITS.map(o => (
-                <motion.button key={o.id} whileTap={{ scale: 0.95 }} onClick={() => update('outfit_id', o.id)}
-                  className="rounded-2xl py-3 text-sm font-bold transition-all flex flex-col items-center gap-1"
-                  style={{
-                    background: config.outfit_id === o.id ? o.color + '20' : cardBg,
-                    border: `2px solid ${config.outfit_id === o.id ? o.color : border}`,
-                    color: config.outfit_id === o.id ? o.color : textMute,
-                  }}>
-                  <span className="text-2xl">{o.icon}</span>
-                  <span className="text-xs">{o.label}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* ── ACCESSORY ── */}
+          {activeTab === 'accessory' && (
+            <motion.div key="accessory" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="pt-5">
+              <p className="text-xs font-black uppercase tracking-widest mb-3" style={{ color: textMute }}>Accessory</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {ACCESSORIES.map(a => (
+                  <motion.button key={a.id} whileTap={{ scale: 0.94 }}
+                    onClick={() => update('accessory_id', a.id)}
+                    className="rounded-2xl py-3.5 flex flex-col items-center gap-1.5 text-sm font-bold transition-all"
+                    style={{
+                      background: config.accessory_id === a.id ? `${accent}18` : cardBg,
+                      border: `2px solid ${config.accessory_id === a.id ? accent : border}`,
+                      color: config.accessory_id === a.id ? accent : textMute,
+                    }}>
+                    <span className="text-2xl">{a.icon}</span>
+                    <span className="text-xs">{a.label}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* ACCESSORY */}
-        {activeSection === 'accessory' && (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: textMute }}>Accessory</p>
-            <div className="grid grid-cols-3 gap-2">
-              {ACCESSORIES.map(a => (
-                <motion.button key={a.id} whileTap={{ scale: 0.95 }} onClick={() => update('accessory_id', a.id)}
-                  className="rounded-2xl py-3 text-sm font-bold transition-all flex flex-col items-center gap-1"
-                  style={{
-                    background: config.accessory_id === a.id ? (isNight ? '#12152A' : '#EEF2FF') : cardBg,
-                    border: `2px solid ${config.accessory_id === a.id ? accent : border}`,
-                    color: config.accessory_id === a.id ? accent : textMute,
-                  }}>
-                  <span className="text-2xl">{a.icon}</span>
-                  <span className="text-xs">{a.label}</span>
-                </motion.button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Save */}
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={save}
+          disabled={saving}
+          className="w-full rounded-2xl py-4 font-black text-white text-base mt-6 disabled:opacity-50 transition-all"
+          style={{ background: saved ? '#16A34A' : `linear-gradient(135deg, ${accent}, #4F46E5)`, boxShadow: '0 8px 32px rgba(24,119,242,0.35)' }}
+        >
+          {saved ? '✓ Avatar Saved to Village!' : saving ? 'Saving to the village…' : '✊ Save My Avatar'}
+        </motion.button>
 
-        {/* Save avatar */}
-        <button onClick={save} disabled={saving}
-          className="w-full rounded-2xl py-4 font-black text-white text-base transition-all disabled:opacity-50"
-          style={{ background: `linear-gradient(135deg, ${accent}, #4F46E5)` }}>
-          {saved ? '✓ Avatar Saved to Village!' : saving ? 'Saving…' : '✊ Save My Avatar'}
-        </button>
-
-        {/* Choose Spirit */}
+        {/* Spirit chooser link */}
         <Link href="/village/spirit/choose"
-          className="flex items-center justify-between w-full rounded-2xl px-5 py-4 transition-all"
-          style={{ background: isNight ? 'rgba(24,119,242,0.08)' : 'rgba(24,119,242,0.06)', border: `1px solid ${isNight ? 'rgba(24,119,242,0.25)' : 'rgba(24,119,242,0.2)'}` }}>
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">🌀</span>
-            <div>
-              <p className="font-bold text-sm" style={{ color: isNight ? '#93C5FD' : '#1D4ED8' }}>Choose Your Spirit</p>
-              <p className="text-xs" style={{ color: isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)' }}>
-                Blue, White, or Dark — your Spirit companion
-              </p>
-            </div>
+          className="flex items-center gap-3 mt-3 p-4 rounded-2xl transition-all"
+          style={{ background: isNight ? 'rgba(124,58,237,0.1)' : 'rgba(124,58,237,0.06)', border: `1px solid rgba(124,58,237,0.25)` }}>
+          <span className="text-2xl">🌀</span>
+          <div className="flex-1">
+            <p className="font-bold text-sm" style={{ color: '#7C3AED' }}>Choose Your Spirit</p>
+            <p className="text-xs" style={{ color: textMute }}>Your AI companion's appearance</p>
           </div>
-          <span style={{ color: isNight ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}>›</span>
+          <span style={{ color: textMute }}>›</span>
         </Link>
       </div>
     </div>
