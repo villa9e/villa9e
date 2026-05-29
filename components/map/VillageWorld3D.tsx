@@ -1156,11 +1156,11 @@ function WorldScene({
       ))}
 
       {/* Terrain */}
-      <VillageTerrain isNight={isNight} />
+      <VillageTerrain isNight={isNight} season={season.season} />
       <StonePaths isNight={isNight} />
 
       {/* Real GLTF trees, rocks, flowers, animals, fish */}
-      <TreeSystem windStr={windStrength} />
+      <TreeSystem windStr={windStrength} season={season.season} />
       <RockSystem />
       <FlowerSystem />
       <DenseGrass windStr={windStrength} />

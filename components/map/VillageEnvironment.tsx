@@ -170,7 +170,7 @@ export function VillageTerrain({ isNight, season = 'summer' }: {
     const pos    = geo.attributes.position as THREE.BufferAttribute;
     const colors: number[] = [];
 
-    const isFall  = season === 'fall';
+    const isFall  = season === 'autumn' || season === 'fall';
     const isWinter = season === 'winter';
     const isNightBool = isNight;
 
