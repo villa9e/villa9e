@@ -2350,18 +2350,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
     setItemInfoLoading(true);
     setItemInfoText(null);
     try {
-      const res = await fetch('/api/spirit/goal-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [{ role: 'user', content: `Tell me about "${obj.label ?? obj.world_name}" in 2-3 sentences. What is it in real life? Keep it educational and interesting.` }],
-          context: {},
-        }),
-      });
+      const name = encodeURIComponent(obj.world_name ?? obj.label ?? 'this item');
+      const res  = await fetch(`/api/admin/item-info?item=${name}`);
       const data = await res.json();
-      setItemInfoText(data.content ?? data.text ?? 'No information available.');
+      setItemInfoText(data.info ?? 'No information available.');
     } catch {
-      setItemInfoText('Could not load information. Please try again.');
+      setItemInfoText('Could not load information. Try again later.');
     }
     setItemInfoLoading(false);
   }
