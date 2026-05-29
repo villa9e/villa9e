@@ -727,7 +727,13 @@ export function WorldBuilder() {
   const [saved,         setSaved]        = useState(false);
   const [searchQ,       setSearchQ]      = useState('');
   const [activeCategory,setCategory]     = useState<string>('buildings_residential');
-  const [activeTab,     setActiveTab]    = useState<'models' | 'pages' | 'features' | 'objects'>('models');
+  const [activeTab,     setActiveTab]    = useState<'models' | 'ai' | 'pages' | 'features' | 'objects'>('models');
+  // Meshy AI state
+  const [meshyPrompt,   setMeshyPrompt]  = useState('');
+  const [meshyTask,     setMeshyTask]    = useState<string | null>(null);
+  const [meshyStatus,   setMeshyStatus]  = useState<'idle' | 'generating' | 'refining' | 'done' | 'error'>('idle');
+  const [meshyModel,    setMeshyModel]   = useState<{ glb?: string; gltf?: string } | null>(null);
+  const [meshyHistory,  setMeshyHistory] = useState<{ label: string; url: string }[]>([]);
   const [gridSnap,      setGridSnap]     = useState(true);
   const [snapSize,      setSnapSize]     = useState(1);
   const [showHelp,      setShowHelp]     = useState(false);
@@ -972,13 +978,13 @@ export function WorldBuilder() {
       <div className="w-60 flex flex-col border-r border-[#1A3A1A]/60 shrink-0 bg-[#060E08]">
 
         {/* Tabs */}
-        <div className="flex border-b border-[#1A3A1A]/60">
-          {(['models', 'pages', 'features', 'objects'] as const).map(t => (
+        <div className="flex border-b border-[#1A3A1A]/60 overflow-x-auto">
+          {(['models', 'ai', 'pages', 'features', 'objects'] as const).map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
-              className={`flex-1 py-2 text-[9px] uppercase tracking-wider font-bold transition-colors ${
+              className={`flex-1 py-2 text-[9px] uppercase tracking-wider font-bold transition-colors whitespace-nowrap ${
                 activeTab === t ? 'text-[#4ADE80] border-b-2 border-[#4ADE80]' : 'text-[#3A5A3A]'
               }`}>
-              {t === 'models' ? '🧱' : t === 'pages' ? '📄' : t === 'features' ? '⚡' : '📋'}
+              {t === 'models' ? '🧱' : t === 'ai' ? '🤖' : t === 'pages' ? '📄' : t === 'features' ? '⚡' : '📋'}
             </button>
           ))}
         </div>
@@ -1039,6 +1045,144 @@ export function WorldBuilder() {
                 </div>
               </button>
             ))}
+          </div>
+        )}
+
+        {/* ── AI MODEL GENERATOR (Meshy.ai) ── */}
+        {activeTab === 'ai' && (
+          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+            <div className="text-center">
+              <p className="text-[#4ADE80] text-[11px] font-black">🤖 Generate 3D with AI</p>
+              <p className="text-[#2A5A2A] text-[9px] mt-0.5">Powered by Meshy.ai · Type anything, place it in the world</p>
+            </div>
+
+            <textarea
+              value={meshyPrompt}
+              onChange={e => setMeshyPrompt(e.target.value)}
+              placeholder="Describe a 3D object… e.g. 'ancient stone fountain with mossy carvings'"
+              rows={3}
+              className="w-full bg-[#0A1A0A] border border-[#1A3A1A]/60 rounded-lg px-2.5 py-2 text-[#C8E8C8] text-[11px] placeholder-[#2A4A2A] resize-none"
+            />
+
+            <button
+              disabled={meshyStatus === 'generating' || meshyStatus === 'refining' || !meshyPrompt.trim()}
+              onClick={async () => {
+                setMeshyStatus('generating');
+                setMeshyModel(null);
+                setMeshyTask(null);
+                try {
+                  const res = await fetch('/api/admin/meshy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: meshyPrompt }),
+                  });
+                  const data = await res.json();
+                  if (data.result) {
+                    setMeshyTask(data.result);
+                    // Poll for completion
+                    const poll = setInterval(async () => {
+                      const r = await fetch(`/api/admin/meshy?task_id=${data.result}`);
+                      const d = await r.json();
+                      if (d.status === 'SUCCEEDED') {
+                        clearInterval(poll);
+                        setMeshyStatus('done');
+                        const urls = d.model_urls ?? {};
+                        setMeshyModel(urls);
+                        // Auto-add to history
+                        const url = urls.glb ?? urls.gltf;
+                        if (url) {
+                          const label = meshyPrompt.slice(0, 30);
+                          setMeshyHistory(h => [{ label, url }, ...h.slice(0, 19)]);
+                        }
+                      } else if (d.status === 'FAILED' || d.status === 'EXPIRED') {
+                        clearInterval(poll);
+                        setMeshyStatus('error');
+                      } else {
+                        setMeshyStatus(d.status?.toLowerCase() === 'refining' ? 'refining' : 'generating');
+                      }
+                    }, 4000);
+                  } else {
+                    setMeshyStatus('error');
+                  }
+                } catch {
+                  setMeshyStatus('error');
+                }
+              }}
+              className="w-full py-2 rounded-xl text-[11px] font-black transition-colors disabled:opacity-50"
+              style={{ background: meshyStatus === 'done' ? '#0D2A14' : '#4ADE80', color: meshyStatus === 'done' ? '#4ADE80' : '#040A06' }}
+            >
+              {meshyStatus === 'generating' ? '⟳ Generating preview…' :
+               meshyStatus === 'refining'   ? '✨ Refining mesh…' :
+               meshyStatus === 'done'       ? '✓ Model ready!' :
+               meshyStatus === 'error'      ? '✕ Failed — retry' :
+                                              '🤖 Generate 3D Model'}
+            </button>
+
+            {/* Generated model — place button */}
+            {meshyStatus === 'done' && meshyModel && (
+              <div className="bg-[#0A1A0A] border border-[#2A5C14] rounded-xl p-3 space-y-2">
+                <p className="text-[#4ADE80] text-[10px] font-black">Generated model ready</p>
+                <button
+                  onClick={() => {
+                    const url = meshyModel.glb ?? meshyModel.gltf;
+                    if (url) {
+                      const model: CatalogModel = {
+                        id: `meshy_${Date.now()}`,
+                        label: meshyPrompt.slice(0, 24),
+                        url,
+                        category: 'props_items',
+                        defaultScale: 1,
+                        yOffset: 0,
+                        emoji: '🤖',
+                        tags: ['ai', 'meshy', 'generated'],
+                      };
+                      setPending(model);
+                      setActiveTab('models');
+                    }
+                  }}
+                  className="w-full py-2 bg-[#4ADE80] text-[#040A06] text-[11px] font-black rounded-lg"
+                >
+                  📍 Place in World
+                </button>
+              </div>
+            )}
+
+            {/* Generated history */}
+            {meshyHistory.length > 0 && (
+              <div>
+                <p className="text-[#2A5A2A] text-[9px] font-black uppercase mb-1">Recent AI Models</p>
+                {meshyHistory.map((m, i) => (
+                  <button key={i}
+                    onClick={() => {
+                      const model: CatalogModel = {
+                        id: `meshy_hist_${i}`,
+                        label: m.label,
+                        url: m.url,
+                        category: 'props_items',
+                        defaultScale: 1,
+                        yOffset: 0,
+                        emoji: '🤖',
+                        tags: ['ai', 'meshy', 'generated'],
+                      };
+                      setPending(model);
+                    }}
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-2 hover:bg-[#0A1A0A] transition-colors">
+                    <span>🤖</span>
+                    <span className="text-[#C8E8C8] truncate">{m.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {!process.env.NEXT_PUBLIC_HAS_MESHY && (
+              <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-3">
+                <p className="text-amber-400 text-[10px] font-bold">Setup Required</p>
+                <p className="text-amber-700 text-[9px] mt-1">
+                  Add MESHY_API_KEY to your Vercel environment variables to enable AI generation.
+                  Get a key at meshy.ai
+                </p>
+              </div>
+            )}
           </div>
         )}
 
