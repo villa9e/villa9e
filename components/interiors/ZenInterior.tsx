@@ -130,10 +130,12 @@ export function ZenInterior({ children }: { children: React.ReactNode }) {
         <IceCrystal key={`l${i}`} x={c.x} y={c.y} size={c.s} opacity={c.o} />
       ))}
       {[
-        { x: -40, y: 100, s: 18, o: 0.25 }, { x: -60, y: 300, s: 22, o: 0.2 },
-        { x: -30, y: 200, s: 14, o: 0.18 }, { x: -70, y: 450, s: 20, o: 0.22 },
+        { right: 40,  y: 100, s: 18, o: 0.25 }, { right: 60, y: 300, s: 22, o: 0.2 },
+        { right: 30,  y: 200, s: 14, o: 0.18 }, { right: 70, y: 450, s: 20, o: 0.22 },
       ].map((c, i) => (
-        <IceCrystal key={`r${i}`} x={window?.innerWidth + c.x ?? 360 + c.x} y={c.y} size={c.s} opacity={c.o} />
+        <div key={`r${i}`} style={{ position: 'fixed', right: c.right, top: c.y, pointerEvents: 'none', zIndex: 1 }}>
+          <IceCrystal x={0} y={0} size={c.s} opacity={c.o} />
+        </div>
       ))}
 
       {/* ── Bamboo frame — left and right ────────────────────────────── */}
