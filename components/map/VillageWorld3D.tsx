@@ -65,9 +65,6 @@ import { VLGShop } from '@/components/village/VLGShop';
 import { useVLGBalance } from '@/lib/tokens/useVLGBalance';
 import { VillageTour } from '@/components/village/VillageTour';
 
-// Preload key GLTF models at module level for faster first render
-preloadWorldModels();
-
 // ─── Building scale factor — buildings are 2.8× bigger than their geometry ───
 const BUILDING_SCALE = 2.8;
 
