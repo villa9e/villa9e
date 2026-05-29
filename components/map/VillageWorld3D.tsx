@@ -29,7 +29,7 @@ import {
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
-import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG } from '@/lib/avatar/config';
+import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG, resolveAvatarColors } from '@/lib/avatar/config';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
@@ -1887,18 +1887,21 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       .limit(20)
       .then(({ data }: any) => {
         if (!data) return;
-        const members: TribeMember[] = data.map((m: any, i: number) => ({
-          userId:      m.user_id,
-          username:    m.profiles.username,
-          displayName: m.profiles.display_name || m.profiles.username,
-          avatar:      m.profiles.avatar_config?.emoji ?? '👤',
-          skinColor:   m.profiles.avatar_config?.skin_color ?? '#8D5524',
-          tribeId:     m.tribe_id,
-          isOnline:    false,
-          // Scatter tribe members around the village in a ring
-          screenX:     0,
-          screenY:     0,
-        }));
+        const members: TribeMember[] = data.map((m: any, i: number) => {
+          const cfg: AvatarConfig = { ...DEFAULT_AVATAR_CONFIG, ...m.profiles.avatar_config };
+          const { skinColor } = resolveAvatarColors(cfg);
+          return {
+            userId:      m.user_id,
+            username:    m.profiles.username,
+            displayName: m.profiles.display_name || m.profiles.username,
+            avatar:      m.profiles.avatar_url ?? '👤',
+            skinColor,
+            tribeId:     m.tribe_id,
+            isOnline:    false,
+            screenX:     0,
+            screenY:     0,
+          };
+        });
         setTribeMembers(members);
       });
   }, [currentUserId]);
