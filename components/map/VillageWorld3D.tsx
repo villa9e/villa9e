@@ -2081,6 +2081,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const [playerSkinColor, setPlayerSkinColor] = useState('#A86030');
   const [playerHairColor, setPlayerHairColor] = useState('#0C0700');
   const [playerShirtColor, setPlayerShirtColor] = useState('#2563EB');
+  const skinColorRef = useRef('#A86030'); // ref for use inside presence interval
   const playerPos    = useRef(new THREE.Vector3(0, 0, 9));
   const playerRot    = useRef(0);
   const moveInput    = useRef({ dx: 0, dy: 0 });
@@ -2125,7 +2126,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         y: playerPos.current.y,
         z: playerPos.current.z,
         rotation:  playerRot.current,
-        skinColor: '#8D5524',
+        skinColor: skinColorRef.current,
       });
     }, 150);
 
@@ -2142,7 +2143,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           if (cfg.skin_id || cfg.hair_id) {
             setPlayerAvatarCfg({ ...DEFAULT_AVATAR_CONFIG, ...cfg });
           }
-          if (cfg.skin_id)       setPlayerSkinColor(SKIN_TONE_MAP[cfg.skin_id]   ?? '#A86030');
+          if (cfg.skin_id)       { const sc = SKIN_TONE_MAP[cfg.skin_id] ?? '#A86030'; setPlayerSkinColor(sc); skinColorRef.current = sc; }
           if (cfg.hair_color_id) setPlayerHairColor(HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700');
           if (cfg.outfit_id)     setPlayerShirtColor(SHIRT_COLOR_MAP[cfg.outfit_id] ?? '#2563EB');
         });
