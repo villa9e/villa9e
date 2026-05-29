@@ -362,7 +362,7 @@ export default function AvatarBuilderPage() {
   }, []);
 
   function update(key: keyof AvatarConfig, val: string) {
-    setConfig(prev => ({ ...prev, [key]: val }));
+    setConfig(prev => ({ ...prev, [key]: val } as AvatarConfig));
     VillageSound.tap();
   }
 
