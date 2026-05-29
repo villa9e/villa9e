@@ -1,17 +1,16 @@
 -- ─────────────────────────────────────────────────────────────────────────────
--- Migration 024: Combined safe migration for all new features
--- Run this in Supabase SQL editor if migrations 021-023 had errors.
--- All statements use IF NOT EXISTS / IF EXISTS to be safely re-runnable.
+-- Migration 025: Complete safe migration — run this in Supabase SQL editor
+-- All statements use IF NOT EXISTS. Safe to re-run. No email column on profiles.
 -- ─────────────────────────────────────────────────────────────────────────────
+
+-- ─── Profiles: add new columns ───────────────────────────────────────────────
+alter table profiles add column if not exists vlg_balance   integer not null default 0;
+alter table profiles add column if not exists has_done_tour boolean not null default false;
 
 -- ─── Goal templates: add missing columns ─────────────────────────────────────
 alter table goal_templates add column if not exists clone_count integer default 0;
 alter table goal_templates add column if not exists oowop_count integer default 0;
 create index if not exists gt_clone_count on goal_templates (clone_count desc);
-
--- ─── Profiles: new columns ───────────────────────────────────────────────────
-alter table profiles add column if not exists vlg_balance   integer not null default 0;
-alter table profiles add column if not exists has_done_tour boolean not null default false;
 
 -- ─── Pavilion shows ──────────────────────────────────────────────────────────
 create table if not exists pavilion_shows (
@@ -61,69 +60,69 @@ drop policy if exists "buyer can insert" on pavilion_tickets;
 create policy "buyer can insert"
   on pavilion_tickets for insert with check (buyer_id = auth.uid());
 
--- ─── Admin world objects ─────────────────────────────────────────────────────
+-- ─── Admin world objects (full schema) ───────────────────────────────────────
 create table if not exists admin_world_objects (
-  id             uuid default gen_random_uuid() primary key,
-  model_url      text not null,
-  label          text,
-  world_name     text,
-  pos_x          float not null default 0,
-  pos_y          float not null default 0,
-  pos_z          float not null default 0,
-  rot_y          float not null default 0,
-  scale          float not null default 1,
-  elevation      float not null default 0,
-  tint_color     text,
-  opacity        float not null default 1.0,
-  is_live        boolean default false,
-  is_building    boolean default false,
-  placed_by      uuid references profiles(id),
-  linked_page    text,
-  linked_feature text,
-  behavior       text not null default 'none'
-    check (behavior in ('none','page','iframe','transport','dialog','sound_zone')),
-  dialog_title   text,
-  dialog_content text,
-  iframe_url     text,
+  id               uuid default gen_random_uuid() primary key,
+  model_url        text not null,
+  label            text,
+  world_name       text,
+  pos_x            float not null default 0,
+  pos_y            float not null default 0,
+  pos_z            float not null default 0,
+  rot_y            float not null default 0,
+  scale            float not null default 1,
+  elevation        float not null default 0,
+  tint_color       text,
+  opacity          float not null default 1.0,
+  is_live          boolean default false,
+  is_building      boolean default false,
+  placed_by        uuid references profiles(id),
+  linked_page      text,
+  linked_feature   text,
+  behavior         text not null default 'none',
+  dialog_title     text,
+  dialog_content   text,
+  iframe_url       text,
   transport_target text,
-  sound_url      text,
-  sound_volume   float not null default 0.7,
+  sound_url        text,
+  sound_volume     float not null default 0.7,
   sound_trigger_dist float not null default 15,
-  sound_max_dist float not null default 4,
-  sound_loop     boolean not null default true,
-  trail_enabled  boolean not null default false,
-  trail_passable boolean not null default true,
-  trail_points   jsonb not null default '[]',
-  trigger_type   text not null default 'click'
-    check (trigger_type in ('click','approach','both')),
+  sound_max_dist   float not null default 4,
+  sound_loop       boolean not null default true,
+  trail_enabled    boolean not null default false,
+  trail_passable   boolean not null default true,
+  trail_points     jsonb not null default '[]',
+  trigger_type     text not null default 'click',
   trigger_distance float not null default 5,
   item_info_enabled boolean not null default false,
-  sort_order     integer not null default 0,
-  created_at     timestamptz default now(),
-  updated_at     timestamptz default now()
+  sort_order       integer not null default 0,
+  created_at       timestamptz default now(),
+  updated_at       timestamptz default now()
 );
+
 alter table admin_world_objects enable row level security;
 
--- Admin-only write
 drop policy if exists "admin only world objects" on admin_world_objects;
 create policy "admin only world objects"
   on admin_world_objects for all
   using (
-    auth.uid() in (select id from profiles where is_super_admin = true)
+    auth.uid() in (
+      select id from profiles where is_super_admin = true
+    )
   );
 
--- Live objects readable by everyone (needed for village rendering)
 drop policy if exists "live objects visible to all" on admin_world_objects;
 create policy "live objects visible to all"
   on admin_world_objects for select
   using (is_live = true);
 
--- Make admin users super admin (join through auth.users for email lookup)
+-- ─── Set admin super status (via auth.users join — no email col on profiles) ─
 update profiles
   set is_super_admin = true
   where id in (
-    select id from auth.users
-    where email in ('elitehousemusic@gmail.com', 'admin@villa9e.app')
+    select au.id
+    from auth.users au
+    where au.email in ('elitehousemusic@gmail.com', 'admin@villa9e.app')
   );
 
 -- ─── VLG item purchases ──────────────────────────────────────────────────────
@@ -154,12 +153,14 @@ begin
   if v_balance < p_price then raise exception 'Insufficient VLG balance'; end if;
   if exists (select 1 from vlg_purchases where user_id = p_user_id and item_id = p_item_id)
     then raise exception 'Item already purchased'; end if;
-  update profiles set vlg_balance = vlg_balance - p_price, updated_at = now() where id = p_user_id;
+  update profiles
+    set vlg_balance = vlg_balance - p_price, updated_at = now()
+    where id = p_user_id;
   insert into vlg_purchases (user_id, item_id, price) values (p_user_id, p_item_id, p_price);
 end;
 $$;
 
--- ─── Tribe events ─────────────────────────────────────────────────────────────
+-- ─── Tribe events (023 already ran this — safe to re-run) ─────────────────────
 create table if not exists tribe_events (
   id          uuid default gen_random_uuid() primary key,
   tribe_id    uuid references tribes(id) on delete cascade not null,
@@ -176,11 +177,15 @@ alter table tribe_events enable row level security;
 drop policy if exists "tribe members can see events" on tribe_events;
 create policy "tribe members can see events"
   on tribe_events for select
-  using (tribe_id in (select tribe_id from tribe_members where user_id = auth.uid()));
+  using (tribe_id in (
+    select tribe_id from tribe_members where user_id = auth.uid()
+  ));
 drop policy if exists "tribe members can insert events" on tribe_events;
 create policy "tribe members can insert events"
   on tribe_events for insert
-  with check (tribe_id in (select tribe_id from tribe_members where user_id = auth.uid()));
+  with check (tribe_id in (
+    select tribe_id from tribe_members where user_id = auth.uid()
+  ));
 
 -- ─── Indexes ─────────────────────────────────────────────────────────────────
 create index if not exists idx_pavilion_shows_status     on pavilion_shows(status);

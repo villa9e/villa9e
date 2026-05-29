@@ -767,20 +767,30 @@ export function WorldBuilder() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
+
+      // Global shortcuts
       if (e.key === 'Escape') { setPending(null); setSelectedId(null); }
+      if (e.key === 'g' || e.key === 'G') setGridSnap(v => !v);
+      if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) { e.preventDefault(); undo(); return; }
+      if ((e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) || (e.key === 'y' && (e.metaKey || e.ctrlKey))) {
+        e.preventDefault(); redo(); return;
+      }
+
       if (!selectedId) return;
       const obj = objects.find(o => o.id === selectedId);
       if (!obj) return;
-      const STEP = e.shiftKey ? 5 : 1;
+      const STEP = e.shiftKey ? 5 : (gridSnap ? snapSize : 1);
       const ROT  = e.shiftKey ? Math.PI / 4 : Math.PI / 16;
-      if (e.key === 'ArrowLeft')  patchObj(selectedId, { pos_x: obj.pos_x - STEP });
-      if (e.key === 'ArrowRight') patchObj(selectedId, { pos_x: obj.pos_x + STEP });
-      if (e.key === 'ArrowUp')    patchObj(selectedId, { pos_z: obj.pos_z - STEP });
-      if (e.key === 'ArrowDown')  patchObj(selectedId, { pos_z: obj.pos_z + STEP });
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); patchObj(selectedId, { pos_x: snap(obj.pos_x - STEP) }); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); patchObj(selectedId, { pos_x: snap(obj.pos_x + STEP) }); }
+      if (e.key === 'ArrowUp')    { e.preventDefault(); patchObj(selectedId, { pos_z: snap(obj.pos_z - STEP) }); }
+      if (e.key === 'ArrowDown')  { e.preventDefault(); patchObj(selectedId, { pos_z: snap(obj.pos_z + STEP) }); }
       if (e.key === '[')          patchObj(selectedId, { rot_y: obj.rot_y - ROT });
       if (e.key === ']')          patchObj(selectedId, { rot_y: obj.rot_y + ROT });
       if (e.key === '=')          patchObj(selectedId, { scale: Math.min(6, obj.scale + 0.1) });
       if (e.key === '-')          patchObj(selectedId, { scale: Math.max(0.1, obj.scale - 0.1) });
+      if (e.key === 'l' || e.key === 'L') patchObj(selectedId, { is_live: !obj.is_live });  // L = toggle live
+      if (e.key === 'd' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); duplicateObj(selectedId); }
       if (e.key === 'Delete' || e.key === 'Backspace') deleteObj(selectedId);
     };
     window.addEventListener('keydown', handler);
@@ -807,9 +817,9 @@ export function WorldBuilder() {
   const handlePlace = useCallback((x: number, z: number) => {
     if (!pending) return;
     const obj = makeDefault(pending.url, pending.label, pending.isBuilding ?? false);
-    obj.pos_x = x;
-    obj.pos_z = z;
-    obj.pos_y = terrainH(x, z);
+    obj.pos_x = snap(x);
+    obj.pos_z = snap(z);
+    obj.pos_y = terrainH(snap(x), snap(z));
     obj.scale = pending.defaultScale;
     // Auto-enable trail for buildings + compute straight-line trail points from hut
     if (pending.isBuilding) {
@@ -823,9 +833,14 @@ export function WorldBuilder() {
       });
     }
     setObjects(prev => [...prev, obj]);
+    setObjects(prev => {
+      const next = [...prev, obj];
+      pushHistory(next);
+      return next;
+    });
     setSelectedId(obj.id);
     // Keep pending for repeated placement — Escape cancels
-  }, [pending]);
+  }, [pending, gridSnap, snapSize]);
 
   const handleSave = useCallback(async (publishAll = false) => {
     setSaving(true);
@@ -1052,23 +1067,55 @@ export function WorldBuilder() {
           </div>
 
           <div className="text-[10px] text-[#3A5A3A]">
-            {objects.length} objects · {liveCount} live
+            {objects.length} obj · {liveCount} live
           </div>
+
+          {/* Undo / Redo */}
+          <div className="flex gap-1">
+            <button onClick={undo} title="Undo (Ctrl+Z)"
+              className="px-2 py-1 text-[10px] bg-[#0A1A0A] border border-[#1A3A1A] text-[#3A5A3A] hover:text-[#4ADE80] rounded transition-colors">
+              ↩ Undo
+            </button>
+            <button onClick={redo} title="Redo (Ctrl+Shift+Z)"
+              className="px-2 py-1 text-[10px] bg-[#0A1A0A] border border-[#1A3A1A] text-[#3A5A3A] hover:text-[#4ADE80] rounded transition-colors">
+              ↪ Redo
+            </button>
+          </div>
+
+          {/* Grid snap toggle */}
+          <button
+            onClick={() => setGridSnap(v => !v)}
+            title="Toggle grid snap (G)"
+            className={`px-2 py-1 text-[10px] rounded border transition-colors ${
+              gridSnap
+                ? 'bg-[#0D2A14] text-[#4ADE80] border-[#2A5C14]'
+                : 'bg-[#0A1A0A] text-[#3A5A3A] border-[#1A3A1A]'
+            }`}
+          >
+            ⊞ {gridSnap ? `Snap ${snapSize}u` : 'Free'}
+          </button>
+          {gridSnap && (
+            <select value={snapSize} onChange={e => setSnapSize(Number(e.target.value))}
+              className="bg-[#0A1A0A] border border-[#1A3A1A] text-[#4A7A4A] text-[10px] rounded px-1">
+              {[0.25, 0.5, 1, 2, 5].map(s => <option key={s} value={s}>{s}u</option>)}
+            </select>
+          )}
 
           <div className="flex-1" />
 
           {/* Keyboard hint */}
-          <div className="hidden lg:flex gap-3 text-[9px] text-[#2A4A2A]">
-            <span>← → ↑ ↓ move</span>
-            <span>[ ] rotate</span>
-            <span>+/- scale</span>
-            <span>Del remove</span>
-            <span>Esc cancel</span>
+          <div className="hidden xl:flex gap-2 text-[9px] text-[#2A4A2A]">
+            <span>Arrows=move</span>
+            <span>[]=rotate</span>
+            <span>+/-=scale</span>
+            <span>L=live</span>
+            <span>Ctrl+D=dupe</span>
+            <span>Del=remove</span>
           </div>
 
           {/* Selected object quick indicator */}
           {selectedObj && (
-            <div className="text-[10px] text-[#4ADE80] bg-[#0D2A14] px-2 py-1 rounded border border-[#2A5C14]">
+            <div className="text-[10px] text-[#4ADE80] bg-[#0D2A14] px-2 py-1 rounded border border-[#2A5C14] max-w-[120px] truncate">
               ✏️ {selectedObj.world_name ?? selectedObj.label}
             </div>
           )}
