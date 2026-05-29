@@ -219,77 +219,17 @@ function VillageMapPageInner() {
         )}
       </AnimatePresence>
 
-      {/* Top navigation bar */}
-      <div className="flex items-center justify-between px-3 py-2 bg-[#0a0e1a]/95 backdrop-blur-md border-b border-white/5 z-10 flex-shrink-0">
-        {/* Logo */}
-        <Link href="/village/map" className="flex items-center gap-1.5">
-          <VillageLogo size={28} variant="circle" />
-          <span className="font-black text-white text-sm tracking-tight hidden sm:inline">villa9e</span>
-        </Link>
-
-        {/* Founding counter — desktop only */}
-        {spotsLeft > 0 && (
-          <div className="hidden md:flex items-center gap-1.5 bg-amber-400/10 border border-amber-400/20 rounded-full px-3 py-1 text-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-amber-300 font-semibold">{spotsLeft} Founding spots left</span>
-          </div>
-        )}
-
-        {/* Right side: VLG + notifs + profile */}
-        <div className="flex items-center gap-1.5">
-          {/* $VLG balance */}
-          <div className="flex items-center gap-1 bg-[#1877F2]/15 border border-[#1877F2]/25 rounded-full px-2 py-1">
-            <span className="text-xs">🪙</span>
-            <span className="text-[#60a5fa] text-xs font-bold">{vlgDisplay}</span>
-          </div>
-
-          {/* Notifications */}
-          <Link href="/notifications" className="relative w-8 h-8 flex items-center justify-center rounded-full bg-white/5 transition-colors">
-            <span className="text-sm">🔔</span>
-            {unreadCount > 0 && (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center"
-              >
-                <span className="text-white text-[9px] font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
-              </motion.div>
-            )}
-          </Link>
-
-          {/* Profile */}
-          <Link href="/village/hut" className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-full px-2 py-1">
-            <span className={`text-[9px] font-bold px-1 py-0.5 rounded-full border ${tierClass}`}>
-              {(profile?.score_tier ?? 'seed').slice(0, 4)}
-            </span>
-            <span className="text-white/70 text-xs font-medium hidden xs:inline">@{profile?.username ?? '…'}</span>
-          </Link>
-        </div>
-      </div>
-
-      {/* Map — 3D world; all navigation handled internally via slide-in drawer */}
+      {/* 3D world — VillageWorld3D contains its own top bar + carousel nav */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <div className="absolute inset-0 overflow-hidden">
           <VillageWorld3D />
         </div>
       </div>
 
-      {/* Village heartbeat */}
       <VillageHeartbeat />
-
-      {/* Push notification permission prompt — fires 8s after first visit */}
       <PushPermissionPrompt />
-
-      {/* Story mode */}
       <StoryModeOverlay />
-
-      {/* Story mode trigger — fixed right-side tab (self-positioned) */}
       <StoryModeTrigger />
-
-      {/* Bottom hint */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-4 py-2 text-xs text-white/40 pointer-events-none" style={{ marginBottom: '48px' }}>
-        Tap any building to enter
-      </div>
     </div>
   );
 }

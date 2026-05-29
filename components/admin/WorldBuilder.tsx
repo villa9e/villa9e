@@ -252,48 +252,93 @@ function TrailLine({ from, to }: { from: [number,number]; to: [number,number] })
   );
 }
 
-// ─── 3D: ground plane ────────────────────────────────────────────────────────
+// ─── 3D: ground plane (grass) ────────────────────────────────────────────────
 function GroundPlane({ onPlace, pendingModel }: {
   onPlace: (x: number, z: number) => void;
   pendingModel: CatalogModel | null;
 }) {
   return (
-    <mesh
-      rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, 0, 0]}
-      onClick={(e: ThreeEvent<MouseEvent>) => {
-        e.stopPropagation();
-        if (pendingModel) onPlace(e.point.x, e.point.z);
-      }}
-    >
-      <planeGeometry args={[200, 200]} />
-      <meshStandardMaterial color="#2A5C14" transparent opacity={0.55} />
-    </mesh>
+    <>
+      {/* Main grass ground */}
+      <mesh
+        rotation={[-Math.PI / 2, 0, 0]}
+        position={[0, -0.02, 0]}
+        receiveShadow
+        onClick={(e: ThreeEvent<MouseEvent>) => {
+          e.stopPropagation();
+          if (pendingModel) onPlace(e.point.x, e.point.z);
+        }}
+      >
+        <planeGeometry args={[400, 400, 1, 1]} />
+        <meshStandardMaterial color="#5A9A2A" roughness={1} metalness={0} />
+      </mesh>
+      {/* Darker grass variation patches */}
+      {[[-30,20],[40,-15],[10,50],[-50,-30],[60,40]].map(([x,z],i) => (
+        <mesh key={i} rotation={[-Math.PI/2, 0, 0]} position={[x, -0.015, z]} receiveShadow>
+          <circleGeometry args={[12 + i * 3, 12]} />
+          <meshStandardMaterial color="#4A8A1A" roughness={1} />
+        </mesh>
+      ))}
+    </>
+  );
+}
+
+// ─── 3D: sky dome ────────────────────────────────────────────────────────────
+function SkyDome() {
+  return (
+    <>
+      {/* Sky color */}
+      <color attach="background" args={['#87CEEB']} />
+      <fog attach="fog" args={['#C8E8FF', 80, 220]} />
+      {/* Sun */}
+      <mesh position={[60, 80, -100]}>
+        <sphereGeometry args={[6, 16, 16]} />
+        <meshBasicMaterial color="#FFF5D0" />
+      </mesh>
+      {/* Clouds */}
+      {[[20,45,-60],[-40,55,-80],[60,50,-50]].map(([x,y,z],i) => (
+        <mesh key={i} position={[x as number, y as number, z as number]}>
+          <sphereGeometry args={[8 + i * 3, 8, 8]} />
+          <meshBasicMaterial color="rgba(255,255,255,0.85)" transparent opacity={0.9} />
+        </mesh>
+      ))}
+    </>
   );
 }
 
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
-  objects, selectedId, pendingModel, onSelectObj, onPlace, hutPos,
+  objects, selectedId, pendingModel, onSelectObj, onPlace, onDragObj, hutPos,
 }: {
   objects:      WorldObject[];
   selectedId:   string | null;
   pendingModel: CatalogModel | null;
   onSelectObj:  (id: string | null) => void;
   onPlace:      (x: number, z: number) => void;
+  onDragObj:    (id: string, x: number, z: number) => void;
   hutPos:       [number, number];
 }) {
   return (
     <>
-      <ambientLight intensity={1.4} />
-      <directionalLight position={[30, 60, 30]} intensity={1.6} castShadow />
-      <directionalLight position={[-20, 30, -20]} intensity={0.6} />
+      <SkyDome />
+
+      <ambientLight intensity={1.2} color="#FFF8F0" />
+      <directionalLight position={[40, 80, 40]} intensity={2.0} castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-camera-near={0.1}
+        shadow-camera-far={200}
+        shadow-camera-left={-100}
+        shadow-camera-right={100}
+        shadow-camera-top={100}
+        shadow-camera-bottom={-100}
+      />
+      <directionalLight position={[-30, 40, -30]} intensity={0.5} color="#C8E8FF" />
 
       <Grid
         args={[200, 200]}
-        cellSize={1} cellThickness={0.4} cellColor="#2A5A1A"
-        sectionSize={5} sectionThickness={0.8} sectionColor="#3A7A2A"
-        fadeDistance={100} fadeStrength={1}
+        cellSize={1} cellThickness={0.3} cellColor="rgba(0,80,0,0.25)"
+        sectionSize={5} sectionThickness={0.6} sectionColor="rgba(0,100,0,0.4)"
+        fadeDistance={80} fadeStrength={1.5}
         followCamera={false} infiniteGrid
       />
 
@@ -315,7 +360,7 @@ function BuilderScene({
             selected={selectedId === obj.id}
             onSelect={onSelectObj}
             dragging={selectedId}
-            onDragEnd={() => {}}
+            onDragEnd={onDragObj}
           />
         ))}
 
@@ -683,9 +728,13 @@ export function WorldBuilder() {
   const [searchQ,       setSearchQ]      = useState('');
   const [activeCategory,setCategory]     = useState<string>('buildings_residential');
   const [activeTab,     setActiveTab]    = useState<'models' | 'pages' | 'features' | 'objects'>('models');
-  const [gridSnap,      setGridSnap]     = useState(true);  // snap to 1-unit grid
-  const [snapSize,      setSnapSize]     = useState(1);      // grid size in world units
+  const [gridSnap,      setGridSnap]     = useState(true);
+  const [snapSize,      setSnapSize]     = useState(1);
   const [showHelp,      setShowHelp]     = useState(false);
+  // Draggable inspector panel
+  const [inspPos, setInspPos] = useState({ x: -1, y: -1 }); // -1 = default docked right
+  const inspDragRef = useRef<{ dragging: boolean; ox: number; oy: number }>({ dragging: false, ox: 0, oy: 0 });
+  const inspRef = useRef<HTMLDivElement>(null);
 
   // ── Undo/Redo history
   const history    = useRef<WorldObject[][]>([]);
@@ -800,6 +849,10 @@ export function WorldBuilder() {
   const patchObj = useCallback((id: string, patch: Partial<WorldObject>) => {
     setObjects(prev => prev.map(o => o.id === id ? { ...o, ...patch } : o));
   }, []);
+
+  const handleDragObj = useCallback((id: string, x: number, z: number) => {
+    setObjects(prev => prev.map(o => o.id === id ? { ...o, pos_x: snap(x), pos_z: snap(z) } : o));
+  }, [gridSnap, snapSize]);
 
   const deleteObj = useCallback((id: string) => {
     setObjects(prev => prev.filter(o => o.id !== id));
@@ -1130,31 +1183,61 @@ export function WorldBuilder() {
               pendingModel={pending}
               onSelectObj={id => { setSelectedId(id); setPending(null); }}
               onPlace={handlePlace}
+              onDragObj={handleDragObj}
               hutPos={HUT_POS}
             />
           </Canvas>
 
-          {/* Info overlay when nothing selected */}
+          {/* Info overlay */}
           {!selectedObj && !pending && (
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 text-[#4A7A4A] text-[10px] px-4 py-2 rounded-full pointer-events-none">
-              Left-drag: orbit · Right-drag: pan · Scroll: zoom · Click model to select
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-white/80 text-[#4A6A4A] text-[10px] px-4 py-2 rounded-full pointer-events-none border border-green-200">
+              Left-drag: orbit · Right-drag: pan · Scroll: zoom · Click to select · Drag handle moves object
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Right: Inspector + Save ────────────────────────────────────── */}
-      <div className="w-72 flex flex-col border-l border-[#1A3A1A]/60 shrink-0 bg-[#060E08]">
-
-        {/* Inspector header */}
-        <div className="px-4 py-3 border-b border-[#1A3A1A]/60 shrink-0">
-          <p className="text-[#4ADE80] text-[10px] font-black uppercase tracking-widest">
-            {selectedObj ? `Edit: ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
+      {/* ── Floating draggable Inspector panel ───────────────────────────── */}
+      <div
+        ref={inspRef}
+        style={{
+          position: 'fixed',
+          right: inspPos.x >= 0 ? undefined : 0,
+          left: inspPos.x >= 0 ? inspPos.x : undefined,
+          top: inspPos.y >= 0 ? inspPos.y : 48,
+          width: 288,
+          zIndex: 50,
+          userSelect: 'none',
+        }}
+        className="flex flex-col shadow-2xl"
+      >
+        {/* Inspector header — drag handle */}
+        <div
+          className="px-4 py-2.5 flex items-center gap-2 cursor-move select-none"
+          style={{ background: '#0D2A14', borderBottom: '1px solid #1A5A1A' }}
+          onPointerDown={e => {
+            const rect = inspRef.current?.getBoundingClientRect();
+            if (!rect) return;
+            inspDragRef.current = { dragging: true, ox: e.clientX - rect.left, oy: e.clientY - rect.top };
+            const move = (ev: PointerEvent) => {
+              if (!inspDragRef.current.dragging) return;
+              setInspPos({ x: ev.clientX - inspDragRef.current.ox, y: ev.clientY - inspDragRef.current.oy });
+            };
+            const up = () => { inspDragRef.current.dragging = false; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+            window.addEventListener('pointermove', move);
+            window.addEventListener('pointerup', up);
+          }}
+        >
+          <span className="text-[#4ADE80] text-[10px]">⠿</span>
+          <p className="text-[#4ADE80] text-[10px] font-black uppercase tracking-widest flex-1">
+            {selectedObj ? `✏️ ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
           </p>
+          <button onClick={() => setInspPos({ x: -1, y: -1 })}
+            className="text-[#2A5A2A] hover:text-[#4ADE80] text-sm leading-none">⊠</button>
         </div>
 
         {/* Inspector body */}
-        <div className="flex-1 overflow-y-auto p-3">
+        <div className="overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 200px)', background: '#060E08' }}>
           {selectedObj ? (
             <Inspector
               obj={selectedObj}
@@ -1163,17 +1246,16 @@ export function WorldBuilder() {
               onDuplicate={() => duplicateObj(selectedObj.id)}
             />
           ) : (
-            <div className="text-center py-10">
+            <div className="text-center py-8">
               <p className="text-3xl mb-3">🌍</p>
-              <p className="text-[#2A4A2A] text-[11px]">Select an object in the world to edit its properties.</p>
-              <p className="text-[#1A3A1A] text-[10px] mt-2">Pick a model from the palette and click to place.</p>
+              <p className="text-[#2A4A2A] text-[11px]">Select an object to edit.</p>
             </div>
           )}
         </div>
 
         {/* Live toggle for selected */}
         {selectedObj && (
-          <div className="px-3 py-2 border-t border-[#1A3A1A]/60">
+          <div className="px-3 py-2" style={{ borderTop: '1px solid #1A3A1A', background: '#060E08' }}>
             <label className="flex items-center gap-2 cursor-pointer">
               <div
                 onClick={() => patchObj(selectedObj.id, { is_live: !selectedObj.is_live })}
@@ -1193,31 +1275,14 @@ export function WorldBuilder() {
         )}
 
         {/* Save actions */}
-        <div className="p-3 border-t border-[#1A3A1A]/60 space-y-2 shrink-0">
-          <button
-            onClick={() => handleSave(false)}
-            disabled={saving}
-            className="w-full py-2.5 bg-[#0D2A14] hover:bg-[#122A14] text-[#4ADE80] text-[11px] font-black rounded-xl transition-colors border border-[#2A5C14] disabled:opacity-50"
-          >
+        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #1A3A1A', background: '#060E08' }}>
+          <button onClick={() => handleSave(false)} disabled={saving}
+            className="w-full py-2 bg-[#0D2A14] hover:bg-[#122A14] text-[#4ADE80] text-[11px] font-black rounded-xl transition-colors border border-[#2A5C14] disabled:opacity-50">
             {saving ? 'Saving…' : saved ? '✓ Saved!' : '💾 Save Draft'}
           </button>
-          <button
-            onClick={() => handleSave(true)}
-            disabled={saving}
-            className="w-full py-2.5 bg-[#4ADE80] hover:bg-[#22C55E] text-[#040A06] text-[11px] font-black rounded-xl transition-colors disabled:opacity-50"
-          >
+          <button onClick={() => handleSave(true)} disabled={saving}
+            className="w-full py-2 bg-[#4ADE80] hover:bg-[#22C55E] text-[#040A06] text-[11px] font-black rounded-xl transition-colors disabled:opacity-50">
             🚀 Publish All Live
-          </button>
-          <button
-            onClick={() => {
-              if (confirm('Clear all objects? This cannot be undone.')) {
-                setObjects([]);
-                setSelectedId(null);
-              }
-            }}
-            className="w-full py-1.5 text-[#2A4A2A] hover:text-red-400 text-[10px] transition-colors"
-          >
-            Clear all objects
           </button>
         </div>
       </div>

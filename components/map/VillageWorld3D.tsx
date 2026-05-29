@@ -51,6 +51,7 @@ import {
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG, resolveAvatarColors } from '@/lib/avatar/config';
+import { useVillageMusic, VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
@@ -279,7 +280,7 @@ function VillageTopBar({
   onNotifications,
 }: {
   username: string;
-  avatarConfig?: { skin_id?: string; hair_color_id?: string; outfit_id?: string };
+  avatarConfig?: { skin_id?: string };
   vlgBalance: number;
   onHutOpen: () => void;
   onSearch: () => void;
@@ -287,35 +288,81 @@ function VillageTopBar({
   onNotifications: () => void;
 }) {
   const skinColor = SKIN_TONE_MAP[avatarConfig?.skin_id ?? 's5'] ?? '#A86030';
+  const { state, play, pause, toggleMusic, selectSong, setMusicVol, set } = useVillageMusic();
+  const [showMusic, setShowMusic] = useState(false);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function onSpeakerDown() {
+    holdTimer.current = setTimeout(() => { setShowMusic(true); }, 500);
+  }
+  function onSpeakerUp() {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  }
+  function onSpeakerClick() {
+    if (showMusic) { setShowMusic(false); return; }
+    if (state.isPlaying) { pause(); } else { play(); }
+  }
+
+  const iconColor = 'rgba(30,27,75,0.65)';
+  const STROKE = 2.0;
 
   return (
-    <div
-      className="absolute top-0 left-0 right-0 z-30 flex items-center px-4"
-      style={{
-        height: 56,
-        background: 'linear-gradient(135deg, #FFFFFF 0%, #FFF8E8 60%, #FFF0CC 100%)',
-        borderBottom: '1.5px solid rgba(212,175,55,0.35)',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 0 rgba(212,175,55,0.2)',
-      }}
-    >
-      {/* Logo */}
-      <div className="flex items-center gap-2 flex-1">
-        <div className="font-black text-lg tracking-tight" style={{
+    <>
+      <div
+        className="absolute top-0 left-0 right-0 z-30 flex items-center px-3 gap-2"
+        style={{
+          height: 56,
+          background: '#FFFFFF',
+          borderBottom: '2px solid transparent',
+          backgroundImage: 'linear-gradient(#fff, #fff), linear-gradient(90deg, rgba(212,175,55,0.2) 0%, rgba(212,175,55,0.7) 40%, rgba(184,134,11,0.9) 60%, rgba(212,175,55,0.7) 80%, rgba(212,175,55,0.2) 100%)',
+          backgroundOrigin: 'border-box',
+          backgroundClip: 'padding-box, border-box',
+          boxShadow: '0 3px 16px rgba(0,0,0,0.10)',
+        }}
+      >
+        {/* Logo */}
+        <div className="font-black text-lg tracking-tight mr-1" style={{
           background: 'linear-gradient(135deg, #D4AF37 0%, #F5C842 50%, #B8860B 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
+          flexShrink: 0,
         }}>
           villa9e
         </div>
-      </div>
 
-      {/* Right icons */}
-      <div className="flex items-center gap-3">
+        <div className="flex-1" />
+
+        {/* Speaker — tap=toggle, hold=panel */}
+        <button
+          onPointerDown={onSpeakerDown}
+          onPointerUp={onSpeakerUp}
+          onPointerLeave={onSpeakerUp}
+          onClick={onSpeakerClick}
+          className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5 relative"
+          style={{ color: iconColor }}
+        >
+          {state.musicOn && state.isPlaying ? (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/>
+            </svg>
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
+              <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+              <line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/>
+            </svg>
+          )}
+          {/* Playing indicator dot */}
+          {state.isPlaying && (
+            <span className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-green-500" />
+          )}
+        </button>
+
         {/* Search */}
         <button onClick={onSearch}
           className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5"
-          style={{ color: '#1E1B4B' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          style={{ color: iconColor }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
           </svg>
         </button>
@@ -323,26 +370,28 @@ function VillageTopBar({
         {/* Notifications */}
         <button onClick={onNotifications}
           className="w-9 h-9 flex items-center justify-center rounded-full relative transition-all hover:bg-black/5"
-          style={{ color: '#1E1B4B' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          style={{ color: iconColor }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
           </svg>
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full" style={{ background: '#EF4444' }} />
         </button>
 
         {/* Messages */}
         <button onClick={onMessages}
           className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5"
-          style={{ color: '#1E1B4B' }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+          style={{ color: iconColor }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
             <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
           </svg>
         </button>
 
         {/* VLG balance */}
-        <div className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+        <div className="flex items-center gap-1 px-2 py-1 rounded-full"
           style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.4)' }}>
-          <span style={{ fontSize: 12 }}>⬡</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#B8860B" strokeWidth="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
           <span className="text-xs font-black" style={{ color: '#B8860B' }}>
             {vlgBalance >= 1000 ? `${(vlgBalance/1000).toFixed(1)}k` : vlgBalance}
           </span>
@@ -350,16 +399,150 @@ function VillageTopBar({
 
         {/* Profile avatar → opens hut */}
         <button onClick={onHutOpen}
-          className="w-10 h-10 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0 transition-all hover:scale-105"
+          className="w-9 h-9 rounded-full flex items-center justify-center font-black text-white text-sm flex-shrink-0 transition-all hover:scale-105"
           style={{
             background: `linear-gradient(135deg, ${skinColor}, ${skinColor}CC)`,
             border: '2px solid rgba(212,175,55,0.6)',
-            boxShadow: '0 2px 8px rgba(212,175,55,0.25)',
+            boxShadow: '0 2px 8px rgba(212,175,55,0.2)',
           }}>
           {username[0]?.toUpperCase() ?? '?'}
         </button>
       </div>
-    </div>
+
+      {/* ── Music panel (hold speaker to open) ── */}
+      <AnimatePresence>
+        {showMusic && (
+          <motion.div
+            key="music-panel"
+            initial={{ opacity: 0, y: -12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.96 }}
+            className="absolute top-14 right-3 z-40 rounded-2xl shadow-2xl overflow-hidden"
+            style={{
+              width: 300,
+              background: '#FFFFFF',
+              border: '1px solid rgba(212,175,55,0.35)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+            }}
+          >
+            {/* Panel header */}
+            <div className="px-4 py-3 flex items-center justify-between"
+              style={{ borderBottom: '1px solid rgba(212,175,55,0.2)' }}>
+              <div>
+                <p className="font-black text-sm" style={{ color: '#1E1B4B' }}>Village Music</p>
+                <p className="text-xs" style={{ color: 'rgba(30,27,75,0.5)' }}>
+                  {VILLAGE_SONGS[state.currentIdx]?.title ?? 'Villa9e'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => set('shuffle', !state.shuffle)}
+                  className="text-xs px-2 py-1 rounded-lg font-bold transition-all"
+                  style={{
+                    background: state.shuffle ? 'rgba(212,175,55,0.2)' : 'transparent',
+                    border: `1px solid ${state.shuffle ? 'rgba(212,175,55,0.5)' : 'rgba(30,27,75,0.15)'}`,
+                    color: state.shuffle ? '#B8860B' : 'rgba(30,27,75,0.5)',
+                  }}
+                >
+                  ⇄ Shuffle
+                </button>
+                <button onClick={() => setShowMusic(false)}
+                  className="w-7 h-7 flex items-center justify-center rounded-full text-sm"
+                  style={{ background: 'rgba(30,27,75,0.06)', color: 'rgba(30,27,75,0.5)' }}>×</button>
+              </div>
+            </div>
+
+            {/* Volume controls */}
+            <div className="px-4 py-3 space-y-3" style={{ borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+              {[
+                { label: 'Music', key: 'musicOn' as const, volKey: 'musicVol' as const, vol: state.musicVol, on: state.musicOn },
+                { label: 'Sound FX', key: 'sfxOn' as const, volKey: 'sfxVol' as const, vol: state.sfxVol, on: state.sfxOn },
+                { label: 'Spirit Voice', key: 'spiritOn' as const, volKey: 'spiritVol' as const, vol: state.spiritVol, on: state.spiritOn },
+              ].map(row => (
+                <div key={row.label} className="flex items-center gap-3">
+                  <button onClick={() => set(row.key, !row.on)}
+                    className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: row.on ? '#B8860B' : 'rgba(30,27,75,0.1)' }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+                      stroke={row.on ? '#fff' : 'rgba(30,27,75,0.4)'} strokeWidth="2.2" strokeLinecap="round">
+                      {row.on
+                        ? <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></>
+                        : <><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></>
+                      }
+                    </svg>
+                  </button>
+                  <span className="text-xs font-semibold w-16 flex-shrink-0" style={{ color: 'rgba(30,27,75,0.6)' }}>{row.label}</span>
+                  <input type="range" min="0" max="1" step="0.05"
+                    value={row.vol}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value);
+                      if (row.volKey === 'musicVol') setMusicVol(v);
+                      else set(row.volKey, v);
+                    }}
+                    disabled={!row.on}
+                    className="flex-1 h-1.5 rounded-full appearance-none"
+                    style={{ accentColor: '#B8860B', opacity: row.on ? 1 : 0.4 }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Play controls */}
+            <div className="flex items-center justify-center gap-4 py-3"
+              style={{ borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+              <button
+                onClick={() => selectSong((state.currentIdx - 1 + VILLAGE_SONGS.length) % VILLAGE_SONGS.length)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(30,27,75,0.06)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(30,27,75,0.6)" strokeWidth="2.2" strokeLinecap="round">
+                  <polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/>
+                </svg>
+              </button>
+              <button
+                onClick={() => state.isPlaying ? pause() : play()}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                style={{ background: '#B8860B' }}>
+                {state.isPlaying
+                  ? <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                  : <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                }
+              </button>
+              <button
+                onClick={() => selectSong((state.currentIdx + 1) % VILLAGE_SONGS.length)}
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={{ background: 'rgba(30,27,75,0.06)' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(30,27,75,0.6)" strokeWidth="2.2" strokeLinecap="round">
+                  <polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/>
+                </svg>
+              </button>
+            </div>
+
+            {/* Song list */}
+            <div className="overflow-y-auto" style={{ maxHeight: 220 }}>
+              {VILLAGE_SONGS.map((song, i) => (
+                <button key={song.id} onClick={() => selectSong(i)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all hover:bg-amber-50"
+                  style={{
+                    background: state.currentIdx === i ? 'rgba(212,175,55,0.1)' : 'transparent',
+                  }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ background: state.currentIdx === i ? '#B8860B' : 'rgba(30,27,75,0.08)' }}>
+                    {state.currentIdx === i && state.isPlaying
+                      ? <svg width="8" height="8" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                      : <svg width="8" height="8" viewBox="0 0 24 24" fill={state.currentIdx === i ? 'white' : 'rgba(30,27,75,0.4)'}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                    }
+                  </div>
+                  <span className="text-sm font-medium truncate"
+                    style={{ color: state.currentIdx === i ? '#B8860B' : 'rgba(30,27,75,0.8)' }}>
+                    {song.title}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

@@ -1,4 +1,4 @@
-// Complete model catalog — all 304 Quaternius CC0 GLTF models
+// Model catalog — Quaternius CC0 + KayKit Forest Nature Pack GLTF models
 // Organized by category for the world builder palette
 
 export type ModelCategory =
@@ -8,9 +8,13 @@ export type ModelCategory =
   | 'buildings_economy'
   | 'buildings_special'
   | 'nature_trees'
+  | 'nature_bushes'
   | 'nature_plants'
+  | 'nature_grass'
+  | 'nature_rocks'
   | 'nature_terrain'
   | 'nature_water'
+  | 'ground_tiles'
   | 'animals'
   | 'characters'
   | 'props_containers'
@@ -286,6 +290,91 @@ export const MODEL_CATALOG: CatalogModel[] = [
   // ── INFRASTRUCTURE ────────────────────────────────────────────────────────
   { id:'ship_lg',  label:'Large Ship',   url:G('Ship_Large'),   category:'infrastructure', defaultScale:1.0, yOffset:-1, emoji:'🚢' },
   { id:'ship_sm',  label:'Small Ship',   url:G('Ship_Small'),   category:'infrastructure', defaultScale:1.0, yOffset:-1, emoji:'⛵' },
+
+  // ── KAYKIT FOREST: TREES ─────────────────────────────────────────────────
+  { id:'kk_tree1a', label:'Forest Tree 1A', url:G('Tree_1_A_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree1b', label:'Forest Tree 1B', url:G('Tree_1_B_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree1c', label:'Forest Tree 1C', url:G('Tree_1_C_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree2a', label:'Forest Tree 2A', url:G('Tree_2_A_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree2b', label:'Forest Tree 2B', url:G('Tree_2_B_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree2c', label:'Forest Tree 2C', url:G('Tree_2_C_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree2d', label:'Forest Tree 2D', url:G('Tree_2_D_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree2e', label:'Forest Tree 2E', url:G('Tree_2_E_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree3a', label:'Forest Tree 3A', url:G('Tree_3_A_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree3b', label:'Forest Tree 3B', url:G('Tree_3_B_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree3c', label:'Forest Tree 3C', url:G('Tree_3_C_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🌲', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree4a', label:'Forest Tree 4A', url:G('Tree_4_A_Color1'), category:'nature_trees', defaultScale:2.0, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree4b', label:'Forest Tree 4B', url:G('Tree_4_B_Color1'), category:'nature_trees', defaultScale:2.0, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_tree4c', label:'Forest Tree 4C', url:G('Tree_4_C_Color1'), category:'nature_trees', defaultScale:2.0, yOffset:0, emoji:'🌳', tags:['kaykit','forest','tree'] },
+  { id:'kk_bare1a', label:'Bare Tree 1A',   url:G('Tree_Bare_1_A_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+  { id:'kk_bare1b', label:'Bare Tree 1B',   url:G('Tree_Bare_1_B_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+  { id:'kk_bare1c', label:'Bare Tree 1C',   url:G('Tree_Bare_1_C_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+  { id:'kk_bare2a', label:'Bare Tree 2A',   url:G('Tree_Bare_2_A_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+  { id:'kk_bare2b', label:'Bare Tree 2B',   url:G('Tree_Bare_2_B_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+  { id:'kk_bare2c', label:'Bare Tree 2C',   url:G('Tree_Bare_2_C_Color1'), category:'nature_trees', defaultScale:1.5, yOffset:0, emoji:'🪵', tags:['kaykit','bare','winter','tree'] },
+
+  // ── KAYKIT FOREST: BUSHES ────────────────────────────────────────────────
+  { id:'kk_bush1a', label:'Bush 1A',   url:G('Bush_1_A_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush','shrub'] },
+  { id:'kk_bush1b', label:'Bush 1B',   url:G('Bush_1_B_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush','shrub'] },
+  { id:'kk_bush1c', label:'Bush 1C',   url:G('Bush_1_C_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush','shrub'] },
+  { id:'kk_bush1d', label:'Bush 1D',   url:G('Bush_1_D_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush','shrub'] },
+  { id:'kk_bush1e', label:'Bush 1E',   url:G('Bush_1_E_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush1f', label:'Bush 1F',   url:G('Bush_1_F_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush1g', label:'Bush 1G',   url:G('Bush_1_G_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2a', label:'Bush 2A',   url:G('Bush_2_A_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2b', label:'Bush 2B',   url:G('Bush_2_B_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2c', label:'Bush 2C',   url:G('Bush_2_C_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2d', label:'Bush 2D',   url:G('Bush_2_D_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2e', label:'Bush 2E',   url:G('Bush_2_E_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush2f', label:'Bush 2F',   url:G('Bush_2_F_Color1'), category:'nature_bushes', defaultScale:1.2, yOffset:0, emoji:'🌿', tags:['kaykit','bush'] },
+  { id:'kk_bush3a', label:'Bush 3A',   url:G('Bush_3_A_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush3b', label:'Bush 3B',   url:G('Bush_3_B_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush3c', label:'Bush 3C',   url:G('Bush_3_C_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4a', label:'Bush 4A',   url:G('Bush_4_A_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4b', label:'Bush 4B',   url:G('Bush_4_B_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4c', label:'Bush 4C',   url:G('Bush_4_C_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4d', label:'Bush 4D',   url:G('Bush_4_D_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4e', label:'Bush 4E',   url:G('Bush_4_E_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+  { id:'kk_bush4f', label:'Bush 4F',   url:G('Bush_4_F_Color1'), category:'nature_bushes', defaultScale:1.3, yOffset:0, emoji:'🌿', tags:['kaykit','bush','large'] },
+
+  // ── KAYKIT FOREST: GRASS ─────────────────────────────────────────────────
+  { id:'kk_grass1a', label:'Grass 1A', url:G('Grass_1_A_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass','ground'] },
+  { id:'kk_grass1b', label:'Grass 1B', url:G('Grass_1_B_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass1c', label:'Grass 1C', url:G('Grass_1_C_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass1d', label:'Grass 1D', url:G('Grass_1_D_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass2a', label:'Grass 2A', url:G('Grass_2_A_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass2b', label:'Grass 2B', url:G('Grass_2_B_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass2c', label:'Grass 2C', url:G('Grass_2_C_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+  { id:'kk_grass2d', label:'Grass 2D', url:G('Grass_2_D_Color1'), category:'nature_grass', defaultScale:1.0, yOffset:0, emoji:'🌾', tags:['kaykit','grass'] },
+
+  // ── KAYKIT FOREST: ROCKS ─────────────────────────────────────────────────
+  { id:'kk_rock1a', label:'Rock 1A', url:G('Rock_1_A_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1b', label:'Rock 1B', url:G('Rock_1_B_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1c', label:'Rock 1C', url:G('Rock_1_C_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1d', label:'Rock 1D', url:G('Rock_1_D_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1e', label:'Rock 1E', url:G('Rock_1_E_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1f', label:'Rock 1F', url:G('Rock_1_F_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock1g', label:'Rock 1G', url:G('Rock_1_G_Color1'), category:'nature_rocks', defaultScale:1.0, yOffset:0, emoji:'🪨', tags:['kaykit','rock','stone'] },
+  { id:'kk_rock2a', label:'Rock 2A', url:G('Rock_2_A_Color1'), category:'nature_rocks', defaultScale:1.2, yOffset:0, emoji:'🪨', tags:['kaykit','rock','boulder'] },
+  { id:'kk_rock2b', label:'Rock 2B', url:G('Rock_2_B_Color1'), category:'nature_rocks', defaultScale:1.2, yOffset:0, emoji:'🪨', tags:['kaykit','rock','boulder'] },
+  { id:'kk_rock2c', label:'Rock 2C', url:G('Rock_2_C_Color1'), category:'nature_rocks', defaultScale:1.2, yOffset:0, emoji:'🪨', tags:['kaykit','rock','boulder'] },
+  { id:'kk_rock2d', label:'Rock 2D', url:G('Rock_2_D_Color1'), category:'nature_rocks', defaultScale:1.2, yOffset:0, emoji:'🪨', tags:['kaykit','rock','boulder'] },
+  { id:'kk_rock2e', label:'Rock 2E', url:G('Rock_2_E_Color1'), category:'nature_rocks', defaultScale:1.2, yOffset:0, emoji:'🪨', tags:['kaykit','rock','boulder'] },
+  { id:'kk_rock3a', label:'Rock 3A', url:G('Rock_3_A_Color1'), category:'nature_rocks', defaultScale:1.5, yOffset:0, emoji:'🪨', tags:['kaykit','rock','large'] },
+  { id:'kk_rock3b', label:'Rock 3B', url:G('Rock_3_B_Color1'), category:'nature_rocks', defaultScale:1.5, yOffset:0, emoji:'🪨', tags:['kaykit','rock','large'] },
+  { id:'kk_rock3c', label:'Rock 3C', url:G('Rock_3_C_Color1'), category:'nature_rocks', defaultScale:1.5, yOffset:0, emoji:'🪨', tags:['kaykit','rock','large'] },
+
+  // ── GROUND TILES ─────────────────────────────────────────────────────────
+  // Procedural flat plane tiles the user can place to define terrain patches
+  // These are rendered as colored flat meshes, not GLTF models
+  // We use a special marker URL so LiveAdminObjects renders them as planes
+  { id:'tile_grass',  label:'Grass Tile',   url:'/models/tiles/grass.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟩', tags:['ground','tile','grass'] },
+  { id:'tile_dirt',   label:'Dirt Tile',    url:'/models/tiles/dirt.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟫', tags:['ground','tile','dirt'] },
+  { id:'tile_sand',   label:'Sand Tile',    url:'/models/tiles/sand.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟨', tags:['ground','tile','sand','beach'] },
+  { id:'tile_stone',  label:'Stone Path',   url:'/models/tiles/stone.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'⬜', tags:['ground','tile','stone','path'] },
+  { id:'tile_water',  label:'Water Tile',   url:'/models/tiles/water.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.05, emoji:'🟦', tags:['ground','tile','water','river','lake'] },
+  { id:'tile_mud',    label:'Mud/Swamp',    url:'/models/tiles/mud.tile',     category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟤', tags:['ground','tile','mud','swamp'] },
+  { id:'tile_snow',   label:'Snow',         url:'/models/tiles/snow.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.01, emoji:'⬜', tags:['ground','tile','snow','winter'] },
 ];
 
 // Category metadata for the UI
@@ -295,12 +384,16 @@ export const CATEGORY_META: Record<ModelCategory, { label: string; emoji: string
   buildings_economy:     { label: 'Economy',      emoji: '🏪', description: 'Markets, farms, mills, ports' },
   buildings_military:    { label: 'Military',     emoji: '⚔️', description: 'Towers, walls, barracks' },
   buildings_special:     { label: 'Special',      emoji: '✨', description: 'Docks, wonders, special structures' },
-  nature_trees:          { label: 'Trees',        emoji: '🌳', description: 'Birch, maple, pine, palm, dead' },
-  nature_plants:         { label: 'Plants',       emoji: '🌿', description: 'Bush, flowers, grass, logs' },
-  nature_terrain:        { label: 'Terrain',      emoji: '⛰️', description: 'Mountains, cliffs, rocks, ore' },
-  nature_water:          { label: 'Water',        emoji: '🌊', description: 'Water features' },
-  animals:               { label: 'Animals',      emoji: '🦌', description: 'Wildlife and pets' },
-  characters:            { label: 'Characters',   emoji: '👤', description: 'NPCs and decorative figures' },
+  nature_trees:          { label: 'Trees',        emoji: '🌳', description: 'Birch, maple, pine, palm, bare (KayKit + Quaternius)' },
+  nature_bushes:         { label: 'Bushes',       emoji: '🌿', description: 'Bushes — KayKit Forest Pack' },
+  nature_plants:         { label: 'Plants',       emoji: '🌸', description: 'Flowers, logs, foliage' },
+  nature_grass:          { label: 'Grass',        emoji: '🌾', description: 'Grass clumps and patches — KayKit' },
+  nature_rocks:          { label: 'Rocks',        emoji: '🪨', description: 'Rocks and boulders — KayKit Forest' },
+  nature_terrain:        { label: 'Terrain',      emoji: '⛰️', description: 'Mountains, cliffs, ore deposits' },
+  nature_water:          { label: 'Water',        emoji: '🌊', description: 'Rivers, ponds, water features' },
+  ground_tiles:          { label: 'Ground',       emoji: '🟫', description: 'Grass, dirt, sand, stone ground tiles' },
+  animals:               { label: 'Animals',      emoji: '🦌', description: 'Wildlife — roam automatically when placed' },
+  characters:            { label: 'People',       emoji: '👤', description: 'NPCs — idle head movement when placed' },
   props_containers:      { label: 'Containers',   emoji: '📦', description: 'Barrels, crates, chests' },
   props_weapons:         { label: 'Weapons',      emoji: '⚔️', description: 'Decorative weapons' },
   props_items:           { label: 'Items',        emoji: '🎒', description: 'Fish, bottles, skulls' },
