@@ -5,41 +5,12 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
+import {
+  SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP,
+  type AvatarConfig, DEFAULT_AVATAR_CONFIG,
+} from '@/lib/avatar/config';
 
 // ─── Avatar config options ────────────────────────────────────────────────────
-
-export const SKIN_TONE_MAP: Record<string, string> = {
-  s1: '#FDE8D0',  // Porcelain
-  s2: '#F2C9A0',  // Beige
-  s3: '#E8A870',  // Golden
-  s4: '#C88550',  // Tan
-  s5: '#A86030',  // Medium
-  s6: '#8A4820',  // Warm deep
-  s7: '#6A3018',  // Deep
-  s8: '#3E1C0A',  // Ebony
-};
-
-export const HAIR_COLOR_MAP: Record<string, string> = {
-  c1: '#0C0700',   // Jet black
-  c2: '#3D1E08',   // Dark brown
-  c3: '#7A3A10',   // Auburn
-  c4: '#B87830',   // Honey
-  c5: '#E8C060',   // Blonde
-  c6: '#9B59B6',   // Purple
-  c7: '#2980B9',   // Blue
-  c8: '#E74C3C',   // Red
-};
-
-export const SHIRT_COLOR_MAP: Record<string, string> = {
-  o1: '#D97706',   // Kente gold
-  o2: '#2563EB',   // Spirit blue
-  o3: '#16A34A',   // Nature green
-  o4: '#DC2626',   // Tribal red
-  o5: '#7C3AED',   // Galaxy purple
-  o6: '#92400E',   // Earth brown
-  o7: '#0F766E',   // Teal
-  o8: '#DB2777',   // Pink
-};
 
 const SKIN_TONES = [
   { id: 's1', label: 'Porcelain' }, { id: 's2', label: 'Beige' },
@@ -79,21 +50,7 @@ const ACCESSORIES = [
   { id: 'a5', label: 'Wrap',   icon: '🎀' },
 ];
 
-export interface AvatarConfig {
-  skin_id:       string;
-  hair_id:       string;
-  hair_color_id: string;
-  outfit_id:     string;
-  accessory_id:  string;
-}
-
-export const DEFAULT_CONFIG: AvatarConfig = {
-  skin_id:       's5',
-  hair_id:       'h1',
-  hair_color_id: 'c1',
-  outfit_id:     'o2',
-  accessory_id:  'a0',
-};
+// AvatarConfig and DEFAULT_AVATAR_CONFIG imported from @/lib/avatar/config
 
 // ─── High-quality cartoon SVG preview ────────────────────────────────────────
 // Proportions match the 3D character: big head (~38% of height), large eyes
@@ -366,7 +323,7 @@ function AvatarSVG({ config, isNight, size = 200 }: { config: AvatarConfig; isNi
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AvatarBuilderPage() {
-  const [config, setConfig]         = useState<AvatarConfig>(DEFAULT_CONFIG);
+  const [config, setConfig]         = useState<AvatarConfig>(DEFAULT_AVATAR_CONFIG);
   const [saving, setSaving]         = useState(false);
   const [saved, setSaved]           = useState(false);
   const [activeTab, setActiveTab]   = useState<'skin'|'hair'|'outfit'|'accessory'>('skin');
@@ -385,7 +342,7 @@ export default function AvatarBuilderPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return;
       (supabase as any).from('profiles').select('avatar_config').eq('id', user.id).single()
-        .then(({ data: p }: any) => { if (p?.avatar_config) setConfig({ ...DEFAULT_CONFIG, ...p.avatar_config }); });
+        .then(({ data: p }: any) => { if (p?.avatar_config) setConfig({ ...DEFAULT_AVATAR_CONFIG, ...p.avatar_config }); });
     });
   }, []);
 

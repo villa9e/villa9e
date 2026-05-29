@@ -26,7 +26,7 @@ import {
   DenseGrass, WildflowerClusters, terrainH,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
-import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP } from '@/app/village/hut/avatar/page';
+import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP } from '@/lib/avatar/config';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
 import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeCall';
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
