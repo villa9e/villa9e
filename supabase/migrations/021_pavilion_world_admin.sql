@@ -81,12 +81,12 @@ create table if not exists admin_world_objects (
 
 alter table admin_world_objects enable row level security;
 
--- Only admins can see/edit world objects
+-- Only admins can see/edit world objects (uses is_super_admin column from migration 005)
 create policy "admin only world objects"
   on admin_world_objects for all
   using (
     auth.uid() in (
-      select id from profiles where role = 'admin'
+      select id from profiles where is_super_admin = true
     )
   );
 

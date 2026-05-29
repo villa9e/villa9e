@@ -28,15 +28,15 @@ export default function AdminSandboxPage() {
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) { router.replace('/login'); return; }
 
-      // Check admin role
+      // Check admin role (is_super_admin from migration 005)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, email')
+        .select('is_super_admin')
         .eq('id', user.id)
         .single();
 
       const isAdmin =
-        profile?.role === 'admin' ||
+        profile?.is_super_admin === true ||
         user.email === 'admin@villa9e.app' ||
         user.email === 'elitehousemusic@gmail.com';
 
