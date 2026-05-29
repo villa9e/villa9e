@@ -7,10 +7,10 @@ import { generateAvatarSVG } from '@/lib/avatar/svgString';
 import type { AvatarConfig } from '@/lib/avatar/config';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP } from '@/lib/avatar/config';
 
-// ─── Avatar GLB paths — drop your character files into public/avatars/ ─────────
-const AVATAR_MALE_URL   = '/avatars/character_male.glb';
-const AVATAR_FEMALE_URL = '/avatars/character_female.glb';
-const AVATAR_BASE_URL   = '/avatars/character_base.glb';
+// ─── Avatar GLTF paths — Quaternius Casual characters from /public/models/gltf ─
+const AVATAR_MALE_URL   = '/models/gltf/Casual_Male.gltf';
+const AVATAR_FEMALE_URL = '/models/gltf/Casual_Female.gltf';
+const AVATAR_BASE_URL   = '/models/gltf/Casual2_Male.gltf';
 
 // ─── Flat 2-step toon gradient map for GLTF characters ───────────────────────
 let _gradMap: THREE.DataTexture | null = null;
@@ -333,19 +333,6 @@ export function PlayerCharacter(props: PlayerCharacterProps) {
     return DEFAULT_CFG;
   }, [props.avatarConfig]);
 
-  // For now always use the billboard — upgrade to GLTF once files are in place.
-  // To switch to GLTF: comment out BillboardAvatar and uncomment GLTFWithFallback.
-  //
-  // return <GLTFWithFallback {...props} cfg={cfg} />;
-
-  return (
-    <BillboardAvatar
-      position={props.position}
-      rotation={props.rotation}
-      posRef={props.posRef}
-      rotRef={props.rotRef}
-      avatarConfig={cfg}
-      isMovingRef={props.isMovingRef}
-    />
-  );
+  // Use real GLTF character with SVG billboard fallback while loading
+  return <GLTFWithFallback {...props} cfg={cfg} />;
 }

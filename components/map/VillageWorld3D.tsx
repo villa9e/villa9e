@@ -19,11 +19,13 @@ import * as THREE from 'three';
 import {
   WorkshopBuilding, DreamLineBuilding, TradingPostBuilding, BankBuilding,
   ZenBuilding, TribesBuilding, HospitalBuilding, HutBuilding, SpiritShrine,
+  PavilionBuilding,
 } from './VillageBuildings';
 import {
-  VillageTerrain, StonePaths, TreeSystem, FlowerPatches, StoneLanterns,
-  Fireflies, RockClusters, SacredFire as EnvSacredFire,
-  DenseGrass, WildflowerClusters, terrainH,
+  VillageTerrain, StonePaths, TreeSystem, StoneLanterns, Fireflies,
+  SacredFire as EnvSacredFire, DenseGrass, FlowerSystem, RockSystem,
+  AnimalSystem, CoastalFish, CoastalOcean, GroundClutter,
+  preloadWorldModels, terrainH,
 } from './VillageEnvironment';
 import { PlayerCharacter } from './VillagePlayerCharacter';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG } from '@/lib/avatar/config';
@@ -36,15 +38,32 @@ const BUILDING_SCALE = 2.8;
 
 // ─── Location data — positions spread for larger scaled buildings ─────────────
 // Collision sizes are geometry × BUILDING_SCALE
+// ─── Village biome layout ─────────────────────────────────────────────────────
+// West:  Mountain/icy zone — Zen Garden on mountain plateau
+// NE:    Forest pockets — Hut in forest, Tribes in forest edge
+// Farm:  Southeast fields — Workshop surrounded by farmland
+// Coast: North shore — Wellness Center near water
+// Market:South/center — Trading Post, Bank flanking the square
+// Stage: East — Pavilion screening/concert venue
 const LOCATIONS = [
-  { id: 'workshop',     label: 'Workshop',        href: '/village/workshop',     pos: [-22, 0, -16] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number], doorColor: '#2A1500', doorType: 'cedar'  },
-  { id: 'dreamline',   label: 'Dream Line',       href: '/village/dreamline',    pos: [ 22, 0, -16] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number], doorColor: '#D4C8B4', doorType: 'marble' },
-  { id: 'trading-post',label: 'Trading Post',     href: '/village/trading-post', pos: [-22, 0,  16] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number], doorColor: '#5A3520', doorType: 'carved' },
-  { id: 'bank',         label: 'Bank',            href: '/village/bank',         pos: [ 22, 0,  16] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number], doorColor: '#8B6914', doorType: 'brass'  },
-  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-38, 3,  -22] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
-  { id: 'tribes',       label: 'Tribes',          href: '/village/tribes',       pos: [ 30, 0,   0] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
-  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',     pos: [  0, 0, -28] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number], doorColor: '#A8C8FF', doorType: 'glass'  },
-  { id: 'hut',          label: 'My Hut',          href: '/village/hut',          pos: [  0, 0,  26] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number], doorColor: '#3D2200', doorType: 'plank'  },
+  // Workshop — farm zone (SE), surrounded by crop fields + birch trees
+  { id: 'workshop',     label: 'Workshop',        href: '/village/workshop',     pos: [-20, 0, -18] as [number,number,number], color: '#E8770A', size: [10, 11, 10] as [number,number,number], doorColor: '#2A1500', doorType: 'cedar'  },
+  // Dream Line — grand amphitheater, east side near forest
+  { id: 'dreamline',   label: 'Dream Line',       href: '/village/dreamline',    pos: [ 24, 0, -14] as [number,number,number], color: '#7C3AED', size: [10, 10, 10] as [number,number,number], doorColor: '#D4C8B4', doorType: 'marble' },
+  // Trading Post — market square south-west
+  { id: 'trading-post',label: 'Trading Post',     href: '/village/trading-post', pos: [-20, 0,  18] as [number,number,number], color: '#059669', size: [10,  9, 10] as [number,number,number], doorColor: '#5A3520', doorType: 'carved' },
+  // Bank — market square south-east
+  { id: 'bank',         label: 'Bank',            href: '/village/bank',         pos: [ 20, 0,  18] as [number,number,number], color: '#D97706', size: [10, 11, 10] as [number,number,number], doorColor: '#8B6914', doorType: 'brass'  },
+  // Zen Garden — icy west, on mountain plateau (y=3)
+  { id: 'zen',          label: 'Zen Garden',      href: '/village/zen',          pos: [-36, 3,  -20] as [number,number,number], color: '#0D9488', size: [10,  9, 10] as [number,number,number], doorColor: '#B5A642', doorType: 'bamboo' },
+  // Tribes — deep forest northeast, surrounded by maple+birch
+  { id: 'tribes',       label: 'Tribes',          href: '/village/tribes',       pos: [ 26, 0,   6] as [number,number,number], color: '#BE185D', size: [10, 10, 10] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
+  // Wellness Center — north coast, near water, palm trees
+  { id: 'hospital',     label: 'Wellness Center', href: '/village/hospital',     pos: [  0, 0, -26] as [number,number,number], color: '#16A34A', size: [10, 10, 10] as [number,number,number], doorColor: '#A8C8FF', doorType: 'glass'  },
+  // Hut — heart of the forest, surrounded by trees
+  { id: 'hut',          label: 'My Hut',          href: '/village/hut',          pos: [  0, 0,  24] as [number,number,number], color: '#EA580C', size: [ 9,  9,  9] as [number,number,number], doorColor: '#3D2200', doorType: 'plank'  },
+  // Pavilion — outdoor screening + concert venue, east forest clearing
+  { id: 'pavilion',     label: 'Pavilion',        href: '/village/pavilion',     pos: [ 24, 0,  26] as [number,number,number], color: '#6366F1', size: [12, 8,  12] as [number,number,number], doorColor: '#1A0A00', doorType: 'ebony'  },
 ];
 
 // ─── Radial crescent menu — monotone SVG icons ───────────────────────────────
@@ -565,6 +584,7 @@ const BUILDING_MAP: Record<string, React.FC<{ hover: boolean }>> = {
   tribes:         TribesBuilding,
   hospital:       HospitalBuilding,
   hut:            HutBuilding,
+  pavilion:       PavilionBuilding,
   spirit:         SpiritShrine,
 };
 
@@ -1102,14 +1122,23 @@ function WorldScene({
         <Building key={loc.id} loc={loc} onEnter={onEnterBuilding} isNear={nearBuildingId === loc.id} />
       ))}
 
-      {/* Rich terrain & environment */}
+      {/* Terrain */}
       <VillageTerrain isNight={isNight} />
       <StonePaths isNight={isNight} />
+
+      {/* Real GLTF trees, rocks, flowers, animals, fish */}
       <TreeSystem windStr={windStrength} />
-      <FlowerPatches windStr={windStrength} />
+      <RockSystem />
+      <FlowerSystem />
       <DenseGrass windStr={windStrength} />
-      <WildflowerClusters />
-      <RockClusters />
+      <GroundClutter />
+      <AnimalSystem />
+      <CoastalFish />
+
+      {/* Coastal ocean surrounding the island */}
+      <CoastalOcean isNight={isNight} skyState={skyState} />
+
+      {/* Village lighting */}
       <StoneLanterns isNight={isNight} />
       <Fireflies visible={isNight || skyState?.phase === 'dusk'} />
 

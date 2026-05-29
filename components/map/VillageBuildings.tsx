@@ -1561,3 +1561,108 @@ export function SpiritShrine({ hover }: { hover: boolean }) {
     </group>
   );
 }
+
+// ─── PAVILION — Open-air screening & concert amphitheater ─────────────────────
+// An open pavilion with a large screen wall, curved seating tiers, and
+// hanging lanterns. Inspired by Greek amphitheater × African gathering circle.
+export function PavilionBuilding({ hover }: { hover: boolean }) {
+  const tex = useMemo(() => getTex(), []);
+  const screenRef = useRef<THREE.Mesh>(null);
+
+  useFrame(({ clock }) => {
+    if (!screenRef.current) return;
+    const mat = screenRef.current.material as THREE.MeshBasicMaterial;
+    // Screen glows slightly when hovered
+    mat.color.setHex(hover ? 0x3344AA : 0x1A1A3A);
+  });
+
+  const stoneC  = '#5A5268';
+  const woodC   = '#4A3018';
+  const roofC   = '#2D1A40';
+  const accentC = '#6366F1';
+
+  return (
+    <group position={[0, hover ? 0.15 : 0, 0]}>
+      {/* Foundation platform */}
+      <mesh position={[0, -1.88, 0]} castShadow>
+        <cylinderGeometry args={[5.5, 6.0, 0.32, 32, 2]} />
+        <meshToonMaterial color={stoneC} />
+      </mesh>
+      {/* Seating tiers — semicircular */}
+      {[0, 1, 2, 3].map(tier => (
+        <mesh key={tier} position={[0, -1.42 + tier * 0.38, 0]}>
+          <cylinderGeometry args={[2.2 + tier * 0.8, 2.2 + tier * 0.8 + 0.6, 0.38, 36, 2, false, Math.PI * 0.08, Math.PI * 1.84]} />
+          <meshToonMaterial color={tier % 2 === 0 ? '#3D3050' : '#302840'} />
+        </mesh>
+      ))}
+      {/* Stage platform */}
+      <mesh position={[0, -1.52, -2.0]} castShadow>
+        <cylinderGeometry args={[2.0, 2.0, 0.28, 32, 2]} />
+        <meshToonMaterial color={stoneC} />
+      </mesh>
+      {/* Screen wall — back of stage */}
+      <mesh position={[0, 0.2, -3.8]} castShadow>
+        <boxGeometry args={[5.0, 3.5, 0.4, 4, 3, 1]} />
+        <meshToonMaterial color="#2A2440" />
+      </mesh>
+      {/* Screen surface — glows */}
+      <mesh ref={screenRef} position={[0, 0.3, -3.62]}>
+        <boxGeometry args={[4.2, 2.8, 0.05, 3, 2, 1]} />
+        <meshBasicMaterial color="#1A1A3A" />
+      </mesh>
+      {/* Indigo glow from screen */}
+      <mesh position={[0, 0.3, -3.5]}>
+        <boxGeometry args={[4.6, 3.2, 0.02, 1, 1, 1]} />
+        <meshBasicMaterial color={accentC} transparent opacity={0.08} />
+      </mesh>
+      {/* Side columns flanking screen */}
+      {[-2.8, 2.8].map((x, i) => (
+        <group key={i} position={[x, -0.5, -3.6]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.18, 0.22, 4.0, 16, 4]} />
+            <meshToonMaterial color={stoneC} />
+          </mesh>
+          <mesh position={[0, 2.1, 0]}>
+            <sphereGeometry args={[0.22, 14, 10]} />
+            <meshToonMaterial color={accentC} />
+          </mesh>
+        </group>
+      ))}
+      {/* Roof canopy — covers stage area */}
+      <mesh position={[0, 1.85, -2.4]} castShadow>
+        <boxGeometry args={[5.8, 0.2, 3.5, 4, 1, 3]} />
+        <meshToonMaterial color={roofC} />
+      </mesh>
+      {/* Roof arch */}
+      <mesh position={[0, 2.18, -2.4]}>
+        <coneGeometry args={[3.2, 1.2, 28, 3]} />
+        <meshToonMaterial color={roofC} />
+      </mesh>
+      {/* Hanging lanterns above seating */}
+      {[-2.0, 0, 2.0].map((x, i) => (
+        <group key={i} position={[x, 1.6, -0.5]}>
+          <mesh>
+            <cylinderGeometry args={[0.04, 0.04, 1.8, 8, 2]} />
+            <meshToonMaterial color={woodC} />
+          </mesh>
+          <mesh position={[0, -1.0, 0]}>
+            <boxGeometry args={[0.26, 0.26, 0.26, 2, 2, 2]} />
+            <meshToonMaterial color={accentC} transparent opacity={0.7} />
+          </mesh>
+        </group>
+      ))}
+      {/* Billboard sign */}
+      <mesh position={[0, 2.6, -3.85]}>
+        <boxGeometry args={[2.2, 0.5, 0.08, 3, 1, 1]} />
+        <meshToonMaterial color={accentC} />
+      </mesh>
+      {/* Steps up to stage */}
+      {[0, 1, 2].map(i => (
+        <mesh key={i} position={[0, -1.62 + i * 0.18, -0.2 - i * 0.2]} castShadow>
+          <boxGeometry args={[3.0 - i * 0.15, 0.18, 0.55, 3, 1, 1]} />
+          <meshToonMaterial color="#4A4258" />
+        </mesh>
+      ))}
+    </group>
+  );
+}
