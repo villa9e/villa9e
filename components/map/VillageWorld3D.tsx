@@ -35,6 +35,7 @@ import { TribeCallPanel, IncomingCallOverlay } from '@/components/village/TribeC
 import { TribeMemberMenu, type TribeMember } from '@/components/village/TribeMemberMenu';
 import { VLGShop } from '@/components/village/VLGShop';
 import { useVLGBalance } from '@/lib/tokens/useVLGBalance';
+import { VillageTour } from '@/components/village/VillageTour';
 
 // ─── Building scale factor — buildings are 2.8× bigger than their geometry ───
 const BUILDING_SCALE = 2.8;
@@ -1850,7 +1851,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Side drawer ────────────────────────────────────────────────────────────
   const [drawer, setDrawer]       = useState<{ href: string; title: string } | null>(null);
-  const [showVLGShop, setVLGShop] = useState(false);
+  const [showVLGShop, setVLGShop]   = useState(false);
+  const [showTour,    setShowTour]  = useState(false);
   const { balance: vlgBalance, load: loadVLG } = useVLGBalance();
 
   // ── Current user identity ──────────────────────────────────────────────────
@@ -1862,9 +1864,12 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       if (!user) return;
       setCurrentUserId(user.id);
       loadVLG(user.id);
-      supabase.from('profiles').select('username, display_name').eq('id', user.id).single()
+      supabase.from('profiles').select('username, display_name, has_done_tour').eq('id', user.id).single()
         .then(({ data: p }: any) => {
-          if (p) setCurrentUserName(p.display_name || p.username || 'Villager');
+          if (p) {
+            setCurrentUserName(p.display_name || p.username || 'Villager');
+            if (!p.has_done_tour) setShowTour(true);
+          }
         });
     });
   }, []);
@@ -2536,6 +2541,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       {/* ── VLG Shop modal ─────────────────────────────────────────── */}
       <AnimatePresence>
         {showVLGShop && <VLGShop onClose={() => setVLGShop(false)} />}
+      </AnimatePresence>
+
+      {/* ── First-time village tour ────────────────────────────────── */}
+      <AnimatePresence>
+        {showTour && <VillageTour onComplete={() => setShowTour(false)} />}
       </AnimatePresence>
     </div>
   );

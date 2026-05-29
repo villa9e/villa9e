@@ -156,8 +156,9 @@ begin
 end;
 $$;
 
--- ─── Ensure vlg_balance column exists on profiles ─────────────────────────────
-alter table profiles add column if not exists vlg_balance integer not null default 0;
+-- ─── Ensure vlg_balance and has_done_tour columns exist on profiles ──────────
+alter table profiles add column if not exists vlg_balance   integer not null default 0;
+alter table profiles add column if not exists has_done_tour boolean not null default false;
 
 -- Indexes
 create index if not exists idx_pavilion_shows_status    on pavilion_shows(status);
