@@ -1875,10 +1875,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         });
       // Check tour status separately with graceful fallback
       supabase.from('profiles').select('has_done_tour').eq('id', user.id).single()
-        .then(({ data: p }: any) => {
-          if (p && !p.has_done_tour) setShowTour(true);
-        })
-        .catch(() => { /* has_done_tour column may not exist yet */ });
+        .then(({ data: p, error }: any) => {
+          if (!error && p && !p.has_done_tour) setShowTour(true);
+        });
     });
   }, []);
 
