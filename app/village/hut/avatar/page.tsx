@@ -8,7 +8,7 @@ import { VillageSound } from '@/lib/sounds/village';
 import {
   SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP,
   type AvatarConfig, type CharacterType, type BodyType,
-  DEFAULT_AVATAR_CONFIG, resolveCharacterURL,
+  DEFAULT_AVATAR_CONFIG,
 } from '@/lib/avatar/config';
 
 // ─── Avatar config options ────────────────────────────────────────────────────
