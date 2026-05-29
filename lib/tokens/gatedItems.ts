@@ -54,8 +54,8 @@ export const GATED_ITEMS: GatedItem[] = [
   { id:'seasonal_sun',    label:'Solar Glow',          description:'Sun rays radiate from your avatar',   price: 100, category:'seasonal_effect', emoji:'☀️', seasonal:true, season:'summer' },
 
   // ── Tribe perks ─────────────────────────────────────────────────────────────
-  { id:'tribe_banner',   label:'Custom Tribe Banner', description:'Design your tribe's banner for the village map', price: 150, category:'tribe_perks', emoji:'🚩' },
-  { id:'tribe_territory',label:'Territory Marker',    description:'Plant your tribe's marker in a forest zone',     price: 200, category:'tribe_perks', emoji:'🏴', exclusive: false },
+  { id:'tribe_banner',   label:'Custom Tribe Banner', description:"Design your tribe's banner for the village map", price: 150, category:'tribe_perks', emoji:'🚩' },
+  { id:'tribe_territory',label:'Territory Marker',    description:"Plant your tribe's marker in a forest zone",     price: 200, category:'tribe_perks', emoji:'🏴', exclusive: false },
   { id:'tribe_hall',     label:'Tribe Hall Upgrade',  description:'Unlock larger meeting room for your tribe',      price: 300, category:'tribe_perks', emoji:'🏛️', exclusive: true },
 ];
 

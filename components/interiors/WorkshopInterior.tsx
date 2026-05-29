@@ -1,168 +1,228 @@
 'use client';
 import { motion } from 'framer-motion';
-import { FloatingParticles, AmbientGlow } from './InteriorShell';
 
-// Tool silhouette SVG decorations
-function ToolWall({ side }: { side: 'left' | 'right' }) {
-  const flip = side === 'right' ? 'scale(-1,1)' : '';
+// ─── Blueprint wall section ───────────────────────────────────────────────────
+function BlueprintPanel() {
   return (
-    <svg width="90" height="500" viewBox="0 0 90 500" style={{ transform: flip }}>
-      {/* Pegboard vertical lines */}
-      {[0, 1, 2, 3].map(i => (
-        <line key={i} x1={10 + i * 22} y1="0" x2={10 + i * 22} y2="500" stroke="#3D2A10" strokeWidth="1" opacity="0.4" />
+    <svg width="220" height="160" viewBox="0 0 220 160">
+      <rect width="220" height="160" fill="#0D2A5A" rx="4" opacity="0.7" />
+      {/* Grid lines */}
+      {Array.from({ length: 9 }, (_, i) => (
+        <line key={`h${i}`} x1="0" y1={10 + i * 17} x2="220" y2={10 + i * 17}
+          stroke="#2A5ABF" strokeWidth="0.4" opacity="0.5" />
       ))}
+      {Array.from({ length: 12 }, (_, i) => (
+        <line key={`v${i}`} x1={10 + i * 19} y1="0" x2={10 + i * 19} y2="160"
+          stroke="#2A5ABF" strokeWidth="0.4" opacity="0.5" />
+      ))}
+      {/* Building footprint drawing */}
+      <rect x="40" y="30" width="80" height="60" fill="none" stroke="#60A5FA" strokeWidth="1.5" />
+      <rect x="60" y="50" width="16" height="12" fill="none" stroke="#60A5FA" strokeWidth="1" />
+      {/* Door */}
+      <path d="M100,90 L100,68 Q108,68 108,78 L108,90" fill="none" stroke="#60A5FA" strokeWidth="1" />
+      {/* Windows */}
+      <rect x="48" y="40" width="10" height="8" fill="none" stroke="#A0C8FF" strokeWidth="0.8" />
+      <rect x="88" y="40" width="10" height="8" fill="none" stroke="#A0C8FF" strokeWidth="0.8" />
+      {/* Dimension lines */}
+      <line x1="40" y1="100" x2="120" y2="100" stroke="#F59E0B" strokeWidth="0.8" />
+      <text x="72" y="112" fill="#F59E0B" fontSize="8" textAnchor="middle">12.0m</text>
+      <line x1="130" y1="30" x2="130" y2="90" stroke="#F59E0B" strokeWidth="0.8" />
+      <text x="148" y="64" fill="#F59E0B" fontSize="8" textAnchor="middle">8.0m</text>
+      {/* Title block */}
+      <rect x="4" y="140" width="212" height="16" fill="none" stroke="#2A5ABF" strokeWidth="0.8" />
+      <text x="110" y="151" fill="#A0C8FF" fontSize="7" textAnchor="middle">VILLA9E WORKSHOP — BUILD PLAN v2.1</text>
+    </svg>
+  );
+}
+
+// ─── Tool silhouette wall ─────────────────────────────────────────────────────
+function ToolWall({ side }: { side: 'left' | 'right' }) {
+  const flip = side === 'right';
+  return (
+    <svg width="80" height="520" viewBox="0 0 80 520"
+      style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
+      {/* Pegboard */}
+      {Array.from({ length: 6 }, (_, i) => (
+        <line key={i} x1={8 + i * 12} y1="0" x2={8 + i * 12} y2="520"
+          stroke="#2A1800" strokeWidth="1" opacity="0.35" />
+      ))}
+      {Array.from({ length: 14 }, (_, i) => (
+        <circle key={i} cx={14 + (i % 6) * 12} cy={20 + Math.floor(i / 6) * 40}
+          r="2.5" fill="#2A1800" opacity="0.3" />
+      ))}
+
       {/* Hammer */}
-      <g transform="translate(15,60) rotate(-30,20,20)" opacity="0.55">
-        <rect x="8" y="0" width="8" height="25" rx="3" fill="#C8A87A" />
-        <rect x="0" y="-8" width="24" height="12" rx="3" fill="#4A3520" />
+      <g transform="translate(15,55) rotate(-22,18,18)">
+        <rect x="14" y="0" width="7" height="32" rx="3" fill="#C8A870" opacity="0.7" />
+        <rect x="4" y="-10" width="26" height="13" rx="3" fill="#4A3A28" opacity="0.7" />
+        <rect x="0" y="-8" width="12" height="9" rx="2" fill="#5A4A30" opacity="0.6" />
       </g>
+
+      {/* Saw blade */}
+      <g transform="translate(5,120)">
+        <rect x="4" y="0" width="60" height="8" rx="2" fill="#8A8A8A" opacity="0.55" />
+        {Array.from({ length: 10 }, (_, i) => (
+          <polygon key={i}
+            points={`${6 + i * 6},8 ${9 + i * 6},16 ${12 + i * 6},8`}
+            fill="#6A6A6A" opacity="0.55" />
+        ))}
+        <rect x="2" y="-2" width="18" height="12" rx="3" fill="#C8A870" opacity="0.5" />
+      </g>
+
       {/* Wrench */}
-      <g transform="translate(40,100)" opacity="0.5">
-        <path d="M5,0 Q15,-8 25,0 L22,50 Q15,58 8,50 Z" fill="#5A5A5A" />
-        <circle cx="15" cy="-2" r="8" fill="none" stroke="#5A5A5A" strokeWidth="4" />
+      <g transform="translate(22,185)">
+        <ellipse cx="8" cy="4" rx="10" ry="6" fill="none" stroke="#707070" strokeWidth="4" opacity="0.6" />
+        <rect x="6" y="8" width="4" height="34" rx="2" fill="#707070" opacity="0.6" />
+        <ellipse cx="8" cy="44" rx="6" ry="4" fill="none" stroke="#707070" strokeWidth="3.5" opacity="0.55" />
       </g>
-      {/* Screwdriver */}
-      <g transform="translate(70,80) rotate(20,5,30)" opacity="0.5">
-        <rect x="3" y="0" width="6" height="50" rx="3" fill="#C8A87A" />
-        <rect x="1" y="48" width="10" height="20" rx="1" fill="#6A6A6A" />
-      </g>
+
       {/* Ruler */}
-      <g transform="translate(10,180)" opacity="0.45">
-        <rect x="0" y="0" width="70" height="10" rx="2" fill="#D4B483" />
-        {[0,1,2,3,4,5,6].map(i => (
-          <line key={i} x1={5+i*10} y1="2" x2={5+i*10} y2={i%2===0?8:5} stroke="#8B6914" strokeWidth="1" />
+      <g transform="translate(6,260)">
+        <rect x="0" y="0" width="65" height="10" rx="2" fill="#D4B483" opacity="0.55" />
+        {Array.from({ length: 7 }, (_, i) => (
+          <line key={i} x1={4 + i * 9} y1="2" x2={4 + i * 9} y2={i % 2 === 0 ? 8 : 5}
+            stroke="#8B6914" strokeWidth="1" opacity="0.6" />
         ))}
       </g>
-      {/* Blueprint roll */}
-      <g transform="translate(20,240)" opacity="0.4">
-        <rect x="0" y="0" width="50" height="35" rx="3" fill="#1877F2" opacity="0.4" />
-        <line x1="5" y1="10" x2="45" y2="10" stroke="white" strokeWidth="1" opacity="0.6" />
-        <line x1="5" y1="18" x2="30" y2="18" stroke="white" strokeWidth="1" opacity="0.6" />
-        <line x1="5" y1="26" x2="38" y2="26" stroke="white" strokeWidth="1" opacity="0.6" />
+
+      {/* Level tool */}
+      <g transform="translate(5,300)">
+        <rect x="0" y="0" width="70" height="14" rx="4" fill="#4A8A3A" opacity="0.45" />
+        <ellipse cx="35" cy="7" rx="8" ry="4" fill="none" stroke="#A0E870" strokeWidth="1.5" opacity="0.5" />
+        <circle cx="35" cy="7" r="2" fill="#A0E870" opacity="0.5" />
+      </g>
+
+      {/* Screwdrivers */}
+      <g transform="translate(14,345) rotate(12)">
+        <rect x="4" y="0" width="6" height="44" rx="3" fill="#C8A870" opacity="0.6" />
+        <rect x="2" y="42" width="10" height="16" rx="1" fill="#7A7A7A" opacity="0.6" />
+        <path d="M5,58 L9,68 L7,58 Z" fill="#5A5A5A" opacity="0.55" />
+      </g>
+      <g transform="translate(42,360) rotate(-8)">
+        <rect x="4" y="0" width="6" height="38" rx="3" fill="#D0D0D0" opacity="0.5" />
+        <rect x="2" y="36" width="10" height="14" rx="1" fill="#8A3A3A" opacity="0.55" />
+        <path d="M6,50 Q7,58 8,50 Z" fill="#5A5A5A" opacity="0.5" />
+      </g>
+
+      {/* Pliers */}
+      <g transform="translate(8,430)">
+        <path d="M20,0 Q28,10 25,30 L15,30 Q12,10 20,0 Z" fill="#5A5A5A" opacity="0.5" />
+        <path d="M20,0 Q12,10 15,30 L5,30 Q8,10 20,0 Z" fill="#6A6A6A" opacity="0.45" />
+        <line x1="20" y1="30" x2="30" y2="60" stroke="#5A5A5A" strokeWidth="5" opacity="0.45" />
+        <line x1="20" y1="30" x2="10" y2="60" stroke="#5A5A5A" strokeWidth="5" opacity="0.45" />
       </g>
     </svg>
   );
 }
 
+// ─── Forge glow ───────────────────────────────────────────────────────────────
+function ForgeGlow() {
+  return (
+    <div className="fixed bottom-0 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 1 }}>
+      <motion.div
+        animate={{ opacity: [0.4, 0.7, 0.4], scale: [1, 1.08, 1] }}
+        transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+        style={{
+          width: 280, height: 120,
+          background: 'radial-gradient(ellipse at 50% 100%, rgba(255,80,0,0.22) 0%, rgba(255,140,0,0.08) 50%, transparent 80%)',
+          filter: 'blur(12px)',
+        }}
+      />
+    </div>
+  );
+}
+
+// ─── Spark particles ──────────────────────────────────────────────────────────
+function Sparks() {
+  return (
+    <>
+      {Array.from({ length: 18 }, (_, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none rounded-full"
+          style={{
+            width:  1 + (i % 2),
+            height: 1 + (i % 2),
+            left:   `${42 + (i % 16) * 1.2}%`,
+            bottom: `${2 + (i % 8) * 3}%`,
+            background: i % 3 === 0 ? '#FFAA00' : i % 3 === 1 ? '#FF6600' : '#FFDD44',
+            zIndex: 2,
+          }}
+          animate={{ y: [0, -60 - (i % 4) * 20], opacity: [0.9, 0], x: [(i % 5 - 2) * 5, (i % 5 - 2) * 14] }}
+          transition={{ duration: 0.8 + (i % 3) * 0.4, repeat: Infinity, delay: i * 0.22, ease: 'easeOut' }}
+        />
+      ))}
+    </>
+  );
+}
+
 export function WorkshopInterior({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen" style={{ background: '#0D0800' }}>
+    <div className="relative min-h-screen overflow-x-hidden" style={{ background: '#080400' }}>
 
-      {/* ── Dark wood workshop atmosphere ────────────────────────── */}
+      {/* ── Stone + wood base ─────────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at 50% 40%, #1A0E00 0%, #0D0800 60%, #060400 100%)',
+        background: `
+          radial-gradient(ellipse at 30% 70%, rgba(80,40,0,0.25) 0%, transparent 55%),
+          radial-gradient(ellipse at 70% 80%, rgba(100,50,0,0.2) 0%, transparent 50%),
+          linear-gradient(180deg, #0D0600 0%, #080400 60%, #050300 100%)
+        `,
         zIndex: 0,
       }} />
 
-      {/* Wood plank floor */}
-      <div className="fixed bottom-0 left-0 right-0 h-40 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(90deg, #2A1800 0px, #2A1800 60px, #1E1200 60px, #1E1200 120px)',
-        opacity: 0.6,
+      {/* ── Wood floor planks ─────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 h-28 pointer-events-none" style={{
+        background: `repeating-linear-gradient(90deg,
+          rgba(80,45,15,0.18) 0px, rgba(80,45,15,0.18) 1px,
+          transparent 1px, transparent 62px
+        ), linear-gradient(180deg, transparent, rgba(50,28,8,0.3))`,
         zIndex: 0,
       }} />
 
-      {/* Wood grain wall texture */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(180deg, transparent 0px, transparent 38px, rgba(50,30,5,0.08) 38px, rgba(50,30,5,0.08) 40px)',
-        zIndex: 0,
-      }} />
-
-      {/* Dark ceiling with exposed beams */}
-      <div className="fixed top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 2 }}>
-        <div style={{ height: 8, background: '#1A0E00' }} />
-        {/* Exposed ceiling beams */}
-        {[0, 1, 2, 3, 4].map(i => (
-          <div key={i} style={{
-            position:   'absolute',
-            top:        0,
-            left:       `${i * 22}%`,
-            width:      '18%',
-            height:     40,
-            background: `linear-gradient(to bottom, #2A1800, #1A0E00)`,
-            borderRight: '1px solid rgba(80,50,10,0.3)',
-          }} />
-        ))}
+      {/* ── Blueprint panel (background) ──────────────────────────────── */}
+      <div className="fixed top-16 left-4 pointer-events-none" style={{ zIndex: 1, opacity: 0.22, transform: 'rotate(-1.5deg)' }}>
+        <BlueprintPanel />
       </div>
 
-      {/* Tool walls */}
-      <div className="fixed top-20 left-0 pointer-events-none" style={{ zIndex: 2 }}>
+      {/* ── Tool walls — fixed left and right ─────────────────────────── */}
+      <div className="fixed left-0 top-0 bottom-0 pointer-events-none" style={{ zIndex: 1 }}>
         <ToolWall side="left" />
       </div>
-      <div className="fixed top-20 right-0 pointer-events-none" style={{ zIndex: 2, transform: 'scaleX(-1)' }}>
+      <div className="fixed right-0 top-0 bottom-0 pointer-events-none" style={{ zIndex: 1 }}>
         <ToolWall side="right" />
       </div>
 
-      {/* Workbench silhouette */}
-      <div className="fixed bottom-16 left-0 right-0 pointer-events-none" style={{ zIndex: 2 }}>
-        <div style={{ height: 12, background: 'linear-gradient(to right, #2A1800, #3D2200, #2A1800)', opacity: 0.7 }} />
-      </div>
+      {/* ── Forge glow — warm orange from below ───────────────────────── */}
+      <ForgeGlow />
 
-      {/* Hanging overhead lanterns */}
-      <div className="fixed top-10 left-0 right-0 pointer-events-none" style={{ zIndex: 3 }}>
-        <div className="flex justify-around px-16">
-          {[0, 1, 2].map(i => (
-            <motion.div key={i}
-              animate={{ rotate: [-(3 + i), (3 + i), -(3 + i)] }}
-              transition={{ duration: 4 + i, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ transformOrigin: 'top center' }}
-            >
-              <div style={{ width: 1, height: 30, background: 'rgba(180,130,60,0.5)', margin: '0 auto' }} />
-              <div style={{
-                width: 24, height: 32,
-                background: `radial-gradient(ellipse at 40% 35%, #FFB34788, #7A450088)`,
-                borderRadius: '40%',
-                boxShadow: '0 0 20px rgba(255,160,40,0.4)',
-                margin: '0 auto',
-              }} />
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      {/* ── Sparks rising from forge ───────────────────────────────────── */}
+      <Sparks />
 
-      {/* Forge glow at bottom */}
-      <AmbientGlow color="rgba(232,119,10,0.15)" size={500} top="75%" left="50%" />
-      <AmbientGlow color="rgba(220,50,10,0.08)"  size={300} top="80%" left="25%" />
+      {/* ── Amber overhead lamp glow ───────────────────────────────────── */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 pointer-events-none" style={{
+        width: 200, height: 200, zIndex: 1,
+        background: 'radial-gradient(circle, rgba(255,180,60,0.09) 0%, transparent 65%)',
+      }} />
 
-      {/* Flying sparks from forge */}
-      <FloatingParticles
-        count={12}
-        colors={['#FF6B2B', '#FFD700', '#FF4500', '#FFA500', '#FF8C00']}
-        sizeRange={[3, 6]}
-        durRange={[1.5, 4]}
-      />
+      {/* ── Smoke wisps (faint) ────────────────────────────────────────── */}
+      {Array.from({ length: 5 }, (_, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none rounded-full"
+          style={{
+            width: 40 + i * 12, height: 40 + i * 12,
+            left:  `${45 + (i - 2) * 4}%`,
+            bottom: `${8 + i * 2}%`,
+            background: 'rgba(150,100,50,0.06)',
+            filter: 'blur(16px)',
+            zIndex: 1,
+          }}
+          animate={{ y: [0, -120 - i * 30], opacity: [0.5, 0], scale: [1, 2.5] }}
+          transition={{ duration: 4 + i * 0.8, repeat: Infinity, delay: i * 1.1, ease: 'easeOut' }}
+        />
+      ))}
 
-      {/* Dust motes floating */}
-      <FloatingParticles
-        count={8}
-        colors={['rgba(200,168,120,0.4)', 'rgba(180,140,80,0.3)']}
-        sizeRange={[4, 8]}
-        durRange={[12, 25]}
-      />
-
-      {/* ── Workshop header ──────────────────────────────────────── */}
-      <div className="relative z-10 pt-0">
-        <div className="sticky top-0 z-30" style={{ background: 'rgba(13,8,0,0.9)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(232,119,10,0.25)' }}>
-          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-              style={{ background: 'rgba(232,119,10,0.15)', border: '1px solid rgba(232,119,10,0.3)' }}>
-              🔨
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-white">Workshop</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(232,119,10,0.2)', color: '#E8770A' }}>Goal GPS Engine</span>
-              </div>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Build with intention. Forge your future.</p>
-            </div>
-            <motion.div animate={{ rotate: 360 }} transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}>
-              <span style={{ fontSize: 20 }}>⚙️</span>
-            </motion.div>
-          </div>
-        </div>
-
-        <div className="relative z-10">
-          {children}
-        </div>
+      {/* ── Content ───────────────────────────────────────────────────── */}
+      <div className="relative" style={{ zIndex: 10 }}>
+        {children}
       </div>
     </div>
   );

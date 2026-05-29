@@ -1,166 +1,188 @@
 'use client';
 import { motion } from 'framer-motion';
-import { AmbientGlow } from './InteriorShell';
 
-// Moroccan geometric tile pattern (SVG)
-function MosaicTile({ x, y, colors }: { x: number; y: number; colors: string[] }) {
+// ─── Market stall awning ──────────────────────────────────────────────────────
+function StallAwning({ x, color1, color2 }: {
+  x: number; color1: string; color2: string;
+}) {
+  const stripes = 7;
   return (
-    <g transform={`translate(${x},${y})`}>
-      <polygon points="0,0 20,0 20,20 0,20" fill={colors[0]} opacity="0.7" />
-      <polygon points="5,5 15,5 15,15 5,15" fill={colors[1]} opacity="0.6" />
-      <polygon points="10,0 20,10 10,20 0,10" fill={colors[2]} opacity="0.4" />
-    </g>
+    <div style={{ position: 'absolute', left: x, top: 0, width: 90, pointerEvents: 'none' }}>
+      <svg width="90" height="40" viewBox="0 0 90 40">
+        {/* Awning shape — scalloped */}
+        {Array.from({ length: stripes }, (_, i) => (
+          <rect key={i} x={i * 13} y="0" width="13" height="40"
+            fill={i % 2 === 0 ? color1 : color2} opacity="0.55" />
+        ))}
+        {/* Scallop bottom */}
+        {Array.from({ length: 6 }, (_, i) => (
+          <ellipse key={i} cx={7.5 + i * 15} cy="40" rx="7.5" ry="8"
+            fill={i % 2 === 0 ? color1 : color2} opacity="0.55" />
+        ))}
+      </svg>
+    </div>
   );
 }
 
-// Hanging fabric swatch
-function FabricSwatch({ x, angle, color1, color2 }: { x: number; angle: number; color1: string; color2: string }) {
+// ─── Merchant goods display ───────────────────────────────────────────────────
+function MerchantGoods({ side }: { side: 'left' | 'right' }) {
+  const flip = side === 'right';
   return (
-    <g transform={`translate(${x},0) rotate(${angle},${x},0)`}>
-      <path d={`M0,0 Q8,30 0,60 L15,60 Q8,30 15,0 Z`} fill={color1} opacity="0.7" />
-      <path d={`M15,0 Q22,30 15,60 L30,60 Q22,30 30,0 Z`} fill={color2} opacity="0.65" />
-    </g>
+    <div className="fixed pointer-events-none"
+      style={{ [side]: 0, top: 0, bottom: 0, width: 70, zIndex: 1 }}>
+      <svg width="70" height="600" viewBox="0 0 70 600"
+        style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
+
+        {/* Shelf boards */}
+        {[100, 200, 300, 420].map((y, i) => (
+          <rect key={i} x="0" y={y} width="70" height="6" rx="2" fill="#5A3820" opacity="0.4" />
+        ))}
+
+        {/* Spice jars on shelf 1 */}
+        {[8, 24, 42, 58].map((x, i) => (
+          <g key={i} transform={`translate(${x},80)`}>
+            <rect x="0" y="0" width="10" height="16" rx="4" fill={['#C84A1A','#4A8A2A','#2A4A8A','#8A6A1A'][i]} opacity="0.55" />
+            <ellipse cx="5" cy="0" rx="5" ry="2" fill={['#E86A3A','#6AAA4A','#4A6AAA','#AA8A3A'][i]} opacity="0.4" />
+          </g>
+        ))}
+
+        {/* Hanging baskets on shelf 2 */}
+        {[10, 36].map((x, i) => (
+          <g key={i} transform={`translate(${x},140)`}>
+            <line x1="12" y1="0" x2="12" y2="12" stroke="#8B6914" strokeWidth="1.5" opacity="0.5" />
+            <path d="M2,12 Q12,24 22,12" fill="#8B5A2A" opacity="0.5" />
+            <path d="M4,14 Q12,20 20,14" fill="#A06030" opacity="0.4" />
+          </g>
+        ))}
+
+        {/* Scrolls on shelf 3 */}
+        {[5, 30, 55].map((x, i) => (
+          <g key={i} transform={`translate(${x},216)`}>
+            <rect x="0" y="0" width="12" height="22" rx="5" fill="#D4B483" opacity="0.5" />
+            <line x1="0" y1="5" x2="12" y2="5" stroke="#8B6914" strokeWidth="1" opacity="0.4" />
+            <line x1="0" y1="17" x2="12" y2="17" stroke="#8B6914" strokeWidth="1" opacity="0.4" />
+          </g>
+        ))}
+
+        {/* Gems/crystals shelf 4 */}
+        {[8, 28, 48].map((x, i) => (
+          <g key={i} transform={`translate(${x},330)`}>
+            <polygon points="6,0 12,10 6,16 0,10"
+              fill={['#4ADE80','#60A5FA','#E879F9'][i]} opacity="0.45" />
+          </g>
+        ))}
+
+        {/* Hanging lanterns */}
+        {[20, 50].map((x, i) => (
+          <g key={i} transform={`translate(${x},450)`}>
+            <line x1="6" y1="-20" x2="6" y2="0" stroke="#8B6914" strokeWidth="1.5" opacity="0.4" />
+            <path d="M0,0 Q6,20 12,0 L12,16 Q6,36 0,16 Z" fill="#D97706" opacity="0.35" />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ─── Floating price tags ──────────────────────────────────────────────────────
+function PriceTags() {
+  const tags = [
+    { x: '15%', y: '30%', text: '⬡ 24 VLG' },
+    { x: '72%', y: '22%', text: '⬡ 80 VLG' },
+    { x: '45%', y: '65%', text: '⬡ 12 VLG' },
+  ];
+  return (
+    <>
+      {tags.map((tag, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none text-[10px] font-bold"
+          style={{
+            left: tag.x, top: tag.y, zIndex: 2,
+            color: '#D97706', background: 'rgba(0,0,0,0.4)',
+            padding: '2px 6px', borderRadius: 6,
+            border: '1px solid rgba(180,120,0,0.3)',
+          }}
+          animate={{ y: [0, -4, 0] }}
+          transition={{ duration: 3 + i * 0.5, repeat: Infinity, delay: i * 1.2, ease: 'easeInOut' }}
+        >
+          {tag.text}
+        </motion.div>
+      ))}
+    </>
   );
 }
 
 export function TradingPostInterior({ children }: { children: React.ReactNode }) {
-  const CANOPY_COLORS = [
-    ['#D97706', '#059669'], ['#7C3AED', '#E8770A'],
-    ['#BE185D', '#D97706'], ['#059669', '#1877F2'],
-    ['#E8770A', '#BE185D'], ['#1877F2', '#059669'],
-  ];
-
   return (
-    <div className="relative min-h-screen" style={{ background: '#1A0800' }}>
+    <div className="relative min-h-screen overflow-x-hidden"
+      style={{ background: 'linear-gradient(160deg, #060400 0%, #0A0600 50%, #080400 100%)' }}>
 
-      {/* ── Warm bazaar atmosphere ────────────────────────────────── */}
+      {/* ── Warm bazaar atmosphere ────────────────────────────────────── */}
       <div className="fixed inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at 50% 30%, #2A1200 0%, #1A0800 50%, #0D0400 100%)',
+        background: `
+          radial-gradient(ellipse at 40% 30%, rgba(150,90,10,0.12) 0%, transparent 50%),
+          radial-gradient(ellipse at 70% 70%, rgba(120,60,5,0.1) 0%, transparent 45%)
+        `,
         zIndex: 0,
       }} />
 
-      {/* Geometric tile floor */}
-      <div className="fixed bottom-0 left-0 right-0 h-32 pointer-events-none" style={{ zIndex: 1 }}>
-        <svg width="100%" height="128" preserveAspectRatio="xMidYMid slice">
-          {[...Array(12)].map((_, i) =>
-            [...Array(4)].map((__, j) => {
-              const colors = [
-                ['#D97706', '#059669', '#7C3AED'],
-                ['#BE185D', '#E8770A', '#1877F2'],
-                ['#059669', '#D97706', '#BE185D'],
-              ][Math.floor(Math.random() * 3)];
-              return <MosaicTile key={`${i}-${j}`} x={i * 20} y={j * 20 + 48} colors={colors} />;
-            })
-          )}
-        </svg>
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, transparent, rgba(26,8,0,0.8))' }} />
-      </div>
-
-      {/* Fabric canopy overhead */}
-      <div className="fixed top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 3 }}>
-        <svg width="100%" height="80" preserveAspectRatio="none">
-          {CANOPY_COLORS.map(([c1, c2], i) => (
-            <FabricSwatch key={i} x={(i * 100) / 6 + '%' as any} angle={0} color1={c1} color2={c2} />
-          ))}
-          {/* Canopy waves */}
-          <path d="M0,0 Q8,12 16,0 Q24,12 32,0 Q40,12 48,0 Q56,12 64,0 Q72,12 80,0 Q88,12 96,0 Q104,12 112,0 Q120,12 128,0" stroke="rgba(200,140,40,0.4)" strokeWidth="2" fill="none" />
-        </svg>
-      </div>
-
-      {/* Hanging lanterns (Moroccan style) */}
-      <div className="fixed top-14 left-0 right-0 pointer-events-none" style={{ zIndex: 4 }}>
-        <div className="flex justify-around px-8">
-          {['#D97706', '#BE185D', '#059669', '#7C3AED', '#E8770A'].map((color, i) => (
-            <motion.div key={i}
-              animate={{ rotate: [-(4 + i), (4 + i), -(4 + i)], y: [0, 2, 0] }}
-              transition={{ duration: 3 + i * 0.4, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ transformOrigin: 'top center' }}
-            >
-              <div style={{ width: 1, height: 18, background: 'rgba(200,160,80,0.5)', margin: '0 auto' }} />
-              {/* Moroccan lantern shape */}
-              <svg width="22" height="30" viewBox="0 0 22 30">
-                <polygon points="11,2 20,10 16,25 6,25 2,10" fill={`${color}88`} stroke={color} strokeWidth="1" />
-                <polygon points="11,4 18,11 14,23 8,23 4,11" fill={`${color}44`} />
-                <circle cx="11" cy="14" r="4" fill={`${color}66`} />
-                <line x1="11" y1="0" x2="11" y2="2" stroke="rgba(200,160,80,0.6)" strokeWidth="2" />
-              </svg>
-              {/* Glow */}
-              <div style={{
-                width: 30, height: 30, borderRadius: '50%',
-                background: `${color}22`,
-                filter: 'blur(8px)',
-                marginTop: -20, marginLeft: -4,
-              }} />
-            </motion.div>
+      {/* ── Awnings across top ────────────────────────────────────────── */}
+      <div className="fixed top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 1, height: 45 }}>
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+          {[0, 92, 184, 276, 368].map((x, i) => (
+            <StallAwning key={i} x={x}
+              color1={['#D97706','#DC2626','#7C3AED','#059669','#2563EB'][i]}
+              color2={['#92400E','#991B1B','#4C1D95','#065F46','#1E3A8A'][i]}
+            />
           ))}
         </div>
       </div>
 
-      {/* Arched doorway frame on sides */}
-      <div className="fixed top-0 left-0 bottom-0 w-16 pointer-events-none" style={{ zIndex: 2 }}>
-        <svg width="64" height="100%" preserveAspectRatio="none" style={{ height: '100vh' }}>
-          {/* Geometric arch pattern */}
-          {[...Array(8)].map((_, i) => {
-            const y = i * 80;
-            return (
-              <g key={i}>
-                <path d={`M0,${y+40} Q32,${y} 64,${y+40}`} stroke="#D97706" strokeWidth="1.5" fill="none" opacity="0.3" />
-                <line x1="0" y1={y} x2="64" y2={y} stroke="rgba(200,140,40,0.15)" strokeWidth="1" />
-              </g>
-            );
-          })}
-        </svg>
-      </div>
-      <div className="fixed top-0 right-0 bottom-0 w-16 pointer-events-none" style={{ zIndex: 2, transform: 'scaleX(-1)' }}>
-        <svg width="64" height="100%" preserveAspectRatio="none" style={{ height: '100vh' }}>
-          {[...Array(8)].map((_, i) => {
-            const y = i * 80;
-            return (
-              <g key={i}>
-                <path d={`M0,${y+40} Q32,${y} 64,${y+40}`} stroke="#D97706" strokeWidth="1.5" fill="none" opacity="0.3" />
-                <line x1="0" y1={y} x2="64" y2={y} stroke="rgba(200,140,40,0.15)" strokeWidth="1" />
-              </g>
-            );
-          })}
-        </svg>
-      </div>
+      {/* ── Merchant goods on left and right walls ────────────────────── */}
+      <MerchantGoods side="left" />
+      <MerchantGoods side="right" />
 
-      {/* Warm amber glow — marketplace heat */}
-      <AmbientGlow color="rgba(217,119,6,0.18)"  size={600} top="40%" left="50%" />
-      <AmbientGlow color="rgba(190,24,93,0.08)"  size={300} top="60%" left="20%" />
-      <AmbientGlow color="rgba(5,150,105,0.08)"  size={300} top="30%" left="80%" />
+      {/* ── Floating price tags ───────────────────────────────────────── */}
+      <PriceTags />
 
-      {/* Floating fabric particles */}
-      {[...Array(6)].map((_, i) => (
+      {/* ── Market floor tiles ────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 h-20 pointer-events-none" style={{
+        background: `
+          repeating-linear-gradient(90deg, rgba(140,90,20,0.1) 0px, rgba(140,90,20,0.1) 1px, transparent 1px, transparent 44px),
+          repeating-linear-gradient(0deg, rgba(140,90,20,0.08) 0px, rgba(140,90,20,0.08) 1px, transparent 1px, transparent 44px)
+        `,
+        zIndex: 0,
+      }} />
+
+      {/* ── Lantern warm glow ─────────────────────────────────────────── */}
+      <motion.div
+        className="fixed pointer-events-none"
+        style={{
+          zIndex: 1, top: '18%', left: '50%', transform: 'translateX(-50%)',
+          width: 180, height: 180,
+          background: 'radial-gradient(circle, rgba(220,150,0,0.1) 0%, transparent 70%)',
+        }}
+        animate={{ opacity: [0.5, 0.9, 0.5] }}
+        transition={{ duration: 2.8, repeat: Infinity, ease: 'easeInOut' }}
+      />
+
+      {/* ── Dust motes floating ───────────────────────────────────────── */}
+      {Array.from({ length: 14 }, (_, i) => (
         <motion.div key={i}
-          className="fixed pointer-events-none"
-          style={{ top: `${10 + i * 12}%`, left: `${i * 16}%`, width: 4, height: 12, borderRadius: 2, background: CANOPY_COLORS[i][0], opacity: 0.3, zIndex: 1 }}
-          animate={{ y: [0, 30, 60], x: [0, 15, -10], rotate: [0, 90, 180], opacity: [0, 0.4, 0] }}
-          transition={{ duration: 8 + i * 2, repeat: Infinity, delay: i * 1.2 }}
+          className="fixed pointer-events-none rounded-full"
+          style={{
+            width: 2, height: 2,
+            left:  `${(i * 31 + 8) % 90}%`,
+            background: 'rgba(200,150,50,0.4)',
+            zIndex: 2,
+          }}
+          animate={{ y: ['80vh', '20vh'], opacity: [0, 0.4, 0], x: [(i % 3 - 1) * 10, (i % 3 - 1) * 30] }}
+          transition={{ duration: 12 + i * 1.5, repeat: Infinity, delay: i * 0.9, ease: 'linear' }}
         />
       ))}
 
-      {/* ── Bazaar header ─────────────────────────────────────────── */}
-      <div className="relative z-10 pt-20">
-        <div className="sticky top-0 z-30" style={{ background: 'rgba(26,8,0,0.92)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(217,119,6,0.3)' }}>
-          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-              style={{ background: 'linear-gradient(135deg, rgba(217,119,6,0.2), rgba(190,24,93,0.2))', border: '1px solid rgba(217,119,6,0.3)' }}>
-              🤝
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-white">Trading Post</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(217,119,6,0.2)', color: '#F59E0B' }}>Skill Marketplace</span>
-              </div>
-              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Trade skills. Hire help. Build together.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10">
-          {children}
-        </div>
+      <div className="relative" style={{ zIndex: 10 }}>
+        {children}
       </div>
     </div>
   );

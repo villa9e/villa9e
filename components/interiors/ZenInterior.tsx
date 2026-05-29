@@ -1,182 +1,193 @@
 'use client';
 import { motion } from 'framer-motion';
-import { FloatingParticles, AmbientGlow } from './InteriorShell';
 
-// Cherry blossom petal shapes (SVG path variants)
-const PETAL_COLORS = ['#FFB7C5', '#FF8FA3', '#FFC0D0', '#FFAABB', '#FFD6E0', '#F9A8B4'];
+// ─── Raked sand garden — top-down pattern ────────────────────────────────────
+function SandGarden() {
+  const rows = 18;
+  const w = 280, h = 100;
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`}>
+      <rect width={w} height={h} fill="#E8DEC8" rx="6" />
+      {/* Rake lines */}
+      {Array.from({ length: rows }, (_, i) => (
+        <line key={i} x1="8" y1={5 + i * 5.2} x2={w - 8} y2={5 + i * 5.2}
+          stroke="#C8B89A" strokeWidth="0.8" />
+      ))}
+      {/* Three stones */}
+      {[
+        { cx: 70, cy: 50, rx: 22, ry: 15, fill: '#8A7A6A' },
+        { cx: 145, cy: 38, rx: 14, ry: 10, fill: '#6A5A4A' },
+        { cx: 210, cy: 58, rx: 18, ry: 12, fill: '#7A6A5A' },
+      ].map((s, i) => (
+        <g key={i}>
+          {/* Concentric rake rings around each stone */}
+          {[1,2,3,4].map(r => (
+            <ellipse key={r} cx={s.cx} cy={s.cy} rx={s.rx + r * 8} ry={s.ry + r * 5}
+              fill="none" stroke="#C8B89A" strokeWidth="0.7" opacity={0.6 - r * 0.12} />
+          ))}
+          <ellipse cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={s.fill} />
+          <ellipse cx={s.cx - 4} cy={s.cy - 4} rx={s.rx * 0.4} ry={s.ry * 0.4} fill={s.fill} opacity={0.4} />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+// ─── Mountain silhouette ──────────────────────────────────────────────────────
+function MountainSilhouette() {
+  return (
+    <svg width="100%" height="180" viewBox="0 0 800 180" preserveAspectRatio="none">
+      {/* Far mountains */}
+      <path d="M0,180 L120,60 L220,120 L340,30 L480,100 L580,20 L700,80 L800,50 L800,180 Z"
+        fill="#0A1A12" opacity="0.5" />
+      {/* Mid mountains */}
+      <path d="M0,180 L80,90 L180,140 L300,65 L420,120 L520,55 L640,100 L760,70 L800,85 L800,180 Z"
+        fill="#0D2018" opacity="0.65" />
+      {/* Snow caps */}
+      {[
+        [300, 65, 45],
+        [520, 55, 38],
+        [340, 30, 52],
+        [580, 20, 48],
+      ].map(([px, py, w], i) => (
+        <path key={i}
+          d={`M${px - w/2},${py + 22} L${px},${py} L${px + w/2},${py + 22} Z`}
+          fill="#D8E8F0" opacity={0.55 - i * 0.06} />
+      ))}
+      {/* Waterfall */}
+      <path d="M340,30 Q342,80 338,110 Q336,140 340,180" fill="none"
+        stroke="#7AB8D0" strokeWidth="2" opacity="0.4" />
+    </svg>
+  );
+}
+
+// ─── Ice crystal decoration ───────────────────────────────────────────────────
+function IceCrystal({ x, y, size = 28, opacity = 0.4 }: {
+  x: number; y: number; size?: number; opacity?: number;
+}) {
+  return (
+    <svg style={{ position: 'absolute', left: x, top: y, pointerEvents: 'none' }}
+      width={size} height={size} viewBox="0 0 40 40" opacity={opacity}>
+      {/* 6-point star */}
+      {Array.from({ length: 6 }, (_, i) => {
+        const a = (i * 60 * Math.PI) / 180;
+        return (
+          <line key={i} x1="20" y1="20" x2={20 + Math.cos(a) * 18} y2={20 + Math.sin(a) * 18}
+            stroke="#A8D8F0" strokeWidth="1.5" />
+        );
+      })}
+      <circle cx="20" cy="20" r="3" fill="#D0EEFF" />
+    </svg>
+  );
+}
+
+// ─── Bamboo stalk ─────────────────────────────────────────────────────────────
+function BambooStalk({ x, height, opacity = 0.3 }: {
+  x: number; height: number; opacity?: number;
+}) {
+  const segments = Math.floor(height / 40);
+  return (
+    <svg style={{ position: 'absolute', left: x, top: 0, pointerEvents: 'none' }}
+      width="16" height={height} viewBox={`0 0 16 ${height}`} opacity={opacity}>
+      <rect x="3" y="0" width="10" height={height} rx="4"
+        fill="url(#bambooGrad)" />
+      {Array.from({ length: segments }, (_, i) => (
+        <line key={i} x1="2" y1={40 + i * 40} x2="14" y2={40 + i * 40}
+          stroke="#1A3A1A" strokeWidth="1.5" />
+      ))}
+      <defs>
+        <linearGradient id="bambooGrad" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stopColor="#2A5A2A" />
+          <stop offset="50%" stopColor="#4A8A3A" />
+          <stop offset="100%" stopColor="#2A5A2A" />
+        </linearGradient>
+      </defs>
+    </svg>
+  );
+}
 
 export function ZenInterior({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen overflow-x-hidden" style={{ background: '#071510' }}>
+    <div className="relative min-h-screen overflow-x-hidden"
+      style={{ background: 'linear-gradient(160deg, #040E08 0%, #071510 50%, #030A0E 100%)' }}>
 
-      {/* ── Atmospheric background layers ────────────────────────── */}
-      {/* Deep forest base */}
-      <div className="fixed inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at 50% 60%, #0A2318 0%, #071510 50%, #040C08 100%)',
-        zIndex: 0,
-      }} />
-
-      {/* Stone floor texture at bottom */}
-      <div className="fixed bottom-0 left-0 right-0 h-32 pointer-events-none" style={{
-        background: 'repeating-linear-gradient(90deg, rgba(80,70,60,0.12) 0px, rgba(80,70,60,0.12) 1px, transparent 1px, transparent 48px), repeating-linear-gradient(0deg, rgba(80,70,60,0.08) 0px, rgba(80,70,60,0.08) 1px, transparent 1px, transparent 32px)',
-        zIndex: 0,
-      }} />
-
-      {/* Bamboo stalks — left and right walls */}
-      {[...Array(6)].map((_, i) => (
-        <div key={`bl-${i}`} className="fixed pointer-events-none" style={{
-          left:       `${i * 5}%`,
-          top:        0,
-          bottom:     0,
-          width:      12 + (i % 2) * 4,
-          background: `linear-gradient(to right, #2A4A2A, #3D6B3D ${30 + i * 5}%, #2A4A2A)`,
-          opacity:    0.25 - i * 0.02,
-          zIndex:     0,
-          borderRight: '1px solid rgba(80,120,60,0.15)',
-          borderLeft:  '1px solid rgba(80,120,60,0.15)',
-        }} />
-      ))}
-      {[...Array(5)].map((_, i) => (
-        <div key={`br-${i}`} className="fixed pointer-events-none" style={{
-          right:      `${i * 5}%`,
-          top:        0,
-          bottom:     0,
-          width:      10 + (i % 2) * 5,
-          background: `linear-gradient(to left, #2A4A2A, #3D6B3D 40%, #2A4A2A)`,
-          opacity:    0.20 - i * 0.02,
-          zIndex:     0,
-        }} />
-      ))}
-
-      {/* Bamboo horizontal joints */}
-      {[...Array(8)].map((_, i) => (
-        <div key={`bj-${i}`} className="fixed left-0 right-0 pointer-events-none" style={{
-          top:       `${10 + i * 12}%`,
-          height:    2,
-          background: 'rgba(80,120,60,0.1)',
-          zIndex:    0,
-        }} />
-      ))}
-
-      {/* Ceiling — paper lanterns hanging */}
-      <div className="fixed top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 2 }}>
-        {/* Horizontal ceiling beam */}
-        <div style={{ height: 6, background: 'linear-gradient(to right, #1A3A1A, #2D5A2D, #1A3A1A)', opacity: 0.8 }} />
-        {/* Hanging lanterns */}
-        <div className="flex justify-around px-8 pt-2">
-          {[...Array(5)].map((_, i) => (
-            <motion.div key={i}
-              animate={{ rotate: [-(2 + i), (2 + i), -(2 + i)] }}
-              transition={{ duration: 3 + i * 0.5, repeat: Infinity, ease: 'easeInOut' }}
-              style={{ transformOrigin: 'top center' }}
-            >
-              {/* String */}
-              <div style={{ width: 1, height: 20 + i * 8, background: 'rgba(200,180,140,0.4)', margin: '0 auto' }} />
-              {/* Lantern body */}
-              <div style={{
-                width:  18 + i * 2,
-                height: 24 + i * 2,
-                borderRadius: '50%',
-                background: `radial-gradient(ellipse at 40% 35%, ${['#FFD700', '#FF8C00', '#FFA500', '#FFB347', '#FFCC00'][i]}44, ${['#8B6914', '#7A4500', '#7A5500', '#8B5E00', '#7A6500'][i]}88)`,
-                boxShadow:  `0 0 12px ${['#FFD70066', '#FF8C0066', '#FFA50066', '#FFB34766', '#FFCC0066'][i]}`,
-                margin:     '0 auto',
-              }} />
-            </motion.div>
-          ))}
-        </div>
+      {/* ── Mountain backdrop ────────────────────────────────────────── */}
+      <div className="fixed bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 0 }}>
+        <MountainSilhouette />
       </div>
 
-      {/* Ambient glow — soft sage light from center */}
-      <AmbientGlow color="rgba(13,148,136,0.18)" size={700} top="40%" left="50%" />
-      <AmbientGlow color="rgba(34,197,94,0.06)"  size={400} top="70%" left="30%" />
-      <AmbientGlow color="rgba(251,191,36,0.08)" size={200} top="15%" left="50%" />
+      {/* ── Misty gradient overlay ────────────────────────────────────── */}
+      <div className="fixed inset-0 pointer-events-none" style={{
+        background: 'radial-gradient(ellipse at 50% 20%, rgba(100,180,220,0.04) 0%, transparent 65%)',
+        zIndex: 0,
+      }} />
 
-      {/* Cherry blossom petals falling */}
-      <FloatingParticles count={18} emoji="🌸" sizeRange={[12, 20]} durRange={[10, 22]} />
+      {/* ── Ice crystals — icy atmosphere ────────────────────────────── */}
+      {[
+        { x: 24,  y: 80,  s: 20, o: 0.3 }, { x: 58,  y: 240, s: 16, o: 0.2 },
+        { x: 12,  y: 420, s: 24, o: 0.25 },{ x: 72,  y: 160, s: 14, o: 0.2 },
+      ].map((c, i) => (
+        <IceCrystal key={`l${i}`} x={c.x} y={c.y} size={c.s} opacity={c.o} />
+      ))}
+      {[
+        { x: -40, y: 100, s: 18, o: 0.25 }, { x: -60, y: 300, s: 22, o: 0.2 },
+        { x: -30, y: 200, s: 14, o: 0.18 }, { x: -70, y: 450, s: 20, o: 0.22 },
+      ].map((c, i) => (
+        <IceCrystal key={`r${i}`} x={window?.innerWidth + c.x ?? 360 + c.x} y={c.y} size={c.s} opacity={c.o} />
+      ))}
 
-      {/* Koi pond at bottom (decorative waterline) */}
-      <div className="fixed bottom-0 left-0 right-0 pointer-events-none" style={{ zIndex: 1 }}>
-        <motion.div
-          animate={{ opacity: [0.3, 0.5, 0.3] }}
-          transition={{ duration: 4, repeat: Infinity }}
+      {/* ── Bamboo frame — left and right ────────────────────────────── */}
+      {[8, 28, 50].map((x, i) => (
+        <BambooStalk key={`bl${i}`} x={x} height={800} opacity={0.18 + i * 0.04} />
+      ))}
+
+      {/* ── Falling snow particles ────────────────────────────────────── */}
+      {Array.from({ length: 28 }, (_, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none rounded-full"
           style={{
-            height:     40,
-            background: 'linear-gradient(to top, rgba(13,148,136,0.25), transparent)',
+            width:  2 + (i % 3),
+            height: 2 + (i % 3),
+            left:   `${(i * 37 + 7) % 100}%`,
+            background: 'rgba(200,230,255,0.7)',
+            zIndex: 1,
+          }}
+          animate={{ y: ['0vh', '110vh'], opacity: [0, 0.6, 0] }}
+          transition={{
+            duration:  8 + (i % 5) * 2.4,
+            repeat:    Infinity,
+            delay:     i * 0.45,
+            ease:      'linear',
           }}
         />
-        {/* Water ripple lines */}
-        {[...Array(3)].map((_, i) => (
-          <motion.div key={i}
-            animate={{ scaleX: [0.8, 1.1, 0.8], opacity: [0.15, 0.35, 0.15] }}
-            transition={{ duration: 3 + i, repeat: Infinity, delay: i * 0.8 }}
-            style={{
-              position:    'absolute',
-              bottom:      8 + i * 10,
-              left:        '15%',
-              right:       '15%',
-              height:      1,
-              background:  'rgba(13,148,136,0.4)',
-              borderRadius: 4,
-            }}
-          />
-        ))}
+      ))}
+
+      {/* ── Sand garden — top feature ─────────────────────────────────── */}
+      <div className="fixed top-6 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 1, opacity: 0.25 }}>
+        <SandGarden />
       </div>
 
-      {/* Water sound ripple hint */}
-      <motion.div
-        animate={{ opacity: [0, 0.6, 0], scale: [1, 1.3, 1] }}
-        transition={{ duration: 4, repeat: Infinity, delay: 2 }}
-        className="fixed pointer-events-none"
-        style={{ bottom: 50, right: '15%', width: 30, height: 30, borderRadius: '50%', border: '1px solid rgba(13,148,136,0.4)', zIndex: 2 }}
-      />
+      {/* ── Ambient moonlight glow ────────────────────────────────────── */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 pointer-events-none" style={{
+        width: 300, height: 300, zIndex: 0,
+        background: 'radial-gradient(circle, rgba(160,210,255,0.06) 0%, transparent 70%)',
+      }} />
 
-      {/* ── Entry arch ───────────────────────────────────────────── */}
-      <div className="relative z-10 pt-16">
+      {/* ── Lantern glow — meditation light ──────────────────────────── */}
+      {[{ left: '8%', top: '25%' }, { right: '8%', top: '32%' }].map((pos, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none"
+          style={{ ...pos, zIndex: 1, width: 30, height: 30,
+            background: 'radial-gradient(circle, rgba(255,220,100,0.18) 0%, transparent 70%)',
+          }}
+          animate={{ opacity: [0.5, 1, 0.5] }}
+          transition={{ duration: 2.8 + i * 0.7, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      ))}
 
-        {/* Torii gate header */}
-        <div className="sticky top-0 z-30" style={{ background: 'rgba(7,21,16,0.88)', backdropFilter: 'blur(20px)', borderBottom: '1px solid rgba(13,148,136,0.2)' }}>
-          <div className="max-w-2xl mx-auto px-4 py-4">
-            {/* Torii crossbeam visual */}
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">⛩️</div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-base font-black text-white tracking-tight">Zen Garden</h1>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(13,148,136,0.2)', color: '#0D9488' }}>Sanctuary</span>
-                </div>
-                <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Breathe. Be still. Heal.</p>
-              </div>
-              {/* Animated zen circle */}
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-                style={{ width: 32, height: 32, borderRadius: '50%', border: '1px solid rgba(13,148,136,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#0D9488' }} />
-              </motion.div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stepping stone path */}
-        <div className="flex justify-center gap-4 py-4 px-4" style={{ zIndex: 10, position: 'relative' }}>
-          {['Breathwork', 'Meditate', 'Journal', 'Music', 'Affirmation'].map((s, i) => (
-            <motion.div key={s}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className="rounded-full px-3 py-1.5 text-xs font-semibold cursor-pointer whitespace-nowrap"
-              style={{ background: 'rgba(13,148,136,0.12)', color: '#5EEAD4', border: '1px solid rgba(13,148,136,0.2)' }}
-            >
-              {s}
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Page content */}
-        <div className="relative z-10">
-          {children}
-        </div>
+      {/* ── Content ───────────────────────────────────────────────────── */}
+      <div className="relative" style={{ zIndex: 10 }}>
+        {children}
       </div>
     </div>
   );

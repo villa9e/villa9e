@@ -1,184 +1,118 @@
 'use client';
 import { motion } from 'framer-motion';
-import { AmbientGlow } from './InteriorShell';
 
-// Apothecary jar SVG (inline)
-function ApothecaryJar({ color, label, x, y, size = 1 }: { color: string; label: string; x: number; y: number; size?: number }) {
-  const s = size;
+// ─── Coral reef silhouette ────────────────────────────────────────────────────
+function CoralReef({ side }: { side: 'left' | 'right' }) {
+  const flip = side === 'right';
   return (
-    <g transform={`translate(${x},${y}) scale(${s})`}>
-      {/* Jar body */}
-      <ellipse cx="0" cy="0" rx="12" ry="15" fill={`${color}88`} stroke={`${color}cc`} strokeWidth="1.5" />
-      {/* Lid */}
-      <rect x="-13" y="-17" width="26" height="5" rx="2" fill={`${color}aa`} stroke={`${color}dd`} strokeWidth="1" />
-      {/* Label */}
-      <rect x="-9" y="-5" width="18" height="10" rx="2" fill="rgba(255,255,255,0.2)" />
-      <text x="0" y="3" textAnchor="middle" fontSize="5" fill="white" fontWeight="700" opacity="0.9">{label}</text>
-      {/* Cork top */}
-      <rect x="-6" y="-22" width="12" height="6" rx="2" fill="#A0845C" />
-      {/* Liquid fill */}
-      <ellipse cx="0" cy="4" rx="10" ry="8" fill={`${color}55`} />
-    </g>
+    <svg width="120" height="400" viewBox="0 0 120 400"
+      style={{ transform: flip ? 'scaleX(-1)' : undefined }}>
+      <path d="M0,380 Q60,360 120,380 L120,400 L0,400 Z" fill="#1A3A2A" opacity="0.5" />
+      {/* Branching coral */}
+      <g transform="translate(20,320)" opacity="0.55">
+        <path d="M0,60 L0,20 M-10,35 L0,20 L10,35" stroke="#E8526A" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <path d="M-10,35 L-18,15 M-10,35 L-4,18" stroke="#E8526A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <path d="M10,35 L18,16 M10,35 L4,18" stroke="#E8526A" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        {[-18,-4,4,18].map((x, i) => <circle key={i} cx={x} cy={15} r="3.5" fill="#FF7088" />)}
+        <circle cx="0" cy="20" r="3" fill="#FF5570" />
+      </g>
+      {/* Fan coral */}
+      <g transform="translate(72,300)" opacity="0.45">
+        {Array.from({ length: 7 }, (_, i) => {
+          const a = (i / 6) * 180 - 90;
+          const rad = a * Math.PI / 180;
+          return <line key={i} x1="0" y1="80" x2={Math.sin(rad) * 55} y2={80 - Math.cos(rad) * 55}
+            stroke="#FF8C42" strokeWidth={1.5} opacity="0.6" />;
+        })}
+      </g>
+      {/* Seaweed */}
+      {[48].map((x, j) => (
+        <path key={j} d={`M${x},380 Q${x + 8},340 ${x},300 Q${x - 8},260 ${x},220`}
+          fill="none" stroke="#2A8A4A" strokeWidth="4" opacity="0.35" />
+      ))}
+      <path d="M60,180 L48,174 L60,168 Z" fill="#60B8E8" opacity="0.3" />
+      <ellipse cx="64" cy="174" rx="12" ry="7" fill="#60B8E8" opacity="0.25" />
+    </svg>
   );
 }
 
-// Hanging herb bunch
-function HerbBunch({ x, y, color }: { x: number; y: number; color: string }) {
+function Bubbles() {
   return (
-    <g transform={`translate(${x},${y})`}>
-      <line x1="0" y1="0" x2="0" y2="20" stroke="#8B6914" strokeWidth="1.5" strokeLinecap="round" />
-      {[...Array(5)].map((_, i) => {
-        const angle = -60 + i * 30;
-        const rad = (angle * Math.PI) / 180;
-        const ex = Math.cos(rad) * 10;
-        const ey = 10 + Math.sin(rad) * 6;
-        return (
-          <g key={i}>
-            <line x1="0" y1="10" x2={ex} y2={ey} stroke={color} strokeWidth="1" strokeLinecap="round" />
-            <ellipse cx={ex} cy={ey} rx="3" ry="4" fill={color} opacity="0.8" transform={`rotate(${angle},${ex},${ey})`} />
-          </g>
-        );
-      })}
-    </g>
+    <>
+      {Array.from({ length: 20 }, (_, i) => (
+        <motion.div key={i}
+          className="fixed pointer-events-none rounded-full"
+          style={{
+            width:  3 + (i % 5), height: 3 + (i % 5),
+            left:   `${(i * 29 + 5) % 92}%`,
+            border: `1px solid rgba(120,200,255,${0.2 + (i % 4) * 0.08})`,
+            background: 'rgba(120,200,255,0.06)',
+            zIndex: 2,
+          }}
+          animate={{ y: ['90vh', '-5vh'], opacity: [0, 0.5, 0] }}
+          transition={{ duration: 8 + (i % 4) * 2, repeat: Infinity, delay: i * 0.55, ease: 'linear' }}
+        />
+      ))}
+    </>
   );
 }
 
 export function WellnessInterior({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative min-h-screen" style={{ background: '#F8FBF8' }}>
+    <div className="relative min-h-screen overflow-x-hidden"
+      style={{ background: 'linear-gradient(180deg, #040E18 0%, #061420 40%, #040C14 100%)' }}>
 
-      {/* ── Clean white walls with warm undertone ──────────────── */}
       <div className="fixed inset-0 pointer-events-none" style={{
-        background: 'linear-gradient(180deg, #FFFFFF 0%, #F0F8F0 40%, #EAF4EA 100%)',
+        background: `radial-gradient(ellipse at 50% 0%, rgba(20,80,140,0.25) 0%, transparent 55%),
+          radial-gradient(ellipse at 20% 80%, rgba(30,120,100,0.12) 0%, transparent 45%)`,
         zIndex: 0,
       }} />
 
-      {/* Wood panel trim on sides */}
-      <div className="fixed top-0 bottom-0 left-0 w-4 pointer-events-none" style={{ background: 'linear-gradient(to right, #8B6914, #A07830)', opacity: 0.35, zIndex: 1 }} />
-      <div className="fixed top-0 bottom-0 right-0 w-4 pointer-events-none" style={{ background: 'linear-gradient(to left, #8B6914, #A07830)', opacity: 0.35, zIndex: 1 }} />
-
-      {/* Chair rail molding */}
-      <div className="fixed left-0 right-0 pointer-events-none" style={{ top: '35%', height: 3, background: 'linear-gradient(to right, #8B6914, #C4A265, #8B6914)', opacity: 0.25, zIndex: 1 }} />
-
-      {/* Ceiling — clean recessed panel effect */}
-      <div className="fixed top-0 left-0 right-0 pointer-events-none" style={{ zIndex: 2 }}>
-        <div style={{ height: 4, background: 'linear-gradient(to bottom, #CBD5C0, transparent)', opacity: 0.5 }} />
-        {/* Subtle ceiling grid */}
-        <div style={{
-          height: 60,
-          background: 'repeating-linear-gradient(90deg, transparent, transparent 79px, rgba(0,100,40,0.04) 80px), repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(0,100,40,0.04) 60px)',
-        }} />
+      {/* Ocean surface shimmer */}
+      <div className="fixed top-0 left-0 right-0 h-20 pointer-events-none" style={{ zIndex: 1 }}>
+        <motion.div
+          style={{ width: '100%', height: '100%', background: 'linear-gradient(180deg, rgba(40,120,200,0.12) 0%, transparent 100%)' }}
+          animate={{ opacity: [0.5, 0.85, 0.5] }}
+          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+        />
       </div>
 
-      {/* Apothecary shelves — right wall */}
-      <div className="fixed right-0 top-24 pointer-events-none" style={{ width: 80, zIndex: 2 }}>
-        <svg width="80" height="400" viewBox="0 0 80 400">
-          {/* Shelf planks */}
-          <rect x="0" y="100" width="80" height="5" rx="2" fill="#8B6914" opacity="0.5" />
-          <rect x="0" y="210" width="80" height="5" rx="2" fill="#8B6914" opacity="0.5" />
-          <rect x="0" y="320" width="80" height="5" rx="2" fill="#8B6914" opacity="0.5" />
-          {/* Jars on shelf 1 */}
-          <ApothecaryJar color="#16A34A" label="Sage" x={15} y={85} size={0.7} />
-          <ApothecaryJar color="#059669" label="Mint" x={40} y={82} size={0.65} />
-          <ApothecaryJar color="#D97706" label="Ginger" x={63} y={87} size={0.6} />
-          {/* Jars on shelf 2 */}
-          <ApothecaryJar color="#7C3AED" label="Lavender" x={15} y={195} size={0.72} />
-          <ApothecaryJar color="#DC2626" label="Rose Hip" x={42} y={192} size={0.65} />
-          <ApothecaryJar color="#0D9488" label="Eucalyptus" x={65} y={197} size={0.58} />
-          {/* Herb bunches on shelf 3 */}
-          <HerbBunch x={20} y={308} color="#16A34A" />
-          <HerbBunch x={45} y={305} color="#65A30D" />
-          <HerbBunch x={65} y={310} color="#0D9488" />
-        </svg>
+      <div className="fixed left-0 bottom-0 pointer-events-none" style={{ zIndex: 1 }}>
+        <CoralReef side="left" />
+      </div>
+      <div className="fixed right-0 bottom-0 pointer-events-none" style={{ zIndex: 1 }}>
+        <CoralReef side="right" />
       </div>
 
-      {/* Botanical illustration — left wall */}
-      <div className="fixed left-0 top-32 pointer-events-none" style={{ width: 70, zIndex: 2, opacity: 0.18 }}>
-        <svg width="70" height="300" viewBox="0 0 70 300">
-          {/* Stylized leaf/plant illustration */}
-          <ellipse cx="35" cy="200" rx="4" ry="80" fill="#16A34A" />
-          {[0, 1, 2, 3, 4].map(i => {
-            const y = 100 + i * 30;
-            const side = i % 2 === 0 ? 1 : -1;
-            return (
-              <ellipse key={i} cx={35 + side * 20} cy={y} rx="20" ry="10"
-                fill="#16A34A" opacity="0.8"
-                transform={`rotate(${-20 * side},${35 + side * 20},${y})`}
-              />
-            );
-          })}
-          {/* Flower */}
-          <circle cx="35" cy="80" r="8" fill="#FBBF24" />
-          {[0, 1, 2, 3, 4, 5].map(i => {
-            const a = (i / 6) * Math.PI * 2;
-            return <ellipse key={i} cx={35 + Math.cos(a) * 12} cy={80 + Math.sin(a) * 12} rx="6" ry="4"
-              fill="#D97706" transform={`rotate(${(i / 6) * 360},${35 + Math.cos(a) * 12},${80 + Math.sin(a) * 12})`} />;
-          })}
-        </svg>
+      <Bubbles />
+
+      {/* Healing glow */}
+      <div className="fixed top-1/4 left-1/2 -translate-x-1/2 pointer-events-none" style={{ zIndex: 1 }}>
+        <motion.div
+          animate={{ scale: [1, 1.25, 1], opacity: [0.06, 0.15, 0.06] }}
+          transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+          style={{ width: 320, height: 320,
+            background: 'radial-gradient(circle, rgba(100,200,255,1) 0%, transparent 70%)',
+            filter: 'blur(40px)' }}
+        />
       </div>
 
-      {/* Soft healing green ambient */}
-      <AmbientGlow color="rgba(22,163,74,0.07)" size={600} top="50%" left="50%" />
-      <AmbientGlow color="rgba(251,191,36,0.05)" size={300} top="20%" left="70%" />
-
-      {/* Soft steam from herb vessel */}
-      {[0, 1, 2].map(i => (
+      {/* Caustic light ripples */}
+      {Array.from({ length: 6 }, (_, i) => (
         <motion.div key={i}
-          className="fixed pointer-events-none"
-          style={{ bottom: '15%', right: '8%', width: 2, zIndex: 2 }}
-          animate={{ y: [0, -40, -80], opacity: [0, 0.3, 0], x: [0, (i - 1) * 4] }}
-          transition={{ duration: 2.5, delay: i * 0.7, repeat: Infinity, ease: 'easeOut' }}
-        >
-          <div style={{ width: 3, height: 20, background: 'rgba(255,255,255,0.4)', borderRadius: 2, filter: 'blur(2px)' }} />
-        </motion.div>
+          className="fixed pointer-events-none rounded-full"
+          style={{
+            width: 40 + i * 15, height: 15 + i * 5,
+            left: `${10 + (i * 14) % 75}%`, top: `${20 + (i * 17) % 50}%`,
+            border: '1px solid rgba(80,180,255,0.1)', filter: 'blur(2px)', zIndex: 1,
+          }}
+          animate={{ scale: [1, 1.3, 1], opacity: [0.2, 0.5, 0.2] }}
+          transition={{ duration: 4 + i * 0.6, repeat: Infinity, delay: i * 0.7, ease: 'easeInOut' }}
+        />
       ))}
 
-      {/* ── Clinic header ────────────────────────────────────────── */}
-      <div className="relative z-10 pt-0">
-        <div className="sticky top-0 z-30" style={{ background: 'rgba(248,251,248,0.92)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(22,163,74,0.15)' }}>
-          <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-              style={{ background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)', border: '1px solid #A7F3D0' }}>
-              🌿
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black" style={{ color: '#052E16' }}>Wellness Center</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: '#DCFCE7', color: '#15803D' }}>🌿 Healing Space</span>
-              </div>
-              <p className="text-xs" style={{ color: '#6B7280' }}>Licensed providers · Holistic care · Telehealth</p>
-            </div>
-            {/* Caduceus symbol */}
-            <div style={{ fontSize: 20 }}>⚕️</div>
-          </div>
-
-          {/* Service nav pills */}
-          <div className="flex gap-2 px-4 pb-3 overflow-x-auto">
-            {['Find Provider', 'Book Session', 'Apply as Provider', 'My Care'].map((s, i) => (
-              <div key={s} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
-                style={{ background: i === 0 ? '#16A34A' : '#ECFDF5', color: i === 0 ? '#fff' : '#15803D', border: '1px solid #A7F3D0' }}>
-                {s}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Reassuring wellness banner */}
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="rounded-2xl p-3 flex items-center gap-3"
-            style={{ background: 'linear-gradient(135deg, #ECFDF5, #F0FDF4)', border: '1px solid #BBF7D0' }}>
-            <span className="text-2xl">🏥</span>
-            <div>
-              <p className="text-xs font-bold" style={{ color: '#15803D' }}>HIPAA Compliant · NPI Verified</p>
-              <p className="text-xs" style={{ color: '#6B7280' }}>All practitioners are licensed. Sessions are private and secure.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Page content */}
-        <div className="relative z-10">
-          {children}
-        </div>
+      <div className="relative" style={{ zIndex: 10 }}>
+        {children}
       </div>
     </div>
   );
