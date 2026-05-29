@@ -878,26 +878,36 @@ function SceneLighting({ skyState }: { skyState: any }) {
   const isNight  = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
 
+  // Night minimum: enough light to see the whole village clearly
+  const NIGHT_AMBIENT_MIN = 0.55;
+
   useFrame(() => {
     if (!skyState) return;
     const [sx, sy, sz] = sunPosFromAngles(skyState.sunAltitude, skyState.sunAzimuth, 60);
     const amb = skyState.ambientIntensity ?? 0.65;
 
     if (sunRef.current) {
-      sunRef.current.position.set(sx, Math.max(sy, 1.5), sz);
-      sunRef.current.intensity = Math.max(0.08, amb * 2.2);
-      sunRef.current.color.set(skyState.sunColor ?? '#FFF5D0');
+      sunRef.current.position.set(sx, Math.max(sy, 2), sz);
+      // Night: moonlight keeps a visible minimum
+      sunRef.current.intensity = isNight
+        ? Math.max(NIGHT_AMBIENT_MIN * 0.8, amb * 1.4)
+        : Math.max(0.1, amb * 2.2);
+      sunRef.current.color.set(isNight ? '#B0C8FF' : (skyState.sunColor ?? '#FFF5D0'));
     }
     if (fillRef.current) {
-      // Fill comes from the opposite-ish side — cool sky tone
       fillRef.current.position.set(-sx * 0.6, Math.max(sy * 0.7, 6), -sz * 0.6);
-      fillRef.current.intensity = Math.max(0.02, amb * 0.5);
-      fillRef.current.color.set(isNight ? '#3050C0' : isGolden ? '#FF9944' : '#BDE0FF');
+      fillRef.current.intensity = isNight
+        ? Math.max(NIGHT_AMBIENT_MIN * 0.6, amb * 0.5)
+        : Math.max(0.02, amb * 0.5);
+      fillRef.current.color.set(isNight ? '#5070C8' : isGolden ? '#FF9944' : '#BDE0FF');
     }
     if (hemiRef.current) {
-      hemiRef.current.intensity = Math.max(0.15, amb * 0.75);
-      (hemiRef.current as any).color.set(isNight ? '#1A2550' : isGolden ? '#FF8833' : '#7BBFDC');
-      (hemiRef.current as any).groundColor.set(isNight ? '#0C0F18' : '#3D5A25');
+      // Night: bright enough to see terrain, buildings, avatars
+      hemiRef.current.intensity = isNight
+        ? Math.max(NIGHT_AMBIENT_MIN, amb * 0.75)
+        : Math.max(0.25, amb * 0.75);
+      (hemiRef.current as any).color.set(isNight ? '#3A4E80' : isGolden ? '#FF8833' : '#7BBFDC');
+      (hemiRef.current as any).groundColor.set(isNight ? '#1E2A40' : '#3D5A25');
     }
   });
 
@@ -906,22 +916,22 @@ function SceneLighting({ skyState }: { skyState: any }) {
 
   return (
     <>
-      {/* Hemisphere — sky above, earth below — richest ambient */}
+      {/* Hemisphere — main ambient fill, brighter at night for visibility */}
       <hemisphereLight
         ref={hemiRef}
         args={[
-          isNight ? '#1A2550' : '#7BBFDC',
-          isNight ? '#0C0F18' : '#3D5A25',
-          amb0 * 0.75,
+          isNight ? '#3A4E80' : '#7BBFDC',
+          isNight ? '#1E2A40' : '#3D5A25',
+          isNight ? NIGHT_AMBIENT_MIN : amb0 * 0.75,
         ]}
       />
 
-      {/* Primary sun — main key light, casts crisp soft shadows */}
+      {/* Primary directional — sun by day, moon by night */}
       <directionalLight
         ref={sunRef}
         position={initPos}
-        intensity={Math.max(0.1, amb0 * 2.2)}
-        color={skyState?.sunColor ?? '#FFF5D0'}
+        intensity={isNight ? NIGHT_AMBIENT_MIN * 0.8 : Math.max(0.1, amb0 * 2.2)}
+        color={isNight ? '#B0C8FF' : (skyState?.sunColor ?? '#FFF5D0')}
         castShadow
         shadow-mapSize-width={2048}
         shadow-mapSize-height={2048}
@@ -935,41 +945,47 @@ function SceneLighting({ skyState }: { skyState: any }) {
         shadow-normalBias={0.02}
       />
 
-      {/* Fill light — opposite side, no shadows, cool/warm tone */}
+      {/* Fill — opposite side, cool tone */}
       <directionalLight
         ref={fillRef}
         position={[-15, 18, 10]}
-        intensity={amb0 * 0.45}
-        color={isNight ? '#3050C0' : '#BDE0FF'}
+        intensity={isNight ? NIGHT_AMBIENT_MIN * 0.55 : amb0 * 0.45}
+        color={isNight ? '#5070C8' : '#BDE0FF'}
       />
 
-      {/* Ground bounce light — subtle warm upfill */}
+      {/* Ground bounce — keeps undersides visible */}
       <directionalLight
         position={[0, -10, 0]}
-        intensity={isNight ? 0.03 : 0.1}
-        color={isNight ? '#1A1A2A' : '#D0C898'}
+        intensity={isNight ? 0.22 : 0.1}
+        color={isNight ? '#2A3A60' : '#D0C898'}
       />
 
-      {/* Sacred fire — central village glow, warm orange */}
+      {/* Sacred fire — warm central glow */}
       <pointLight
         position={[0, 1.8, 0]}
         intensity={isNight ? 4.0 : 1.2}
         color="#FF7020"
-        distance={16}
+        distance={18}
         decay={2}
         castShadow={false}
       />
 
       {/* Village accent lights — give depth/warmth to each quadrant */}
-      <pointLight position={[-9, 1.5, -5]}  intensity={isNight ? 1.5 : 0.18} color="#4488FF" distance={13} decay={2} />
-      <pointLight position={[ 9, 1.5, -5]}  intensity={isNight ? 1.2 : 0.14} color="#8855FF" distance={13} decay={2} />
-      <pointLight position={[-9, 1.5,  5]}  intensity={isNight ? 1.0 : 0.12} color="#44FFBB" distance={13} decay={2} />
-      <pointLight position={[ 9, 1.5,  5]}  intensity={isNight ? 1.3 : 0.15} color="#FFB040" distance={13} decay={2} />
+      <pointLight position={[-9, 1.5, -5]}  intensity={isNight ? 2.2 : 0.18} color="#4488FF" distance={18} decay={2} />
+      <pointLight position={[ 9, 1.5, -5]}  intensity={isNight ? 1.8 : 0.14} color="#8855FF" distance={18} decay={2} />
+      <pointLight position={[-9, 1.5,  5]}  intensity={isNight ? 1.6 : 0.12} color="#44FFBB" distance={18} decay={2} />
+      <pointLight position={[ 9, 1.5,  5]}  intensity={isNight ? 2.0 : 0.15} color="#FFB040" distance={18} decay={2} />
 
-      {/* Night-only moon/backlight for dramatic rim lighting */}
+      {/* Moonlight — strong cool backlight illuminates the whole scene */}
       {isNight && (
-        <directionalLight position={[-22, 28, -22]} intensity={0.4} color="#C8DCFF" />
+        <>
+          <directionalLight position={[-22, 28, -22]} intensity={0.85} color="#C0D4FF" />
+          <directionalLight position={[22, 20, 22]}   intensity={0.45} color="#A0B8E8" />
+        </>
       )}
+
+      {/* General ambient floor — always-on fill so nothing is pitch black */}
+      <ambientLight intensity={isNight ? 0.45 : 0.12} color={isNight ? '#2A3A58' : '#F0F0FF'} />
     </>
   );
 }
