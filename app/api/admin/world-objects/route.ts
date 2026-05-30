@@ -22,7 +22,7 @@ const LIVE_COLS = [
   'behavior','linked_page','dialog_title','dialog_content',
   'iframe_url','transport_target','trigger_type','trigger_distance',
   'sound_url','sound_volume','sound_trigger_dist','sound_max_dist','sound_loop',
-  'item_info_enabled','trail_passable','trail_points','is_live',
+  'item_info_enabled','trail_passable','trail_points','is_live','is_building',
 ].join(',');
 
 // GET /api/admin/world-objects — returns all live objects (service role bypasses RLS)

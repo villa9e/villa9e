@@ -83,7 +83,7 @@ interface AdminObj {
   sound_url: string | null; sound_volume: number;
   sound_trigger_dist: number; sound_max_dist: number; sound_loop: boolean;
   item_info_enabled: boolean; trail_passable?: boolean;
-  trail_points?: [number, number][];
+  trail_points?: [number, number][]; is_building?: boolean;
 }
 
 // ─── Shared ref: live admin objects list (populated by LiveAdminObjects,
