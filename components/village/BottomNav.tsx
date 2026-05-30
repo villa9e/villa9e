@@ -1,12 +1,14 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-// Village map has its own carousel nav — exclude it here
+// Village map + sandbox have their own nav; embedded drawer hides it
 const HIDE_ON = ['/village/map', '/admin/sandbox'];
+
+function BottomNavInner() {
 
 const NAV_ITEMS = [
   {
@@ -37,13 +39,14 @@ const NAV_ITEMS = [
   },
 ] as const;
 
-export function BottomNav() {
+function BottomNavInner() {
   const path = usePathname();
+  const searchParams = useSearchParams();
   const [unread, setUnread] = useState(0);
   const supabase = createClient();
 
   const isVillagePage = path.startsWith('/village') || path === '/notifications' || path.startsWith('/messages');
-  const isHidden = HIDE_ON.some(p => path === p || path.startsWith(p));
+  const isHidden = HIDE_ON.some(p => path === p || path.startsWith(p)) || searchParams.get('embedded') === '1';
 
   useEffect(() => {
     async function loadUnread() {
@@ -146,5 +149,13 @@ export function BottomNav() {
         })}
       </div>
     </nav>
+  );
+}
+
+export function BottomNav() {
+  return (
+    <Suspense fallback={null}>
+      <BottomNavInner />
+    </Suspense>
   );
 }

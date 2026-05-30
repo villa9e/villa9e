@@ -121,150 +121,136 @@ const CRESCENT_POSITIONS = CRESCENT_ANGLES_DEG.map(deg => {
 
 const SPIRIT_POS: [number,number,number] = [0, 0, 0];
 
-// ─── Carousel bottom nav ──────────────────────────────────────────────────────
+// ─── Carousel bottom nav — monotone SVG icons ────────────────────────────────
 const NAV_ITEMS = [
-  { id: 'messages',  icon: '💬', label: 'Messages',    href: '/messages' },
-  { id: 'hut',       icon: '🏠', label: 'My Hut',      href: '/village/hut' },
-  { id: 'discover',  icon: '🔍', label: 'Discover',    href: '/village/discover' },
-  { id: 'tribes',    icon: '👥', label: 'Tribes',      href: '/village/tribes' },
-  { id: 'goal',      icon: '🎯', label: 'New Goal',    href: '/village/workshop/chat' },   // ← center (index 4)
-  { id: 'studio',    icon: '📷', label: 'Create',      href: '/village/studio' },
-  { id: 'pavilion',  icon: '🎪', label: 'Pavilion',    href: '/village/pavilion' },
-  { id: 'hospital',  icon: '🏥', label: 'Wellness',    href: '/village/hospital' },
-  { id: 'trading',   icon: '🛒', label: 'Market',      href: '/village/trading-post' },
-  { id: 'zen',       icon: '🧘', label: 'Zen',         href: '/village/zen' },
-  { id: 'map',       icon: '🗺️', label: 'Map',         href: null },   // opens overlay
+  { id: 'messages', label: 'Messages', href: '/messages',              svg: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z' },
+  { id: 'hut',      label: 'My Hut',   href: '/village/hut',           svg: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2zM9 22V12h6v10' },
+  { id: 'discover', label: 'Discover', href: '/village/discover',      svg: 'M11 18a7 7 0 100-14 7 7 0 000 14zM21 21l-4.35-4.35' },
+  { id: 'tribes',   label: 'Tribes',   href: '/village/tribes',        svg: 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
+  { id: 'goal',     label: 'New Goal', href: '/village/workshop/chat', svg: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10zm0-6l-4-4 1.41-1.41L12 13.17l6.59-6.58L20 8l-8 8z' },
+  { id: 'studio',   label: 'Create',   href: '/village/studio',        svg: 'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 17a5 5 0 100-10 5 5 0 000 10z' },
+  { id: 'pavilion', label: 'Pavilion', href: '/village/pavilion',      svg: 'M2 3h20M4 3v16a1 1 0 001 1h14a1 1 0 001-1V3M8 21v-4a4 4 0 018 0v4' },
+  { id: 'hospital', label: 'Wellness', href: '/village/hospital',      svg: 'M22 12h-4l-3 9L9 3l-3 9H2' },
+  { id: 'trading',  label: 'Market',   href: '/village/trading-post',  svg: 'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0' },
+  { id: 'zen',      label: 'Zen',      href: '/village/zen',           svg: 'M12 2a5 5 0 015 5c0 5-5 13-5 13S7 12 7 7a5 5 0 015-5zM12 9a2 2 0 100-4 2 2 0 000 4z' },
+  { id: 'map',      label: 'Map',      href: null,                     svg: 'M3 11l19-9-9 19-2-8-8-2zM3 11l8 2M14 22l-3-8' },
 ] as const;
-type NavItemId = typeof NAV_ITEMS[number]['id'];
-const NAV_CENTER_IDX = 4; // Goal is the default center
+const NAV_CENTER_IDX = 4; // Goal is center
 
 function CarouselNav({
-  isNight,
   isAdmin,
   onMapOpen,
   onNavigate,
 }: {
-  isNight: boolean;
   isAdmin?: boolean;
   onMapOpen: () => void;
   onNavigate: (href: string, label: string) => void;
 }) {
-  const router = useRouter();
-  const items = useMemo(() => {
-    if (!isAdmin) return NAV_ITEMS as unknown as typeof NAV_ITEMS[number][];
-    return [
-      ...NAV_ITEMS,
-      { id: 'sandbox', icon: '🏗️', label: 'Sandbox', href: '/admin/sandbox' } as any,
-    ];
+  const router  = useRouter();
+  const items   = useMemo(() => {
+    const base = NAV_ITEMS as unknown as { id: string; label: string; href: string | null; svg: string }[];
+    if (!isAdmin) return base;
+    return [...base, { id: 'sandbox', label: 'Sandbox', href: '/admin/sandbox',
+      svg: 'M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z' }];
   }, [isAdmin]);
-  const [center, setCenter] = useState(NAV_CENTER_IDX);
-  const touchStartX = useRef<number | null>(null);
 
-  function go(item: any) {
-    if (!item.href) { onMapOpen(); return; }
-    if (item.id === 'sandbox') { router.push('/admin/sandbox'); return; }
-    onNavigate(item.href, item.label);
+  const [center, setCenter]   = useState(NAV_CENTER_IDX);
+  const touchStart = useRef<number | null>(null);
+  const touchLock  = useRef(false);
+
+  function go(item: { id: string; href: string | null }) {
+    if (!item.href)             { onMapOpen(); return; }
+    if (item.id === 'sandbox')  { router.push('/admin/sandbox'); return; }
+    onNavigate(item.href, '');
   }
 
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) > 40) {
-      if (dx < 0) setCenter(c => Math.min(items.length - 1, c + 1));
-      else        setCenter(c => Math.max(0, c - 1));
-    }
-    touchStartX.current = null;
-  }
+  // Icon sizes/opacities per distance from center
+  const ICON_SZ = [26, 21, 17, 13, 10];
+  const OPAC    = [1, 0.65, 0.4, 0.22, 0.12];
 
-  const SIZE   = [64, 52, 40, 30, 22]; // px for positions 0,1,2,3,4+ from center
-  const OPAC   = [1, 0.82, 0.58, 0.36, 0.18];
-  const GAP    = 14; // px gap between items
-
-  // Visible window: center ± 2
-  const visible = items.map((item, i) => ({ item, i, dist: i - center }))
-    .filter(({ dist }) => Math.abs(dist) <= 2);
+  // Show center ± 4 (9 icons visible max at one time — clips at edges naturally)
+  const visible = items
+    .map((item, i) => ({ item, i, dist: i - center }))
+    .filter(({ dist }) => Math.abs(dist) <= 4);
 
   return (
     <div
-      className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-center pb-safe"
-      style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
+      className="absolute bottom-0 left-0 right-0 z-20"
+      style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
+      onTouchStart={e => { touchStart.current = e.touches[0].clientX; touchLock.current = false; }}
+      onTouchMove={e => {
+        if (touchStart.current === null || touchLock.current) return;
+        const dx = e.touches[0].clientX - touchStart.current;
+        if (Math.abs(dx) > 28) {
+          touchLock.current = true;
+          if (dx < 0) setCenter(c => Math.min(items.length - 1, c + 1));
+          else        setCenter(c => Math.max(0, c - 1));
+          touchStart.current = null;
+        }
+      }}
+      onTouchEnd={() => { touchStart.current = null; touchLock.current = false; }}
     >
+      {/* Gold gradient indicator line */}
+      <div style={{
+        height: 2,
+        background: 'linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.15) 5%, rgba(184,134,11,0.6) 30%, rgba(212,175,55,1) 50%, rgba(184,134,11,0.6) 70%, rgba(212,175,55,0.15) 95%, transparent 100%)',
+        boxShadow: '0 -1px 8px rgba(212,175,55,0.3)',
+      }} />
+
+      {/* White nav bar */}
       <div
-        className="relative flex items-end justify-center"
-        style={{
-          background: 'linear-gradient(180deg, #FFFFFF 0%, #FFF8E8 60%, #FFF0CC 100%)',
-          borderTop: '1.5px solid rgba(212,175,55,0.35)',
-          boxShadow: '0 -4px 20px rgba(0,0,0,0.12), 0 -1px 0 rgba(212,175,55,0.2)',
-          borderRadius: '20px 20px 0 0',
-          width: '100%',
-          maxWidth: 520,
-          paddingTop: 14,
-          paddingBottom: 10,
-          paddingLeft: 12,
-          paddingRight: 12,
-          gap: GAP,
-          display: 'flex',
-          alignItems: 'flex-end',
-          justifyContent: 'center',
-        }}
+        className="flex items-center justify-center gap-1 px-3 pt-2 pb-2"
+        style={{ background: '#FFFFFF', boxShadow: '0 -4px 24px rgba(0,0,0,0.08)' }}
       >
         {visible.map(({ item, i, dist }) => {
-          const absDist = Math.abs(dist);
-          const sz  = SIZE[absDist]  ?? 22;
-          const op  = OPAC[absDist] ?? 0.18;
-          const isCenter = dist === 0;
+          const abs = Math.abs(dist);
+          const iconSz = ICON_SZ[abs] ?? 10;
+          const opacity = OPAC[abs] ?? 0.08;
+          const isC = dist === 0;
+          const strokeW = isC ? 1.8 : 1.5;
+          const color = isC ? '#B8860B' : 'rgba(30,27,75,0.55)';
 
           return (
             <motion.button
               key={item.id}
-              layoutId={`nav-${item.id}`}
-              onClick={() => {
-                if (isCenter) go(item);
-                else setCenter(i);
-              }}
-              animate={{ opacity: op, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+              layoutId={`cnav-${item.id}`}
+              onClick={() => { isC ? go(item) : setCenter(i); }}
+              animate={{ opacity }}
+              transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+              className="flex flex-col items-center gap-1 rounded-xl transition-all"
               style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 3,
-                background: isCenter ? 'rgba(212,175,55,0.15)' : 'transparent',
-              border: isCenter ? '1.5px solid rgba(212,175,55,0.5)' : '1.5px solid transparent',
-                borderRadius: 16,
-                padding: isCenter ? '8px 14px' : '4px 8px',
-                cursor: 'pointer',
+                padding: isC ? '6px 14px' : '4px 8px',
+                background: isC ? 'rgba(212,175,55,0.10)' : 'transparent',
+                border: `1.5px solid ${isC ? 'rgba(212,175,55,0.45)' : 'transparent'}`,
+                minWidth: isC ? 64 : 'auto',
               }}
             >
-              <span style={{ fontSize: sz, lineHeight: 1, filter: isCenter ? 'none' : 'grayscale(0.3)' }}>
-                {item.icon}
-              </span>
-              {isCenter && (
-                <span className="text-[10px] font-black tracking-tight" style={{ color: '#B8860B' }}>
+              <svg width={iconSz} height={iconSz} viewBox="0 0 24 24"
+                fill="none" stroke={color} strokeWidth={strokeW} strokeLinecap="round" strokeLinejoin="round">
+                <path d={item.svg} />
+              </svg>
+              {isC && (
+                <span className="text-[9px] font-black tracking-tight whitespace-nowrap" style={{ color: '#B8860B' }}>
                   {item.label}
                 </span>
               )}
             </motion.button>
           );
         })}
+      </div>
 
-        {/* Swipe hint dots */}
-        <div className="absolute -top-5 left-0 right-0 flex justify-center gap-1">
-          {items.map((_, i) => (
-            <div key={i}
-              className="rounded-full transition-all"
-              style={{
-                width: i === center ? 12 : 4,
-                height: 4,
-                background: i === center ? '#D4AF37' : 'rgba(212,175,55,0.25)',
-              }} />
-          ))}
-        </div>
+      {/* Pagination dots */}
+      <div className="flex justify-center gap-1 pb-1" style={{ background: '#FFFFFF' }}>
+        {items.map((_, i) => (
+          <button key={i} onClick={() => setCenter(i)}
+            className="rounded-full transition-all"
+            style={{
+              width: i === center ? 16 : 5, height: 3,
+              background: i === center
+                ? 'linear-gradient(90deg, #D4AF37, #F5C842)'
+                : 'rgba(212,175,55,0.2)',
+            }} />
+        ))}
       </div>
     </div>
   );
@@ -2683,11 +2669,12 @@ function SideDrawer({
   const [dragX, setDragX] = useState(0);
   const dragging = useRef(false);
 
-  const glassBg   = isNight ? 'rgba(6,8,18,0.80)' : 'rgba(240,244,255,0.80)';
-  const glassEdge = isNight ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.09)';
-  const headerBg  = isNight ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.45)';
+  // 80% transparent = 20% opaque background — village shows through
+  const glassBg   = isNight ? 'rgba(4,6,14,0.20)' : 'rgba(255,255,255,0.20)';
+  const glassEdge = isNight ? 'rgba(255,255,255,0.12)' : 'rgba(30,27,75,0.12)';
+  const headerBg  = isNight ? 'rgba(0,0,0,0.30)' : 'rgba(255,255,255,0.30)';
   const textColor = isNight ? '#F0EBE0' : '#1E1B4B';
-  const mutedCol  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+  const mutedCol  = isNight ? 'rgba(255,255,255,0.5)' : 'rgba(30,27,75,0.4)';
 
   function onTouchStart(e: React.TouchEvent) {
     touchStartX.current = e.touches[0].clientX;
@@ -2714,8 +2701,8 @@ function SideDrawer({
       transition={{ duration: 0.18 }}
       onClick={onClose}
     >
-      {/* Backdrop — semi-transparent so 3D world is faintly visible */}
-      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(2px)' }} />
+      {/* Minimal backdrop — very transparent so 3D world shows through */}
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.08)' }} />
 
       {/* Drawer panel */}
       <motion.div
@@ -2757,9 +2744,9 @@ function SideDrawer({
             </button>
           </div>
 
-          {/* Content iframe */}
+          {/* Content iframe — ?embedded=1 hides the global BottomNav */}
           <iframe
-            src={href}
+            src={`${href}${href.includes('?') ? '&' : '?'}embedded=1`}
             className="flex-1 border-none"
             style={{ width: '100%', background: 'transparent' }}
             title={title}
