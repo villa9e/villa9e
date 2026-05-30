@@ -72,18 +72,43 @@ void main() {
 }
 `;
 
+export type WaterShape = 'rect' | 'circle' | 'oval' | 'natural';
+
 interface AnimatedWaterProps {
   position?: [number, number, number];
   size?: [number, number];
   type?: 'ocean' | 'river' | 'tile' | 'waterfall';
+  shape?: WaterShape;
   color?: string;
+}
+
+// ─── Natural/organic pond outline (bezier blob) ──────────────────────────────
+function buildNaturalPondGeo(radius: number): THREE.BufferGeometry {
+  const shape = new THREE.Shape();
+  // 10 hand-tuned control points → smooth organic blob
+  const raw: [number, number][] = [
+    [ 1.00,  0.00], [ 0.75,  0.60], [ 0.25,  0.88],
+    [-0.30,  0.78], [-0.82,  0.42], [-0.98, -0.08],
+    [-0.65, -0.68], [-0.05, -0.90], [ 0.52, -0.72],
+    [ 0.88, -0.32],
+  ];
+  const pts = raw.map(([x, y]) => [x * radius, y * radius] as [number, number]);
+  shape.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 0; i < pts.length; i++) {
+    const cp  = pts[i];
+    const nxt = pts[(i + 1) % pts.length];
+    const mid: [number, number] = [(cp[0] + nxt[0]) / 2, (cp[1] + nxt[1]) / 2];
+    shape.quadraticCurveTo(cp[0], cp[1], mid[0], mid[1]);
+  }
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape, 48);
 }
 
 export function AnimatedWaterPlane({
   position = [0, 0, 0],
   size = [10, 10],
   type = 'tile',
-  color,
+  shape = 'rect',
 }: AnimatedWaterProps) {
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -113,13 +138,29 @@ export function AnimatedWaterPlane({
     depthWrite: false,
   }), [uniforms]);
 
+  // Build geometry based on shape
+  const geometry = useMemo(() => {
+    const w = size[0], h = size[1], r = Math.min(w, h) / 2;
+    switch (shape) {
+      case 'circle':  return new THREE.CircleGeometry(r, 64);
+      case 'oval': {
+        // Ellipse via ShapeGeometry
+        const s = new THREE.Shape();
+        s.absellipse(0, 0, w / 2, h / 3, 0, Math.PI * 2, false, 0);
+        return new THREE.ShapeGeometry(s, 64);
+      }
+      case 'natural': return buildNaturalPondGeo(r * 0.95);
+      default:        return new THREE.PlaneGeometry(w, h, p.segs, p.segs);
+    }
+  }, [shape, size[0], size[1]]);
+
   useFrame(({ clock }) => {
     uniforms.uTime.value = clock.elapsedTime;
   });
 
   return (
     <mesh ref={meshRef} position={position} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-      <planeGeometry args={[size[0], size[1], p.segs, p.segs]} />
+      <primitive object={geometry} attach="geometry" />
       <primitive object={material} />
     </mesh>
   );

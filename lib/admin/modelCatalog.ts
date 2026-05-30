@@ -619,9 +619,13 @@ export const MODEL_CATALOG: CatalogModel[] = [
   { id:'tile_mud',    label:'Mud/Swamp',    url:'/models/tiles/mud.tile',     category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟤', tags:['ground','tile','mud','swamp'] },
   { id:'tile_snow',   label:'Snow',         url:'/models/tiles/snow.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.01, emoji:'⬜', tags:['ground','tile','snow','winter'] },
   // River section — animated flowing water channel
-  { id:'river_sm',    label:'River (Small)', url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:2, yOffset:-0.05, emoji:'🏞️', tags:['river','water','stream','animated'] },
-  { id:'river_lg',    label:'River (Wide)',  url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:6, yOffset:-0.05, emoji:'🏞️', tags:['river','water','wide','animated'] },
-  { id:'lake_sm',     label:'Pond/Lake',     url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🏞️', tags:['lake','pond','water','animated'] },
+  { id:'river_sm',    label:'River (Small)',    url:'/models/tiles/water.tile',         category:'nature_water', defaultScale:2, yOffset:-0.05, emoji:'🏞️', tags:['river','water','stream','animated'] },
+  { id:'river_lg',    label:'River (Wide)',     url:'/models/tiles/water.tile',         category:'nature_water', defaultScale:6, yOffset:-0.05, emoji:'🏞️', tags:['river','water','wide','animated'] },
+  // Pond shapes — same animated shader, different geometry
+  { id:'pond_square', label:'Pond (Square)',    url:'/models/tiles/water.tile',         category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🟦', tags:['lake','pond','water','square','animated'] },
+  { id:'pond_round',  label:'Pond (Round)',     url:'/models/tiles/water_round.tile',   category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🔵', tags:['lake','pond','water','circle','round','animated'] },
+  { id:'pond_oval',   label:'Pond (Oval)',      url:'/models/tiles/water_oval.tile',    category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🫧', tags:['lake','pond','water','oval','animated'] },
+  { id:'pond_natural',label:'Pond (Natural)',   url:'/models/tiles/water_natural.tile', category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🏝️', tags:['lake','pond','water','natural','organic','animated'] },
 ];
 
 // Category metadata for the UI

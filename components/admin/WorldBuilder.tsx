@@ -10,7 +10,7 @@ import {
   type CatalogModel, type ModelCategory, searchModels,
 } from '@/lib/admin/modelCatalog';
 import { terrainH } from '@/components/map/VillageEnvironment';
-import { AnimatedWaterPlane } from '@/components/map/AnimatedWater';
+import { AnimatedWaterPlane, type WaterShape } from '@/components/map/AnimatedWater';
 import { createClient } from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,17 +93,29 @@ const WB_TILE_COLORS: Record<string, string> = {
   'snow.tile': '#E8F4FF',
 };
 
+// Map tile filename → water shape
+const WB_WATER_SHAPE: Record<string, WaterShape> = {
+  'water.tile':         'rect',
+  'water_round.tile':   'circle',
+  'water_oval.tile':    'oval',
+  'water_natural.tile': 'natural',
+};
+
+function isWaterTile(tileKey: string) { return tileKey in WB_WATER_SHAPE; }
+
 // ─── 3D: water tile (animated) ───────────────────────────────────────────────
 function WaterTileObject({ obj, onSelect }: {
   obj: WorldObject;
   onSelect: (id: string, shiftKey: boolean) => void;
 }) {
-  const sz    = obj.scale * 4;
-  const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  const sz      = obj.scale * 4;
+  const baseY   = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  const tileKey = obj.model_url.split('/').pop() ?? '';
+  const shape   = WB_WATER_SHAPE[tileKey] ?? 'rect';
   return (
     <group position={[obj.pos_x, baseY - 0.05, obj.pos_z]}
       onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
-      <AnimatedWaterPlane position={[0, 0, 0]} size={[sz, sz]} type="tile" />
+      <AnimatedWaterPlane position={[0, 0, 0]} size={[sz, sz]} type="tile" shape={shape} />
     </group>
   );
 }
@@ -115,7 +127,7 @@ function SceneObjectTile({ obj, selected, onSelect }: {
 }) {
   const tileKey = obj.model_url.split('/').pop() ?? '';
   // Water gets animated shader
-  if (tileKey === 'water.tile') {
+  if (isWaterTile(tileKey)) {
     return <WaterTileObject obj={obj} onSelect={onSelect} />;
   }
   const color = WB_TILE_COLORS[tileKey] ?? '#888';
@@ -238,22 +250,23 @@ function SceneObject(props: {
 
 // ─── 3D: placement ghost (tile) ──────────────────────────────────────────────
 function GhostTile({ url }: { url: string }) {
-  const tileKey = url.split('/').pop() ?? '';
-  const isWater = tileKey === 'water.tile';
-  const color   = WB_TILE_COLORS[tileKey] ?? '#888';
-  const ref     = useRef<THREE.Group>(null);
+  const tileKey  = url.split('/').pop() ?? '';
+  const water    = isWaterTile(tileKey);
+  const shape    = WB_WATER_SHAPE[tileKey] ?? 'rect';
+  const color    = WB_TILE_COLORS[tileKey] ?? '#888';
+  const ref      = useRef<THREE.Group>(null);
   const { camera, raycaster, pointer } = useThree();
-  const plane   = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
-  const hit     = useMemo(() => new THREE.Vector3(), []);
+  const plane    = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const hit      = useMemo(() => new THREE.Vector3(), []);
   useFrame(() => {
     if (!ref.current) return;
     raycaster.setFromCamera(pointer, camera);
-    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, isWater ? -0.05 : 0, hit.z);
+    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, water ? -0.05 : 0, hit.z);
   });
   return (
     <group ref={ref}>
-      {isWater ? (
-        <AnimatedWaterPlane position={[0, 0, 0]} size={[4, 4]} type="tile" />
+      {water ? (
+        <AnimatedWaterPlane position={[0, 0, 0]} size={[4, 4]} type="tile" shape={shape} />
       ) : (
         <mesh rotation={[-Math.PI/2, 0, 0]}>
           <planeGeometry args={[4, 4]} />
