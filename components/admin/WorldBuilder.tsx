@@ -9,7 +9,7 @@ import {
   MODEL_CATALOG, VILLAGE_PAGES, APP_FEATURES, CATEGORY_META,
   type CatalogModel, type ModelCategory, searchModels,
 } from '@/lib/admin/modelCatalog';
-import { terrainH } from '@/components/map/VillageEnvironment';
+import { terrainH, VillageTerrain, CoastalOcean, DenseGrass } from '@/components/map/VillageEnvironment';
 import { AnimatedWaterPlane, buildTileGeometry, parseTileUrl, buildTileUrl, type WaterShape } from '@/components/map/AnimatedWater';
 import { useSkySystem } from '@/lib/world/useSkySystem';
 import { createClient } from '@/lib/supabase/client';
@@ -338,35 +338,28 @@ function TrailLine({ from, to }: { from: [number,number]; to: [number,number] })
   );
 }
 
-// ─── 3D: ground plane (grass) ────────────────────────────────────────────────
-function GroundPlane({ onPlace, onPathClick, pendingModel, pathDrawing }: {
-  onPlace:     (x: number, z: number) => void;
-  onPathClick: (x: number, z: number) => void;
+// ─── Click-capture plane — transparent, sits just above terrain for clicks ────
+function GroundPlane({ onPlace, onPathClick, pendingModel, pathDrawing, isNight }: {
+  onPlace:      (x: number, z: number) => void;
+  onPathClick:  (x: number, z: number) => void;
   pendingModel: CatalogModel | null;
   pathDrawing:  boolean;
+  isNight:      boolean;
 }) {
   return (
-    <>
-      <mesh
-        rotation={[-Math.PI / 2, 0, 0]}
-        position={[0, -0.02, 0]}
-        receiveShadow
-        onClick={(e: ThreeEvent<MouseEvent>) => {
-          e.stopPropagation();
-          if (pathDrawing)   onPathClick(e.point.x, e.point.z);
-          else if (pendingModel) onPlace(e.point.x, e.point.z);
-        }}
-      >
-        <planeGeometry args={[400, 400, 1, 1]} />
-        <meshStandardMaterial color={pathDrawing ? '#8B7A2A' : '#5A9A2A'} roughness={1} metalness={0} />
-      </mesh>
-      {!pathDrawing && [[-30,20],[40,-15],[10,50],[-50,-30],[60,40]].map(([x,z],i) => (
-        <mesh key={i} rotation={[-Math.PI/2, 0, 0]} position={[x as number, -0.015, z as number]} receiveShadow>
-          <circleGeometry args={[12 + i * 3, 12]} />
-          <meshStandardMaterial color="#4A8A1A" roughness={1} />
-        </mesh>
-      ))}
-    </>
+    // Invisible large plane at y=0.1 to intercept clicks above the terrain
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[0, 0.1, 0]}
+      onClick={(e: ThreeEvent<MouseEvent>) => {
+        e.stopPropagation();
+        if (pathDrawing)        onPathClick(e.point.x, e.point.z);
+        else if (pendingModel)  onPlace(e.point.x, e.point.z);
+      }}
+    >
+      <planeGeometry args={[400, 400, 1, 1]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
   );
 }
 
@@ -510,7 +503,13 @@ function BuilderScene({
         followCamera={false} infiniteGrid
       />
 
-      <GroundPlane onPlace={onPlace} onPathClick={onPathClick} pendingModel={pendingModel} pathDrawing={pathDrawing} />
+      {/* Village terrain — identical to live village/map */}
+      <VillageTerrain isNight={isNight} season="summer" />
+      <CoastalOcean isNight={isNight} skyState={skyState} />
+      <DenseGrass />
+
+      {/* Invisible click-capture plane above terrain */}
+      <GroundPlane onPlace={onPlace} onPathClick={onPathClick} pendingModel={pendingModel} pathDrawing={pathDrawing} isNight={isNight} />
 
       {/* Path drawing waypoints — dots + lines for selected obj */}
       {pathDrawing && objects
