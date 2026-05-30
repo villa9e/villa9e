@@ -121,20 +121,75 @@ function SwimmingFish({
   );
 }
 
-// ─── Coastal ocean ────────────────────────────────────────────────────────────
+// ─── Coastal ocean with animated shader ──────────────────────────────────────
+const OCEAN_VERT = `
+uniform float uTime;
+varying vec2 vUv;
+varying float vElev;
+void main() {
+  vUv = uv;
+  vec3 pos = position;
+  float d = length(pos.xz);
+  float wave = sin(d * 0.3 - uTime * 0.8) * 0.15 + sin(pos.x * 0.2 + uTime * 0.6) * 0.1;
+  pos.y += wave;
+  vElev = wave;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}
+`;
+const OCEAN_FRAG = `
+uniform float uTime;
+uniform vec3 uDeep;
+uniform vec3 uShallow;
+uniform float uNight;
+varying vec2 vUv;
+varying float vElev;
+void main() {
+  float ripple = sin(vUv.x * 20.0 - uTime) * sin(vUv.y * 15.0 + uTime * 0.8) * 0.5 + 0.5;
+  vec3 col = mix(uDeep, uShallow, ripple * 0.4 + (vElev + 0.15) * 2.0);
+  float foam = smoothstep(0.12, 0.15, vElev);
+  col = mix(col, vec3(0.9, 0.96, 1.0), foam * 0.5);
+  float alpha = mix(0.85, 0.95, uNight);
+  gl_FragColor = vec4(col, alpha);
+}
+`;
+
 export function CoastalOcean({ isNight, skyState }: { isNight: boolean; skyState: any }) {
-  const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
-  const wCol = isNight ? '#1A2E4A' : isGolden ? '#A06820' : '#1E6EA8';
+  const isGolden = skyState?.phase === 'golden_pm' || skyState?.phase === 'sunset';
+  const deepCol    = isNight ? '#0A1E38' : isGolden ? '#7A4010' : '#0E4A78';
+  const shallowCol = isNight ? '#1A3A5A' : isGolden ? '#C07830' : '#2A80C0';
+
+  const uniforms = useMemo(() => ({
+    uTime:    { value: 0 },
+    uDeep:    { value: new THREE.Color(deepCol) },
+    uShallow: { value: new THREE.Color(shallowCol) },
+    uNight:   { value: isNight ? 1.0 : 0.0 },
+  }), [isNight, isGolden]);
+
+  const mat = useMemo(() => new THREE.ShaderMaterial({
+    vertexShader:   OCEAN_VERT,
+    fragmentShader: OCEAN_FRAG,
+    uniforms,
+    transparent: true,
+    depthWrite: false,
+  }), [uniforms]);
+
+  useFrame(({ clock }) => {
+    uniforms.uTime.value = clock.elapsedTime;
+    uniforms.uDeep.value.set(deepCol);
+    uniforms.uShallow.value.set(shallowCol);
+  });
 
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]}>
-        <ringGeometry args={[46, 200, 64, 1]} />
-        <meshBasicMaterial color={wCol} />
+      {/* Main animated ocean ring */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, -0.5, 0]}>
+        <ringGeometry args={[46, 200, 64, 4]} />
+        <primitive object={mat} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.3, 0]}>
+      {/* Shore shimmer ring */}
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[0, -0.28, 0]}>
         <ringGeometry args={[44, 50, 64, 1]} />
-        <meshBasicMaterial color={isNight ? '#2A4A6A' : '#3A8AC8'} transparent opacity={0.55} />
+        <meshBasicMaterial color={isNight ? '#2A4A6A' : '#3A8AC8'} transparent opacity={0.45} />
       </mesh>
     </group>
   );
