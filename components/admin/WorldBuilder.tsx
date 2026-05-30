@@ -1274,20 +1274,16 @@ export function WorldBuilder() {
     setSaving(true);
     setSaveError(null);
 
-    const baseRow = (o: WorldObject, i: number) => ({
-      id:         o.id,
-      model_url:  o.model_url,
-      label:      o.world_name ?? o.label,
-      world_name: o.world_name ?? null,
-      pos_x:      o.pos_x,  pos_y: o.pos_y,  pos_z: o.pos_z,
-      rot_y:      o.rot_y,  scale: o.scale,  elevation: o.elevation,
-      is_live:    publishAll ? true : o.is_live,
-      is_building: o.is_building,
-      sort_order: i,
-    });
-
-    const fullRow = (o: WorldObject, i: number) => ({
-      ...baseRow(o, i),
+    const rows = objects.map((o, i) => ({
+      id:                 o.id,
+      model_url:          o.model_url,
+      label:              o.world_name ?? o.label,
+      world_name:         o.world_name ?? null,
+      pos_x:              o.pos_x,   pos_y: o.pos_y,   pos_z: o.pos_z,
+      rot_y:              o.rot_y,   scale: o.scale,   elevation: o.elevation,
+      is_live:            publishAll ? true : o.is_live,
+      is_building:        o.is_building,
+      sort_order:         i,
       tint_color:         o.tint_color ?? null,
       opacity:            o.opacity,
       linked_page:        o.linked_page ?? null,
@@ -1309,40 +1305,28 @@ export function WorldBuilder() {
       trigger_distance:   o.trigger_distance,
       item_info_enabled:  o.item_info_enabled,
       ...(adminUserId ? { placed_by: adminUserId } : {}),
+    }));
+
+    // Get auth token for the API route (service role bypasses RLS)
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token ?? '';
+
+    const res = await fetch('/api/admin/world-objects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        rows,
+        deletedIds: [...deletedIds.current],
+        publishAll,
+      }),
     });
 
-    // Step 1: Try full upsert
-    const fullRows = objects.map(fullRow);
-    let { error } = await supabase.from('admin_world_objects').upsert(fullRows, { onConflict: 'id' });
+    const json = await res.json();
 
-    // Step 2: If full upsert fails (missing columns), fall back to base columns
-    if (error) {
-      console.warn('[WorldBuilder] full upsert failed, trying base columns:', error.message);
-      const baseRows = objects.map(baseRow);
-      const fallback = await supabase.from('admin_world_objects').upsert(baseRows, { onConflict: 'id' });
-      error = fallback.error;
-    }
-
-    if (error) {
-      setSaveError(error.message);
-      console.error('[WorldBuilder] save failed:', error);
+    if (!res.ok || json.error) {
+      setSaveError(json.error ?? `HTTP ${res.status}`);
     } else {
-      // Step 3: Delete any objects removed since last save
-      if (deletedIds.current.size > 0) {
-        const toDelete = [...deletedIds.current];
-        await supabase
-          .from('admin_world_objects')
-          .delete()
-          .in('id', toDelete);
-        deletedIds.current.clear();
-      }
-      // Step 4: If publishAll, explicit UPDATE to ensure is_live = true
-      if (publishAll && objects.length > 0) {
-        await supabase
-          .from('admin_world_objects')
-          .update({ is_live: true })
-          .in('id', objects.map(o => o.id));
-      }
+      deletedIds.current.clear();
       if (publishAll) setObjects(prev => prev.map(o => ({ ...o, is_live: true })));
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
