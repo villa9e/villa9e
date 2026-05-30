@@ -264,6 +264,7 @@ function VillageTopBar({
   vlgBalance,
   onHutOpen,
   onSearch,
+  onNavigateTo,
   onMessages,
   onNotifications,
 }: {
