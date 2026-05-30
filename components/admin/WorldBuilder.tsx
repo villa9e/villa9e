@@ -313,11 +313,6 @@ function TrailLine({ from, to }: { from: [number,number]; to: [number,number] })
     return pts;
   }, [from, to]);
 
-  const geo = useMemo(() => {
-    const g = new THREE.BufferGeometry().setFromPoints(points);
-    return g;
-  }, [points]);
-
   // Use a mesh-based dashed path instead of <line> for TypeScript compatibility
   const segments = points.length - 1;
   return (
