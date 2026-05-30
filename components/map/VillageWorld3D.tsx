@@ -3238,15 +3238,13 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   }, []);
 
   // ── Keyboard controls ─────────────────────────────────────────────────────
-  // Arrow keys  = move avatar (right hand / d-pad)
-  // WASD        = orbit camera (left hand / look around)
+  // All directional keys move the avatar; movement is camera-relative
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       keys.current.add(e.key);
       if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
       if (e.key === ' ' && nearBuildingRef.current) {
-        e.preventDefault();
         handleEnterBuilding(nearBuildingRef.current.href, nearBuildingRef.current.label);
       }
     };
@@ -3258,25 +3256,24 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED     = 0.13;
-    const CAM_ROT   = 0.035; // radians per tick — camera orbit speed
-    const CAM_ZOOM  = 0.5;   // units per tick — zoom speed
+    const SPEED = 0.13;
 
     const loop = setInterval(() => {
-      let dx = moveInput.current.dx;
-      let dz = moveInput.current.dy;
+      // Raw directional input (local axes: +x=right, +z=back)
+      let localX = moveInput.current.dx; // joystick horizontal
+      let localZ = moveInput.current.dy; // joystick vertical
 
-      // Arrow keys → move avatar
-      if (keys.current.has('ArrowUp'))    dz = -1;
-      if (keys.current.has('ArrowDown'))  dz =  1;
-      if (keys.current.has('ArrowLeft'))  dx = -1;
-      if (keys.current.has('ArrowRight')) dx =  1;
+      // WASD + Arrow keys all move the avatar
+      if (keys.current.has('ArrowUp')    || keys.current.has('w') || keys.current.has('W')) localZ = -1;
+      if (keys.current.has('ArrowDown')  || keys.current.has('s') || keys.current.has('S')) localZ =  1;
+      if (keys.current.has('ArrowLeft')  || keys.current.has('a') || keys.current.has('A')) localX = -1;
+      if (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('D')) localX =  1;
 
-      // WASD → orbit camera (look around)
-      if (keys.current.has('a') || keys.current.has('A')) cameraAzimuth.current -= CAM_ROT;
-      if (keys.current.has('d') || keys.current.has('D')) cameraAzimuth.current += CAM_ROT;
-      if (keys.current.has('w') || keys.current.has('W')) cameraZoom.current = Math.max(6,  cameraZoom.current - CAM_ZOOM);
-      if (keys.current.has('s') || keys.current.has('S')) cameraZoom.current = Math.min(36, cameraZoom.current + CAM_ZOOM);
+      // Rotate input by camera azimuth so "forward" always matches camera direction
+      const az  = cameraAzimuth.current;
+      const cosA = Math.cos(az), sinA = Math.sin(az);
+      let dx = localX * cosA + localZ * (-sinA);
+      let dz = localX * sinA + localZ * cosA;
 
       // Drag/tap-to-walk: steer toward pointerTarget if no other input
       if (pointerTarget.current && dx === 0 && dz === 0) {
