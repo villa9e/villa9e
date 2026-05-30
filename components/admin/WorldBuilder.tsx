@@ -1091,63 +1091,80 @@ export function WorldBuilder() {
     setSelectedId(newObjs[0].id);
   }, [pending, gridSnap, snapSize, scatterMode]);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleSave = useCallback(async (publishAll = false) => {
     setSaving(true);
-    const rows = objects.map((o, i) => ({
-      id:                o.id,
-      model_url:         o.model_url,
-      label:             o.world_name ?? o.label,
-      world_name:        o.world_name,
-      pos_x:             o.pos_x,
-      pos_y:             o.pos_y,
-      pos_z:             o.pos_z,
-      rot_y:             o.rot_y,
-      scale:             o.scale,
-      elevation:         o.elevation,
-      tint_color:        o.tint_color ?? null,
-      opacity:           o.opacity,
-      is_live:           publishAll ? true : o.is_live,
-      is_building:       o.is_building,
-      linked_page:       o.linked_page ?? null,
-      linked_feature:    o.linked_feature ?? null,
-      behavior:          o.behavior,
-      dialog_title:      o.dialog_title ?? null,
-      dialog_content:    o.dialog_content ?? null,
-      iframe_url:        o.iframe_url ?? null,
-      transport_target:  o.transport_target ?? null,
-      sound_url:         o.sound_url ?? null,
-      sound_volume:      o.sound_volume,
-      sound_trigger_dist:o.sound_trigger_dist,
-      sound_max_dist:    o.sound_max_dist,
-      sound_loop:        o.sound_loop,
-      trail_enabled:     o.trail_enabled,
-      trail_passable:    o.trail_passable,
-      trail_points:      o.trail_points,
-      sort_order:        i,
-      trigger_type:      o.trigger_type,
-      trigger_distance:  o.trigger_distance,
-      item_info_enabled: o.item_info_enabled,
-      placed_by:         adminUserId ?? undefined,
-    }));
-    const { error } = await supabase.from('admin_world_objects').upsert(rows, { onConflict: 'id' });
+    setSaveError(null);
+
+    const baseRow = (o: WorldObject, i: number) => ({
+      id:         o.id,
+      model_url:  o.model_url,
+      label:      o.world_name ?? o.label,
+      world_name: o.world_name ?? null,
+      pos_x:      o.pos_x,  pos_y: o.pos_y,  pos_z: o.pos_z,
+      rot_y:      o.rot_y,  scale: o.scale,  elevation: o.elevation,
+      is_live:    publishAll ? true : o.is_live,
+      is_building: o.is_building,
+      sort_order: i,
+    });
+
+    const fullRow = (o: WorldObject, i: number) => ({
+      ...baseRow(o, i),
+      tint_color:         o.tint_color ?? null,
+      opacity:            o.opacity,
+      linked_page:        o.linked_page ?? null,
+      linked_feature:     o.linked_feature ?? null,
+      behavior:           o.behavior,
+      dialog_title:       o.dialog_title ?? null,
+      dialog_content:     o.dialog_content ?? null,
+      iframe_url:         o.iframe_url ?? null,
+      transport_target:   o.transport_target ?? null,
+      sound_url:          o.sound_url ?? null,
+      sound_volume:       o.sound_volume,
+      sound_trigger_dist: o.sound_trigger_dist,
+      sound_max_dist:     o.sound_max_dist,
+      sound_loop:         o.sound_loop,
+      trail_enabled:      o.trail_enabled,
+      trail_passable:     o.trail_passable,
+      trail_points:       o.trail_points ?? [],
+      trigger_type:       o.trigger_type,
+      trigger_distance:   o.trigger_distance,
+      item_info_enabled:  o.item_info_enabled,
+      ...(adminUserId ? { placed_by: adminUserId } : {}),
+    });
+
+    // Step 1: Try full upsert
+    const fullRows = objects.map(fullRow);
+    let { error } = await supabase.from('admin_world_objects').upsert(fullRows, { onConflict: 'id' });
+
+    // Step 2: If full upsert fails (missing columns), fall back to base columns
     if (error) {
-      console.error('[WorldBuilder] save error:', error.message);
-      // If columns are missing (migration not run), try minimal save
-      if (error.message.includes('column') || error.message.includes('does not exist')) {
-        const minRows = rows.map(r => ({
-          id: r.id, model_url: r.model_url, label: r.label,
-          pos_x: r.pos_x, pos_y: r.pos_y, pos_z: r.pos_z,
-          rot_y: r.rot_y, scale: r.scale, is_live: r.is_live,
-          is_building: r.is_building, sort_order: r.sort_order,
-        }));
-        await supabase.from('admin_world_objects').upsert(minRows, { onConflict: 'id' });
-      }
+      console.warn('[WorldBuilder] full upsert failed, trying base columns:', error.message);
+      const baseRows = objects.map(baseRow);
+      const fallback = await supabase.from('admin_world_objects').upsert(baseRows, { onConflict: 'id' });
+      error = fallback.error;
     }
-    if (publishAll) setObjects(prev => prev.map(o => ({ ...o, is_live: true })));
+
+    if (error) {
+      setSaveError(error.message);
+      console.error('[WorldBuilder] save failed:', error);
+    } else {
+      // Step 3: If publishAll, also do an explicit UPDATE to ensure is_live = true
+      // (handles the case where objects already existed with is_live = false)
+      if (publishAll && objects.length > 0) {
+        await supabase
+          .from('admin_world_objects')
+          .update({ is_live: true })
+          .in('id', objects.map(o => o.id));
+      }
+      if (publishAll) setObjects(prev => prev.map(o => ({ ...o, is_live: true })));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
+
     setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }, [objects, supabase]);
+  }, [objects, supabase, adminUserId]);
 
   const selectedObj = objects.find(o => o.id === selectedId) ?? null;
 
@@ -1720,15 +1737,26 @@ export function WorldBuilder() {
         )}
 
         {/* Save actions */}
-        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #1A3A1A', background: '#FAFAFA' }}>
+        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #DDE1E7', background: '#FAFAFA' }}>
+          {saveError && (
+            <div className="rounded-lg p-2 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 leading-snug">
+              ✕ Save failed: {saveError}
+            </div>
+          )}
           <button onClick={() => handleSave(false)} disabled={saving}
-            className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-green-600 text-[11px] font-black rounded-xl transition-colors border border-green-300 disabled:opacity-50">
+            className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-black rounded-xl transition-colors border border-blue-200 disabled:opacity-50">
             {saving ? 'Saving…' : saved ? '✓ Saved!' : '💾 Save Draft'}
           </button>
           <button onClick={() => handleSave(true)} disabled={saving}
-            className="w-full py-2 bg-[#4ADE80] hover:bg-[#22C55E] text-gray-900 text-[11px] font-black rounded-xl transition-colors disabled:opacity-50">
-            🚀 Publish All Live
+            className="w-full py-2 text-[11px] font-black rounded-xl transition-colors disabled:opacity-50"
+            style={{ background: '#16A34A', color: '#fff' }}>
+            {saving ? 'Publishing…' : saved ? '✓ Published!' : '🚀 Publish All Live'}
           </button>
+          {saved && (
+            <p className="text-center text-[10px] font-bold text-green-600">
+              ✓ Live village updated — check the map!
+            </p>
+          )}
         </div>
       </div>
     </div>
