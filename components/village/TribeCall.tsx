@@ -45,7 +45,7 @@ function RemoteVideo({ stream, userName, avatar }: { stream: MediaStream | null;
 
   if (!stream) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center" style={{ background: '#0D0E1A' }}>
+      <div className="flex-1 flex flex-col items-center justify-center" style={{ background: '#F8F9FF' }}>
         <motion.div
           animate={{ scale: [1, 1.06, 1] }}
           transition={{ duration: 2.5, repeat: Infinity }}
@@ -270,7 +270,7 @@ export function TribeCallPanel({
       className="fixed top-0 right-0 bottom-0 z-[120] flex"
       style={{ width: panelW }}
     >
-      <div className="flex flex-col w-full h-full" style={{ background: '#0A0B14', borderLeft: '1px solid rgba(124,58,237,0.25)' }}>
+      <div className="flex flex-col w-full h-full" style={{ background: '#FAFBFF', borderLeft: '1px solid rgba(124,58,237,0.25)' }}>
 
         {/* ── Header ── */}
         <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"

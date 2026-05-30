@@ -135,7 +135,7 @@ export function VillageTour({ onComplete }: VillageTourProps) {
           className="absolute bottom-24 left-1/2"
           style={{ transform: 'translateX(-50%)', width: 'min(480px, 92vw)', pointerEvents: 'auto' }}
         >
-          <div className="relative bg-[#0D1A0F] border border-[#2A5C14]/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="relative bg-white border border-green-200 rounded-2xl shadow-2xl overflow-hidden">
             {/* Progress bar */}
             <div className="h-1 bg-[#1A3A1A]">
               <motion.div
@@ -153,14 +153,14 @@ export function VillageTour({ onComplete }: VillageTourProps) {
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
                     {current.highlight && (
-                      <span className="text-[10px] bg-[#16532A] text-[#4ADE80] px-2 py-0.5 rounded font-bold tracking-wide">
+                      <span className="text-[10px] bg-[#16532A] text-green-600 px-2 py-0.5 rounded font-bold tracking-wide">
                         {current.arrowDir && DIRECTION_ARROWS[current.arrowDir]}
                         {current.arrowDir && DIRECTION_ARROWS[current.arrowDir] ? ' · ' : ''}
                         {current.highlight}
                       </span>
                     )}
                   </div>
-                  <h3 className="text-[#C8E8C8] font-bold text-base">{current.title}</h3>
+                  <h3 className="text-gray-800 font-bold text-base">{current.title}</h3>
                 </div>
                 {/* Step counter */}
                 <span className="text-[#4A7A4A] text-xs shrink-0 mt-1">
@@ -176,7 +176,7 @@ export function VillageTour({ onComplete }: VillageTourProps) {
               <div className="flex items-center gap-3">
                 <button
                   onClick={complete}
-                  className="text-[#4A7A4A] text-xs hover:text-[#C8E8C8] transition-colors"
+                  className="text-[#4A7A4A] text-xs hover:text-gray-800 transition-colors"
                 >
                   Skip tour
                 </button>
@@ -193,7 +193,7 @@ export function VillageTour({ onComplete }: VillageTourProps) {
                 </div>
                 <button
                   onClick={next}
-                  className="px-5 py-2 bg-[#16532A] hover:bg-[#1A6A35] text-[#4ADE80] text-sm font-bold rounded-xl transition-colors"
+                  className="px-5 py-2 bg-[#16532A] hover:bg-[#1A6A35] text-green-600 text-sm font-bold rounded-xl transition-colors"
                 >
                   {isLast ? "Let's go! ⬡" : 'Next →'}
                 </button>

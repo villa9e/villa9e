@@ -90,7 +90,7 @@ export function AdminEditable({ configKey, children, type = 'text', className, s
               left:      '50%',
               transform: 'translate(-50%,-50%)',
               width:     '360px',
-              background: '#0D0F1E',
+              background: '#FFFFFF',
               border:    '1px solid rgba(24,119,242,0.3)',
             }}
           >

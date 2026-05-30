@@ -95,34 +95,34 @@ export function VLGShop({ onClose }: { onClose: () => void }) {
         initial={{ scale: 0.94, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.94, opacity: 0 }}
-        className="w-full max-w-2xl bg-[#0D1A0F] border border-[#2A5C14]/40 rounded-2xl overflow-hidden shadow-2xl"
+        className="w-full max-w-2xl bg-white border border-green-200 rounded-2xl overflow-hidden shadow-2xl"
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-[#0A1A0A] border-b border-[#1A3A1A]/60 flex items-center justify-between">
+        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-[#C8E8C8] font-bold text-lg">VLG Token Shop</h2>
+            <h2 className="text-gray-800 font-bold text-lg">VLG Token Shop</h2>
             <p className="text-[#4A7A4A] text-sm">Unlock exclusive items for your village life</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="bg-[#16532A] px-4 py-2 rounded-xl flex items-center gap-2">
-              <span className="text-[#4ADE80] text-lg">⬡</span>
-              <span className="text-[#4ADE80] font-bold text-lg">{balance.toLocaleString()}</span>
+              <span className="text-green-600 text-lg">⬡</span>
+              <span className="text-green-600 font-bold text-lg">{balance.toLocaleString()}</span>
               <span className="text-[#2A7A4A] text-sm">VLG</span>
             </div>
-            <button onClick={onClose} className="text-[#4A7A4A] hover:text-[#C8E8C8] transition-colors text-xl">×</button>
+            <button onClick={onClose} className="text-[#4A7A4A] hover:text-gray-800 transition-colors text-xl">×</button>
           </div>
         </div>
 
         {/* Category tabs */}
-        <div className="flex gap-1 px-4 py-3 border-b border-[#1A3A1A]/60 overflow-x-auto">
+        <div className="flex gap-1 px-4 py-3 border-b border-gray-200 overflow-x-auto">
           {CATEGORIES.map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
               className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap transition-colors ${
                 activeCategory === cat
-                  ? 'bg-[#16532A] text-[#4ADE80]'
-                  : 'text-[#4A7A4A] hover:text-[#C8E8C8]'
+                  ? 'bg-[#16532A] text-green-600'
+                  : 'text-[#4A7A4A] hover:text-gray-800'
               }`}
             >
               {CATEGORY_LABELS[cat]}
@@ -141,10 +141,10 @@ export function VLGShop({ onClose }: { onClose: () => void }) {
               <motion.div
                 key={item.id}
                 layout
-                className={`bg-[#0A1A0A] border rounded-xl p-4 transition-colors ${
+                className={`bg-gray-50 border rounded-xl p-4 transition-colors ${
                   isPurchased
-                    ? 'border-[#4ADE80]/30 bg-[#0D2A14]'
-                    : 'border-[#1A3A1A]/60 hover:border-[#2A5C14]/60'
+                    ? 'border-[#4ADE80]/30 bg-green-50'
+                    : 'border-gray-200 hover:border-[#2A5C14]/60'
                 }`}
               >
                 <div className="flex items-start justify-between mb-2">
@@ -160,24 +160,24 @@ export function VLGShop({ onClose }: { onClose: () => void }) {
                     </span>
                   )}
                 </div>
-                <p className="text-[#C8E8C8] font-medium text-sm mb-0.5">{item.label}</p>
+                <p className="text-gray-800 font-medium text-sm mb-0.5">{item.label}</p>
                 <p className="text-[#4A7A4A] text-xs mb-3">{item.description}</p>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1">
-                    <span className="text-[#4ADE80] text-sm">⬡</span>
-                    <span className="text-[#4ADE80] font-bold text-sm">{item.price}</span>
+                    <span className="text-green-600 text-sm">⬡</span>
+                    <span className="text-green-600 font-bold text-sm">{item.price}</span>
                     <span className="text-[#2A5A2A] text-xs">VLG</span>
                   </div>
                   {isPurchased ? (
-                    <span className="text-[#4ADE80] text-xs">✓ Unlocked</span>
+                    <span className="text-green-600 text-xs">✓ Unlocked</span>
                   ) : (
                     <button
                       onClick={() => handleBuy(item)}
                       disabled={isBuying || !isAffordable}
                       className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
                         isAffordable
-                          ? 'bg-[#16532A] hover:bg-[#1A6A35] text-[#4ADE80]'
-                          : 'bg-[#0A1A0A] text-[#2A4A2A] cursor-not-allowed border border-[#1A3A1A]/40'
+                          ? 'bg-[#16532A] hover:bg-[#1A6A35] text-green-600'
+                          : 'bg-gray-50 text-gray-500 cursor-not-allowed border border-[#1A3A1A]/40'
                       } disabled:opacity-60`}
                     >
                       {isBuying ? '...' : isAffordable ? 'Buy' : 'Need more VLG'}
@@ -190,9 +190,9 @@ export function VLGShop({ onClose }: { onClose: () => void }) {
         </div>
 
         {/* How to earn VLG */}
-        <div className="px-6 py-3 bg-[#0A1A0A] border-t border-[#1A3A1A]/60 flex items-center justify-between">
+        <div className="px-6 py-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
           <p className="text-[#4A7A4A] text-xs">Complete goals, hit streaks, and help tribe members to earn VLG</p>
-          <a href="/village/blockchain" className="text-[#4ADE80] text-xs hover:underline">View ledger →</a>
+          <a href="/village/blockchain" className="text-green-600 text-xs hover:underline">View ledger →</a>
         </div>
       </motion.div>
 
@@ -203,7 +203,7 @@ export function VLGShop({ onClose }: { onClose: () => void }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#16532A] text-[#4ADE80] px-5 py-3 rounded-full shadow-xl border border-[#4ADE80]/30 text-sm font-medium z-60"
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-[#16532A] text-green-600 px-5 py-3 rounded-full shadow-xl border border-[#4ADE80]/30 text-sm font-medium z-60"
           >
             {toast}
           </motion.div>

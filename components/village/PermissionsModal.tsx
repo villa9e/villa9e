@@ -62,7 +62,7 @@ export function PermissionsModal({ open, onClose, onGranted, requestCamera = fal
             exit={{ y: 60, opacity: 0 }}
             transition={{ type: 'spring', damping: 20 }}
             className="w-full max-w-sm rounded-3xl overflow-hidden"
-            style={{ background: '#0D0F1E', border: '1px solid rgba(24,119,242,0.25)' }}
+            style={{ background: '#FFFFFF', border: '1px solid rgba(24,119,242,0.25)' }}
           >
             {step === 'intro' && (
               <div className="p-6 space-y-5">
