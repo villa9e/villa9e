@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 export const VILLAGE_SONGS = [
   { id: 'villa9e',        title: 'Villa9e',           file: '/music/Villa9e.m4a' },
+  { id: 'villa9e_remix',  title: 'Villa9e (Remix)',   file: '/music/Villa9e (Remix).mp3' },
   { id: 'compassion',     title: 'Compassion',         file: '/music/Compassion.mp3' },
   { id: 'connection',     title: 'Connection',         file: '/music/Connection.m4a' },
   { id: 'electric_flow',  title: 'Electric Flow',      file: '/music/Electric Flow.m4a' },

@@ -87,13 +87,14 @@ function makeDefault(modelUrl: string, label: string, isBuilding = false): World
 
 // ─── 3D: single object mesh ──────────────────────────────────────────────────
 function SceneObject({
-  obj, selected, onSelect, dragging, onDragEnd,
+  obj, selected, multiSelected, onSelect, dragging, onDragEnd,
 }: {
-  obj:       WorldObject;
-  selected:  boolean;
-  onSelect:  (id: string) => void;
-  dragging:  string | null;
-  onDragEnd: (id: string, x: number, z: number) => void;
+  obj:          WorldObject;
+  selected:     boolean;
+  multiSelected: boolean;
+  onSelect:     (id: string, shiftKey: boolean) => void;
+  dragging:     string | null;
+  onDragEnd:    (id: string, x: number, z: number) => void;
 }) {
   const { scene } = useGLTF(obj.model_url);
   const groupRef  = useRef<THREE.Group>(null);
@@ -141,22 +142,22 @@ function SceneObject({
       position={[obj.pos_x, baseY, obj.pos_z]}
       rotation={[0, obj.rot_y, 0]}
       scale={obj.scale}
-      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id); }}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}
     >
       <primitive object={clone} />
 
-      {selected && (
+      {(selected || multiSelected) && (
         <>
-          {/* Selection ring */}
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05 / obj.scale, 0]}>
             <ringGeometry args={[1.1, 1.35, 48]} />
-            <meshBasicMaterial color="#4ADE80" transparent opacity={0.8} side={THREE.DoubleSide} />
+            <meshBasicMaterial color={selected ? '#4ADE80' : '#60A5FA'} transparent opacity={selected ? 0.9 : 0.6} side={THREE.DoubleSide} />
           </mesh>
-          {/* Vertical highlight line */}
-          <mesh position={[0, 1.5 / obj.scale, 0]}>
-            <cylinderGeometry args={[0.03, 0.03, 3 / obj.scale, 8]} />
-            <meshBasicMaterial color="#4ADE80" transparent opacity={0.35} />
-          </mesh>
+          {selected && (
+            <mesh position={[0, 1.5 / obj.scale, 0]}>
+              <cylinderGeometry args={[0.03, 0.03, 3 / obj.scale, 8]} />
+              <meshBasicMaterial color="#4ADE80" transparent opacity={0.35} />
+            </mesh>
+          )}
         </>
       )}
 
@@ -309,17 +310,19 @@ function SkyDome() {
 
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
-  objects, selectedId, pendingModel, onSelectObj, onPlace, onDragObj, hutPos,
+  objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, hutPos,
 }: {
-  objects:      WorldObject[];
-  selectedId:   string | null;
-  pendingModel: CatalogModel | null;
-  onSelectObj:  (id: string | null) => void;
-  onPlace:      (x: number, z: number) => void;
-  onDragObj:    (id: string, x: number, z: number) => void;
-  onPathClick:  (x: number, z: number) => void;
-  pathDrawing:  boolean;
-  hutPos:       [number, number];
+  objects:       WorldObject[];
+  selectedId:    string | null;
+  multiSelected: Set<string>;
+  pendingModel:  CatalogModel | null;
+  onSelectObj:   (id: string | null, shiftKey: boolean) => void;
+  onMultiSelect: (id: string) => void;
+  onPlace:       (x: number, z: number) => void;
+  onDragObj:     (id: string, x: number, z: number) => void;
+  onPathClick:   (x: number, z: number) => void;
+  pathDrawing:   boolean;
+  hutPos:        [number, number];
 }) {
   return (
     <>
@@ -389,6 +392,7 @@ function BuilderScene({
             key={obj.id}
             obj={obj}
             selected={selectedId === obj.id}
+            multiSelected={multiSelected.has(obj.id)}
             onSelect={onSelectObj}
             dragging={selectedId}
             onDragEnd={onDragObj}
@@ -752,6 +756,8 @@ export function WorldBuilder() {
   // ── State
   const [objects,       setObjects]      = useState<WorldObject[]>([]);
   const [selectedId,    setSelectedId]   = useState<string | null>(null);
+  const [multiSelect,   setMultiSelect]  = useState<Set<string>>(new Set());
+  const [scatterMode,   setScatterMode]  = useState(false); // rapid-place copies
   const [pending,       setPending]      = useState<CatalogModel | null>(null);
   const [mode,          setMode]         = useState<'sandbox' | 'production'>('sandbox');
   const [saving,        setSaving]       = useState(false);
@@ -860,11 +866,24 @@ export function WorldBuilder() {
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
 
       // Global shortcuts
-      if (e.key === 'Escape') { setPending(null); setSelectedId(null); }
+      if (e.key === 'Escape') { setPending(null); setSelectedId(null); setMultiSelect(new Set()); setPathDrawing(false); }
       if (e.key === 'g' || e.key === 'G') setGridSnap(v => !v);
+      if (e.key === 'a' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setMultiSelect(new Set(objects.map(o => o.id))); return; }
       if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) { e.preventDefault(); undo(); return; }
       if ((e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) || (e.key === 'y' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault(); redo(); return;
+      }
+      // Multi-select: Delete all selected
+      if ((e.key === 'Delete' || e.key === 'Backspace') && multiSelect.size > 0) {
+        setObjects(prev => prev.filter(o => !multiSelect.has(o.id)));
+        setMultiSelect(new Set()); setSelectedId(null); return;
+      }
+      // Multi-select: Toggle live on all selected
+      if ((e.key === 'l' || e.key === 'L') && multiSelect.size > 0) {
+        const ids = [...multiSelect];
+        const anyLive = objects.some(o => ids.includes(o.id) && o.is_live);
+        setObjects(prev => prev.map(o => ids.includes(o.id) ? { ...o, is_live: !anyLive } : o));
+        return;
       }
 
       if (!selectedId) return;
@@ -880,7 +899,7 @@ export function WorldBuilder() {
       if (e.key === ']')          patchObj(selectedId, { rot_y: obj.rot_y + ROT });
       if (e.key === '=')          patchObj(selectedId, { scale: Math.min(6, obj.scale + 0.1) });
       if (e.key === '-')          patchObj(selectedId, { scale: Math.max(0.1, obj.scale - 0.1) });
-      if (e.key === 'l' || e.key === 'L') patchObj(selectedId, { is_live: !obj.is_live });  // L = toggle live
+      if (e.key === 'l' || e.key === 'L') patchObj(selectedId, { is_live: !obj.is_live });
       if (e.key === 'd' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); duplicateObj(selectedId); }
       if (e.key === 'Delete' || e.key === 'Backspace') deleteObj(selectedId);
     };
@@ -1422,8 +1441,21 @@ export function WorldBuilder() {
             <BuilderScene
               objects={objects.filter(o => mode === 'production' ? o.is_live : true)}
               selectedId={selectedId}
+              multiSelected={multiSelect}
               pendingModel={pending}
-              onSelectObj={id => { setSelectedId(id); setPending(null); }}
+              onSelectObj={(id, shiftKey) => {
+                if (shiftKey) {
+                  setMultiSelect(prev => {
+                    const next = new Set(prev);
+                    next.has(id) ? next.delete(id) : next.add(id);
+                    return next;
+                  });
+                } else {
+                  setSelectedId(id); setPending(null);
+                  setMultiSelect(new Set());
+                }
+              }}
+              onMultiSelect={id => setMultiSelect(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; })}
               onPlace={handlePlace}
               onDragObj={handleDragObj}
               onPathClick={handlePathClick}
@@ -1458,7 +1490,7 @@ export function WorldBuilder() {
         {/* Inspector header — drag handle */}
         <div
           className="px-4 py-2.5 flex items-center gap-2 cursor-move select-none"
-          style={{ background: '#0D2A14', borderBottom: '1px solid #1A5A1A' }}
+          style={{ background: '#F0F9F0', borderBottom: '1px solid #D1FAE5' }}
           onPointerDown={e => {
             const rect = inspRef.current?.getBoundingClientRect();
             if (!rect) return;
@@ -1474,15 +1506,47 @@ export function WorldBuilder() {
         >
           <span className="text-green-600 text-[10px]">⠿</span>
           <p className="text-green-600 text-[10px] font-black uppercase tracking-widest flex-1">
-            {selectedObj ? `✏️ ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
+            {multiSelect.size > 1 ? `☰ ${multiSelect.size} selected` : selectedObj ? `✏️ ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
           </p>
           <button onClick={() => setInspPos({ x: -1, y: -1 })}
             className="text-[#2A5A2A] hover:text-green-600 text-sm leading-none">⊠</button>
         </div>
 
         {/* Inspector body */}
-        <div className="overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 200px)', background: '#060E08' }}>
-          {selectedObj ? (
+        <div className="overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 200px)', background: '#FAFAFA' }}>
+          {/* Multi-select batch panel */}
+          {multiSelect.size > 1 ? (
+            <div className="space-y-2">
+              <p className="text-xs font-bold text-gray-600">{multiSelect.size} objects selected</p>
+              <p className="text-[10px] text-gray-400">Shift+click to add/remove · Ctrl+A = select all</p>
+              <div className="flex gap-2 flex-wrap mt-2">
+                <button onClick={() => { setObjects(prev => prev.map(o => multiSelect.has(o.id) ? { ...o, is_live: true } : o)); }}
+                  className="px-2 py-1.5 bg-green-50 border border-green-300 text-green-700 text-[10px] font-bold rounded-lg">
+                  ✓ Publish All
+                </button>
+                <button onClick={() => { setObjects(prev => prev.map(o => multiSelect.has(o.id) ? { ...o, is_live: false } : o)); }}
+                  className="px-2 py-1.5 bg-amber-50 border border-amber-300 text-amber-700 text-[10px] font-bold rounded-lg">
+                  ◌ Unpublish All
+                </button>
+                <button onClick={() => { setObjects(prev => prev.filter(o => !multiSelect.has(o.id))); setMultiSelect(new Set()); setSelectedId(null); }}
+                  className="px-2 py-1.5 bg-red-50 border border-red-300 text-red-600 text-[10px] font-bold rounded-lg">
+                  🗑 Delete All
+                </button>
+                <button onClick={() => setMultiSelect(new Set())}
+                  className="px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-500 text-[10px] rounded-lg">
+                  Clear Selection
+                </button>
+              </div>
+              <div className="mt-3 space-y-0.5">
+                {objects.filter(o => multiSelect.has(o.id)).map(o => (
+                  <div key={o.id} className="flex items-center gap-2 text-[10px] text-gray-600 py-0.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${o.is_live ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <span className="truncate">{o.world_name ?? o.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : selectedObj ? (
             <Inspector
               obj={selectedObj}
               onChange={patch => patchObj(selectedObj.id, patch)}
@@ -1493,13 +1557,14 @@ export function WorldBuilder() {
             <div className="text-center py-8">
               <p className="text-3xl mb-3">🌍</p>
               <p className="text-gray-400 text-[11px]">Select an object to edit.</p>
+              <p className="text-gray-300 text-[10px] mt-1">Shift+click for multi-select</p>
             </div>
           )}
         </div>
 
         {/* Live toggle for selected */}
         {selectedObj && (
-          <div className="px-3 py-2" style={{ borderTop: '1px solid #1A3A1A', background: '#060E08' }}>
+          <div className="px-3 py-2" style={{ borderTop: '1px solid #1A3A1A', background: '#FAFAFA' }}>
             <label className="flex items-center gap-2 cursor-pointer">
               <div
                 onClick={() => patchObj(selectedObj.id, { is_live: !selectedObj.is_live })}
@@ -1519,7 +1584,7 @@ export function WorldBuilder() {
         )}
 
         {/* Save actions */}
-        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #1A3A1A', background: '#060E08' }}>
+        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #1A3A1A', background: '#FAFAFA' }}>
           <button onClick={() => handleSave(false)} disabled={saving}
             className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-green-600 text-[11px] font-black rounded-xl transition-colors border border-green-300 disabled:opacity-50">
             {saving ? 'Saving…' : saved ? '✓ Saved!' : '💾 Save Draft'}
