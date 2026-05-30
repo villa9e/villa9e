@@ -2109,10 +2109,17 @@ function PathModel({ obj }: { obj: AdminObj }) {
 // ─── Dispatcher — picks the right renderer per object ────────────────────────
 function AdminModelDispatcher({ obj }: { obj: AdminObj }) {
   if (isTile(obj.model_url)) return <GroundTileModel obj={obj} />;
-  const hasPath = Array.isArray(obj.trail_points) && (obj.trail_points?.length ?? 0) >= 2;
-  if (hasPath)              return <PathModel obj={obj} />;
-  if (isAnimal(obj.model_url))    return <AnimalModel obj={obj} />;
-  if (isCharacter(obj.model_url)) return <NPCModel obj={obj} />;
+
+  // Buildings always render static — trail_points on buildings are display-only
+  // (they draw the path line to the hut), not path-following movement
+  if (obj.is_building) return <StaticModel obj={obj} />;
+
+  // Non-building objects with an explicit path follow it
+  const hasPath = Array.isArray(obj.trail_points) && (obj.trail_points?.length ?? 0) >= 2
+    && obj.behavior === 'patrol';
+  if (hasPath)                     return <PathModel obj={obj} />;
+  if (isAnimal(obj.model_url))     return <AnimalModel obj={obj} />;
+  if (isCharacter(obj.model_url))  return <NPCModel obj={obj} />;
   return <StaticModel obj={obj} />;
 }
 
