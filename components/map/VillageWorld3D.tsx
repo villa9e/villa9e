@@ -3119,7 +3119,7 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   const [playerHairColor, setPlayerHairColor] = useState('#0C0700');
   const [playerShirtColor, setPlayerShirtColor] = useState('#2563EB');
   const skinColorRef = useRef('#A86030'); // ref for use inside presence interval
-  const playerPos    = useRef(new THREE.Vector3(0, 0, 9));
+  const playerPos    = useRef(new THREE.Vector3(0, terrainH(0, 9), 9));
   const playerRot    = useRef(0);
   const moveInput    = useRef({ dx: 0, dy: 0 });
   const isMoving     = useRef(false);
@@ -3217,16 +3217,13 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   }, []);
 
   // ── Keyboard controls ─────────────────────────────────────────────────────
-  // WASD = move avatar (left joystick)
-  // Arrow keys = rotate camera (right joystick)
+  // Arrow keys  = move avatar (right hand / d-pad)
+  // WASD        = orbit camera (left hand / look around)
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      // Don't capture when typing in inputs
       if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       keys.current.add(e.key);
-      // Arrow keys: prevent page scroll
-      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
-      // Spacebar enters nearby building
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
       if (e.key === ' ' && nearBuildingRef.current) {
         e.preventDefault();
         handleEnterBuilding(nearBuildingRef.current.href, nearBuildingRef.current.label);
@@ -3240,17 +3237,25 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED = 0.13;
+    const SPEED     = 0.13;
+    const CAM_ROT   = 0.035; // radians per tick — camera orbit speed
+    const CAM_ZOOM  = 0.5;   // units per tick — zoom speed
 
     const loop = setInterval(() => {
       let dx = moveInput.current.dx;
       let dz = moveInput.current.dy;
 
-      // WASD + Arrow keys both move the avatar
-      if (keys.current.has('w') || keys.current.has('W') || keys.current.has('ArrowUp'))    dz = -1;
-      if (keys.current.has('s') || keys.current.has('S') || keys.current.has('ArrowDown'))  dz =  1;
-      if (keys.current.has('a') || keys.current.has('A') || keys.current.has('ArrowLeft'))  dx = -1;
-      if (keys.current.has('d') || keys.current.has('D') || keys.current.has('ArrowRight')) dx =  1;
+      // Arrow keys → move avatar
+      if (keys.current.has('ArrowUp'))    dz = -1;
+      if (keys.current.has('ArrowDown'))  dz =  1;
+      if (keys.current.has('ArrowLeft'))  dx = -1;
+      if (keys.current.has('ArrowRight')) dx =  1;
+
+      // WASD → orbit camera (look around)
+      if (keys.current.has('a') || keys.current.has('A')) cameraAzimuth.current -= CAM_ROT;
+      if (keys.current.has('d') || keys.current.has('D')) cameraAzimuth.current += CAM_ROT;
+      if (keys.current.has('w') || keys.current.has('W')) cameraZoom.current = Math.max(6,  cameraZoom.current - CAM_ZOOM);
+      if (keys.current.has('s') || keys.current.has('S')) cameraZoom.current = Math.min(36, cameraZoom.current + CAM_ZOOM);
 
       // Drag/tap-to-walk: steer toward pointerTarget if no other input
       if (pointerTarget.current && dx === 0 && dz === 0) {
