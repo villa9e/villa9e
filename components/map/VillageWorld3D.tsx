@@ -3562,7 +3562,6 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
       {/* ── Carousel bottom nav ────────────────────────────────────── */}
       <CarouselNav
-        isNight={isNightUI}
         isAdmin={isAdmin}
         onMapOpen={() => setShowMapOverlay(true)}
         onNavigate={(href, label) => openDrawer(href, label)}

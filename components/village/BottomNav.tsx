@@ -8,8 +8,6 @@ import { createClient } from '@/lib/supabase/client';
 // Village map + sandbox have their own nav; embedded drawer hides it
 const HIDE_ON = ['/village/map', '/admin/sandbox'];
 
-function BottomNavInner() {
-
 const NAV_ITEMS = [
   {
     href: '/village/map',
