@@ -155,11 +155,7 @@ function SceneObjectGltf({
     return c;
   }, [scene, obj.tint_color, obj.opacity]);
 
-  // Ground Y = terrain height + elevation offset
   const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
-
-  // Selection ring
-  const ringRadius = obj.scale * 1.2;
 
   return (
     <group
