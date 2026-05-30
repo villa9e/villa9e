@@ -16,6 +16,33 @@ async function verifyAdmin(req: NextRequest) {
   return profile?.is_super_admin ? user : null;
 }
 
+const LIVE_COLS = [
+  'id','model_url','label','world_name',
+  'pos_x','pos_y','pos_z','rot_y','scale','elevation',
+  'behavior','linked_page','dialog_title','dialog_content',
+  'iframe_url','transport_target','trigger_type','trigger_distance',
+  'sound_url','sound_volume','sound_trigger_dist','sound_max_dist','sound_loop',
+  'item_info_enabled','trail_passable','trail_points','is_live',
+].join(',');
+
+// GET /api/admin/world-objects — returns all live objects (service role bypasses RLS)
+export async function GET() {
+  const admin = createAdminClient();
+  const { data, error } = await (admin as any)
+    .from('admin_world_objects')
+    .select(LIVE_COLS)
+    .eq('is_live', true)
+    .order('sort_order', { ascending: true });
+
+  if (error) {
+    // Table may not exist yet — return empty array gracefully
+    if (error.code === '42P01') return NextResponse.json([]);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json(data ?? []);
+}
+
 // POST /api/admin/world-objects — upsert all objects + delete removed ones
 export async function POST(req: NextRequest) {
   const user = await verifyAdmin(req);
@@ -65,7 +92,7 @@ export async function POST(req: NextRequest) {
       .in('id', deletedIds);
   }
 
-  // Explicit publish pass — ensures is_live=true even for pre-existing rows
+  // Explicit publish pass
   if (publishAll && rows.length > 0) {
     await (admin as any)
       .from('admin_world_objects')

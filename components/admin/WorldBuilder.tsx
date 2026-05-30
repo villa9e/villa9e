@@ -1061,49 +1061,54 @@ export function WorldBuilder() {
   // Hut position (always the origin reference point for trails)
   const HUT_POS: [number, number] = [0, 24];
 
-  // Load objects from DB on mount
+  // Load objects from DB on mount — use service-role API to bypass RLS
   useEffect(() => {
-    supabase
-      .from('admin_world_objects')
-      .select('*')
-      .order('sort_order', { ascending: true })
-      .then(({ data }) => {
-        if (data) setObjects(data.map(row => ({
-          id:                row.id,
-          model_url:         row.model_url,
-          label:             row.label ?? '',
-          world_name:        row.world_name ?? row.label ?? '',
-          pos_x:             row.pos_x ?? 0,
-          pos_y:             row.pos_y ?? 0,
-          pos_z:             row.pos_z ?? 0,
-          rot_y:             row.rot_y ?? 0,
-          scale:             row.scale ?? 1,
-          elevation:         row.elevation ?? 0,
-          tint_color:        row.tint_color,
-          opacity:           row.opacity ?? 1,
-          is_live:           row.is_live ?? false,
-          is_building:       row.is_building ?? false,
-          linked_page:       row.linked_page,
-          linked_feature:    row.linked_feature,
-          behavior:          row.behavior ?? 'none',
-          dialog_title:      row.dialog_title,
-          dialog_content:    row.dialog_content,
-          iframe_url:        row.iframe_url,
-          transport_target:  row.transport_target,
-          sound_url:         row.sound_url,
-          sound_volume:      row.sound_volume ?? 0.7,
-          sound_trigger_dist:row.sound_trigger_dist ?? 15,
-          sound_max_dist:    row.sound_max_dist ?? 4,
-          sound_loop:        row.sound_loop ?? true,
-          trail_enabled:     row.trail_enabled ?? false,
-          trail_passable:    row.trail_passable ?? true,
-          trail_points:      row.trail_points ?? [],
-          sort_order:        row.sort_order ?? 0,
-          trigger_type:      row.trigger_type ?? 'click',
-          trigger_distance:  row.trigger_distance ?? 5,
-          item_info_enabled: row.item_info_enabled ?? false,
-        })));
+    async function loadObjects() {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? '';
+      // Admin endpoint returns ALL objects (not just live) when authenticated
+      const res = await fetch('/api/admin/world-objects/all', {
+        headers: { Authorization: `Bearer ${token}` },
       });
+      if (!res.ok) return;
+      const rows: any[] = await res.json();
+      setObjects(rows.map(row => ({
+        id:                row.id,
+        model_url:         row.model_url,
+        label:             row.label ?? '',
+        world_name:        row.world_name ?? row.label ?? '',
+        pos_x:             row.pos_x ?? 0,
+        pos_y:             row.pos_y ?? 0,
+        pos_z:             row.pos_z ?? 0,
+        rot_y:             row.rot_y ?? 0,
+        scale:             row.scale ?? 1,
+        elevation:         row.elevation ?? 0,
+        tint_color:        row.tint_color,
+        opacity:           row.opacity ?? 1,
+        is_live:           row.is_live ?? false,
+        is_building:       row.is_building ?? false,
+        linked_page:       row.linked_page,
+        linked_feature:    row.linked_feature,
+        behavior:          row.behavior ?? 'none',
+        dialog_title:      row.dialog_title,
+        dialog_content:    row.dialog_content,
+        iframe_url:        row.iframe_url,
+        transport_target:  row.transport_target,
+        sound_url:         row.sound_url,
+        sound_volume:      row.sound_volume ?? 0.7,
+        sound_trigger_dist:row.sound_trigger_dist ?? 15,
+        sound_max_dist:    row.sound_max_dist ?? 4,
+        sound_loop:        row.sound_loop ?? true,
+        trail_enabled:     row.trail_enabled ?? false,
+        trail_passable:    row.trail_passable ?? true,
+        trail_points:      row.trail_points ?? [],
+        sort_order:        row.sort_order ?? 0,
+        trigger_type:      row.trigger_type ?? 'click',
+        trigger_distance:  row.trigger_distance ?? 5,
+        item_info_enabled: row.item_info_enabled ?? false,
+      })));
+    }
+    loadObjects();
   }, []);
 
   // Keyboard shortcuts
