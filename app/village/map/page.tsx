@@ -2,15 +2,13 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useEffect, useState, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
 import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
 import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt';
-import { WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
-import { VillageLogo } from '@/components/brand/VillageLogo';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
   loading: () => (
@@ -74,11 +72,9 @@ function Confetti() {
 function VillageMapPageInner() {
   const [profile, setProfile]           = useState<any>(null);
   const [foundingCount, setFoundingCount] = useState(0);
-  const [unreadCount, setUnreadCount]   = useState(0);
   const [showWelcome, setShowWelcome]   = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
   const searchParams = useSearchParams();
-  const router       = useRouter();
   const supabase     = createClient();
 
   useEffect(() => {
@@ -88,7 +84,7 @@ function VillageMapPageInner() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const [{ data: p }, { data: fc }, { count: unread }] = await Promise.all([
+      const [{ data: p }, { data: fc }] = await Promise.all([
         (supabase as any).from('profiles')
           .select('username,village_score,score_tier,vlg_balance,is_founding_villager,founding_villager_number,personality_type,display_name')
           .eq('id', user.id)
@@ -97,15 +93,10 @@ function VillageMapPageInner() {
           .select('count,max_count')
           .eq('id', 1)
           .single(),
-        (supabase as any).from('notifications')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id)
-          .eq('is_read', false),
-      ]);
+        ]);
 
       setProfile(p);
       setFoundingCount(fc?.count ?? 0);
-      setUnreadCount(unread ?? 0);
 
       if (isWelcome) {
         setShowWelcome(true);
@@ -120,31 +111,10 @@ function VillageMapPageInner() {
 
     load();
 
-    // Realtime unread count
-    const channel = supabase.channel('notif_count')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
-        setUnreadCount(c => c + 1);
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // VillageWorld3D handles its own presence and notifications
   }, []);
 
   const spotsLeft = Math.max(0, 1000 - foundingCount);
-  const vlgDisplay = profile?.vlg_balance
-    ? profile.vlg_balance >= 1000
-      ? `${(profile.vlg_balance / 1000).toFixed(1)}K`
-      : Math.floor(profile.vlg_balance).toString()
-    : '0';
-
-  const tierColors: Record<string, string> = {
-    legend:  'bg-amber-400/20 text-amber-300 border-amber-400/30',
-    elder:   'bg-purple-400/20 text-purple-300 border-purple-400/30',
-    builder: 'bg-blue-400/20 text-blue-300 border-blue-400/30',
-    grower:  'bg-green-400/20 text-green-300 border-green-400/30',
-    seedling:'bg-white/10 text-white/50 border-white/10',
-  };
-  const tierClass = tierColors[profile?.score_tier ?? 'seedling'] ?? tierColors.seedling;
 
   return (
     <div className="flex flex-col bg-[#0a0e1a]" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
