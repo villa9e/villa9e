@@ -1,13 +1,18 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
+import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { AdminConfigPanel } from './AdminConfigPanel';
 import { AdminEditContext } from '@/lib/admin/adminContext';
 
+// Routes where AdminBar should not appear (they have their own admin UI)
+const HIDE_ON = ['/village/map', '/admin/sandbox'];
+
 const ADMIN_EMAILS = ['elitehousemusic@gmail.com', 'admin@villa9e.app'];
 
 export function AdminBar() {
+  const pathname = usePathname();
   const [isAdmin, setIsAdmin]     = useState(false);
   const [editMode, setEditMode]   = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -54,6 +59,7 @@ export function AdminBar() {
   }, [token]);
 
   if (!isAdmin) return null;
+  if (HIDE_ON.some(p => pathname === p || pathname.startsWith(p))) return null;
 
   const ctxValue = { editMode, saveConfig, config };
 
