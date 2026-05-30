@@ -92,8 +92,26 @@ const WB_TILE_COLORS: Record<string, string> = {
   'snow.tile': '#E8F4FF',
 };
 
-// ─── 3D: single object mesh ──────────────────────────────────────────────────
-function SceneObject({
+// ─── 3D: tile mesh (no GLTF loading) ────────────────────────────────────────
+function SceneObjectTile({ obj, selected, onSelect }: {
+  obj: WorldObject; selected: boolean;
+  onSelect: (id: string, shiftKey: boolean) => void;
+}) {
+  const tileKey = obj.model_url.split('/').pop() ?? '';
+  const color   = WB_TILE_COLORS[tileKey] ?? '#888';
+  const sz      = obj.scale * 4;
+  const baseY   = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  return (
+    <mesh position={[obj.pos_x, baseY - 0.02, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
+      <planeGeometry args={[sz, sz]} />
+      <meshStandardMaterial color={color} transparent opacity={selected ? 0.9 : 0.65} />
+    </mesh>
+  );
+}
+
+// ─── 3D: GLTF/GLB mesh ───────────────────────────────────────────────────────
+function SceneObjectGltf({
   obj, selected, multiSelected, onSelect, dragging, onDragEnd,
 }: {
   obj:          WorldObject;
@@ -103,30 +121,6 @@ function SceneObject({
   dragging:     string | null;
   onDragEnd:    (id: string, x: number, z: number) => void;
 }) {
-  // Handle tile URLs — render as colored plane, don't load GLTF
-  if (obj.model_url.endsWith('.tile')) {
-    const tileKey = obj.model_url.split('/').pop() ?? '';
-    const color   = WB_TILE_COLORS[tileKey] ?? '#888';
-    const sz      = obj.scale * 4;
-    const baseY   = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
-    return (
-      <mesh
-        position={[obj.pos_x, baseY - 0.02, obj.pos_z]}
-        rotation={[-Math.PI/2, 0, 0]}
-        onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}
-      >
-        <planeGeometry args={[sz, sz]} />
-        <meshStandardMaterial color={color} transparent opacity={0.75} />
-        {selected && (
-          <mesh>
-            <planeGeometry args={[sz + 0.2, sz + 0.2]} />
-            <meshBasicMaterial color="#4ADE80" transparent opacity={0.3} side={THREE.DoubleSide} />
-          </mesh>
-        )}
-      </mesh>
-    );
-  }
-
   const { scene } = useGLTF(obj.model_url);
   const groupRef  = useRef<THREE.Group>(null);
 
@@ -215,31 +209,42 @@ function SceneObject({
   );
 }
 
-// ─── 3D: placement ghost ─────────────────────────────────────────────────────
-function PlacementGhost({ url }: { url: string }) {
-  // For tiles, show a simple colored quad preview
-  if (url.endsWith('.tile')) {
-    const tileKey = url.split('/').pop() ?? '';
-    const color   = WB_TILE_COLORS[tileKey] ?? '#888';
-    const ref     = useRef<THREE.Group>(null);
-    const { camera, raycaster, pointer } = useThree();
-    const plane = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
-    const hit   = useMemo(() => new THREE.Vector3(), []);
-    useFrame(() => {
-      if (!ref.current) return;
-      raycaster.setFromCamera(pointer, camera);
-      if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, 0, hit.z);
-    });
-    return (
-      <group ref={ref}>
-        <mesh rotation={[-Math.PI/2, 0, 0]}>
-          <planeGeometry args={[4, 4]} />
-          <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
-        </mesh>
-      </group>
-    );
-  }
+// ─── SceneObject dispatcher ──────────────────────────────────────────────────
+function SceneObject(props: {
+  obj: WorldObject; selected: boolean; multiSelected: boolean;
+  onSelect: (id: string, shiftKey: boolean) => void;
+  dragging: string | null; onDragEnd: (id: string, x: number, z: number) => void;
+}) {
+  if (props.obj.model_url.endsWith('.tile'))
+    return <SceneObjectTile obj={props.obj} selected={props.selected} onSelect={props.onSelect} />;
+  return <SceneObjectGltf {...props} />;
+}
 
+// ─── 3D: placement ghost (tile) ──────────────────────────────────────────────
+function GhostTile({ url }: { url: string }) {
+  const tileKey = url.split('/').pop() ?? '';
+  const color   = WB_TILE_COLORS[tileKey] ?? '#888';
+  const ref     = useRef<THREE.Group>(null);
+  const { camera, raycaster, pointer } = useThree();
+  const plane   = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const hit     = useMemo(() => new THREE.Vector3(), []);
+  useFrame(() => {
+    if (!ref.current) return;
+    raycaster.setFromCamera(pointer, camera);
+    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, 0, hit.z);
+  });
+  return (
+    <group ref={ref}>
+      <mesh rotation={[-Math.PI/2, 0, 0]}>
+        <planeGeometry args={[4, 4]} />
+        <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+// ─── 3D: placement ghost (GLTF/GLB) ─────────────────────────────────────────
+function GhostGltf({ url }: { url: string }) {
   const { scene } = useGLTF(url);
   const clone = useMemo(() => scene.clone(true), [scene]);
   const ref   = useRef<THREE.Group>(null);
@@ -265,6 +270,12 @@ function PlacementGhost({ url }: { url: string }) {
       </mesh>
     </group>
   );
+}
+
+// ─── PlacementGhost dispatcher ───────────────────────────────────────────────
+function PlacementGhost({ url }: { url: string }) {
+  if (url.endsWith('.tile')) return <GhostTile url={url} />;
+  return <GhostGltf url={url} />;
 }
 
 // ─── 3D: trail lines ─────────────────────────────────────────────────────────
