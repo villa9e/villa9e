@@ -48,14 +48,10 @@ const GLB = (name: string) => `/models/gltf/${name}.glb`;
 export const MODEL_CATALOG: CatalogModel[] = [
 
   // ── VILLA9E SIGNATURE BUILDINGS ──────────────────────────────────────────
+  // Villa9e Hut — optimized GLB (8.4MB)
   { id:'villa9e_hut',  label:'Villa9e Hut',   url:GLB('Villa9e_Hut'),   category:'buildings_special', defaultScale:1.0, yOffset:0, emoji:'🏕️', isBuilding:true, tags:['villa9e','hut','mugsum','signature','main','default'] },
-  { id:'teepee',       label:'Teepee',        url:GLB('Teepee'),        category:'buildings_special', defaultScale:1.0, yOffset:0, emoji:'⛺', isBuilding:true, tags:['teepee','tent','native','camp'] },
-  { id:'amphitheater', label:'Amphitheater',  url:GLB('Amphitheater'),  category:'buildings_civic',   defaultScale:1.0, yOffset:0, emoji:'🎭', isBuilding:true, tags:['amphitheater','theater','stage','pavilion','event'] },
-  { id:'bridge_v1',    label:'Bridge 1',      url:GLB('Bridge_1'),      category:'platforms',         defaultScale:1.0, yOffset:0, emoji:'🌉', isBuilding:false, tags:['bridge','crossing','path'] },
-  { id:'bridge_v2',    label:'Bridge 2',      url:GLB('Bridge_2'),      category:'platforms',         defaultScale:1.0, yOffset:0, emoji:'🌉', isBuilding:false, tags:['bridge','crossing','path'] },
-  { id:'world_1',      label:'World 1',       url:GLB('World_1'),       category:'buildings_special', defaultScale:1.0, yOffset:0, emoji:'🌍', isBuilding:true,  tags:['world','realm','area','zone'] },
-  { id:'world_2',      label:'World 2',       url:GLB('World_2'),       category:'buildings_special', defaultScale:1.0, yOffset:0, emoji:'🌍', isBuilding:true,  tags:['world','realm','area','zone'] },
-  { id:'world_3',      label:'World 3',       url:GLB('World_3'),       category:'buildings_special', defaultScale:1.0, yOffset:0, emoji:'🌍', isBuilding:true,  tags:['world','realm','area','zone'] },
+  // Note: Amphitheater, Bridges 1/2, Teepee, World 1/2/3 need optimization
+  // (original files 20-141MB — too large for web). Upload optimized versions (<5MB) and they'll appear here.
 
   // ── RESIDENTIAL BUILDINGS ────────────────────────────────────────────────
   { id:'house_fa1_l1',   label:'House A Level 1',    url:G('Houses_FirstAge_1_Level1'),  category:'buildings_residential', defaultScale:1.0, yOffset:0, emoji:'🏠', isBuilding:true },

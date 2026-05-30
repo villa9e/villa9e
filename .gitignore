@@ -8,3 +8,14 @@ dist/
 .DS_Store
 scripts/add-vercel-env.sh
 VERCEL_ENV_VARS.md
+
+
+
+# Oversized 3D models (>10MB) - optimize and re-add individually
+public/models/gltf/Amphitheater.glb
+public/models/gltf/Bridge_1.glb
+public/models/gltf/Bridge_2.glb
+public/models/gltf/Teepee.glb
+public/models/gltf/World_1.glb
+public/models/gltf/World_2.glb
+public/models/gltf/World_3.glb

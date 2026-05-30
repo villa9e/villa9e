@@ -10,6 +10,7 @@ import {
   type CatalogModel, type ModelCategory, searchModels,
 } from '@/lib/admin/modelCatalog';
 import { terrainH } from '@/components/map/VillageEnvironment';
+import { AnimatedWaterPlane } from '@/components/map/AnimatedWater';
 import { createClient } from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -92,15 +93,34 @@ const WB_TILE_COLORS: Record<string, string> = {
   'snow.tile': '#E8F4FF',
 };
 
-// ─── 3D: tile mesh (no GLTF loading) ────────────────────────────────────────
+// ─── 3D: water tile (animated) ───────────────────────────────────────────────
+function WaterTileObject({ obj, onSelect }: {
+  obj: WorldObject;
+  onSelect: (id: string, shiftKey: boolean) => void;
+}) {
+  const sz    = obj.scale * 4;
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  return (
+    <group position={[obj.pos_x, baseY - 0.05, obj.pos_z]}
+      onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
+      <AnimatedWaterPlane position={[0, 0, 0]} size={[sz, sz]} type="tile" />
+    </group>
+  );
+}
+
+// ─── 3D: tile mesh (non-water, no GLTF loading) ───────────────────────────────
 function SceneObjectTile({ obj, selected, onSelect }: {
   obj: WorldObject; selected: boolean;
   onSelect: (id: string, shiftKey: boolean) => void;
 }) {
   const tileKey = obj.model_url.split('/').pop() ?? '';
-  const color   = WB_TILE_COLORS[tileKey] ?? '#888';
-  const sz      = obj.scale * 4;
-  const baseY   = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  // Water gets animated shader
+  if (tileKey === 'water.tile') {
+    return <WaterTileObject obj={obj} onSelect={onSelect} />;
+  }
+  const color = WB_TILE_COLORS[tileKey] ?? '#888';
+  const sz    = obj.scale * 4;
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
   return (
     <mesh position={[obj.pos_x, baseY - 0.02, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]}
       onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
@@ -219,6 +239,7 @@ function SceneObject(props: {
 // ─── 3D: placement ghost (tile) ──────────────────────────────────────────────
 function GhostTile({ url }: { url: string }) {
   const tileKey = url.split('/').pop() ?? '';
+  const isWater = tileKey === 'water.tile';
   const color   = WB_TILE_COLORS[tileKey] ?? '#888';
   const ref     = useRef<THREE.Group>(null);
   const { camera, raycaster, pointer } = useThree();
@@ -227,14 +248,18 @@ function GhostTile({ url }: { url: string }) {
   useFrame(() => {
     if (!ref.current) return;
     raycaster.setFromCamera(pointer, camera);
-    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, 0, hit.z);
+    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, isWater ? -0.05 : 0, hit.z);
   });
   return (
     <group ref={ref}>
-      <mesh rotation={[-Math.PI/2, 0, 0]}>
-        <planeGeometry args={[4, 4]} />
-        <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
-      </mesh>
+      {isWater ? (
+        <AnimatedWaterPlane position={[0, 0, 0]} size={[4, 4]} type="tile" />
+      ) : (
+        <mesh rotation={[-Math.PI/2, 0, 0]}>
+          <planeGeometry args={[4, 4]} />
+          <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
+        </mesh>
+      )}
     </group>
   );
 }
