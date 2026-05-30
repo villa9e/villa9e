@@ -766,22 +766,30 @@ function HutInterior({ onClose, username }: { onClose: () => void; username: str
       className="fixed inset-0 z-50 flex flex-col"
       style={{ background: '#1A0E06' }}
     >
-      {/* Top bar */}
-      <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-        style={{ background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(212,175,55,0.2)' }}>
+      {/* Top bar — white+gold */}
+      <div className="flex items-center gap-3 px-4 flex-shrink-0"
+        style={{
+          height: 56, background: '#FFFFFF',
+          backgroundImage: 'linear-gradient(#fff, #fff), linear-gradient(90deg, rgba(212,175,55,0.15) 0%, rgba(184,134,11,0.7) 50%, rgba(212,175,55,0.15) 100%)',
+          backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box',
+          borderBottom: '2px solid transparent',
+          boxShadow: '0 3px 12px rgba(0,0,0,0.1)',
+        }}>
         <button onClick={onClose}
           className="w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
-          ←
+          style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: '#B8860B' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+            <path d="M19 12H5M12 5l-7 7 7 7"/>
+          </svg>
         </button>
         <div className="flex-1">
-          <p className="font-black text-sm" style={{ color: '#F5E6C8' }}>{username}'s Hut</p>
-          <p className="text-xs" style={{ color: '#8B6A3A' }}>Your personal space</p>
+          <p className="font-black text-sm" style={{ color: '#1E1B4B' }}>{username}'s Hut</p>
+          <p className="text-xs" style={{ color: 'rgba(30,27,75,0.5)' }}>Drag to explore · 3D interior</p>
         </div>
         <Link href="/village/hut"
           className="text-xs font-bold px-3 py-1.5 rounded-xl"
-          style={{ background: 'rgba(212,175,55,0.15)', border: '1px solid rgba(212,175,55,0.3)', color: '#D4AF37' }}>
-          Settings →
+          style={{ background: 'rgba(212,175,55,0.12)', border: '1px solid rgba(212,175,55,0.35)', color: '#B8860B' }}>
+          My Hut →
         </Link>
       </div>
 
@@ -805,20 +813,26 @@ function HutInterior({ onClose, username }: { onClose: () => void; username: str
         </Canvas>
       </div>
 
-      {/* Quick links at bottom */}
-      <div className="flex gap-3 px-4 py-3 flex-shrink-0"
-        style={{ background: 'rgba(0,0,0,0.7)', borderTop: '1px solid rgba(212,175,55,0.2)' }}>
+      {/* Quick links at bottom — white+gold */}
+      <div className="flex gap-2 px-4 py-3 flex-shrink-0"
+        style={{
+          background: '#FFFFFF',
+          borderTop: '2px solid transparent',
+          backgroundImage: 'linear-gradient(#fff, #fff), linear-gradient(90deg, rgba(212,175,55,0.15) 0%, rgba(184,134,11,0.6) 50%, rgba(212,175,55,0.15) 100%)',
+          backgroundOrigin: 'border-box', backgroundClip: 'padding-box, border-box',
+          boxShadow: '0 -3px 12px rgba(0,0,0,0.08)',
+        }}>
         {[
-          { href: '/village/hut/avatar',   icon: '🎭', label: 'Avatar'   },
-          { href: '/village/hut/vlg-wallet', icon: '🪙', label: 'Wallet'  },
-          { href: '/village/hut/achievements', icon: '🏆', label: 'Badges' },
-          { href: '/village/workshop/chat', icon: '🎯', label: 'Goals'   },
+          { href: '/village/hut/avatar',     icon: '🎭', label: 'Avatar'   },
+          { href: '/village/hut/vlg-wallet', icon: '🪙', label: 'Wallet'   },
+          { href: '/village/hut/achievements',icon: '🏆', label: 'Badges'  },
+          { href: '/village/workshop/chat',   icon: '🎯', label: 'Goals'   },
         ].map(item => (
           <Link key={item.href} href={item.href}
-            className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-center transition-all"
-            style={{ background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.2)' }}>
-            <span className="text-xl">{item.icon}</span>
-            <span className="text-xs font-bold" style={{ color: '#D4AF37' }}>{item.label}</span>
+            className="flex-1 flex flex-col items-center gap-1 py-2 rounded-xl text-center transition-all hover:bg-amber-50"
+            style={{ background: 'rgba(212,175,55,0.08)', border: '1px solid rgba(212,175,55,0.2)' }}>
+            <span className="text-lg">{item.icon}</span>
+            <span className="text-[10px] font-black" style={{ color: '#B8860B' }}>{item.label}</span>
           </Link>
         ))}
       </div>

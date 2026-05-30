@@ -113,7 +113,7 @@ function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => 
     { name: 'Spirit', msg: `Welcome to "${show.title}". Enjoy the show! 🎭`, ts: Date.now() },
   ]);
 
-  const bg   = isNight ? '#070810' : '#0A0B14';
+  const bg   = '#0A0B14'; // Screening room is always dark (cinematic)
   const text = '#FFFFFF';
 
   function sendMsg() {
