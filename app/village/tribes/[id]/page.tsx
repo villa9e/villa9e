@@ -720,42 +720,33 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
 
       {/* ── VIDEO: Tribe video conference ── */}
       {activeTab === 'video' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6" style={{ background: isNight ? '#07080F' : '#F0F4FF' }}>
-          <div className="text-center max-w-md">
-            <div className="text-5xl mb-4">📹</div>
-            <h2 className="font-black text-xl mb-2" style={{ color: textMain }}>Tribe Video Room</h2>
-            <p className="text-sm mb-6" style={{ color: textMute }}>
-              Walk up to any tribe member's avatar in the village and tap their avatar to start a video call. Your tribe call panel will open on the right side of the screen.
-            </p>
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
-                <span className="text-2xl">🌍</span>
-                <div>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>In the Village</p>
-                  <p className="text-xs" style={{ color: textMute }}>Find your tribe member's avatar, tap it, then tap 📹 Call</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
-                <span className="text-2xl">💬</span>
-                <div>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>From Chat</p>
-                  <p className="text-xs" style={{ color: textMute }}>Tap any member in the chat to open their profile and call</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl text-left" style={{ background: cardBg, border: `1px solid ${border}` }}>
-                <span className="text-2xl">🎭</span>
-                <div>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>Pavilion Events</p>
-                  <p className="text-xs" style={{ color: textMute }}>Host tribe video events in the Pavilion for up to unlimited attendees</p>
-                </div>
-              </div>
+        <div className="flex-1 flex flex-col" style={{ background: isNight ? '#07080F' : '#F0F4FF' }}>
+          {/* Video header */}
+          <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
+            style={{ background: cardBg, borderBottom: `1px solid ${border}` }}>
+            <div>
+              <p className="font-black text-sm" style={{ color: textMain }}>📹 Tribe Video Room</p>
+              <p className="text-xs" style={{ color: textMute }}>Powered by Jitsi · End-to-end encrypted</p>
             </div>
-            <button
-              onClick={() => window.open('/village/map', '_self')}
-              className="mt-6 px-6 py-3 rounded-2xl font-black text-white text-sm"
-              style={{ background: `linear-gradient(135deg, ${accent}, #4F46E5)` }}>
-              Enter Village to Call →
-            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-xs font-bold" style={{ color: textMute }}>Live</span>
+            </div>
+          </div>
+          {/* Jitsi Meet embedded conference */}
+          <div className="flex-1 relative">
+            <iframe
+              src={`https://meet.jit.si/villa9e-tribe-${params.id.slice(0,8)}#config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&userInfo.displayName=Villager&config.toolbarButtons=["microphone","camera","hangup","chat","tileview","fullscreen"]`}
+              allow="camera; microphone; fullscreen; display-capture; autoplay"
+              className="w-full h-full border-none"
+              title="Tribe Video Conference"
+              style={{ minHeight: 400 }}
+            />
+          </div>
+          <div className="px-4 py-2 flex-shrink-0" style={{ background: cardBg, borderTop: `1px solid ${border}` }}>
+            <p className="text-[10px] text-center" style={{ color: textMute }}>
+              This is your tribe's private video room. Share the link or just have members join this tab.
+            </p>
           </div>
         </div>
       )}
