@@ -1006,77 +1006,91 @@ function CelestialBody({ phase, altitude, azimuth, sunColor }: {
 }) {
   const isNight = phase === 'night' || phase === 'dusk' || phase === 'dawn';
   const pos = sunPosFromAngles(altitude, azimuth, 55);
+  // Moon rises opposite the sun — offset azimuth by 180°
+  const moonPos = sunPosFromAngles(Math.max(15, 70 - altitude), (azimuth + 180) % 360, 55);
   const bodyRef = useRef<THREE.Mesh>(null);
 
-  useFrame(state => {
+  useFrame(({ clock }) => {
     if (!bodyRef.current) return;
-    // Subtle pulse for sun glow
-    const t = state.clock.elapsedTime;
-    bodyRef.current.scale.setScalar(1 + Math.sin(t * 0.8) * 0.015);
+    bodyRef.current.scale.setScalar(1 + Math.sin(clock.elapsedTime * 0.8) * 0.012);
   });
 
-  if (altitude < -8) return null;
-
   return (
-    <group position={pos}>
-      {/* Glow halo — high-poly for smooth gradient */}
-      <mesh>
-        <sphereGeometry args={[isNight ? 1.35 : 3.2, 32, 24]} />
-        <meshBasicMaterial color={sunColor} transparent opacity={0.10} />
-      </mesh>
-      {/* Inner halo — tighter, brighter */}
-      <mesh>
-        <sphereGeometry args={[isNight ? 0.95 : 2.2, 28, 20]} />
-        <meshBasicMaterial color={sunColor} transparent opacity={0.18} />
-      </mesh>
-      {/* Body disc */}
-      <mesh ref={bodyRef}>
-        <sphereGeometry args={[isNight ? 0.82 : 1.85, 32, 24]} />
-        <meshBasicMaterial color={isNight ? '#F4F8FF' : sunColor} />
-      </mesh>
-      {/* God rays at golden hour */}
-      {!isNight && (phase === 'sunrise' || phase === 'golden' || phase === 'sunset') && (
-        Array.from({ length: 8 }).map((_, i) => {
-          const a = (i / 8) * Math.PI * 2;
-          return (
-            <mesh key={i} position={[Math.cos(a) * 2.5, Math.sin(a) * 2.5, 0]}>
-              <planeGeometry args={[0.15, 4 + Math.sin(i * 1.3) * 1.5]} />
-              <meshBasicMaterial color={sunColor} transparent opacity={0.08 + Math.sin(i) * 0.04} />
-            </mesh>
-          );
-        })
+    <>
+      {/* Sun — only when above horizon */}
+      {altitude > -5 && (
+        <group position={pos}>
+          <mesh><sphereGeometry args={[3.8, 32, 24]} /><meshBasicMaterial color={sunColor} transparent opacity={0.08} /></mesh>
+          <mesh><sphereGeometry args={[2.4, 28, 20]} /><meshBasicMaterial color={sunColor} transparent opacity={0.16} /></mesh>
+          <mesh ref={bodyRef}><sphereGeometry args={[1.85, 32, 24]} /><meshBasicMaterial color={sunColor} /></mesh>
+          {(phase === 'sunrise' || phase === 'golden' || phase === 'sunset') && (
+            Array.from({ length: 8 }).map((_, i) => {
+              const a = (i / 8) * Math.PI * 2;
+              return (
+                <mesh key={i} position={[Math.cos(a) * 2.5, Math.sin(a) * 2.5, 0]}>
+                  <planeGeometry args={[0.15, 4 + Math.sin(i * 1.3) * 1.5]} />
+                  <meshBasicMaterial color={sunColor} transparent opacity={0.08 + Math.sin(i) * 0.04} />
+                </mesh>
+              );
+            })
+          )}
+        </group>
       )}
-    </group>
+
+      {/* Moon — visible at night, large and prominent */}
+      {isNight && (
+        <group position={moonPos}>
+          {/* Soft glow rings */}
+          <mesh><sphereGeometry args={[4.2, 32, 24]} /><meshBasicMaterial color="#B0C8FF" transparent opacity={0.06} /></mesh>
+          <mesh><sphereGeometry args={[3.0, 32, 24]} /><meshBasicMaterial color="#D0E0FF" transparent opacity={0.10} /></mesh>
+          <mesh><sphereGeometry args={[2.0, 32, 24]} /><meshBasicMaterial color="#E8F0FF" transparent opacity={0.20} /></mesh>
+          {/* Moon body */}
+          <mesh>
+            <sphereGeometry args={[1.5, 32, 24]} />
+            <meshBasicMaterial color="#F0F4FF" />
+          </mesh>
+          {/* Crater details — darker patches */}
+          {[[0.4,0.3,1.4],[-0.5,0.5,1.4],[0.2,-0.4,1.4],[-0.3,-0.2,1.4],[0.6,-0.1,1.4]].map(([cx,cy,cz],i) => (
+            <mesh key={i} position={[cx,cy,cz]}>
+              <sphereGeometry args={[0.15 + i*0.04, 8, 6]} />
+              <meshBasicMaterial color="#C8D0E8" transparent opacity={0.6} />
+            </mesh>
+          ))}
+        </group>
+      )}
+    </>
   );
 }
 
-// ─── Stars (instanced) ────────────────────────────────────────────────────────
+// ─── Rich star field (instanced, 600 stars) ──────────────────────────────────
+const STAR_COUNT = 600;
 function Stars({ visible }: { visible: boolean }) {
   const ref = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
 
-  const starData = useMemo(() => Array.from({ length: 200 }, () => {
+  const starData = useMemo(() => Array.from({ length: STAR_COUNT }, () => {
     const theta = Math.random() * Math.PI * 2;
-    const phi   = Math.random() * Math.PI * 0.5;
-    const r     = 70;
+    const phi   = Math.acos(1 - Math.random() * 0.7); // upper hemisphere
+    const r     = 75;
     return {
       x: r * Math.sin(phi) * Math.cos(theta),
-      y: r * Math.cos(phi) * 0.8 + 5,
+      y: r * Math.cos(phi) + 6,
       z: r * Math.sin(phi) * Math.sin(theta),
-      brightness: 0.4 + Math.random() * 0.6,
-      twinkleSpeed: 0.5 + Math.random() * 2.5,
+      size: 0.12 + Math.random() * 0.5,
+      brightness: 0.5 + Math.random() * 0.5,
+      twinkleSpeed: 0.3 + Math.random() * 2.0,
       twinklePhase: Math.random() * Math.PI * 2,
+      color: Math.random() > 0.85 ? 1 : Math.random() > 0.7 ? 2 : 0, // 0=white 1=blue 2=warm
     };
   }), []);
 
-  useFrame(state => {
+  useFrame(({ clock }) => {
     if (!ref.current) return;
-    const dummy = new THREE.Object3D();
-    const t = state.clock.elapsedTime;
+    const t = clock.elapsedTime;
     starData.forEach((star, i) => {
       dummy.position.set(star.x, star.y, star.z);
-      const twinkle = 0.85 + Math.sin(t * star.twinkleSpeed + star.twinklePhase) * 0.15;
-      const scale = visible ? star.brightness * twinkle * 0.35 : 0;
-      dummy.scale.setScalar(scale);
+      const twinkle = 0.8 + Math.sin(t * star.twinkleSpeed + star.twinklePhase) * 0.2;
+      dummy.scale.setScalar(visible ? star.size * star.brightness * twinkle : 0);
       dummy.updateMatrix();
       ref.current!.setMatrixAt(i, dummy.matrix);
     });
@@ -1084,10 +1098,118 @@ function Stars({ visible }: { visible: boolean }) {
   });
 
   return (
-    <instancedMesh ref={ref} args={[undefined, undefined, 200]}>
-      <sphereGeometry args={[1, 8, 6]} />
-      <meshBasicMaterial color="#E8E8FF" />
+    <instancedMesh ref={ref} args={[undefined, undefined, STAR_COUNT]}>
+      <sphereGeometry args={[1, 6, 4]} />
+      <meshBasicMaterial color="#DDEEFF" />
     </instancedMesh>
+  );
+}
+
+// ─── Constellation lines ──────────────────────────────────────────────────────
+const CONSTELLATIONS = [
+  // Orion (7 stars, 6 connections)
+  { stars: [[20,38,-60],[22,34,-60],[24,30,-60],[26,34,-60],[22,28,-60],[20,24,-60],[25,24,-60]], links:[[0,1],[1,2],[2,3],[1,4],[4,5],[4,6]] },
+  // Big Dipper (7 stars)
+  { stars: [[-40,50,-40],[-36,52,-40],[-32,53,-40],[-28,51,-40],[-26,48,-40],[-30,44,-40],[-34,44,-40]], links:[[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,3]] },
+  // Cassiopeia (5 stars, W shape)
+  { stars: [[35,55,10],[30,58,10],[25,55,10],[20,59,10],[15,56,10]], links:[[0,1],[1,2],[2,3],[3,4]] },
+  // Southern Cross
+  { stars: [[-20,35,55],[-20,42,55],[-20,28,55],[-26,35,55],[-14,35,55]], links:[[0,1],[0,2],[0,3],[0,4]] },
+];
+
+function Constellations({ visible }: { visible: boolean }) {
+  if (!visible) return null;
+  return (
+    <group>
+      {CONSTELLATIONS.map((c, ci) =>
+        c.links.map(([a, b], li) => {
+          const [ax,ay,az] = c.stars[a];
+          const [bx,by,bz] = c.stars[b];
+          const mid = [(ax+bx)/2,(ay+by)/2,(az+bz)/2] as [number,number,number];
+          const len = Math.sqrt((bx-ax)**2+(by-ay)**2+(bz-az)**2);
+          const dir = new THREE.Vector3(bx-ax,by-ay,bz-az).normalize();
+          const q   = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+          return (
+            <mesh key={`${ci}-${li}`} position={mid} quaternion={q}>
+              <cylinderGeometry args={[0.04, 0.04, len, 4]} />
+              <meshBasicMaterial color="#8899CC" transparent opacity={0.35} />
+            </mesh>
+          );
+        })
+      )}
+      {CONSTELLATIONS.flatMap((c, ci) =>
+        c.stars.map(([x,y,z], si) => (
+          <mesh key={`s${ci}-${si}`} position={[x,y,z]}>
+            <sphereGeometry args={[0.25, 6, 4]} />
+            <meshBasicMaterial color="#CCDDFF" />
+          </mesh>
+        ))
+      )}
+    </group>
+  );
+}
+
+// ─── Aurora Borealis ──────────────────────────────────────────────────────────
+const AURORA_VERT = `
+varying vec2 vUv;
+uniform float uTime;
+void main() {
+  vUv = uv;
+  vec3 pos = position;
+  pos.y += sin(pos.x * 0.4 + uTime * 0.25) * 2.5
+          + cos(pos.z * 0.3 + uTime * 0.18) * 2.0;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}`;
+const AURORA_FRAG = `
+uniform float uTime;
+varying vec2 vUv;
+void main() {
+  float wave1 = sin(vUv.x * 7.0 + uTime * 0.3) * 0.5 + 0.5;
+  float wave2 = cos(vUv.x * 4.5 - uTime * 0.2) * 0.5 + 0.5;
+  float fade  = smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.6, vUv.y);
+  float alpha = wave1 * wave2 * fade * 0.45;
+  float mix1  = sin(vUv.x * 2.5 + uTime * 0.12) * 0.5 + 0.5;
+  float mix2  = cos(vUv.x * 3.2 - uTime * 0.09) * 0.5 + 0.5;
+  vec3 green  = vec3(0.0, 1.0, 0.45);
+  vec3 cyan   = vec3(0.0, 0.75, 1.0);
+  vec3 purple = vec3(0.55, 0.0, 1.0);
+  vec3 col    = mix(green, cyan, mix1);
+  col         = mix(col, purple, mix2 * 0.4);
+  gl_FragColor = vec4(col, alpha);
+}`;
+
+function AuroraBorealis({ visible }: { visible: boolean }) {
+  const mats = useMemo(() => [0, 1, 2].map(() => new THREE.ShaderMaterial({
+    vertexShader:   AURORA_VERT,
+    fragmentShader: AURORA_FRAG,
+    uniforms: { uTime: { value: 0 } },
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  })), []);
+
+  useFrame(({ clock }) => {
+    mats.forEach((m, i) => { m.uniforms.uTime.value = clock.elapsedTime + i * 2.1; });
+  });
+
+  if (!visible) return null;
+
+  // Three curtain arcs at different positions
+  const curtains = [
+    { rx: 0, ry: 0,   pos: [0, 22, -50] as [number,number,number],   w: 90, h: 18 },
+    { rx: 0, ry: 0.9, pos: [30, 24, -42] as [number,number,number],  w: 70, h: 14 },
+    { rx: 0, ry:-0.7, pos: [-28, 20, -45] as [number,number,number], w: 60, h: 12 },
+  ];
+
+  return (
+    <group>
+      {curtains.map((c, i) => (
+        <mesh key={i} position={c.pos} rotation={[c.rx, c.ry, 0]}>
+          <planeGeometry args={[c.w, c.h, 32, 12]} />
+          <primitive object={mats[i]} />
+        </mesh>
+      ))}
+    </group>
   );
 }
 
@@ -1659,8 +1781,8 @@ function SceneLighting({ skyState }: { skyState: any }) {
   const isNight  = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
   const isGolden = skyState?.phase === 'golden' || skyState?.phase === 'sunset';
 
-  // Night minimum: enough light to see the whole village clearly
-  const NIGHT_AMBIENT_MIN = 0.55;
+  // Night minimum: bright enough to see terrain, buildings, NPCs clearly
+  const NIGHT_AMBIENT_MIN = 1.1;
 
   useFrame(() => {
     if (!skyState) return;
@@ -1766,7 +1888,7 @@ function SceneLighting({ skyState }: { skyState: any }) {
       )}
 
       {/* General ambient floor — always-on fill so nothing is pitch black */}
-      <ambientLight intensity={isNight ? 0.45 : 0.12} color={isNight ? '#2A3A58' : '#F0F0FF'} />
+      <ambientLight intensity={isNight ? 1.2 : 0.12} color={isNight ? '#3A5080' : '#F0F0FF'} />
     </>
   );
 }
@@ -2173,6 +2295,12 @@ function WorldScene({
       {/* Stars */}
       <Stars visible={starsVisible} />
 
+      {/* Constellation lines */}
+      <Constellations visible={starsVisible} />
+
+      {/* Aurora Borealis — appears on clear nights */}
+      <AuroraBorealis visible={starsVisible && (rainIntensity ?? 0) < 0.2} />
+
       {/* Sun / Moon */}
       <CelestialBody
         phase={skyState?.phase ?? 'morning'}
@@ -2181,11 +2309,11 @@ function WorldScene({
         sunColor={skyState?.sunColor ?? '#FFF5D0'}
       />
 
-      {/* Atmospheric fog — forest mist + rain visibility */}
+      {/* Atmospheric fog — reduced at night so village stays visible */}
       <fog attach="fog" args={[
-        isNight ? '#0A1218' : (rainIntensity > 0.3 ? '#A8B8C8' : '#C8E4D0'),
-        rainIntensity > 0.5 ? 14 : isNight ? 28 : 38,
-        rainIntensity > 0.5 ? 40 : isNight ? 80 : 100,
+        isNight ? '#0D1A28' : (rainIntensity > 0.3 ? '#A8B8C8' : '#C8E4D0'),
+        rainIntensity > 0.5 ? 14 : isNight ? 55 : 38,
+        rainIntensity > 0.5 ? 40 : isNight ? 160 : 100,
       ]} />
 
       {/* ── Terrain: grass island + ocean ring ────────────────────────── */}

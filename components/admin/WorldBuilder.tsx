@@ -11,6 +11,7 @@ import {
 } from '@/lib/admin/modelCatalog';
 import { terrainH } from '@/components/map/VillageEnvironment';
 import { AnimatedWaterPlane, buildTileGeometry, parseTileUrl, buildTileUrl, type WaterShape } from '@/components/map/AnimatedWater';
+import { useSkySystem } from '@/lib/world/useSkySystem';
 import { createClient } from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -369,23 +370,90 @@ function GroundPlane({ onPlace, onPathClick, pendingModel, pathDrawing }: {
   );
 }
 
-// ─── 3D: sky dome ────────────────────────────────────────────────────────────
-function SkyDome() {
+// ─── 3D: sky dome with day/night ─────────────────────────────────────────────
+function SkyDome({ skyState }: { skyState: any }) {
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
+  const skyColor = skyState?.skyTop ?? '#87CEEB';
+  const fogColor = isNight ? '#0D1A28' : '#C8E8FF';
+
+  // Star field for night
+  const starData = useMemo(() => Array.from({ length: 400 }, () => ({
+    x: (Math.random() - 0.5) * 150,
+    y: 20 + Math.random() * 60,
+    z: (Math.random() - 0.5) * 150,
+    s: 0.08 + Math.random() * 0.3,
+    t: Math.random() * Math.PI * 2,
+    sp: 0.4 + Math.random() * 1.8,
+  })), []);
+  const starRef = useRef<THREE.InstancedMesh>(null);
+  const dum = useMemo(() => new THREE.Object3D(), []);
+  useFrame(({ clock }) => {
+    if (!starRef.current) return;
+    const t = clock.elapsedTime;
+    starData.forEach((s, i) => {
+      dum.position.set(s.x, s.y, s.z);
+      const tw = 0.8 + Math.sin(t * s.sp + s.t) * 0.2;
+      dum.scale.setScalar(isNight ? s.s * tw : 0);
+      dum.updateMatrix();
+      starRef.current!.setMatrixAt(i, dum.matrix);
+    });
+    starRef.current.instanceMatrix.needsUpdate = true;
+  });
+
   return (
     <>
-      {/* Sky color */}
-      <color attach="background" args={['#87CEEB']} />
-      <fog attach="fog" args={['#C8E8FF', 80, 220]} />
-      {/* Sun */}
-      <mesh position={[60, 80, -100]}>
-        <sphereGeometry args={[6, 16, 16]} />
-        <meshBasicMaterial color="#FFF5D0" />
-      </mesh>
-      {/* Clouds */}
-      {[[20,45,-60],[-40,55,-80],[60,50,-50]].map(([x,y,z],i) => (
+      <color attach="background" args={[skyColor]} />
+      <fog attach="fog" args={[fogColor, isNight ? 55 : 80, isNight ? 200 : 220]} />
+
+      {/* Ambient / hemisphere lighting that matches time of day */}
+      <hemisphereLight
+        args={[isNight ? '#3A4E80' : '#87CEEB', isNight ? '#1A2A40' : '#4A7A25', isNight ? 1.2 : 1.0]}
+      />
+      <ambientLight intensity={isNight ? 1.0 : 0.4} color={isNight ? '#3A5080' : '#FFF8F0'} />
+      <directionalLight
+        position={isNight ? [-30, 40, -20] : [40, 80, 40]}
+        intensity={isNight ? 0.8 : 2.0}
+        color={isNight ? '#6080C8' : '#FFF5D0'}
+      />
+
+      {/* Sun or Moon */}
+      {isNight ? (
+        <mesh position={[-45, 55, -60]}>
+          <sphereGeometry args={[3.5, 24, 20]} />
+          <meshBasicMaterial color="#E8F0FF" />
+        </mesh>
+      ) : (
+        <mesh position={[60, 80, -100]}>
+          <sphereGeometry args={[6, 16, 16]} />
+          <meshBasicMaterial color={skyState?.sunColor ?? '#FFF5D0'} />
+        </mesh>
+      )}
+
+      {/* Stars at night */}
+      <instancedMesh ref={starRef} args={[undefined, undefined, 400]}>
+        <sphereGeometry args={[1, 5, 4]} />
+        <meshBasicMaterial color="#DDEEFF" />
+      </instancedMesh>
+
+      {/* Aurora borealis at night */}
+      {isNight && (
+        <>
+          <mesh position={[0, 28, -55]} rotation={[0, 0, 0]}>
+            <planeGeometry args={[100, 22, 24, 8]} />
+            <meshBasicMaterial color="#00FF88" transparent opacity={0.12} side={THREE.DoubleSide} />
+          </mesh>
+          <mesh position={[20, 26, -50]} rotation={[0, -0.4, 0]}>
+            <planeGeometry args={[70, 18, 20, 6]} />
+            <meshBasicMaterial color="#4400FF" transparent opacity={0.08} side={THREE.DoubleSide} />
+          </mesh>
+        </>
+      )}
+
+      {/* Daytime clouds */}
+      {!isNight && [[20,45,-60],[-40,55,-80],[60,50,-50]].map(([x,y,z],i) => (
         <mesh key={i} position={[x as number, y as number, z as number]}>
           <sphereGeometry args={[8 + i * 3, 8, 8]} />
-          <meshBasicMaterial color="rgba(255,255,255,0.85)" transparent opacity={0.9} />
+          <meshBasicMaterial color="#FFFFFF" transparent opacity={0.85} />
         </mesh>
       ))}
     </>
@@ -395,7 +463,7 @@ function SkyDome() {
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
   objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, onPathClick, pathDrawing, hutPos,
-  gridSnap, snapSize,
+  gridSnap, snapSize, skyState,
 }: {
   objects:       WorldObject[];
   selectedId:    string | null;
@@ -410,17 +478,20 @@ function BuilderScene({
   hutPos:        [number, number];
   gridSnap:      boolean;
   snapSize:      number;
+  skyState:      any;
 }) {
   const orbitRef = useRef<any>(null);
   const selectedObj = objects.find(o => o.id === selectedId) ?? null;
   const selectedGroupRef = useRef<THREE.Group>(null);
+  const isNight = skyState?.phase === 'night' || skyState?.phase === 'dusk' || skyState?.phase === 'dawn';
 
   return (
     <>
-      <SkyDome />
+      <SkyDome skyState={skyState} />
 
-      <ambientLight intensity={1.2} color="#FFF8F0" />
-      <directionalLight position={[40, 80, 40]} intensity={2.0} castShadow
+      {/* Extra directional for shadow casting — SkyDome handles ambient */}
+      <directionalLight position={[40, 80, 40]} intensity={isNight ? 0.5 : 2.0} castShadow
+        color={isNight ? '#6080C8' : '#FFF5D0'}
         shadow-mapSize={[2048, 2048]}
         shadow-camera-near={0.1}
         shadow-camera-far={200}
@@ -429,7 +500,7 @@ function BuilderScene({
         shadow-camera-top={100}
         shadow-camera-bottom={-100}
       />
-      <directionalLight position={[-30, 40, -30]} intensity={0.5} color="#C8E8FF" />
+      <directionalLight position={[-30, 40, -30]} intensity={isNight ? 0.3 : 0.5} color={isNight ? '#4060A8' : '#C8E8FF'} />
 
       <Grid
         args={[200, 200]}
@@ -894,6 +965,7 @@ function PaletteItem({
 export function WorldBuilder() {
   const supabase = createClient();
   const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const skyState = useSkySystem(); // live day/night cycle matching the village
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setAdminUserId(user?.id ?? null));
@@ -1742,6 +1814,7 @@ export function WorldBuilder() {
               hutPos={HUT_POS}
               gridSnap={gridSnap}
               snapSize={snapSize}
+              skyState={skyState}
             />
           </Canvas>
 
