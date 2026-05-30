@@ -5,8 +5,8 @@ import { useEffect, useState, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
-// Village map + sandbox have their own nav; embedded drawer hides it
-const HIDE_ON = ['/village/map', '/admin/sandbox'];
+// Village map has its own built-in carousel nav; embedded drawer hides standard nav
+const HIDE_ON = ['/village/map'];
 
 const NAV_ITEMS = [
   {
@@ -43,7 +43,7 @@ function BottomNavInner() {
   const [unread, setUnread] = useState(0);
   const supabase = createClient();
 
-  const isVillagePage = path.startsWith('/village') || path === '/notifications' || path.startsWith('/messages');
+  const isVillagePage = path.startsWith('/village') || path.startsWith('/admin') || path === '/notifications' || path.startsWith('/messages');
   const isHidden = HIDE_ON.some(p => path === p || path.startsWith(p)) || searchParams.get('embedded') === '1';
 
   useEffect(() => {
