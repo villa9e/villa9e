@@ -84,6 +84,7 @@ interface AdminObj {
   sound_trigger_dist: number; sound_max_dist: number; sound_loop: boolean;
   item_info_enabled: boolean; trail_passable?: boolean;
   trail_points?: [number, number][]; is_building?: boolean;
+  tint_color?: string | null; opacity?: number;
 }
 
 // ─── Shared ref: live admin objects list (populated by LiveAdminObjects,
@@ -1942,16 +1943,29 @@ function GroundTileModel({ obj }: { obj: AdminObj }) {
 // ─── Static GLTF model ────────────────────────────────────────────────────────
 function StaticModel({ obj }: { obj: AdminObj }) {
   const { scene } = useGLTF(obj.model_url);
+  const tint   = obj.tint_color ?? null;
+  const opaque = obj.opacity    ?? 1;
   const clone = useMemo(() => {
     const c = scene.clone(true);
+    const tintColor = tint ? new THREE.Color(tint) : null;
     c.traverse(ch => {
-      if ((ch as THREE.Mesh).isMesh) {
-        (ch as THREE.Mesh).castShadow = true;
-        (ch as THREE.Mesh).receiveShadow = true;
+      if (!(ch as THREE.Mesh).isMesh) return;
+      const m = ch as THREE.Mesh;
+      m.castShadow    = true;
+      m.receiveShadow = true;
+      if (tintColor || opaque < 1) {
+        const applyMat = (mat: THREE.Material) => {
+          const cloned = mat.clone();
+          if (tintColor) (cloned as any).color?.multiply(tintColor);
+          if (opaque < 1) { cloned.transparent = true; (cloned as any).opacity = opaque; }
+          return cloned;
+        };
+        if (Array.isArray(m.material)) m.material = m.material.map(applyMat);
+        else m.material = applyMat(m.material);
       }
     });
     return c;
-  }, [scene]);
+  }, [scene, tint, opaque]);
   const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
   return <primitive object={clone} position={[obj.pos_x, baseY, obj.pos_z]} rotation={[0, obj.rot_y, 0]} scale={obj.scale} />;
 }
