@@ -3,7 +3,7 @@ import React, {
   useRef, useState, useCallback, useEffect, useMemo, Suspense,
 } from 'react';
 import { Canvas, useFrame, useThree, ThreeEvent } from '@react-three/fiber';
-import { OrbitControls, Grid, GizmoHelper, GizmoViewport, useGLTF } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport, useGLTF, TransformControls } from '@react-three/drei';
 import * as THREE from 'three';
 import {
   MODEL_CATALOG, VILLAGE_PAGES, APP_FEATURES, CATEGORY_META,
@@ -395,6 +395,7 @@ function SkyDome() {
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
   objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, onPathClick, pathDrawing, hutPos,
+  gridSnap, snapSize,
 }: {
   objects:       WorldObject[];
   selectedId:    string | null;
@@ -407,7 +408,13 @@ function BuilderScene({
   onPathClick:   (x: number, z: number) => void;
   pathDrawing:   boolean;
   hutPos:        [number, number];
+  gridSnap:      boolean;
+  snapSize:      number;
 }) {
+  const orbitRef = useRef<any>(null);
+  const selectedObj = objects.find(o => o.id === selectedId) ?? null;
+  const selectedGroupRef = useRef<THREE.Group>(null);
+
   return (
     <>
       <SkyDome />
@@ -471,22 +478,49 @@ function BuilderScene({
       }
 
       <Suspense fallback={null}>
-        {objects.map(obj => (
-          <SceneObject
-            key={obj.id}
-            obj={obj}
-            selected={selectedId === obj.id}
-            multiSelected={multiSelected.has(obj.id)}
-            onSelect={onSelectObj}
-            dragging={selectedId}
-            onDragEnd={onDragObj}
+        {objects.map(obj => {
+          const isSel = selectedId === obj.id;
+          return (
+            <group
+              key={obj.id}
+              ref={isSel ? selectedGroupRef : undefined}
+            >
+              <SceneObject
+                obj={obj}
+                selected={isSel}
+                multiSelected={multiSelected.has(obj.id)}
+                onSelect={onSelectObj}
+                dragging={selectedId}
+                onDragEnd={onDragObj}
+              />
+            </group>
+          );
+        })}
+
+        {/* TransformControls — axis handles on selected object with grid snap */}
+        {selectedObj && !pathDrawing && !pendingModel && (
+          <TransformControls
+            object={selectedGroupRef.current ?? undefined}
+            mode="translate"
+            translationSnap={gridSnap ? snapSize : null}
+            showX showZ
+            showY={false}
+            onMouseDown={() => { if (orbitRef.current) orbitRef.current.enabled = false; }}
+            onMouseUp={() => {
+              if (orbitRef.current) orbitRef.current.enabled = true;
+              if (selectedGroupRef.current) {
+                const p = selectedGroupRef.current.position;
+                onDragObj(selectedObj.id, p.x, p.z);
+              }
+            }}
           />
-        ))}
+        )}
 
         {pendingModel && <PlacementGhost url={pendingModel.url} />}
       </Suspense>
 
       <OrbitControls
+        ref={orbitRef}
         makeDefault
         maxPolarAngle={Math.PI / 2.1}
         minDistance={2}
@@ -1716,6 +1750,8 @@ export function WorldBuilder() {
               onPathClick={handlePathClick}
               pathDrawing={pathDrawing}
               hutPos={HUT_POS}
+              gridSnap={gridSnap}
+              snapSize={snapSize}
             />
           </Canvas>
 
