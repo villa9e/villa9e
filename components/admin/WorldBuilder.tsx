@@ -111,8 +111,8 @@ function WaterTileObject({ obj, onSelect }: {
 }
 
 // ─── 3D: tile mesh (non-water, no GLTF loading) ───────────────────────────────
-function SceneObjectTile({ obj, selected, onSelect }: {
-  obj: WorldObject; selected: boolean;
+function SceneObjectTile({ obj, selected, hovered, onSelect }: {
+  obj: WorldObject; selected: boolean; hovered?: boolean;
   onSelect: (id: string, shiftKey: boolean) => void;
 }) {
   const { base, shape } = parseTileUrl(obj.model_url);
@@ -135,11 +135,12 @@ function SceneObjectTile({ obj, selected, onSelect }: {
 
 // ─── 3D: GLTF/GLB mesh ───────────────────────────────────────────────────────
 function SceneObjectGltf({
-  obj, selected, multiSelected, onSelect, dragging, onDragEnd,
+  obj, selected, multiSelected, hovered, onSelect, dragging, onDragEnd,
 }: {
   obj:          WorldObject;
   selected:     boolean;
   multiSelected: boolean;
+  hovered?:     boolean;
   onSelect:     (id: string, shiftKey: boolean) => void;
   dragging:     string | null;
   onDragEnd:    (id: string, x: number, z: number) => void;
@@ -190,6 +191,14 @@ function SceneObjectGltf({
     >
       <primitive object={clone} />
 
+      {/* Hover highlight — cyan pulse ring (from outliner hover) */}
+      {hovered && !selected && (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08 / obj.scale, 0]}>
+          <ringGeometry args={[1.4, 1.7, 48]} />
+          <meshBasicMaterial color="#22D3EE" transparent opacity={0.75} side={THREE.DoubleSide} />
+        </mesh>
+      )}
+
       {(selected || multiSelected) && (
         <>
           <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05 / obj.scale, 0]}>
@@ -230,12 +239,12 @@ function SceneObjectGltf({
 
 // ─── SceneObject dispatcher ──────────────────────────────────────────────────
 function SceneObject(props: {
-  obj: WorldObject; selected: boolean; multiSelected: boolean;
+  obj: WorldObject; selected: boolean; multiSelected: boolean; hovered?: boolean;
   onSelect: (id: string, shiftKey: boolean) => void;
   dragging: string | null; onDragEnd: (id: string, x: number, z: number) => void;
 }) {
   if (props.obj.model_url.endsWith('.tile'))
-    return <SceneObjectTile obj={props.obj} selected={props.selected} onSelect={props.onSelect} />;
+    return <SceneObjectTile obj={props.obj} selected={props.selected} hovered={props.hovered} onSelect={props.onSelect} />;
   return <SceneObjectGltf {...props} />;
 }
 
@@ -456,7 +465,7 @@ function SkyDome({ skyState }: { skyState: any }) {
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
   objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, onPathClick, pathDrawing, hutPos,
-  gridSnap, snapSize, skyState,
+  gridSnap, snapSize, skyState, hoveredId,
 }: {
   objects:       WorldObject[];
   selectedId:    string | null;
@@ -472,6 +481,7 @@ function BuilderScene({
   gridSnap:      boolean;
   snapSize:      number;
   skyState:      any;
+  hoveredId?:    string | null;
 }) {
   const orbitRef = useRef<any>(null);
   const selectedObj = objects.find(o => o.id === selectedId) ?? null;
@@ -559,6 +569,7 @@ function BuilderScene({
                 obj={obj}
                 selected={isSel}
                 multiSelected={multiSelected.has(obj.id)}
+                hovered={hoveredId === obj.id}
                 onSelect={onSelectObj}
                 dragging={selectedId}
                 onDragEnd={onDragObj}
@@ -1351,6 +1362,29 @@ export function WorldBuilder() {
 
   const CATEGORIES = Object.entries(CATEGORY_META) as [ModelCategory, typeof CATEGORY_META[ModelCategory]][];
 
+  // Outliner (object list dropdown)
+  const [showOutliner, setShowOutliner] = useState(false);
+  const [outlinerQ,    setOutlinerQ]    = useState('');
+  const [hoveredId,    setHoveredId]    = useState<string | null>(null);
+  const outlinerRef = useRef<HTMLDivElement>(null);
+
+  // Close outliner on outside click
+  useEffect(() => {
+    if (!showOutliner) return;
+    const handler = (e: MouseEvent) => {
+      if (outlinerRef.current && !outlinerRef.current.contains(e.target as Node)) {
+        setShowOutliner(false);
+      }
+    };
+    window.addEventListener('mousedown', handler);
+    return () => window.removeEventListener('mousedown', handler);
+  }, [showOutliner]);
+
+  const outlinerFiltered = useMemo(() => {
+    const q = outlinerQ.toLowerCase();
+    return q ? objects.filter(o => (o.world_name ?? o.label).toLowerCase().includes(q)) : objects;
+  }, [objects, outlinerQ]);
+
   // Toolbar draggable state
   const [toolbarPos, setToolbarPos] = useState({ x: 8, y: 8 });
   const [toolbarMin, setToolbarMin] = useState(false);
@@ -1772,6 +1806,82 @@ export function WorldBuilder() {
           )}
         </div>
 
+        {/* ── Outliner bar ─────────────────────────────────────────────── */}
+        <div ref={outlinerRef} className="relative shrink-0"
+          style={{ borderBottom: `1px solid ${WB.border}`, background: WB.panel, zIndex: 30 }}>
+          <button
+            onClick={() => { setShowOutliner(o => !o); setOutlinerQ(''); }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-[11px] font-bold" style={{ color: WB.text }}>
+              📋 {objects.length} objects
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+              style={{ background: liveCount > 0 ? '#DCFCE7' : '#F3F4F6', color: liveCount > 0 ? '#16A34A' : '#6B7280' }}>
+              {liveCount} live
+            </span>
+            {selectedObj && (
+              <span className="flex-1 text-[10px] truncate text-right" style={{ color: WB.muted }}>
+                ✏️ {selectedObj.world_name ?? selectedObj.label}
+              </span>
+            )}
+            <span className="text-[10px]" style={{ color: WB.muted }}>{showOutliner ? '▲' : '▼'}</span>
+          </button>
+
+          {/* Dropdown */}
+          {showOutliner && (
+            <div className="absolute left-0 right-0 top-full shadow-xl border rounded-b-xl overflow-hidden"
+              style={{ background: WB.panel, borderColor: WB.border, maxHeight: 320, overflowY: 'auto', zIndex: 100 }}>
+              {/* Search */}
+              <div className="sticky top-0 px-3 py-2 border-b" style={{ background: WB.panel, borderColor: WB.border }}>
+                <input
+                  autoFocus
+                  value={outlinerQ}
+                  onChange={e => setOutlinerQ(e.target.value)}
+                  placeholder="Search objects…"
+                  className="w-full text-[11px] px-2 py-1 rounded-lg border outline-none"
+                  style={{ border: `1px solid ${WB.border}`, color: WB.text, background: '#F8F9FB' }}
+                />
+              </div>
+              {outlinerFiltered.length === 0 && (
+                <p className="text-center py-4 text-[11px]" style={{ color: WB.muted }}>No objects match</p>
+              )}
+              {outlinerFiltered.map(obj => (
+                <div
+                  key={obj.id}
+                  className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors"
+                  style={{
+                    background: hoveredId === obj.id ? '#EFF6FF'
+                      : selectedId === obj.id ? '#F0FDF4' : 'transparent',
+                  }}
+                  onMouseEnter={() => setHoveredId(obj.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => {
+                    setSelectedId(obj.id);
+                    setMultiSelect(new Set());
+                    setPending(null);
+                    setShowOutliner(false);
+                    setHoveredId(null);
+                  }}
+                >
+                  <span className="text-sm flex-shrink-0">
+                    {MODEL_CATALOG.find(m => m.url === obj.model_url)?.emoji ?? '📦'}
+                  </span>
+                  <span className="flex-1 text-[11px] font-medium truncate" style={{ color: WB.text }}>
+                    {obj.world_name ?? obj.label}
+                  </span>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: obj.is_live ? '#16A34A' : '#D1D5DB' }} />
+                    <span className="text-[9px]" style={{ color: WB.muted }}>
+                      ({obj.pos_x.toFixed(0)}, {obj.pos_z.toFixed(0)})
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Canvas */}
         <div className="flex-1 relative">
           <Canvas shadows camera={{ position: [0, 28, 48], fov: 52 }} gl={{ antialias: true }}>
@@ -1803,6 +1913,7 @@ export function WorldBuilder() {
               gridSnap={gridSnap}
               snapSize={snapSize}
               skyState={skyState}
+              hoveredId={hoveredId}
             />
           </Canvas>
 
