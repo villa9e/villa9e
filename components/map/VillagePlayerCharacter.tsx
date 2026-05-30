@@ -145,14 +145,13 @@ function ProceduralAvatar({
 // ─── GLTF character — tries to load a real 3D character ──────────────────────
 function GLTFCharacter({
   url, position, rotation = 0, posRef, rotRef,
-  skinColor, hairColor, shirtColor, isMovingRef, onLoad,
+  skinColor, hairColor, shirtColor, isMovingRef,
 }: {
   url: string; position: THREE.Vector3; rotation?: number;
   posRef?: React.MutableRefObject<THREE.Vector3>;
   rotRef?: React.MutableRefObject<number>;
   skinColor?: string; hairColor?: string; shirtColor?: string;
   isMovingRef?: React.MutableRefObject<boolean>;
-  onLoad?: () => void;
 }) {
   const groupRef  = useRef<THREE.Group>(null);
   const mixerRef  = useRef<THREE.AnimationMixer | null>(null);
@@ -162,9 +161,6 @@ function GLTFCharacter({
 
   const { scene, animations } = useGLTF(url);
 
-  useEffect(() => {
-    if (scene) onLoad?.();
-  }, [scene, onLoad]);
 
   const cloned = useMemo(() => {
     const clone = scene.clone(true);
@@ -256,7 +252,6 @@ export function PlayerCharacter(props: PlayerCharacterProps) {
   const hairColor  = cfg ? (HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700') : (props.hairColor  ?? '#0C0700');
   const shirtColor = cfg ? (SHIRT_COLOR_MAP[cfg.outfit_id]    ?? '#2563EB') : (props.shirtColor ?? '#2563EB');
   const gltfUrl    = cfg ? resolveCharacterURL(cfg) : '/models/gltf/Casual_Male.gltf';
-  const [gltfLoaded, setGltfLoaded] = useState(false);
 
   const sharedProps = {
     skinColor, hairColor, shirtColor,
@@ -270,18 +265,12 @@ export function PlayerCharacter(props: PlayerCharacterProps) {
 
   return (
     <>
-      {/* Procedural avatar — always visible until GLTF loads */}
-      {!gltfLoaded && (
-        <ProceduralAvatar {...props} skinColor={skinColor} hairColor={hairColor} shirtColor={shirtColor} />
-      )}
+      {/* Procedural avatar — always rendered as solid fallback */}
+      <ProceduralAvatar {...props} skinColor={skinColor} hairColor={hairColor} shirtColor={shirtColor} />
 
-      {/* GLTF character — Suspense handles load; error boundary falls back to procedural */}
+      {/* GLTF character renders on top when it loads — covers procedural automatically */}
       <Suspense fallback={null}>
-        <GLTFCharacter
-          url={gltfUrl}
-          {...sharedProps}
-          onLoad={() => setGltfLoaded(true)}
-        />
+        <GLTFCharacter url={gltfUrl} {...sharedProps} />
       </Suspense>
     </>
   );

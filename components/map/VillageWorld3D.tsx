@@ -3240,24 +3240,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED     = 0.13;
-    const CAM_SPEED = 0.03; // radians per tick for camera orbit
+    const SPEED = 0.13;
 
     const loop = setInterval(() => {
       let dx = moveInput.current.dx;
       let dz = moveInput.current.dy;
 
-      // WASD = avatar movement (left joystick)
-      if (keys.current.has('w') || keys.current.has('W')) dz = -1;
-      if (keys.current.has('s') || keys.current.has('S')) dz =  1;
-      if (keys.current.has('a') || keys.current.has('A')) dx = -1;
-      if (keys.current.has('d') || keys.current.has('D')) dx =  1;
-
-      // Arrow keys = camera orbit (right joystick)
-      if (keys.current.has('ArrowLeft'))  cameraAzimuth.current -= CAM_SPEED;
-      if (keys.current.has('ArrowRight')) cameraAzimuth.current += CAM_SPEED;
-      if (keys.current.has('ArrowUp'))    cameraZoom.current = Math.max(6,  cameraZoom.current - 0.4);
-      if (keys.current.has('ArrowDown'))  cameraZoom.current = Math.min(36, cameraZoom.current + 0.4);
+      // WASD + Arrow keys both move the avatar
+      if (keys.current.has('w') || keys.current.has('W') || keys.current.has('ArrowUp'))    dz = -1;
+      if (keys.current.has('s') || keys.current.has('S') || keys.current.has('ArrowDown'))  dz =  1;
+      if (keys.current.has('a') || keys.current.has('A') || keys.current.has('ArrowLeft'))  dx = -1;
+      if (keys.current.has('d') || keys.current.has('D') || keys.current.has('ArrowRight')) dx =  1;
 
       // Drag/tap-to-walk: steer toward pointerTarget if no other input
       if (pointerTarget.current && dx === 0 && dz === 0) {
