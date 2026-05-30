@@ -1988,16 +1988,30 @@ function LiveAdminObjects({
 
   useEffect(() => {
     const supabase = createClient();
-    supabase
-      .from('admin_world_objects')
-      .select('id,model_url,label,world_name,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,transport_target,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled,trail_passable,trail_points')
-      .eq('is_live', true)
-      .then(({ data, error }) => {
-        if (!error && data) {
-          setObjects(data as AdminObj[]);
-          liveAdminObjectsRef.current = data as AdminObj[];
-        }
-      });
+    const COLS = 'id,model_url,label,world_name,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,transport_target,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled,trail_passable,trail_points';
+
+    async function fetchLive() {
+      const { data, error } = await supabase
+        .from('admin_world_objects')
+        .select(COLS)
+        .eq('is_live', true);
+      if (!error && data) {
+        setObjects(data as AdminObj[]);
+        liveAdminObjectsRef.current = data as AdminObj[];
+      }
+    }
+
+    fetchLive();
+
+    // Re-fetch whenever any row in the table changes (sandbox publish → live update)
+    const channel = supabase
+      .channel('admin_world_objects_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_world_objects' }, () => {
+        fetchLive();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   // Track which objects the player has already triggered (approach) this proximity visit
