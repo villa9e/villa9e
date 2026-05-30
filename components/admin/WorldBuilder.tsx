@@ -940,31 +940,44 @@ export function WorldBuilder() {
 
   const handlePlace = useCallback((x: number, z: number) => {
     if (!pending) return;
-    const obj = makeDefault(pending.url, pending.label, pending.isBuilding ?? false);
-    obj.pos_x = snap(x);
-    obj.pos_z = snap(z);
-    obj.pos_y = terrainH(snap(x), snap(z));
-    obj.scale = pending.defaultScale;
-    // Auto-enable trail for buildings + compute straight-line trail points from hut
-    if (pending.isBuilding) {
-      obj.trail_enabled  = true;
-      obj.trail_passable = false;
-      // 5 intermediate points from hut [0,24] → placed position
-      const [hx, hz] = HUT_POS;
-      obj.trail_points = Array.from({ length: 6 }, (_, i) => {
-        const t = i / 5;
-        return [hx + (x - hx) * t, hz + (z - hz) * t] as [number, number];
-      });
+
+    const makeObj = (px: number, pz: number, rotOffset = 0, scaleVar = 0) => {
+      const o = makeDefault(pending.url, pending.label, pending.isBuilding ?? false);
+      o.pos_x = snap(px); o.pos_z = snap(pz);
+      o.pos_y = terrainH(snap(px), snap(pz));
+      o.scale = Math.max(0.1, (pending.defaultScale ?? 1) + scaleVar);
+      o.rot_y = rotOffset;
+      if (pending.isBuilding) {
+        o.trail_enabled = true; o.trail_passable = false;
+        const [hx, hz] = HUT_POS;
+        o.trail_points = Array.from({ length: 6 }, (_, i) => {
+          const t = i / 5;
+          return [hx + (px - hx) * t, hz + (pz - hz) * t] as [number, number];
+        });
+      }
+      return o;
+    };
+
+    const newObjs: WorldObject[] = [makeObj(x, z)];
+
+    // Scatter mode: add 4 more copies with random offsets
+    if (scatterMode && !pending.isBuilding) {
+      const SCATTER_R = 4;
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * Math.PI * 2 + Math.random() * 0.8;
+        const r     = (0.5 + Math.random() * 0.5) * SCATTER_R;
+        const sv    = (Math.random() - 0.5) * 0.3;
+        newObjs.push(makeObj(x + Math.cos(angle) * r, z + Math.sin(angle) * r, Math.random() * Math.PI * 2, sv));
+      }
     }
-    setObjects(prev => [...prev, obj]);
+
     setObjects(prev => {
-      const next = [...prev, obj];
+      const next = [...prev, ...newObjs];
       pushHistory(next);
       return next;
     });
-    setSelectedId(obj.id);
-    // Keep pending for repeated placement — Escape cancels
-  }, [pending, gridSnap, snapSize]);
+    setSelectedId(newObjs[0].id);
+  }, [pending, gridSnap, snapSize, scatterMode]);
 
   const handleSave = useCallback(async (publishAll = false) => {
     setSaving(true);
@@ -1430,7 +1443,16 @@ export function WorldBuilder() {
                 </>
               )}
 
-              <div className="text-[9px] text-gray-400 hidden lg:block">Arrows=move []=rot +/-=scale L=live Del=delete</div>
+              {/* Scatter mode */}
+              <button
+                onClick={() => setScatterMode(s => !s)}
+                title="Scatter mode — place 5 copies at once (good for trees/rocks)"
+                className="px-2 py-1 text-[10px] rounded border transition-colors"
+                style={{ background: scatterMode ? '#FEF3C7' : '#F9FAFB', color: scatterMode ? '#92400E' : '#6B7280', borderColor: scatterMode ? '#FCD34D' : '#E5E7EB' }}>
+                🌿 {scatterMode ? 'Scatter ON' : 'Scatter'}
+              </button>
+
+              <div className="text-[9px] text-gray-400 hidden lg:block">Arrows=move []=rot +/-=scale L=live Shift+click=multi Del=delete</div>
             </div>
           )}
         </div>
