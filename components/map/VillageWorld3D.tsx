@@ -270,14 +270,31 @@ function VillageTopBar({
   avatarConfig?: { skin_id?: string };
   vlgBalance: number;
   onHutOpen: () => void;
-  onSearch: () => void;
+  onSearch: () => void;        // opens discover drawer (fallback)
+  onNavigateTo: (href: string) => void; // navigate to specific page
   onMessages: () => void;
   onNotifications: () => void;
 }) {
   const skinColor = SKIN_TONE_MAP[avatarConfig?.skin_id ?? 's5'] ?? '#A86030';
   const { state, play, pause, toggleMusic, selectSong, setMusicVol, set } = useVillageMusic();
   const [showMusic, setShowMusic] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQ, setSearchQ] = useState('');
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { if (showSearch) setTimeout(() => searchRef.current?.focus(), 80); }, [showSearch]);
+
+  const SEARCH_SHORTCUTS = [
+    { label: 'Discover villagers', href: '/village/discover', icon: '🔍' },
+    { label: 'Set a new goal',     href: '/village/workshop/chat', icon: '🎯' },
+    { label: 'Tribes',             href: '/village/tribes', icon: '👥' },
+    { label: 'Dream Line',         href: '/village/dreamline', icon: '✨' },
+    { label: 'Marketplace',        href: '/village/trading-post', icon: '🛒' },
+    { label: 'Pavilion',           href: '/village/pavilion', icon: '🎪' },
+    { label: 'Wellness',           href: '/village/hospital', icon: '🩺' },
+    { label: 'Zen Garden',         href: '/village/zen', icon: '🧘' },
+  ].filter(s => !searchQ.trim() || s.label.toLowerCase().includes(searchQ.toLowerCase()));
 
   function onSpeakerDown() {
     holdTimer.current = setTimeout(() => { setShowMusic(true); }, 500);
@@ -346,9 +363,9 @@ function VillageTopBar({
         </button>
 
         {/* Search */}
-        <button onClick={onSearch}
+        <button onClick={() => setShowSearch(v => !v)}
           className="w-9 h-9 flex items-center justify-center rounded-full transition-all hover:bg-black/5"
-          style={{ color: iconColor }}>
+          style={{ color: showSearch ? '#B8860B' : iconColor, background: showSearch ? 'rgba(212,175,55,0.1)' : 'transparent' }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={STROKE} strokeLinecap="round">
             <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
           </svg>
@@ -526,6 +543,71 @@ function VillageTopBar({
                 </button>
               ))}
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Search overlay ── */}
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            key="search"
+            initial={{ opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            className="absolute top-14 left-3 right-3 z-40 rounded-2xl shadow-2xl overflow-hidden"
+            style={{ background: '#FFFFFF', border: '1px solid rgba(212,175,55,0.3)', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Search input */}
+            <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(30,27,75,0.4)" strokeWidth="2" strokeLinecap="round">
+                <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
+              <input
+                ref={searchRef}
+                value={searchQ}
+                onChange={e => setSearchQ(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Escape') { setShowSearch(false); setSearchQ(''); }
+                  if (e.key === 'Enter' && SEARCH_SHORTCUTS.length > 0) {
+                    onSearch(); setShowSearch(false); setSearchQ('');
+                  }
+                }}
+                placeholder="Search the village…"
+                className="flex-1 text-sm outline-none"
+                style={{ color: '#1E1B4B', background: 'transparent' }}
+              />
+              <button onClick={() => { setShowSearch(false); setSearchQ(''); }}
+                className="text-xs font-bold px-2 py-1 rounded-lg"
+                style={{ color: 'rgba(30,27,75,0.4)', background: 'rgba(30,27,75,0.06)' }}>
+                esc
+              </button>
+            </div>
+
+            {/* Quick links */}
+            <div className="py-1">
+              {SEARCH_SHORTCUTS.slice(0, 6).map(s => (
+                <button
+                  key={s.href}
+                  onClick={() => { onNavigateTo(s.href); setShowSearch(false); setSearchQ(''); }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-sm transition-all hover:bg-amber-50"
+                  style={{ color: '#1E1B4B' }}
+                >
+                  <span className="text-base w-6 text-center">{s.icon}</span>
+                  <span className="font-medium">{s.label}</span>
+                  <svg className="ml-auto" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(30,27,75,0.3)" strokeWidth="2" strokeLinecap="round">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
+              ))}
+            </div>
+
+            {SEARCH_SHORTCUTS.length === 0 && (
+              <div className="px-4 py-6 text-center text-sm" style={{ color: 'rgba(30,27,75,0.4)' }}>
+                No results for "{searchQ}"
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -3250,8 +3332,9 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
         vlgBalance={vlgBalance}
         onHutOpen={() => setShowHutInterior(true)}
         onSearch={() => openDrawer('/village/discover', 'Discover')}
+        onNavigateTo={href => openDrawer(href, href.split('/').pop() ?? 'Open')}
         onMessages={() => openDrawer('/messages', 'Messages')}
-        onNotifications={() => openDrawer('/village/hut', 'Notifications')}
+        onNotifications={() => openDrawer('/notifications', 'Notifications')}
       />
 
       {/* ── Avatar crescent menu — positioned over avatar head ─────── */}
