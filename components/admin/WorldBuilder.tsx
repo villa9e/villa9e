@@ -10,7 +10,7 @@ import {
   type CatalogModel, type ModelCategory, searchModels,
 } from '@/lib/admin/modelCatalog';
 import { terrainH } from '@/components/map/VillageEnvironment';
-import { AnimatedWaterPlane, type WaterShape } from '@/components/map/AnimatedWater';
+import { AnimatedWaterPlane, buildTileGeometry, parseTileUrl, buildTileUrl, type WaterShape } from '@/components/map/AnimatedWater';
 import { createClient } from '@/lib/supabase/client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,25 +93,14 @@ const WB_TILE_COLORS: Record<string, string> = {
   'snow.tile': '#E8F4FF',
 };
 
-// Map tile filename → water shape
-const WB_WATER_SHAPE: Record<string, WaterShape> = {
-  'water.tile':         'rect',
-  'water_round.tile':   'circle',
-  'water_oval.tile':    'oval',
-  'water_natural.tile': 'natural',
-};
-
-function isWaterTile(tileKey: string) { return tileKey in WB_WATER_SHAPE; }
-
 // ─── 3D: water tile (animated) ───────────────────────────────────────────────
 function WaterTileObject({ obj, onSelect }: {
   obj: WorldObject;
   onSelect: (id: string, shiftKey: boolean) => void;
 }) {
-  const sz      = obj.scale * 4;
-  const baseY   = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
-  const tileKey = obj.model_url.split('/').pop() ?? '';
-  const shape   = WB_WATER_SHAPE[tileKey] ?? 'rect';
+  const sz    = obj.scale * 4;
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  const { shape } = parseTileUrl(obj.model_url);
   return (
     <group position={[obj.pos_x, baseY - 0.05, obj.pos_z]}
       onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
@@ -125,18 +114,19 @@ function SceneObjectTile({ obj, selected, onSelect }: {
   obj: WorldObject; selected: boolean;
   onSelect: (id: string, shiftKey: boolean) => void;
 }) {
-  const tileKey = obj.model_url.split('/').pop() ?? '';
-  // Water gets animated shader
-  if (isWaterTile(tileKey)) {
-    return <WaterTileObject obj={obj} onSelect={onSelect} />;
-  }
-  const color = WB_TILE_COLORS[tileKey] ?? '#888';
+  const { base, shape } = parseTileUrl(obj.model_url);
   const sz    = obj.scale * 4;
   const baseY = terrainH(obj.pos_x, obj.pos_z) + obj.elevation;
+  // Always build (hooks must not be conditional)
+  const geo   = useMemo(() => buildTileGeometry(shape, sz, sz), [shape, sz]);
+
+  if (base === 'water') return <WaterTileObject obj={obj} onSelect={onSelect} />;
+
+  const color = WB_TILE_COLORS[`${base}.tile`] ?? '#888';
   return (
     <mesh position={[obj.pos_x, baseY - 0.02, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]}
       onClick={(e: ThreeEvent<MouseEvent>) => { e.stopPropagation(); onSelect(obj.id, e.shiftKey ?? false); }}>
-      <planeGeometry args={[sz, sz]} />
+      <primitive object={geo} attach="geometry" />
       <meshStandardMaterial color={color} transparent opacity={selected ? 0.9 : 0.65} />
     </mesh>
   );
@@ -250,26 +240,26 @@ function SceneObject(props: {
 
 // ─── 3D: placement ghost (tile) ──────────────────────────────────────────────
 function GhostTile({ url }: { url: string }) {
-  const tileKey  = url.split('/').pop() ?? '';
-  const water    = isWaterTile(tileKey);
-  const shape    = WB_WATER_SHAPE[tileKey] ?? 'rect';
-  const color    = WB_TILE_COLORS[tileKey] ?? '#888';
-  const ref      = useRef<THREE.Group>(null);
+  const { base, shape } = parseTileUrl(url);
+  const isWater = base === 'water';
+  const color   = WB_TILE_COLORS[`${base}.tile`] ?? '#888';
+  const ref     = useRef<THREE.Group>(null);
   const { camera, raycaster, pointer } = useThree();
-  const plane    = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
-  const hit      = useMemo(() => new THREE.Vector3(), []);
+  const plane   = useMemo(() => new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), []);
+  const hit     = useMemo(() => new THREE.Vector3(), []);
+  const geo     = useMemo(() => buildTileGeometry(shape, 4, 4), [shape]);
   useFrame(() => {
     if (!ref.current) return;
     raycaster.setFromCamera(pointer, camera);
-    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, water ? -0.05 : 0, hit.z);
+    if (raycaster.ray.intersectPlane(plane, hit)) ref.current.position.set(hit.x, isWater ? -0.05 : 0, hit.z);
   });
   return (
     <group ref={ref}>
-      {water ? (
+      {isWater ? (
         <AnimatedWaterPlane position={[0, 0, 0]} size={[4, 4]} type="tile" shape={shape} />
       ) : (
         <mesh rotation={[-Math.PI/2, 0, 0]}>
-          <planeGeometry args={[4, 4]} />
+          <primitive object={geo} attach="geometry" />
           <meshBasicMaterial color={color} transparent opacity={0.55} side={THREE.DoubleSide} />
         </mesh>
       )}
@@ -573,6 +563,34 @@ function Inspector({
           placeholder="Object name…"
         />
       </div>
+
+      {/* Shape picker — tiles only */}
+      {obj.model_url.endsWith('.tile') && (() => {
+        const { base, shape } = parseTileUrl(obj.model_url);
+        const SHAPES: { id: WaterShape; label: string; icon: string }[] = [
+          { id: 'rect',    label: 'Square',  icon: '⬜' },
+          { id: 'circle',  label: 'Round',   icon: '🔵' },
+          { id: 'oval',    label: 'Oval',    icon: '🫧' },
+          { id: 'natural', label: 'Natural', icon: '🏝️' },
+        ];
+        return section('Shape', (
+          <div className="grid grid-cols-4 gap-1">
+            {SHAPES.map(s => (
+              <button key={s.id}
+                onClick={() => onChange({ model_url: buildTileUrl(base, s.id) })}
+                className="flex flex-col items-center gap-0.5 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                style={{
+                  background: shape === s.id ? '#DBEAFE' : '#F3F4F6',
+                  border: `1.5px solid ${shape === s.id ? '#2563EB' : '#E5E7EB'}`,
+                  color: shape === s.id ? '#1D4ED8' : '#4B5563',
+                }}>
+                <span className="text-base leading-none">{s.icon}</span>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        ));
+      })()}
 
       {/* Transform */}
       {section('Transform', <>

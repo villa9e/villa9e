@@ -74,6 +74,30 @@ void main() {
 
 export type WaterShape = 'rect' | 'circle' | 'oval' | 'natural';
 
+// ─── Tile URL helpers — shape encoded as URL suffix ──────────────────────────
+const SHAPE_SUFFIX: Record<WaterShape, string> = {
+  rect: '', circle: '_round', oval: '_oval', natural: '_natural',
+};
+const SUFFIX_SHAPE: Record<string, WaterShape> = {
+  '': 'rect', '_round': 'circle', '_oval': 'oval', '_natural': 'natural',
+};
+
+/** Extract { base, shape } from a tile URL like water_round.tile */
+export function parseTileUrl(url: string): { base: string; shape: WaterShape } {
+  const filename = url.split('/').pop()?.replace('.tile', '') ?? '';
+  for (const [suffix, shape] of Object.entries(SUFFIX_SHAPE)) {
+    if (suffix && filename.endsWith(suffix)) {
+      return { base: filename.slice(0, -suffix.length), shape };
+    }
+  }
+  return { base: filename, shape: 'rect' };
+}
+
+/** Build a tile URL from a base name + shape */
+export function buildTileUrl(base: string, shape: WaterShape): string {
+  return `/models/tiles/${base}${SHAPE_SUFFIX[shape]}.tile`;
+}
+
 interface AnimatedWaterProps {
   position?: [number, number, number];
   size?: [number, number];
@@ -82,26 +106,36 @@ interface AnimatedWaterProps {
   color?: string;
 }
 
-// ─── Natural/organic pond outline (bezier blob) ──────────────────────────────
-function buildNaturalPondGeo(radius: number): THREE.BufferGeometry {
-  const shape = new THREE.Shape();
-  // 10 hand-tuned control points → smooth organic blob
-  const raw: [number, number][] = [
-    [ 1.00,  0.00], [ 0.75,  0.60], [ 0.25,  0.88],
-    [-0.30,  0.78], [-0.82,  0.42], [-0.98, -0.08],
-    [-0.65, -0.68], [-0.05, -0.90], [ 0.52, -0.72],
-    [ 0.88, -0.32],
-  ];
-  const pts = raw.map(([x, y]) => [x * radius, y * radius] as [number, number]);
-  shape.moveTo(pts[0][0], pts[0][1]);
-  for (let i = 0; i < pts.length; i++) {
-    const cp  = pts[i];
-    const nxt = pts[(i + 1) % pts.length];
-    const mid: [number, number] = [(cp[0] + nxt[0]) / 2, (cp[1] + nxt[1]) / 2];
-    shape.quadraticCurveTo(cp[0], cp[1], mid[0], mid[1]);
+// ─── Shared geometry builder — reused by AnimatedWaterPlane + plain tiles ────
+export function buildTileGeometry(shape: WaterShape, w: number, h: number, segs = 24): THREE.BufferGeometry {
+  const r = Math.min(w, h) / 2;
+  switch (shape) {
+    case 'circle': return new THREE.CircleGeometry(r, 64);
+    case 'oval': {
+      const s = new THREE.Shape();
+      s.absellipse(0, 0, w / 2, h / 3, 0, Math.PI * 2, false, 0);
+      return new THREE.ShapeGeometry(s, 64);
+    }
+    case 'natural': {
+      const blob = new THREE.Shape();
+      const raw: [number, number][] = [
+        [ 1.00,  0.00], [ 0.75,  0.60], [ 0.25,  0.88],
+        [-0.30,  0.78], [-0.82,  0.42], [-0.98, -0.08],
+        [-0.65, -0.68], [-0.05, -0.90], [ 0.52, -0.72],
+        [ 0.88, -0.32],
+      ];
+      const pts = raw.map(([x, y]) => [x * r * 0.95, y * r * 0.95] as [number, number]);
+      blob.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 0; i < pts.length; i++) {
+        const cp  = pts[i];
+        const nxt = pts[(i + 1) % pts.length];
+        blob.quadraticCurveTo(cp[0], cp[1], (cp[0] + nxt[0]) / 2, (cp[1] + nxt[1]) / 2);
+      }
+      blob.closePath();
+      return new THREE.ShapeGeometry(blob, 48);
+    }
+    default: return new THREE.PlaneGeometry(w, h, segs, segs);
   }
-  shape.closePath();
-  return new THREE.ShapeGeometry(shape, 48);
 }
 
 export function AnimatedWaterPlane({
@@ -138,21 +172,10 @@ export function AnimatedWaterPlane({
     depthWrite: false,
   }), [uniforms]);
 
-  // Build geometry based on shape
-  const geometry = useMemo(() => {
-    const w = size[0], h = size[1], r = Math.min(w, h) / 2;
-    switch (shape) {
-      case 'circle':  return new THREE.CircleGeometry(r, 64);
-      case 'oval': {
-        // Ellipse via ShapeGeometry
-        const s = new THREE.Shape();
-        s.absellipse(0, 0, w / 2, h / 3, 0, Math.PI * 2, false, 0);
-        return new THREE.ShapeGeometry(s, 64);
-      }
-      case 'natural': return buildNaturalPondGeo(r * 0.95);
-      default:        return new THREE.PlaneGeometry(w, h, p.segs, p.segs);
-    }
-  }, [shape, size[0], size[1]]);
+  const geometry = useMemo(
+    () => buildTileGeometry(shape, size[0], size[1], p.segs),
+    [shape, size[0], size[1]],
+  );
 
   useFrame(({ clock }) => {
     uniforms.uTime.value = clock.elapsedTime;

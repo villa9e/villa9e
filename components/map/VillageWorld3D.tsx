@@ -50,7 +50,7 @@ import {
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
-import { AnimatedWaterPlane, RiverSegment, WaterfallPlane, type WaterShape } from './AnimatedWater';
+import { AnimatedWaterPlane, RiverSegment, WaterfallPlane, parseTileUrl, buildTileGeometry, type WaterShape } from './AnimatedWater';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG, resolveAvatarColors } from '@/lib/avatar/config';
 import { useVillageMusic, VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
@@ -1757,7 +1757,7 @@ const ANIMAL_KEYWORDS = /wolf|deer|bear|chicken|cat|dog|horse|rabbit|fox|sheep|p
 const CHARACTER_KEYWORDS = /casual|worker|doctor|kimono|witch|wizard|zombie|mage|knight|rogue|paladin|archer|berserker|cleric|warrior|warden|musketeer|druid|jester|bard|assassin|ranger/i;
 
 function isTile(url: string)       { return url.endsWith('.tile'); }
-function isWaterURL(url: string)   { return url.endsWith('water.tile') || url.endsWith('water_round.tile') || url.endsWith('water_oval.tile') || url.endsWith('water_natural.tile') || url.includes('/water/river') || url.includes('waterfall'); }
+function isWaterURL(url: string)   { return parseTileUrl(url).base === 'water' || url.includes('/water/river') || url.includes('waterfall'); }
 function isAnimal(url: string)     { return ANIMAL_KEYWORDS.test(url); }
 function isCharacter(url: string)  { return CHARACTER_KEYWORDS.test(url); }
 
@@ -1771,35 +1771,28 @@ const TILE_COLORS: Record<string, { color: string; emissive?: string; opacity?: 
   'snow.tile':   { color: '#E8F4FF', emissive: '#A0C8FF' },
 };
 
-// Map tile filename → pond shape
-const WATER_SHAPE_MAP: Record<string, WaterShape> = {
-  'water.tile':         'rect',
-  'water_round.tile':   'circle',
-  'water_oval.tile':    'oval',
-  'water_natural.tile': 'natural',
-};
 
 // ─── Ground tile — flat colored plane or animated water ──────────────────────
 function GroundTileModel({ obj }: { obj: AdminObj }) {
-  const tileKey = obj.model_url.split('/').pop() ?? '';
-  const sz      = obj.scale * 4;
-  const baseY   = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+  const { base, shape } = parseTileUrl(obj.model_url);
+  const sz    = obj.scale * 4;
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+  // Always build geometry (hooks must not be conditional)
+  const geo = useMemo(() => buildTileGeometry(shape, sz, sz), [shape, sz]);
 
-  // Water tiles use animated shader
-  const waterShape = WATER_SHAPE_MAP[tileKey];
-  if (waterShape !== undefined) {
+  if (base === 'water') {
     return <AnimatedWaterPlane
       position={[obj.pos_x, baseY - 0.05, obj.pos_z]}
       size={[sz, sz]}
       type="tile"
-      shape={waterShape}
+      shape={shape}
     />;
   }
 
-  const { color, emissive, opacity = 1 } = TILE_COLORS[tileKey] ?? { color: '#888' };
+  const { color, emissive, opacity = 1 } = TILE_COLORS[`${base}.tile`] ?? { color: '#888' };
   return (
     <mesh position={[obj.pos_x, baseY - 0.02, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
-      <planeGeometry args={[sz, sz, 1, 1]} />
+      <primitive object={geo} attach="geometry" />
       <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0} roughness={0.95} metalness={0} transparent={opacity < 1} opacity={opacity} />
     </mesh>
   );
