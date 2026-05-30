@@ -899,6 +899,10 @@ export function WorldBuilder() {
   const [fps, setFps] = useState(60);
   const fpsRef = useRef({ last: performance.now(), frames: 0 });
 
+  // ── Clipboard (copy/paste bundle)
+  const clipboard = useRef<WorldObject[]>([]);
+  const [hasCopied, setHasCopied] = useState(false);
+
   // ── Undo/Redo history
   const history    = useRef<WorldObject[][]>([]);
   const historyIdx = useRef(-1);
@@ -1013,6 +1017,24 @@ export function WorldBuilder() {
       if ((e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) || (e.key === 'y' && (e.metaKey || e.ctrlKey))) {
         e.preventDefault(); redo(); return;
       }
+      // Copy selection (Ctrl+C)
+      if (e.key === 'c' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        const ids = multiSelect.size > 0 ? [...multiSelect] : (selectedId ? [selectedId] : []);
+        if (ids.length > 0) {
+          clipboard.current = objects.filter(o => ids.includes(o.id)).map(o => ({ ...o }));
+          setHasCopied(true);
+          setTimeout(() => setHasCopied(false), 1500);
+        }
+        return;
+      }
+      // Paste bundle (Ctrl+V) — offset by +4 on X and Z to avoid overlap
+      if (e.key === 'v' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (clipboard.current.length === 0) return;
+        pasteCopied();
+        return;
+      }
       // Multi-select: Delete all selected
       if ((e.key === 'Delete' || e.key === 'Backspace') && multiSelect.size > 0) {
         multiSelect.forEach(id => deletedIds.current.add(id));
@@ -1080,6 +1102,26 @@ export function WorldBuilder() {
     setObjects(prev => [...prev, copy]);
     setSelectedId(copy.id);
   }, [objects]);
+
+  const pasteCopied = useCallback(() => {
+    if (clipboard.current.length === 0) return;
+    const OFFSET = 4;
+    const newObjs = clipboard.current.map(o => ({
+      ...o,
+      id:     crypto.randomUUID(),
+      pos_x:  o.pos_x + OFFSET,
+      pos_z:  o.pos_z + OFFSET,
+      is_live: false,
+    }));
+    const newIds = new Set(newObjs.map(o => o.id));
+    setObjects(prev => {
+      const next = [...prev, ...newObjs];
+      pushHistory(next);
+      return next;
+    });
+    setMultiSelect(newIds);
+    setSelectedId(newObjs[0]?.id ?? null);
+  }, []);
 
   const handlePlace = useCallback((x: number, z: number) => {
     if (!pending) return;
@@ -1733,21 +1775,42 @@ export function WorldBuilder() {
               <p className="text-xs font-bold text-gray-600">{multiSelect.size} objects selected</p>
               <p className="text-[10px] text-gray-400">Shift+click to add/remove · Ctrl+A = select all</p>
               <div className="flex gap-2 flex-wrap mt-2">
+                {/* Copy / Paste bundle */}
+                <button
+                  onClick={() => {
+                    clipboard.current = objects.filter(o => multiSelect.has(o.id)).map(o => ({ ...o }));
+                    setHasCopied(true);
+                    setTimeout(() => setHasCopied(false), 1500);
+                  }}
+                  className="px-2 py-1.5 text-[10px] font-bold rounded-lg border transition-colors"
+                  style={{ background: hasCopied ? '#EFF6FF' : '#F9FAFB', color: hasCopied ? '#1D4ED8' : '#374151', borderColor: hasCopied ? '#93C5FD' : '#E5E7EB' }}>
+                  {hasCopied ? '✓ Copied!' : '⎘ Copy Group'}
+                </button>
+                {clipboard.current.length > 0 && (
+                  <button onClick={pasteCopied}
+                    className="px-2 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-bold rounded-lg">
+                    ⎘ Paste ({clipboard.current.length})
+                  </button>
+                )}
                 <button onClick={() => { setObjects(prev => prev.map(o => multiSelect.has(o.id) ? { ...o, is_live: true } : o)); }}
                   className="px-2 py-1.5 bg-green-50 border border-green-300 text-green-700 text-[10px] font-bold rounded-lg">
                   ✓ Publish All
                 </button>
                 <button onClick={() => { setObjects(prev => prev.map(o => multiSelect.has(o.id) ? { ...o, is_live: false } : o)); }}
                   className="px-2 py-1.5 bg-amber-50 border border-amber-300 text-amber-700 text-[10px] font-bold rounded-lg">
-                  ◌ Unpublish All
+                  ◌ Unpublish
                 </button>
-                <button onClick={() => { setObjects(prev => prev.filter(o => !multiSelect.has(o.id))); setMultiSelect(new Set()); setSelectedId(null); }}
+                <button onClick={() => {
+                  multiSelect.forEach(id => deletedIds.current.add(id));
+                  setObjects(prev => prev.filter(o => !multiSelect.has(o.id)));
+                  setMultiSelect(new Set()); setSelectedId(null);
+                }}
                   className="px-2 py-1.5 bg-red-50 border border-red-300 text-red-600 text-[10px] font-bold rounded-lg">
                   🗑 Delete All
                 </button>
                 <button onClick={() => setMultiSelect(new Set())}
                   className="px-2 py-1.5 bg-gray-50 border border-gray-200 text-gray-500 text-[10px] rounded-lg">
-                  Clear Selection
+                  Clear
                 </button>
               </div>
               <div className="mt-3 space-y-0.5">
@@ -1767,10 +1830,18 @@ export function WorldBuilder() {
               onDuplicate={() => duplicateObj(selectedObj.id)}
             />
           ) : (
-            <div className="text-center py-8">
-              <p className="text-3xl mb-3">🌍</p>
+            <div className="text-center py-8 space-y-3">
+              <p className="text-3xl mb-1">🌍</p>
               <p className="text-gray-400 text-[11px]">Select an object to edit.</p>
-              <p className="text-gray-300 text-[10px] mt-1">Shift+click for multi-select</p>
+              <p className="text-gray-300 text-[10px]">Shift+click for multi-select</p>
+              {clipboard.current.length > 0 && (
+                <button onClick={pasteCopied}
+                  className="mx-auto flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-bold border transition-colors"
+                  style={{ background: '#EFF6FF', color: '#1D4ED8', borderColor: '#93C5FD' }}>
+                  ⎘ Paste {clipboard.current.length} object{clipboard.current.length > 1 ? 's' : ''}
+                  <span className="text-[9px] text-blue-300 font-normal">Ctrl+V</span>
+                </button>
+              )}
             </div>
           )}
         </div>
