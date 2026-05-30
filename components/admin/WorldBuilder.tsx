@@ -869,12 +869,14 @@ export function WorldBuilder() {
   const [objects,       setObjects]      = useState<WorldObject[]>([]);
   const [selectedId,    setSelectedId]   = useState<string | null>(null);
   const [multiSelect,   setMultiSelect]  = useState<Set<string>>(new Set());
-  const [scatterMode,   setScatterMode]  = useState(false); // rapid-place copies
+  const [scatterMode,   setScatterMode]  = useState(false);
   const [pending,       setPending]      = useState<CatalogModel | null>(null);
   const [mode,          setMode]         = useState<'sandbox' | 'production'>('sandbox');
   const [saving,        setSaving]       = useState(false);
   const [saved,         setSaved]        = useState(false);
   const [searchQ,       setSearchQ]      = useState('');
+  // Track IDs deleted locally so save can remove them from Supabase
+  const deletedIds = useRef<Set<string>>(new Set());
   const [activeCategory,setCategory]     = useState<string>('buildings_residential');
   const [activeTab,     setActiveTab]    = useState<'models' | 'ai' | 'pages' | 'features' | 'objects'>('models');
   // Meshy AI state
@@ -987,6 +989,7 @@ export function WorldBuilder() {
       }
       // Multi-select: Delete all selected
       if ((e.key === 'Delete' || e.key === 'Backspace') && multiSelect.size > 0) {
+        multiSelect.forEach(id => deletedIds.current.add(id));
         setObjects(prev => prev.filter(o => !multiSelect.has(o.id)));
         setMultiSelect(new Set()); setSelectedId(null); return;
       }
@@ -1038,6 +1041,7 @@ export function WorldBuilder() {
   }, [selectedId, gridSnap, snapSize]);
 
   const deleteObj = useCallback((id: string) => {
+    deletedIds.current.add(id);
     setObjects(prev => prev.filter(o => o.id !== id));
     setSelectedId(null);
   }, []);
@@ -1150,8 +1154,16 @@ export function WorldBuilder() {
       setSaveError(error.message);
       console.error('[WorldBuilder] save failed:', error);
     } else {
-      // Step 3: If publishAll, also do an explicit UPDATE to ensure is_live = true
-      // (handles the case where objects already existed with is_live = false)
+      // Step 3: Delete any objects removed since last save
+      if (deletedIds.current.size > 0) {
+        const toDelete = [...deletedIds.current];
+        await supabase
+          .from('admin_world_objects')
+          .delete()
+          .in('id', toDelete);
+        deletedIds.current.clear();
+      }
+      // Step 4: If publishAll, explicit UPDATE to ensure is_live = true
       if (publishAll && objects.length > 0) {
         await supabase
           .from('admin_world_objects')
@@ -1231,19 +1243,32 @@ export function WorldBuilder() {
               />
             </div>
 
-            {/* Category pills */}
+            {/* Category list — scrollable, shows emoji + label */}
             {!searchQ && (
-              <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-gray-200">
-                {CATEGORIES.map(([id, meta]) => (
-                  <button key={id} onClick={() => setCategory(id)}
-                    className={`px-1.5 py-0.5 rounded text-[9px] transition-colors ${
-                      activeCategory === id
-                        ? 'bg-blue-50 text-green-600'
-                        : 'text-gray-500 hover:text-gray-600'
-                    }`}>
-                    {meta.emoji}
-                  </button>
-                ))}
+              <div className="overflow-y-auto border-b border-gray-200" style={{ maxHeight: 200 }}>
+                {CATEGORIES.map(([id, meta]) => {
+                  const count = MODEL_CATALOG.filter(m => m.category === id).length;
+                  if (count === 0) return null;
+                  const active = activeCategory === id;
+                  return (
+                    <button key={id} onClick={() => setCategory(id)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
+                      style={{
+                        background: active ? '#EFF6FF' : 'transparent',
+                        borderLeft: `3px solid ${active ? '#2563EB' : 'transparent'}`,
+                      }}>
+                      <span className="text-sm flex-shrink-0">{meta.emoji}</span>
+                      <span className="flex-1 text-[11px] font-semibold truncate"
+                        style={{ color: active ? '#1D4ED8' : '#374151' }}>
+                        {meta.label}
+                      </span>
+                      <span className="text-[9px] flex-shrink-0"
+                        style={{ color: active ? '#60A5FA' : '#9CA3AF' }}>
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
