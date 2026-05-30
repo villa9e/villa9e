@@ -117,7 +117,7 @@ function VillageMapPageInner() {
   const spotsLeft = Math.max(0, 1000 - foundingCount);
 
   return (
-    <div className="flex flex-col bg-[#0a0e1a]" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
+    <div className="flex flex-col" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden', background: '#000' }}>
 
       {/* Confetti */}
       {showConfetti && <Confetti />}
