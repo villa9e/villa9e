@@ -13,7 +13,7 @@ const WorldBuilder = dynamic(
         <div className="text-center">
           <div className="text-5xl mb-4 animate-pulse">🌍</div>
           <p className="text-[#4ADE80] font-black text-lg">World Builder</p>
-          <p className="text-[#2A5A2A] text-sm mt-1">Loading 304 models…</p>
+          <p className="text-[#2A5A2A] text-sm mt-1">Loading 881 models…</p>
         </div>
       </div>
     ),
@@ -74,7 +74,7 @@ export default function WorldBuilderPage() {
           Admin
         </span>
         <span className="text-[#1A3A1A] ml-auto text-[10px]">
-          304 models available
+          881 models available
         </span>
       </div>
 

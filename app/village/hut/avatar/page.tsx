@@ -18,10 +18,22 @@ import {
 const CHARACTER_TYPES: { id: CharacterType; label: string; icon: string; description: string }[] = [
   { id: 'casual',  label: 'Casual',   icon: '👕', description: 'Everyday streetwear' },
   { id: 'casual2', label: 'Casual 2', icon: '🧢', description: 'Hoodie + sneakers' },
-  { id: 'casual3', label: 'Casual 3', icon: '🧣', description: 'Layered trendy look' },
-  { id: 'worker',  label: 'Worker',   icon: '👷', description: 'Hard at work' },
+  { id: 'casual3', label: 'Casual 3', icon: '🧣', description: 'Layered look' },
+  { id: 'suit',    label: 'Business', icon: '🕴️', description: 'Sharp suit' },
+  { id: 'worker',  label: 'Worker',   icon: '👷', description: 'Builder gear' },
   { id: 'doctor',  label: 'Healer',   icon: '🩺', description: 'Medical coat' },
+  { id: 'chef',    label: 'Chef',     icon: '👨‍🍳', description: 'Culinary master' },
   { id: 'kimono',  label: 'Kimono',   icon: '👘', description: 'Traditional zen' },
+  { id: 'ninja',   label: 'Ninja',    icon: '🥷', description: 'Shadow warrior' },
+  { id: 'pirate',  label: 'Pirate',   icon: '🏴‍☠️', description: 'Sea adventurer' },
+  { id: 'cowboy',  label: 'Cowboy',   icon: '🤠', description: 'Wild West rider' },
+  { id: 'knight',  label: 'Knight',   icon: '⚔️', description: 'Armored warrior' },
+  { id: 'elf',     label: 'Elf',      icon: '🧝', description: 'Forest mystic' },
+  { id: 'wizard',  label: 'Wizard',   icon: '🧙', description: 'Magic wielder' },
+  { id: 'witch',   label: 'Witch',    icon: '🧙‍♀️', description: 'Spellcaster' },
+  { id: 'warrior', label: 'Warrior',  icon: '🗡️', description: 'Battle-hardened' },
+  { id: 'rogue',   label: 'Rogue',    icon: '🗡️', description: 'Stealthy trickster' },
+  { id: 'soldier', label: 'Soldier',  icon: '🪖', description: 'Combat ready' },
 ];
 
 const BODY_TYPES: { id: BodyType; label: string; icon: string }[] = [

@@ -58,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
         `}} />
       </head>
-      <body className={`${inter.className} pb-20`} style={{ overflowX: 'hidden', WebkitTextSizeAdjust: '100%' }}>
+      <body className={inter.className} style={{ overflowX: 'hidden', WebkitTextSizeAdjust: '100%' }}>
         <PostHogProvider>
           <SpiritVoiceProvider>
             <ThemeSync />

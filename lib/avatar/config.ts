@@ -36,12 +36,12 @@ export const SHIRT_COLOR_MAP: Record<string, string> = {
 
 // Character types map to specific GLTF model files in /public/models/gltf/
 export type CharacterType =
-  | 'casual'    // Casual_Male / Casual_Female
-  | 'casual2'   // Casual2_Male / Casual2_Female
-  | 'casual3'   // Casual3_Male / Casual3_Female
-  | 'worker'    // Worker_Male / Worker_Female
-  | 'doctor'    // Doctor_Male_Young / Doctor_Female_Young
-  | 'kimono';   // Kimono_Male / Kimono_Female
+  | 'casual'    | 'casual2'   | 'casual3'
+  | 'worker'    | 'doctor'    | 'kimono'
+  | 'ninja'     | 'pirate'    | 'cowboy'
+  | 'chef'      | 'elf'       | 'knight'
+  | 'suit'      | 'soldier'   | 'wizard'
+  | 'witch'     | 'rogue'     | 'warrior';
 
 export type BodyType = 'male' | 'female';
 
@@ -78,6 +78,18 @@ export function resolveCharacterURL(cfg: Partial<AvatarConfig>): string {
     worker:  `/models/gltf/Worker_${suffix}.gltf`,
     doctor:  `/models/gltf/Doctor_${suffix}_Young.gltf`,
     kimono:  `/models/gltf/Kimono_${suffix}.gltf`,
+    ninja:   `/models/gltf/Ninja_${suffix}.gltf`,
+    pirate:  `/models/gltf/Pirate_${suffix}.gltf`,
+    cowboy:  `/models/gltf/Cowboy_${suffix}.gltf`,
+    chef:    `/models/gltf/Chef_${suffix}.gltf`,
+    elf:     `/models/gltf/Elf.gltf`,
+    knight:  `/models/gltf/Knight_Male.gltf`,
+    suit:    `/models/gltf/Suit_${suffix}.gltf`,
+    soldier: `/models/gltf/BlueSoldier_${suffix}.gltf`,
+    wizard:  `/models/gltf/Wizard.gltf`,
+    witch:   `/models/gltf/Witch.gltf`,
+    rogue:   `/models/gltf/Rogue.gltf`,
+    warrior: `/models/gltf/Warrior.gltf`,
   };
   return MAP[type] ?? `/models/gltf/Casual_${suffix}.gltf`;
 }

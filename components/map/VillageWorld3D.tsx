@@ -1734,14 +1734,21 @@ function StaticModel({ obj }: { obj: AdminObj }) {
 }
 
 // ─── Animal model — roams within a radius of placed position ─────────────────
+// Uses deterministic seed from obj.id so roaming is stable across renders
+function seededRand(seed: string, n: number): number {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  return Math.abs(((h ^ (h >>> 15)) * 0x85ebca6b ^ ((h ^ (h >>> 15)) >>> 13)) % 10000) / 10000 * n;
+}
+
 function AnimalModel({ obj }: { obj: AdminObj }) {
   const { scene, animations } = useGLTF(obj.model_url);
   const groupRef = useRef<THREE.Group>(null);
   const mixerRef = useRef<THREE.AnimationMixer | null>(null);
   const targetRef = useRef<THREE.Vector3>(new THREE.Vector3(obj.pos_x, 0, obj.pos_z));
-  const timerRef  = useRef(Math.random() * 5);
+  const timerRef  = useRef(seededRand(obj.id + 't', 5));
   const ROAM_R    = 8;
-  const SPEED     = 0.015 + Math.random() * 0.01;
+  const SPEED     = 0.015 + seededRand(obj.id + 's', 0.01);
 
   const clone = useMemo(() => {
     const c = scene.clone(true);
@@ -1762,15 +1769,15 @@ function AnimalModel({ obj }: { obj: AdminObj }) {
     if (!groupRef.current) return;
     timerRef.current -= delta;
     if (timerRef.current <= 0) {
-      // Pick new wander point inside radius
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.random() * ROAM_R;
+      const seed = obj.id + timerRef.current.toString();
+      const angle = seededRand(seed + 'a', Math.PI * 2);
+      const r     = seededRand(seed + 'r', ROAM_R);
       targetRef.current.set(
         obj.pos_x + Math.cos(angle) * r,
         0,
         obj.pos_z + Math.sin(angle) * r
       );
-      timerRef.current = 3 + Math.random() * 6;
+      timerRef.current = 3 + seededRand(seed + 'd', 6);
     }
     const pos = groupRef.current.position;
     const tx = targetRef.current.x, tz = targetRef.current.z;
@@ -1794,7 +1801,7 @@ function NPCModel({ obj }: { obj: AdminObj }) {
   const groupRef   = useRef<THREE.Group>(null);
   const headRef    = useRef<THREE.Object3D | null>(null);
   const mixerRef   = useRef<THREE.AnimationMixer | null>(null);
-  const phaseRef   = useRef(Math.random() * Math.PI * 2);
+  const phaseRef   = useRef(seededRand(obj.id, Math.PI * 2));
 
   const clone = useMemo(() => {
     const c = scene.clone(true);

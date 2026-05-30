@@ -253,28 +253,29 @@ function TrailLine({ from, to }: { from: [number,number]; to: [number,number] })
 }
 
 // ─── 3D: ground plane (grass) ────────────────────────────────────────────────
-function GroundPlane({ onPlace, pendingModel }: {
-  onPlace: (x: number, z: number) => void;
+function GroundPlane({ onPlace, onPathClick, pendingModel, pathDrawing }: {
+  onPlace:     (x: number, z: number) => void;
+  onPathClick: (x: number, z: number) => void;
   pendingModel: CatalogModel | null;
+  pathDrawing:  boolean;
 }) {
   return (
     <>
-      {/* Main grass ground */}
       <mesh
         rotation={[-Math.PI / 2, 0, 0]}
         position={[0, -0.02, 0]}
         receiveShadow
         onClick={(e: ThreeEvent<MouseEvent>) => {
           e.stopPropagation();
-          if (pendingModel) onPlace(e.point.x, e.point.z);
+          if (pathDrawing)   onPathClick(e.point.x, e.point.z);
+          else if (pendingModel) onPlace(e.point.x, e.point.z);
         }}
       >
         <planeGeometry args={[400, 400, 1, 1]} />
-        <meshStandardMaterial color="#5A9A2A" roughness={1} metalness={0} />
+        <meshStandardMaterial color={pathDrawing ? '#8B7A2A' : '#5A9A2A'} roughness={1} metalness={0} />
       </mesh>
-      {/* Darker grass variation patches */}
-      {[[-30,20],[40,-15],[10,50],[-50,-30],[60,40]].map(([x,z],i) => (
-        <mesh key={i} rotation={[-Math.PI/2, 0, 0]} position={[x, -0.015, z]} receiveShadow>
+      {!pathDrawing && [[-30,20],[40,-15],[10,50],[-50,-30],[60,40]].map(([x,z],i) => (
+        <mesh key={i} rotation={[-Math.PI/2, 0, 0]} position={[x as number, -0.015, z as number]} receiveShadow>
           <circleGeometry args={[12 + i * 3, 12]} />
           <meshStandardMaterial color="#4A8A1A" roughness={1} />
         </mesh>
@@ -316,6 +317,8 @@ function BuilderScene({
   onSelectObj:  (id: string | null) => void;
   onPlace:      (x: number, z: number) => void;
   onDragObj:    (id: string, x: number, z: number) => void;
+  onPathClick:  (x: number, z: number) => void;
+  pathDrawing:  boolean;
   hutPos:       [number, number];
 }) {
   return (
@@ -342,7 +345,35 @@ function BuilderScene({
         followCamera={false} infiniteGrid
       />
 
-      <GroundPlane onPlace={onPlace} pendingModel={pendingModel} />
+      <GroundPlane onPlace={onPlace} onPathClick={onPathClick} pendingModel={pendingModel} pathDrawing={pathDrawing} />
+
+      {/* Path drawing waypoints — dots + lines for selected obj */}
+      {pathDrawing && objects
+        .filter(o => o.id === selectedId && o.trail_points?.length)
+        .map(o => (
+          <group key={o.id + '_path'}>
+            {o.trail_points!.map((pt, i) => (
+              <mesh key={i} position={[pt[0], terrainH(pt[0], pt[1]) + 0.15, pt[1]]}>
+                <sphereGeometry args={[0.25, 8, 8]} />
+                <meshBasicMaterial color={i === 0 ? '#22C55E' : '#F59E0B'} />
+              </mesh>
+            ))}
+            {o.trail_points!.slice(1).map((pt, i) => {
+              const prev = o.trail_points![i];
+              const mid  = [(prev[0]+pt[0])/2, (prev[1]+pt[1])/2] as [number,number];
+              const len  = Math.sqrt((pt[0]-prev[0])**2+(pt[1]-prev[1])**2);
+              const ang  = Math.atan2(pt[0]-prev[0], pt[1]-prev[1]);
+              return (
+                <mesh key={`l${i}`} position={[mid[0], terrainH(mid[0],mid[1])+0.15, mid[1]]}
+                  rotation={[0, ang, Math.PI/2]}>
+                  <cylinderGeometry args={[0.06, 0.06, len, 6]} />
+                  <meshBasicMaterial color="#F59E0B" transparent opacity={0.7} />
+                </mesh>
+              );
+            })}
+          </group>
+        ))
+      }
 
       {/* Trail lines from hut to buildings */}
       {objects
@@ -865,6 +896,16 @@ export function WorldBuilder() {
     setObjects(prev => prev.map(o => o.id === id ? { ...o, pos_x: snap(x), pos_z: snap(z) } : o));
   }, [gridSnap, snapSize]);
 
+  const handlePathClick = useCallback((x: number, z: number) => {
+    if (!selectedId) return;
+    const pt: [number, number] = [snap(x), snap(z)];
+    setObjects(prev => prev.map(o =>
+      o.id === selectedId
+        ? { ...o, trail_points: [...(o.trail_points ?? []), pt] }
+        : o
+    ));
+  }, [selectedId, gridSnap, snapSize]);
+
   const deleteObj = useCallback((id: string) => {
     setObjects(prev => prev.filter(o => o.id !== id));
     setSelectedId(null);
@@ -1351,10 +1392,24 @@ export function WorldBuilder() {
               {/* Path drawing mode */}
               <button
                 onClick={() => setPathDrawing(d => !d)}
-                className="px-2 py-1 text-[10px] rounded border transition-colors"
+                title={selectedId ? 'Click ground to add waypoints to selected object' : 'Select an object first'}
+                disabled={!selectedId}
+                className="px-2 py-1 text-[10px] rounded border transition-colors disabled:opacity-40"
                 style={{ background: pathDrawing ? '#FEF3C7' : '#F9FAFB', color: pathDrawing ? '#92400E' : '#6B7280', borderColor: pathDrawing ? '#FCD34D' : '#E5E7EB' }}>
-                🛤️ {pathDrawing ? 'Drawing Path…' : 'Draw Path'}
+                🛤️ {pathDrawing ? 'Drawing… (click ground)' : 'Draw Path'}
               </button>
+              {pathDrawing && selectedObj && (
+                <>
+                  <span className="text-[9px] text-amber-600">{selectedObj.trail_points?.length ?? 0} pts</span>
+                  <button
+                    onClick={() => {
+                      if (selectedId) setObjects(prev => prev.map(o => o.id === selectedId ? { ...o, trail_points: [] } : o));
+                    }}
+                    className="px-2 py-1 text-[10px] rounded border border-red-200 text-red-500 bg-red-50">
+                    ✕ Clear
+                  </button>
+                </>
+              )}
 
               <div className="text-[9px] text-gray-400 hidden lg:block">Arrows=move []=rot +/-=scale L=live Del=delete</div>
             </div>
@@ -1371,6 +1426,8 @@ export function WorldBuilder() {
               onSelectObj={id => { setSelectedId(id); setPending(null); }}
               onPlace={handlePlace}
               onDragObj={handleDragObj}
+              onPathClick={handlePathClick}
+              pathDrawing={pathDrawing}
               hutPos={HUT_POS}
             />
           </Canvas>
