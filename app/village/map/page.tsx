@@ -6,7 +6,6 @@ import { useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
-import { VillageHeartbeat } from '@/components/village/VillageHeartbeat';
 import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
@@ -196,7 +195,6 @@ function VillageMapPageInner() {
         </div>
       </div>
 
-      <VillageHeartbeat />
       <PushPermissionPrompt />
       <StoryModeOverlay />
       <StoryModeTrigger />

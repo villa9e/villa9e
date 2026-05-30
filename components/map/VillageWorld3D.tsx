@@ -159,7 +159,18 @@ function CarouselNav({
   const touchStart = useRef<number | null>(null);
   const touchLock  = useRef(false);
 
+  function haptic(ms = 8) { if (navigator.vibrate) navigator.vibrate(ms); }
+
+  function shiftCenter(delta: number) {
+    setCenter(c => {
+      const next = Math.max(0, Math.min(items.length - 1, c + delta));
+      if (next !== c) haptic(8);
+      return next;
+    });
+  }
+
   function go(item: { id: string; href: string | null }) {
+    haptic(12);
     if (!item.href)             { onMapOpen(); return; }
     if (item.id === 'sandbox')  { router.push('/admin/sandbox'); return; }
     onNavigate(item.href, '');
@@ -178,14 +189,16 @@ function CarouselNav({
     <div
       className="absolute bottom-0 left-0 right-0 z-20"
       style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
-      onTouchStart={e => { touchStart.current = e.touches[0].clientX; touchLock.current = false; }}
+      onTouchStart={e => {
+        touchStart.current = e.touches[0].clientX;
+        touchLock.current = false;
+      }}
       onTouchMove={e => {
         if (touchStart.current === null || touchLock.current) return;
         const dx = e.touches[0].clientX - touchStart.current;
-        if (Math.abs(dx) > 28) {
+        if (Math.abs(dx) > 20) {
           touchLock.current = true;
-          if (dx < 0) setCenter(c => Math.min(items.length - 1, c + 1));
-          else        setCenter(c => Math.max(0, c - 1));
+          shiftCenter(dx < 0 ? 1 : -1);
           touchStart.current = null;
         }
       }}
@@ -215,7 +228,7 @@ function CarouselNav({
             <motion.button
               key={item.id}
               layoutId={`cnav-${item.id}`}
-              onClick={() => { isC ? go(item) : setCenter(i); }}
+              onClick={() => { isC ? go(item) : (haptic(6), setCenter(i)); }}
               animate={{ opacity }}
               transition={{ type: 'spring', stiffness: 380, damping: 30 }}
               className="flex flex-col items-center gap-1 rounded-xl transition-all"
@@ -243,7 +256,7 @@ function CarouselNav({
       {/* Pagination dots */}
       <div className="flex justify-center gap-1 pb-1" style={{ background: '#FFFFFF' }}>
         {items.map((_, i) => (
-          <button key={i} onClick={() => setCenter(i)}
+          <button key={i} onClick={() => { haptic(6); setCenter(i); }}
             className="rounded-full transition-all"
             style={{
               width: i === center ? 16 : 5, height: 3,
