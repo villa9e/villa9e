@@ -50,6 +50,7 @@ import {
 } from './VillageEnvironment';
 import { useSeason } from '@/lib/world/useSeason';
 import { PlayerCharacter } from './VillagePlayerCharacter';
+import { AnimatedWaterPlane, RiverSegment, WaterfallPlane } from './AnimatedWater';
 import { SKIN_TONE_MAP, HAIR_COLOR_MAP, SHIRT_COLOR_MAP, type AvatarConfig, DEFAULT_AVATAR_CONFIG, resolveAvatarColors } from '@/lib/avatar/config';
 import { useVillageMusic, VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 import { useWebRTC } from '@/lib/webrtc/useWebRTC';
@@ -1740,9 +1741,10 @@ function SceneLighting({ skyState }: { skyState: any }) {
 const ANIMAL_KEYWORDS = /wolf|deer|bear|chicken|cat|dog|horse|rabbit|fox|sheep|pig|monkey|crocodile|bird|butterfly|alligator|bee|crab|duck|eagle|frog|peacock|snake|spider|stork|turkey|fish|cow|boar|rat|elk|bison/i;
 const CHARACTER_KEYWORDS = /casual|worker|doctor|kimono|witch|wizard|zombie|mage|knight|rogue|paladin|archer|berserker|cleric|warrior|warden|musketeer|druid|jester|bard|assassin|ranger/i;
 
-function isTile(url: string)      { return url.endsWith('.tile'); }
-function isAnimal(url: string)    { return ANIMAL_KEYWORDS.test(url); }
-function isCharacter(url: string) { return CHARACTER_KEYWORDS.test(url); }
+function isTile(url: string)       { return url.endsWith('.tile'); }
+function isWaterURL(url: string)   { return url.endsWith('water.tile') || url.includes('/water/river') || url.includes('waterfall'); }
+function isAnimal(url: string)     { return ANIMAL_KEYWORDS.test(url); }
+function isCharacter(url: string)  { return CHARACTER_KEYWORDS.test(url); }
 
 const TILE_COLORS: Record<string, { color: string; emissive?: string; opacity?: number }> = {
   'grass.tile':  { color: '#5A9A2A' },
@@ -1754,32 +1756,26 @@ const TILE_COLORS: Record<string, { color: string; emissive?: string; opacity?: 
   'snow.tile':   { color: '#E8F4FF', emissive: '#A0C8FF' },
 };
 
-// ─── Ground tile — flat colored plane, no GLTF ───────────────────────────────
+// ─── Ground tile — flat colored plane or animated water ──────────────────────
 function GroundTileModel({ obj }: { obj: AdminObj }) {
   const tileKey = obj.model_url.split('/').pop() ?? '';
+  const sz      = obj.scale * 4;
+  const baseY   = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+
+  // Water tiles use animated shader
+  if (tileKey === 'water.tile') {
+    return <AnimatedWaterPlane
+      position={[obj.pos_x, baseY - 0.05, obj.pos_z]}
+      size={[sz, sz]}
+      type="tile"
+    />;
+  }
+
   const { color, emissive, opacity = 1 } = TILE_COLORS[tileKey] ?? { color: '#888' };
-  const waveRef = useRef<THREE.Mesh>(null);
-  const isWater = tileKey === 'water.tile';
-  useFrame(({ clock }) => {
-    if (isWater && waveRef.current) {
-      const mat = waveRef.current.material as THREE.MeshStandardMaterial;
-      mat.emissiveIntensity = 0.4 + Math.sin(clock.elapsedTime * 1.8) * 0.15;
-    }
-  });
-  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0) - 0.02;
-  const sz = obj.scale * 4;
   return (
-    <mesh ref={waveRef} position={[obj.pos_x, baseY, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+    <mesh position={[obj.pos_x, baseY - 0.02, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
       <planeGeometry args={[sz, sz, 1, 1]} />
-      <meshStandardMaterial
-        color={color}
-        emissive={emissive ?? color}
-        emissiveIntensity={isWater ? 0.4 : 0}
-        roughness={isWater ? 0.05 : 0.95}
-        metalness={isWater ? 0.3 : 0}
-        transparent={opacity < 1}
-        opacity={opacity}
-      />
+      <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0} roughness={0.95} metalness={0} transparent={opacity < 1} opacity={opacity} />
     </mesh>
   );
 }

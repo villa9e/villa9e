@@ -608,17 +608,19 @@ export const MODEL_CATALOG: CatalogModel[] = [
   { id:'hazard_spike',  label:'Spike Trap',       url:G('Hazard_SpikeTrap'),category:'props_items', defaultScale:1, yOffset:0, emoji:'⚠️', tags:['hazard','spikes','trap'] },
   { id:'bouncer',       label:'Bouncer',          url:G('Bouncer'),         category:'props_items', defaultScale:1, yOffset:0, emoji:'🔴', tags:['bouncer','prop','interactive'] },
 
-  // ── GROUND TILES ─────────────────────────────────────────────────────────
-  // Procedural flat plane tiles the user can place to define terrain patches
-  // These are rendered as colored flat meshes, not GLTF models
-  // We use a special marker URL so LiveAdminObjects renders them as planes
+  // ── GROUND TILES — rendered as flat planes (not GLTF) ────────────────────
   { id:'tile_grass',  label:'Grass Tile',   url:'/models/tiles/grass.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟩', tags:['ground','tile','grass'] },
   { id:'tile_dirt',   label:'Dirt Tile',    url:'/models/tiles/dirt.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟫', tags:['ground','tile','dirt'] },
   { id:'tile_sand',   label:'Sand Tile',    url:'/models/tiles/sand.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟨', tags:['ground','tile','sand','beach'] },
   { id:'tile_stone',  label:'Stone Path',   url:'/models/tiles/stone.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'⬜', tags:['ground','tile','stone','path'] },
-  { id:'tile_water',  label:'Water Tile',   url:'/models/tiles/water.tile',   category:'ground_tiles', defaultScale:4, yOffset:-0.05, emoji:'🟦', tags:['ground','tile','water','river','lake'] },
+  // Water tile — uses animated water shader (ripples, depth, foam, specular)
+  { id:'tile_water',  label:'Water (Animated)', url:'/models/tiles/water.tile', category:'nature_water', defaultScale:4, yOffset:-0.05, emoji:'🌊', tags:['water','river','lake','pond','animated'] },
   { id:'tile_mud',    label:'Mud/Swamp',    url:'/models/tiles/mud.tile',     category:'ground_tiles', defaultScale:4, yOffset:-0.02, emoji:'🟤', tags:['ground','tile','mud','swamp'] },
   { id:'tile_snow',   label:'Snow',         url:'/models/tiles/snow.tile',    category:'ground_tiles', defaultScale:4, yOffset:-0.01, emoji:'⬜', tags:['ground','tile','snow','winter'] },
+  // River section — animated flowing water channel
+  { id:'river_sm',    label:'River (Small)', url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:2, yOffset:-0.05, emoji:'🏞️', tags:['river','water','stream','animated'] },
+  { id:'river_lg',    label:'River (Wide)',  url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:6, yOffset:-0.05, emoji:'🏞️', tags:['river','water','wide','animated'] },
+  { id:'lake_sm',     label:'Pond/Lake',     url:'/models/tiles/water.tile',  category:'nature_water', defaultScale:8, yOffset:-0.06, emoji:'🏞️', tags:['lake','pond','water','animated'] },
 ];
 
 // Category metadata for the UI
