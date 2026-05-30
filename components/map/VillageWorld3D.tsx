@@ -3176,13 +3176,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
           username = data?.username ?? 'villager';
           const cfg = data?.avatar_config ?? {};
           if (cfg.spirit_variant) setSpiritVariant(cfg.spirit_variant as SpiritVariantId);
-          // Pass full avatar config to billboard character
-          if (cfg.skin_id || cfg.hair_id) {
-            setPlayerAvatarCfg({ ...DEFAULT_AVATAR_CONFIG, ...cfg });
+          // Always merge avatar config — even if only character_type is set
+          if (Object.keys(cfg).length > 0) {
+            const merged = { ...DEFAULT_AVATAR_CONFIG, ...cfg };
+            setPlayerAvatarCfg(merged);
+            const sc = SKIN_TONE_MAP[merged.skin_id]        ?? '#A86030';
+            const hc = HAIR_COLOR_MAP[merged.hair_color_id] ?? '#0C0700';
+            const sc2= SHIRT_COLOR_MAP[merged.outfit_id]    ?? '#2563EB';
+            setPlayerSkinColor(sc);  skinColorRef.current = sc;
+            setPlayerHairColor(hc);
+            setPlayerShirtColor(sc2);
           }
-          if (cfg.skin_id)       { const sc = SKIN_TONE_MAP[cfg.skin_id] ?? '#A86030'; setPlayerSkinColor(sc); skinColorRef.current = sc; }
-          if (cfg.hair_color_id) setPlayerHairColor(HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700');
-          if (cfg.outfit_id)     setPlayerShirtColor(SHIRT_COLOR_MAP[cfg.outfit_id] ?? '#2563EB');
         });
 
       const channel = supabase.channel('village_world', {
@@ -3213,10 +3217,16 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
   }, []);
 
   // ── Keyboard controls ─────────────────────────────────────────────────────
+  // WASD = move avatar (left joystick)
+  // Arrow keys = rotate camera (right joystick)
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
+      // Don't capture when typing in inputs
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') return;
       keys.current.add(e.key);
-      // Spacebar enters nearby building (desktop shortcut)
+      // Arrow keys: prevent page scroll
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) e.preventDefault();
+      // Spacebar enters nearby building
       if (e.key === ' ' && nearBuildingRef.current) {
         e.preventDefault();
         handleEnterBuilding(nearBuildingRef.current.href, nearBuildingRef.current.label);
@@ -3230,16 +3240,24 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED = 0.13;
+    const SPEED     = 0.13;
+    const CAM_SPEED = 0.03; // radians per tick for camera orbit
 
     const loop = setInterval(() => {
       let dx = moveInput.current.dx;
       let dz = moveInput.current.dy;
 
-      if (keys.current.has('w') || keys.current.has('ArrowUp'))    dz = -1;
-      if (keys.current.has('s') || keys.current.has('ArrowDown'))  dz =  1;
-      if (keys.current.has('a') || keys.current.has('ArrowLeft'))  dx = -1;
-      if (keys.current.has('d') || keys.current.has('ArrowRight')) dx =  1;
+      // WASD = avatar movement (left joystick)
+      if (keys.current.has('w') || keys.current.has('W')) dz = -1;
+      if (keys.current.has('s') || keys.current.has('S')) dz =  1;
+      if (keys.current.has('a') || keys.current.has('A')) dx = -1;
+      if (keys.current.has('d') || keys.current.has('D')) dx =  1;
+
+      // Arrow keys = camera orbit (right joystick)
+      if (keys.current.has('ArrowLeft'))  cameraAzimuth.current -= CAM_SPEED;
+      if (keys.current.has('ArrowRight')) cameraAzimuth.current += CAM_SPEED;
+      if (keys.current.has('ArrowUp'))    cameraZoom.current = Math.max(6,  cameraZoom.current - 0.4);
+      if (keys.current.has('ArrowDown'))  cameraZoom.current = Math.min(36, cameraZoom.current + 0.4);
 
       // Drag/tap-to-walk: steer toward pointerTarget if no other input
       if (pointerTarget.current && dx === 0 && dz === 0) {

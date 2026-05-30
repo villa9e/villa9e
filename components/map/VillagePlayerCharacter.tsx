@@ -255,45 +255,34 @@ export function PlayerCharacter(props: PlayerCharacterProps) {
   const skinColor  = cfg ? (SKIN_TONE_MAP[cfg.skin_id]        ?? '#A86030') : (props.skinColor  ?? '#A86030');
   const hairColor  = cfg ? (HAIR_COLOR_MAP[cfg.hair_color_id] ?? '#0C0700') : (props.hairColor  ?? '#0C0700');
   const shirtColor = cfg ? (SHIRT_COLOR_MAP[cfg.outfit_id]    ?? '#2563EB') : (props.shirtColor ?? '#2563EB');
-
-  const gltfUrl = cfg ? resolveCharacterURL(cfg) : '/models/gltf/Casual_Male.gltf';
-  const [gltfFailed, setGltfFailed] = useState(false);
+  const gltfUrl    = cfg ? resolveCharacterURL(cfg) : '/models/gltf/Casual_Male.gltf';
   const [gltfLoaded, setGltfLoaded] = useState(false);
-
-  useEffect(() => {
-    setGltfLoaded(false); // reset when URL changes
-    fetch(gltfUrl, { method: 'HEAD' })
-      .then(r => { if (!r.ok) setGltfFailed(true); })
-      .catch(() => setGltfFailed(true));
-  }, [gltfUrl]);
 
   const sharedProps = {
     skinColor, hairColor, shirtColor,
-    position: props.position,
-    rotation: props.rotation,
-    posRef:   props.posRef,
-    rotRef:   props.rotRef,
+    position:    props.position,
+    rotation:    props.rotation,
+    posRef:      props.posRef,
+    rotRef:      props.rotRef,
     isMovingRef: props.isMovingRef,
-    username: props.username,
+    username:    props.username,
   };
 
   return (
     <>
-      {/* Procedural avatar — shows while GLTF loading or if GLTF failed */}
-      {(!gltfLoaded || gltfFailed) && (
+      {/* Procedural avatar — always visible until GLTF loads */}
+      {!gltfLoaded && (
         <ProceduralAvatar {...props} skinColor={skinColor} hairColor={hairColor} shirtColor={shirtColor} />
       )}
 
-      {/* GLTF character — replaces procedural once loaded */}
-      {!gltfFailed && (
-        <Suspense fallback={null}>
-          <GLTFCharacter
-            url={gltfUrl}
-            {...sharedProps}
-            onLoad={() => setGltfLoaded(true)}
-          />
-        </Suspense>
-      )}
+      {/* GLTF character — Suspense handles load; error boundary falls back to procedural */}
+      <Suspense fallback={null}>
+        <GLTFCharacter
+          url={gltfUrl}
+          {...sharedProps}
+          onLoad={() => setGltfLoaded(true)}
+        />
+      </Suspense>
     </>
   );
 }
