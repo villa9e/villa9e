@@ -87,10 +87,9 @@ export function AdminBar() {
         <div
           className="flex items-center gap-1 rounded-full px-1 py-1"
           style={{
-            background: 'rgba(6,8,16,0.92)',
-            border: editMode ? '1.5px solid #1877F2' : '1.5px solid rgba(255,255,255,0.1)',
-            backdropFilter: 'blur(16px)',
-            boxShadow: editMode ? '0 0 20px rgba(24,119,242,0.4)' : '0 4px 24px rgba(0,0,0,0.5)',
+            background: '#FFFFFF',
+            border: editMode ? '1.5px solid #1877F2' : '1.5px solid rgba(212,175,55,0.3)',
+            boxShadow: editMode ? '0 0 16px rgba(24,119,242,0.3)' : '0 4px 20px rgba(0,0,0,0.12)',
           }}
         >
           <div className="w-7 h-7 rounded-full flex items-center justify-center" style={{ background: '#1877F2' }}>
@@ -102,26 +101,26 @@ export function AdminBar() {
             className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all"
             style={{
               background: editMode ? '#1877F2' : 'transparent',
-              color: editMode ? '#fff' : 'rgba(255,255,255,0.6)',
+              color: editMode ? '#fff' : 'rgba(30,27,75,0.6)',
             }}
           >
             {editMode ? 'Editing' : 'Edit'}
           </button>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '20px', background: 'rgba(30,27,75,0.1)' }} />
 
           <button
             onClick={() => setPanelOpen(true)}
             className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold"
-            style={{ color: 'rgba(255,255,255,0.6)' }}
+            style={{ color: 'rgba(30,27,75,0.6)' }}
           >
             Config
           </button>
 
-          <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.1)' }} />
+          <div style={{ width: '1px', height: '20px', background: 'rgba(30,27,75,0.1)' }} />
 
           <a href="/admin" className="rounded-full px-3 py-1.5 text-xs font-bold"
-            style={{ color: 'rgba(255,255,255,0.6)' }}>
+            style={{ color: 'rgba(30,27,75,0.6)' }}>
             Stats
           </a>
 
@@ -133,7 +132,7 @@ export function AdminBar() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
                 className="rounded-full px-3 py-1.5 text-xs font-bold"
-                style={{ background: saved ? 'rgba(34,197,94,0.2)' : 'transparent', color: '#4ADE80' }}
+                style={{ background: saved ? 'rgba(34,197,94,0.15)' : 'transparent', color: '#16A34A' }}
               >
                 {saving ? '...' : 'Saved'}
               </motion.div>

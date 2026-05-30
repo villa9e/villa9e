@@ -42,9 +42,15 @@ export interface CatalogModel {
   tags?:        string[];  // searchable tags
 }
 
-const G = (name: string) => `/models/gltf/${name}.gltf`;
+const G  = (name: string) => `/models/gltf/${name}.gltf`;
+const GLB = (name: string) => `/models/gltf/${name}.glb`;
 
 export const MODEL_CATALOG: CatalogModel[] = [
+
+  // ── VILLA9E SIGNATURE BUILDINGS ──────────────────────────────────────────
+  { id:'villa9e_hut', label:'Villa9e Hut', url:GLB('Villa9e_Hut'), category:'buildings_special',
+    defaultScale:1.0, yOffset:0, emoji:'🏕️', isBuilding:true,
+    tags:['villa9e','hut','mugsum','signature','main','default'] },
 
   // ── RESIDENTIAL BUILDINGS ────────────────────────────────────────────────
   { id:'house_fa1_l1',   label:'House A Level 1',    url:G('Houses_FirstAge_1_Level1'),  category:'buildings_residential', defaultScale:1.0, yOffset:0, emoji:'🏠', isBuilding:true },

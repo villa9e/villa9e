@@ -310,7 +310,7 @@ function SkyDome() {
 
 // ─── 3D: full scene ──────────────────────────────────────────────────────────
 function BuilderScene({
-  objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, hutPos,
+  objects, selectedId, multiSelected, pendingModel, onSelectObj, onMultiSelect, onPlace, onDragObj, onPathClick, pathDrawing, hutPos,
 }: {
   objects:       WorldObject[];
   selectedId:    string | null;
