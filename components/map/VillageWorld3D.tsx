@@ -82,6 +82,7 @@ interface AdminObj {
   sound_url: string | null; sound_volume: number;
   sound_trigger_dist: number; sound_max_dist: number; sound_loop: boolean;
   item_info_enabled: boolean; trail_passable?: boolean;
+  trail_points?: [number, number][];
 }
 
 // ─── Shared ref: live admin objects list (populated by LiveAdminObjects,
@@ -1667,9 +1668,56 @@ function SceneLighting({ skyState }: { skyState: any }) {
   );
 }
 
-// ─── Live admin world object — renders GLTF, handles trigger + spatial audio ──
-// ─── Live admin world object — renders GLTF, handles trigger + spatial audio ──
-function SingleAdminModel({ obj }: { obj: AdminObj }) {
+// ─── Helpers to classify model behavior ─────────────────────────────────────
+const ANIMAL_KEYWORDS = /wolf|deer|bear|chicken|cat|dog|horse|rabbit|fox|sheep|pig|monkey|crocodile|bird|butterfly|alligator|bee|crab|duck|eagle|frog|peacock|snake|spider|stork|turkey|fish|cow|boar|rat|elk|bison/i;
+const CHARACTER_KEYWORDS = /casual|worker|doctor|kimono|witch|wizard|zombie|mage|knight|rogue|paladin|archer|berserker|cleric|warrior|warden|musketeer|druid|jester|bard|assassin|ranger/i;
+
+function isTile(url: string)      { return url.endsWith('.tile'); }
+function isAnimal(url: string)    { return ANIMAL_KEYWORDS.test(url); }
+function isCharacter(url: string) { return CHARACTER_KEYWORDS.test(url); }
+
+const TILE_COLORS: Record<string, { color: string; emissive?: string; opacity?: number }> = {
+  'grass.tile':  { color: '#5A9A2A' },
+  'dirt.tile':   { color: '#8B6332' },
+  'sand.tile':   { color: '#D4A96A' },
+  'stone.tile':  { color: '#9B9B9B' },
+  'water.tile':  { color: '#1E90FF', emissive: '#0050A0', opacity: 0.78 },
+  'mud.tile':    { color: '#5C4033' },
+  'snow.tile':   { color: '#E8F4FF', emissive: '#A0C8FF' },
+};
+
+// ─── Ground tile — flat colored plane, no GLTF ───────────────────────────────
+function GroundTileModel({ obj }: { obj: AdminObj }) {
+  const tileKey = obj.model_url.split('/').pop() ?? '';
+  const { color, emissive, opacity = 1 } = TILE_COLORS[tileKey] ?? { color: '#888' };
+  const waveRef = useRef<THREE.Mesh>(null);
+  const isWater = tileKey === 'water.tile';
+  useFrame(({ clock }) => {
+    if (isWater && waveRef.current) {
+      const mat = waveRef.current.material as THREE.MeshStandardMaterial;
+      mat.emissiveIntensity = 0.4 + Math.sin(clock.elapsedTime * 1.8) * 0.15;
+    }
+  });
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0) - 0.02;
+  const sz = obj.scale * 4;
+  return (
+    <mesh ref={waveRef} position={[obj.pos_x, baseY, obj.pos_z]} rotation={[-Math.PI/2, 0, 0]} receiveShadow>
+      <planeGeometry args={[sz, sz, 1, 1]} />
+      <meshStandardMaterial
+        color={color}
+        emissive={emissive ?? color}
+        emissiveIntensity={isWater ? 0.4 : 0}
+        roughness={isWater ? 0.05 : 0.95}
+        metalness={isWater ? 0.3 : 0}
+        transparent={opacity < 1}
+        opacity={opacity}
+      />
+    </mesh>
+  );
+}
+
+// ─── Static GLTF model ────────────────────────────────────────────────────────
+function StaticModel({ obj }: { obj: AdminObj }) {
   const { scene } = useGLTF(obj.model_url);
   const clone = useMemo(() => {
     const c = scene.clone(true);
@@ -1682,13 +1730,160 @@ function SingleAdminModel({ obj }: { obj: AdminObj }) {
     return c;
   }, [scene]);
   const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
-  return (
-    <primitive object={clone}
-      position={[obj.pos_x, baseY, obj.pos_z]}
-      rotation={[0, obj.rot_y, 0]}
-      scale={obj.scale}
-    />
-  );
+  return <primitive object={clone} position={[obj.pos_x, baseY, obj.pos_z]} rotation={[0, obj.rot_y, 0]} scale={obj.scale} />;
+}
+
+// ─── Animal model — roams within a radius of placed position ─────────────────
+function AnimalModel({ obj }: { obj: AdminObj }) {
+  const { scene, animations } = useGLTF(obj.model_url);
+  const groupRef = useRef<THREE.Group>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const targetRef = useRef<THREE.Vector3>(new THREE.Vector3(obj.pos_x, 0, obj.pos_z));
+  const timerRef  = useRef(Math.random() * 5);
+  const ROAM_R    = 8;
+  const SPEED     = 0.015 + Math.random() * 0.01;
+
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse(ch => { if ((ch as THREE.Mesh).isMesh) { (ch as THREE.Mesh).castShadow = true; } });
+    return c;
+  }, [scene]);
+
+  useEffect(() => {
+    if (!animations?.length) return;
+    const mixer = new THREE.AnimationMixer(clone);
+    mixerRef.current = mixer;
+    const walk = animations.find(a => /walk|run|move/i.test(a.name)) ?? animations[0];
+    if (walk) mixer.clipAction(walk).play();
+    return () => mixer.stopAllAction();
+  }, [animations, clone]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    timerRef.current -= delta;
+    if (timerRef.current <= 0) {
+      // Pick new wander point inside radius
+      const angle = Math.random() * Math.PI * 2;
+      const r = Math.random() * ROAM_R;
+      targetRef.current.set(
+        obj.pos_x + Math.cos(angle) * r,
+        0,
+        obj.pos_z + Math.sin(angle) * r
+      );
+      timerRef.current = 3 + Math.random() * 6;
+    }
+    const pos = groupRef.current.position;
+    const tx = targetRef.current.x, tz = targetRef.current.z;
+    const dx = tx - pos.x, dz = tz - pos.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if (dist > 0.3) {
+      const nx = pos.x + (dx/dist)*SPEED;
+      const nz = pos.z + (dz/dist)*SPEED;
+      groupRef.current.position.set(nx, terrainH(nx, nz) + (obj.elevation ?? 0), nz);
+      groupRef.current.rotation.y = Math.atan2(dx, dz);
+    }
+    mixerRef.current?.update(delta);
+  });
+
+  return <group ref={groupRef} position={[obj.pos_x, terrainH(obj.pos_x, obj.pos_z), obj.pos_z]} scale={obj.scale}><primitive object={clone} /></group>;
+}
+
+// ─── NPC/Character model — stands, breathes, slowly looks around ─────────────
+function NPCModel({ obj }: { obj: AdminObj }) {
+  const { scene, animations } = useGLTF(obj.model_url);
+  const groupRef   = useRef<THREE.Group>(null);
+  const headRef    = useRef<THREE.Object3D | null>(null);
+  const mixerRef   = useRef<THREE.AnimationMixer | null>(null);
+  const phaseRef   = useRef(Math.random() * Math.PI * 2);
+
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse(ch => {
+      if ((ch as THREE.Mesh).isMesh) { (ch as THREE.Mesh).castShadow = true; }
+      if (ch.name && /head|neck/i.test(ch.name)) headRef.current = ch;
+    });
+    return c;
+  }, [scene]);
+
+  useEffect(() => {
+    if (!animations?.length) return;
+    const mixer = new THREE.AnimationMixer(clone);
+    mixerRef.current = mixer;
+    const idle = animations.find(a => /idle|stand|breath/i.test(a.name)) ?? animations[0];
+    if (idle) mixer.clipAction(idle).play();
+    return () => mixer.stopAllAction();
+  }, [animations, clone]);
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime + phaseRef.current;
+    if (headRef.current) {
+      headRef.current.rotation.y = Math.sin(t * 0.4) * 0.35;
+      headRef.current.rotation.x = Math.sin(t * 0.25) * 0.08;
+    }
+    if (groupRef.current) {
+      groupRef.current.position.y = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0) + Math.sin(t * 0.9) * 0.008;
+    }
+    mixerRef.current?.update(0.016);
+  });
+
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+  return <group ref={groupRef} position={[obj.pos_x, baseY, obj.pos_z]} rotation={[0, obj.rot_y, 0]} scale={obj.scale}><primitive object={clone} /></group>;
+}
+
+// ─── Path-following model — loops along admin-defined trail_points ────────────
+function PathModel({ obj }: { obj: AdminObj }) {
+  const { scene, animations } = useGLTF(obj.model_url);
+  const groupRef = useRef<THREE.Group>(null);
+  const mixerRef = useRef<THREE.AnimationMixer | null>(null);
+  const tRef     = useRef(0);
+  const SPEED    = 0.008;
+
+  const clone = useMemo(() => {
+    const c = scene.clone(true);
+    c.traverse(ch => { if ((ch as THREE.Mesh).isMesh) (ch as THREE.Mesh).castShadow = true; });
+    return c;
+  }, [scene]);
+
+  const points = useMemo(() =>
+    (obj.trail_points ?? []).map(([x, z]) => new THREE.Vector3(x, terrainH(x, z), z)),
+  [obj.trail_points]);
+
+  useEffect(() => {
+    if (!animations?.length) return;
+    const mixer = new THREE.AnimationMixer(clone);
+    mixerRef.current = mixer;
+    const walk = animations.find(a => /walk|run/i.test(a.name)) ?? animations[0];
+    if (walk) mixer.clipAction(walk).play();
+    return () => mixer.stopAllAction();
+  }, [animations, clone]);
+
+  useFrame((_, delta) => {
+    if (!groupRef.current || points.length < 2) return;
+    tRef.current = (tRef.current + SPEED) % 1;
+    const totalSegs = points.length - 1;
+    const fullT = tRef.current * totalSegs;
+    const segIdx = Math.floor(fullT);
+    const segT   = fullT - segIdx;
+    const a = points[Math.min(segIdx, totalSegs - 1)];
+    const b = points[Math.min(segIdx + 1, totalSegs)];
+    const pos = a.clone().lerp(b, segT);
+    groupRef.current.position.copy(pos);
+    groupRef.current.rotation.y = Math.atan2(b.x - a.x, b.z - a.z);
+    mixerRef.current?.update(delta);
+  });
+
+  const baseY = terrainH(obj.pos_x, obj.pos_z) + (obj.elevation ?? 0);
+  return <group ref={groupRef} position={[obj.pos_x, baseY, obj.pos_z]} scale={obj.scale}><primitive object={clone} /></group>;
+}
+
+// ─── Dispatcher — picks the right renderer per object ────────────────────────
+function AdminModelDispatcher({ obj }: { obj: AdminObj }) {
+  if (isTile(obj.model_url)) return <GroundTileModel obj={obj} />;
+  const hasPath = Array.isArray(obj.trail_points) && (obj.trail_points?.length ?? 0) >= 2;
+  if (hasPath)              return <PathModel obj={obj} />;
+  if (isAnimal(obj.model_url))    return <AnimalModel obj={obj} />;
+  if (isCharacter(obj.model_url)) return <NPCModel obj={obj} />;
+  return <StaticModel obj={obj} />;
 }
 
 function LiveAdminObjects({
@@ -1706,7 +1901,7 @@ function LiveAdminObjects({
     const supabase = createClient();
     supabase
       .from('admin_world_objects')
-      .select('id,model_url,label,world_name,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled,trail_passable')
+      .select('id,model_url,label,world_name,pos_x,pos_y,pos_z,rot_y,scale,elevation,behavior,linked_page,dialog_title,dialog_content,iframe_url,transport_target,trigger_type,trigger_distance,sound_url,sound_volume,sound_trigger_dist,sound_max_dist,sound_loop,item_info_enabled,trail_passable,trail_points')
       .eq('is_live', true)
       .then(({ data, error }) => {
         if (!error && data) {
@@ -1785,7 +1980,7 @@ function LiveAdminObjects({
             }
           }}
         >
-          <SingleAdminModel obj={obj} />
+          <AdminModelDispatcher obj={obj} />
         </group>
       ))}
     </Suspense>

@@ -17,6 +17,10 @@ export type ModelCategory =
   | 'ground_tiles'
   | 'animals'
   | 'characters'
+  | 'characters_extended'
+  | 'characters_special'
+  | 'platforms'
+  | 'vehicles'
   | 'props_containers'
   | 'props_weapons'
   | 'props_items'
@@ -364,6 +368,118 @@ export const MODEL_CATALOG: CatalogModel[] = [
   { id:'kk_rock3b', label:'Rock 3B', url:G('Rock_3_B_Color1'), category:'nature_rocks', defaultScale:1.5, yOffset:0, emoji:'🪨', tags:['kaykit','rock','large'] },
   { id:'kk_rock3c', label:'Rock 3C', url:G('Rock_3_C_Color1'), category:'nature_rocks', defaultScale:1.5, yOffset:0, emoji:'🪨', tags:['kaykit','rock','large'] },
 
+  // ── ANIMALS (new) ─────────────────────────────────────────────────────────
+  { id:'alpaca',      label:'Alpaca',       url:G('Alpaca'),       category:'animals', defaultScale:1.0, yOffset:0, emoji:'🦙', tags:['animal','alpaca','roam'] },
+  { id:'bee',         label:'Bee',          url:G('Bee'),          category:'animals', defaultScale:0.5, yOffset:0, emoji:'🐝', tags:['animal','bee','roam'] },
+  { id:'bull',        label:'Bull',         url:G('Bull'),         category:'animals', defaultScale:1.2, yOffset:0, emoji:'🐂', tags:['animal','bull','roam'] },
+  { id:'cow',         label:'Cow',          url:G('Cow'),          category:'animals', defaultScale:1.2, yOffset:0, emoji:'🐄', tags:['animal','cow','roam'] },
+  { id:'deer_new',    label:'Deer',         url:G('Deer'),         category:'animals', defaultScale:1.0, yOffset:0, emoji:'🦌', tags:['animal','deer','roam'] },
+  { id:'fox',         label:'Fox',          url:G('Fox'),          category:'animals', defaultScale:0.8, yOffset:0, emoji:'🦊', tags:['animal','fox','roam'] },
+  { id:'horse',       label:'Horse',        url:G('Horse'),        category:'animals', defaultScale:1.2, yOffset:0, emoji:'🐴', tags:['animal','horse','roam'] },
+  { id:'horse_white', label:'White Horse',  url:G('Horse_White'),  category:'animals', defaultScale:1.2, yOffset:0, emoji:'🐴', tags:['animal','horse','roam'] },
+  { id:'wolf',        label:'Wolf',         url:G('Wolf'),         category:'animals', defaultScale:1.0, yOffset:0, emoji:'🐺', tags:['animal','wolf','roam'] },
+
+  // ── CHARACTERS EXTENDED ───────────────────────────────────────────────────
+  { id:'ninja_m',     label:'Ninja Male',       url:G('Ninja_Male'),        category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🥷', tags:['character','ninja','npc'] },
+  { id:'ninja_f',     label:'Ninja Female',     url:G('Ninja_Female'),      category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🥷', tags:['character','ninja','npc'] },
+  { id:'ninja_sand_m',label:'Sand Ninja M',     url:G('Ninja_Sand'),        category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🥷', tags:['character','ninja','npc'] },
+  { id:'ninja_sand_f',label:'Sand Ninja F',     url:G('Ninja_Sand_Female'), category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🥷', tags:['character','ninja','npc'] },
+  { id:'pirate_m',    label:'Pirate Male',      url:G('Pirate_Male'),       category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🏴‍☠️', tags:['character','pirate','npc'] },
+  { id:'pirate_f',    label:'Pirate Female',    url:G('Pirate_Female'),     category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🏴‍☠️', tags:['character','pirate','npc'] },
+  { id:'cowboy_m',    label:'Cowboy Male',      url:G('Cowboy_Male'),       category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🤠', tags:['character','cowboy','npc'] },
+  { id:'cowboy_f',    label:'Cowboy Female',    url:G('Cowboy_Female'),     category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🤠', tags:['character','cowboy','npc'] },
+  { id:'chef_m',      label:'Chef Male',        url:G('Chef_Male'),         category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👨‍🍳', tags:['character','chef','npc'] },
+  { id:'chef_f',      label:'Chef Female',      url:G('Chef_Female'),       category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👩‍🍳', tags:['character','chef','npc'] },
+  { id:'elf',         label:'Elf',              url:G('Elf'),               category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🧝', tags:['character','elf','fantasy','npc'] },
+  { id:'goblin_m',    label:'Goblin Male',      url:G('Goblin_Male'),       category:'characters_extended', defaultScale:0.8, yOffset:0, emoji:'👺', tags:['character','goblin','fantasy','npc'] },
+  { id:'goblin_f',    label:'Goblin Female',    url:G('Goblin_Female'),     category:'characters_extended', defaultScale:0.8, yOffset:0, emoji:'👺', tags:['character','goblin','fantasy','npc'] },
+  { id:'knight_m',    label:'Knight Male',      url:G('Knight_Male'),       category:'characters_extended', defaultScale:1, yOffset:0, emoji:'⚔️', tags:['character','knight','fantasy','npc'] },
+  { id:'knight_gold_m',label:'Golden Knight M', url:G('Knight_Golden_Male'),category:'characters_extended', defaultScale:1, yOffset:0, emoji:'⚔️', tags:['character','knight','fantasy','npc'] },
+  { id:'knight_gold_f',label:'Golden Knight F', url:G('Knight_Golden_Female'),category:'characters_extended', defaultScale:1, yOffset:0, emoji:'⚔️', tags:['character','knight','fantasy','npc'] },
+  { id:'suit_m',      label:'Suit Male',        url:G('Suit_Male'),         category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🕴️', tags:['character','suit','business','npc'] },
+  { id:'suit_f',      label:'Suit Female',      url:G('Suit_Female'),       category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🕴️', tags:['character','suit','business','npc'] },
+  { id:'bluesoldier_m',label:'Soldier Male',    url:G('BlueSoldier_Male'),  category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🪖', tags:['character','soldier','npc'] },
+  { id:'bluesoldier_f',label:'Soldier Female',  url:G('BlueSoldier_Female'),category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🪖', tags:['character','soldier','npc'] },
+  { id:'rogue',       label:'Rogue',            url:G('Rogue'),             category:'characters_extended', defaultScale:1, yOffset:0, emoji:'🗡️', tags:['character','rogue','npc'] },
+  { id:'warrior',     label:'Warrior',          url:G('Warrior'),           category:'characters_extended', defaultScale:1, yOffset:0, emoji:'⚔️', tags:['character','warrior','npc'] },
+  { id:'cleric',      label:'Cleric',           url:G('Cleric'),            category:'characters_extended', defaultScale:1, yOffset:0, emoji:'⚕️', tags:['character','cleric','npc'] },
+  { id:'char_skeleton',label:'Skeleton',        url:G('Characters_Skeleton'),category:'characters_extended', defaultScale:1, yOffset:0, emoji:'💀', tags:['character','skeleton','undead','npc'] },
+  { id:'char_anne',   label:'Character Anne',   url:G('Characters_Anne'),   category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_henry',  label:'Character Henry',  url:G('Characters_Henry'),  category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_matt',   label:'Character Matt',   url:G('Characters_Matt'),   category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_sam',    label:'Character Sam',    url:G('Characters_Sam'),    category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_lis',    label:'Character Lis',    url:G('Characters_Lis'),    category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_shaun',  label:'Character Shaun',  url:G('Characters_Shaun'),  category:'characters_extended', defaultScale:1, yOffset:0, emoji:'👤', tags:['character','npc'] },
+  { id:'char_dog',    label:'German Shepherd',  url:G('Characters_GermanShepherd'), category:'characters_extended', defaultScale:0.8, yOffset:0, emoji:'🐕', tags:['character','dog','animal','npc'] },
+  { id:'char_pug',    label:'Pug',              url:G('Characters_Pug'),    category:'characters_extended', defaultScale:0.5, yOffset:0, emoji:'🐶', tags:['character','dog','animal','npc'] },
+
+  // ── CHARACTERS SPECIAL (Sci-Fi / Fantasy) ────────────────────────────────
+  { id:'astro_bee',   label:'Astronaut Bee',    url:G('Astronaut_BarbaraTheBee'),    category:'characters_special', defaultScale:1, yOffset:0, emoji:'🧑‍🚀', tags:['astronaut','scifi','npc'] },
+  { id:'astro_flam',  label:'Astronaut Flam',   url:G('Astronaut_FernandoTheFlamingo'),category:'characters_special', defaultScale:1, yOffset:0, emoji:'🧑‍🚀', tags:['astronaut','scifi','npc'] },
+  { id:'astro_frog',  label:'Astronaut Frog',   url:G('Astronaut_FinnTheFrog'),      category:'characters_special', defaultScale:1, yOffset:0, emoji:'🧑‍🚀', tags:['astronaut','scifi','npc'] },
+  { id:'astro_panda', label:'Astronaut Panda',  url:G('Astronaut_RaeTheRedPanda'),   category:'characters_special', defaultScale:1, yOffset:0, emoji:'🧑‍🚀', tags:['astronaut','scifi','npc'] },
+  { id:'alien_cyc',   label:'Alien Cyclop',     url:G('Alien_Cyclop'),               category:'characters_special', defaultScale:1, yOffset:0, emoji:'👾', tags:['alien','scifi','npc'] },
+  { id:'alien_ocu',   label:'Alien Oculichry',  url:G('Alien_Oculichrysalis'),       category:'characters_special', defaultScale:1, yOffset:0, emoji:'👾', tags:['alien','scifi','npc'] },
+  { id:'alien_sco',   label:'Alien Scolitex',   url:G('Alien_Scolitex'),             category:'characters_special', defaultScale:1, yOffset:0, emoji:'👾', tags:['alien','scifi','npc'] },
+  { id:'mech_bee',    label:'Mech Bee',         url:G('Mech_BarbaraTheBee'),         category:'characters_special', defaultScale:1, yOffset:0, emoji:'🤖', tags:['mech','robot','scifi'] },
+  { id:'mech_flam',   label:'Mech Flamingo',    url:G('Mech_FernandoTheFlamingo'),   category:'characters_special', defaultScale:1, yOffset:0, emoji:'🤖', tags:['mech','robot','scifi'] },
+  { id:'mech_frog',   label:'Mech Frog',        url:G('Mech_FinnTheFrog'),           category:'characters_special', defaultScale:1, yOffset:0, emoji:'🤖', tags:['mech','robot','scifi'] },
+  { id:'mech_panda',  label:'Mech Panda',       url:G('Mech_RaeTheRedPanda'),        category:'characters_special', defaultScale:1, yOffset:0, emoji:'🤖', tags:['mech','robot','scifi'] },
+
+  // ── PLATFORMS ─────────────────────────────────────────────────────────────
+  { id:'plat_simple',     label:'Platform Simple',      url:G('Platform_Simple'),          category:'platforms', defaultScale:1, yOffset:0, emoji:'🟫', tags:['platform','floor','modular'] },
+  { id:'plat_simple2',    label:'Platform Simple 2',    url:G('Platform_Simple2'),         category:'platforms', defaultScale:1, yOffset:0, emoji:'🟫', tags:['platform','floor','modular'] },
+  { id:'plat_metal',      label:'Platform Metal',       url:G('Platform_Metal'),           category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','metal','scifi'] },
+  { id:'plat_metal2',     label:'Platform Metal 2',     url:G('Platform_Metal2'),          category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','metal','scifi'] },
+  { id:'plat_dark',       label:'Platform Dark',        url:G('Platform_DarkPlates'),      category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','dark','scifi'] },
+  { id:'plat_3plates',    label:'Platform 3 Plates',    url:G('Platform_3Plates'),         category:'platforms', defaultScale:1, yOffset:0, emoji:'🟫', tags:['platform','modular'] },
+  { id:'plat_center',     label:'Platform Center',      url:G('Platform_CenterPlate'),     category:'platforms', defaultScale:1, yOffset:0, emoji:'🟫', tags:['platform','modular'] },
+  { id:'plat_squares',    label:'Platform Squares',     url:G('Platform_Squares'),         category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','modular'] },
+  { id:'plat_round',      label:'Platform Round',       url:G('Platform_Round1'),          category:'platforms', defaultScale:1, yOffset:0, emoji:'⭕', tags:['platform','round','modular'] },
+  { id:'plat_x',          label:'Platform X',           url:G('Platform_X'),               category:'platforms', defaultScale:1, yOffset:0, emoji:'✖️', tags:['platform','modular'] },
+  { id:'plat_rails2',     label:'Platform Rails 2',     url:G('Platform_Rails_2'),         category:'platforms', defaultScale:1, yOffset:0, emoji:'🔲', tags:['platform','rails','modular'] },
+  { id:'plat_rails4',     label:'Platform Rails 4',     url:G('Platform_Rails_4'),         category:'platforms', defaultScale:1, yOffset:0, emoji:'🔲', tags:['platform','rails','modular'] },
+  { id:'plat_ramp2',      label:'Ramp 2',               url:G('Platform_Ramp_2'),          category:'platforms', defaultScale:1, yOffset:0, emoji:'📐', tags:['platform','ramp','modular'] },
+  { id:'plat_ramp4',      label:'Ramp 4',               url:G('Platform_Ramp_4'),          category:'platforms', defaultScale:1, yOffset:0, emoji:'📐', tags:['platform','ramp','modular'] },
+  { id:'plat_stairs2',    label:'Stairs 2',             url:G('Platform_Stairs_2'),        category:'platforms', defaultScale:1, yOffset:0, emoji:'🪜', tags:['platform','stairs','modular'] },
+  { id:'plat_stairs4',    label:'Stairs 4',             url:G('Platform_Stairs_4'),        category:'platforms', defaultScale:1, yOffset:0, emoji:'🪜', tags:['platform','stairs','modular'] },
+  { id:'plat_win_thin',   label:'Window Thin',          url:G('Platform_Window_Thin'),     category:'platforms', defaultScale:1, yOffset:0, emoji:'🪟', tags:['platform','window','modular'] },
+  { id:'plat_win_wide',   label:'Window Wide',          url:G('Platform_Window_Wide'),     category:'platforms', defaultScale:1, yOffset:0, emoji:'🪟', tags:['platform','window','modular'] },
+  { id:'plat_bot_str',    label:'Bottom Straight',      url:G('BottomSimple_Straight'),    category:'platforms', defaultScale:1, yOffset:0, emoji:'🟫', tags:['platform','bottom','modular'] },
+  { id:'plat_bot_rnd_i',  label:'Bottom Round Inner',   url:G('BottomSimple_Corner_Round_Inner'), category:'platforms', defaultScale:1, yOffset:0, emoji:'🔵', tags:['platform','corner','modular'] },
+  { id:'plat_bot_rnd_o',  label:'Bottom Round Outer',   url:G('BottomSimple_Corner_Round_Outer'), category:'platforms', defaultScale:1, yOffset:0, emoji:'🔵', tags:['platform','corner','modular'] },
+  { id:'plat_metal_str',  label:'Metal Straight',       url:G('BottomMetal_Straight'),     category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','metal','modular'] },
+  { id:'bridge_mod',      label:'Modular Bridge',       url:G('Bridge_Modular'),           category:'platforms', defaultScale:1, yOffset:0, emoji:'🌉', isBuilding:true, tags:['platform','bridge','modular'] },
+  { id:'bridge_sm',       label:'Small Bridge',         url:G('Bridge_Small'),             category:'platforms', defaultScale:1, yOffset:0, emoji:'🌉', isBuilding:true, tags:['platform','bridge'] },
+  { id:'base_large',      label:'Large Base',           url:G('Base_Large'),               category:'platforms', defaultScale:1, yOffset:0, emoji:'⬛', tags:['platform','base','modular'] },
+
+  // ── VEHICLES ──────────────────────────────────────────────────────────────
+  { id:'veh_pickup',    label:'Pickup Truck',       url:G('Vehicle_Pickup'),          category:'vehicles', defaultScale:1, yOffset:0, emoji:'🚗', tags:['vehicle','car','truck'] },
+  { id:'veh_pickup_a',  label:'Armored Pickup',     url:G('Vehicle_Pickup_Armored'),  category:'vehicles', defaultScale:1, yOffset:0, emoji:'🚙', tags:['vehicle','car','armored'] },
+  { id:'veh_sports',    label:'Sports Car',         url:G('Vehicle_Sports'),          category:'vehicles', defaultScale:1, yOffset:0, emoji:'🏎️', tags:['vehicle','car','sports'] },
+  { id:'veh_sports_a',  label:'Armored Sports',     url:G('Vehicle_Sports_Armored'),  category:'vehicles', defaultScale:1, yOffset:0, emoji:'🏎️', tags:['vehicle','car','armored'] },
+  { id:'veh_truck',     label:'Truck',              url:G('Vehicle_Truck'),           category:'vehicles', defaultScale:1.2, yOffset:0, emoji:'🚚', tags:['vehicle','truck'] },
+  { id:'veh_truck_a',   label:'Armored Truck',      url:G('Vehicle_Truck_Armored'),   category:'vehicles', defaultScale:1.2, yOffset:0, emoji:'🚚', tags:['vehicle','truck','armored'] },
+  { id:'ship_bee',      label:'Spaceship Bee',      url:G('Spaceship_BarbaraTheBee'), category:'vehicles', defaultScale:1, yOffset:1.5, emoji:'🚀', tags:['vehicle','spaceship','scifi'] },
+  { id:'ship_flam',     label:'Spaceship Flam',     url:G('Spaceship_FernandoTheFlamingo'), category:'vehicles', defaultScale:1, yOffset:1.5, emoji:'🚀', tags:['vehicle','spaceship','scifi'] },
+  { id:'ship_frog',     label:'Spaceship Frog',     url:G('Spaceship_FinnTheFrog'),   category:'vehicles', defaultScale:1, yOffset:1.5, emoji:'🚀', tags:['vehicle','spaceship','scifi'] },
+  { id:'ship_panda',    label:'Spaceship Panda',    url:G('Spaceship_RaeTheRedPanda'),category:'vehicles', defaultScale:1, yOffset:1.5, emoji:'🚀', tags:['vehicle','spaceship','scifi'] },
+
+  // ── WEAPONS EXTENDED ──────────────────────────────────────────────────────
+  { id:'wpn_cutlass',   label:'Cutlass',      url:G('Weapon_Cutlass'),    category:'props_weapons', defaultScale:0.8, yOffset:0, emoji:'⚔️' },
+  { id:'wpn_pistol',    label:'Pistol',       url:G('Weapon_Pistol'),     category:'props_weapons', defaultScale:0.6, yOffset:0, emoji:'🔫' },
+  { id:'wpn_daxe',      label:'Double Axe',   url:G('Weapon_DoubleAxe'),  category:'props_weapons', defaultScale:0.8, yOffset:0, emoji:'🪓' },
+  { id:'wpn_dshot',     label:'Double Shotgun',url:G('Weapon_DoubleShotgun'),category:'props_weapons', defaultScale:0.8, yOffset:0, emoji:'🔫' },
+  { id:'wpn_axerifle',  label:'Axe Rifle',    url:G('Weapon_AxeRifle'),   category:'props_weapons', defaultScale:0.8, yOffset:0, emoji:'🪓' },
+  { id:'wpn_spear',     label:'Spear',        url:G('Spear'),             category:'props_weapons', defaultScale:1.0, yOffset:0, emoji:'🗡️' },
+
+  // ── PROPS: NATURE EXTRAS ──────────────────────────────────────────────────
+  { id:'bush_qt',       label:'Bush',         url:G('Bush'),         category:'nature_plants', defaultScale:1, yOffset:0, emoji:'🌿', tags:['bush','nature'] },
+  { id:'bush_sm',       label:'Small Bush',   url:G('Bush_Small'),   category:'nature_plants', defaultScale:0.8, yOffset:0, emoji:'🌿', tags:['bush','nature'] },
+  { id:'bush_lg',       label:'Large Bush',   url:G('Bush_Large'),   category:'nature_plants', defaultScale:1.5, yOffset:0, emoji:'🌿', tags:['bush','nature'] },
+  { id:'bush_fl',       label:'Bush Flowers', url:G('Bush_Flowers'), category:'nature_plants', defaultScale:1, yOffset:0, emoji:'🌸', tags:['bush','flowers','nature'] },
+  { id:'bush_fruit',    label:'Fruit Bush',   url:G('Bush_Fruit'),   category:'nature_plants', defaultScale:1, yOffset:0, emoji:'🍓', tags:['bush','fruit','nature'] },
+
   // ── GROUND TILES ─────────────────────────────────────────────────────────
   // Procedural flat plane tiles the user can place to define terrain patches
   // These are rendered as colored flat meshes, not GLTF models
@@ -379,6 +495,10 @@ export const MODEL_CATALOG: CatalogModel[] = [
 
 // Category metadata for the UI
 export const CATEGORY_META: Record<ModelCategory, { label: string; emoji: string; description: string }> = {
+  characters_extended: { label: 'Characters+', emoji: '🥷', description: 'Ninja, Pirate, Cowboy, Chef, Elf, Goblin, Knight, Suit…' },
+  characters_special:  { label: 'Sci-Fi Chars',emoji: '👾', description: 'Astronauts, Aliens, Mechs, Robots' },
+  platforms:           { label: 'Platforms',   emoji: '🟫', description: 'Modular platform pieces — floors, ramps, stairs, rails' },
+  vehicles:            { label: 'Vehicles',    emoji: '🚗', description: 'Cars, trucks, spaceships, mechs' },
   buildings_residential: { label: 'Houses',      emoji: '🏠', description: 'Homes and residences' },
   buildings_civic:       { label: 'Civic',        emoji: '🏛️', description: 'Temples, town centers, wonders' },
   buildings_economy:     { label: 'Economy',      emoji: '🏪', description: 'Markets, farms, mills, ports' },

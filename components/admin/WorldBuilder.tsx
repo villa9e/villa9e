@@ -414,7 +414,7 @@ function Inspector({
 
   const section = (title: string, children: React.ReactNode) => (
     <div className="mb-4">
-      <p className="text-[#4ADE80] text-[10px] font-black uppercase tracking-widest mb-2">{title}</p>
+      <p className="text-green-600 text-[10px] font-black uppercase tracking-widest mb-2">{title}</p>
       {children}
     </div>
   );
@@ -422,8 +422,8 @@ function Inspector({
   const slider = (label: string, key: keyof WorldObject, min: number, max: number, step: number, suffix = '') => (
     <label className="block mb-1.5">
       <div className="flex justify-between text-[11px]">
-        <span className="text-[#8AAA8A]">{label}</span>
-        <span className="text-[#C8E8C8]">{((obj[key] as number) ?? 0).toFixed(step < 1 ? 1 : 0)}{suffix}</span>
+        <span className="text-gray-600">{label}</span>
+        <span className="text-gray-800">{((obj[key] as number) ?? 0).toFixed(step < 1 ? 1 : 0)}{suffix}</span>
       </div>
       <input type="range" min={min} max={max} step={step}
         value={(obj[key] as number) ?? 0}
@@ -440,7 +440,7 @@ function Inspector({
         <input
           value={obj.world_name ?? obj.label}
           onChange={e => onChange({ world_name: e.target.value })}
-          className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2.5 py-1.5 text-[#C8E8C8] text-sm font-bold"
+          className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2.5 py-1.5 text-gray-800 text-sm font-bold"
           placeholder="Object name…"
         />
       </div>
@@ -458,7 +458,7 @@ function Inspector({
       {/* Appearance */}
       {section('Appearance', <>
         <div className="flex items-center gap-2 mb-1.5">
-          <span className="text-[#8AAA8A] text-[11px]">Tint color</span>
+          <span className="text-gray-600 text-[11px]">Tint color</span>
           <input type="color"
             value={obj.tint_color ?? '#ffffff'}
             onChange={e => onChange({ tint_color: e.target.value === '#ffffff' ? undefined : e.target.value })}
@@ -466,7 +466,7 @@ function Inspector({
           />
           {obj.tint_color && (
             <button onClick={() => onChange({ tint_color: undefined })}
-              className="text-[#4A7A4A] text-[10px] hover:text-red-400">clear</button>
+              className="text-gray-500 text-[10px] hover:text-red-500">clear</button>
           )}
         </div>
       </>)}
@@ -476,7 +476,7 @@ function Inspector({
         <select
           value={obj.behavior}
           onChange={e => onChange({ behavior: e.target.value as WorldObject['behavior'] })}
-          className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-xs mb-2"
+          className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-xs mb-2"
         >
           <option value="none">No action</option>
           <option value="page">Open a page</option>
@@ -488,22 +488,22 @@ function Inspector({
 
         {obj.behavior === 'page' && (
           <>
-            <p className="text-[#4A7A4A] text-[10px] mb-1">Link to page:</p>
+            <p className="text-gray-500 text-[10px] mb-1">Link to page:</p>
             <select
               value={obj.linked_page ?? ''}
               onChange={e => onChange({ linked_page: e.target.value || undefined })}
-              className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-xs mb-1"
+              className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-xs mb-1"
             >
               <option value="">Select a page…</option>
               {VILLAGE_PAGES.map(p => (
                 <option key={p.id} value={p.id}>{p.emoji} {p.label}</option>
               ))}
             </select>
-            <p className="text-[#4A7A4A] text-[10px] mb-1 mt-2">Or link to a feature:</p>
+            <p className="text-gray-500 text-[10px] mb-1 mt-2">Or link to a feature:</p>
             <select
               value={obj.linked_feature ?? ''}
               onChange={e => onChange({ linked_feature: e.target.value || undefined })}
-              className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-xs"
+              className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-xs"
             >
               <option value="">Select a feature…</option>
               {APP_FEATURES.map(f => (
@@ -518,7 +518,7 @@ function Inspector({
             value={obj.iframe_url ?? ''}
             onChange={e => onChange({ iframe_url: e.target.value })}
             placeholder="https://… iframe URL"
-            className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-[11px]"
+            className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-[11px]"
           />
         )}
 
@@ -528,14 +528,14 @@ function Inspector({
               value={obj.dialog_title ?? ''}
               onChange={e => onChange({ dialog_title: e.target.value })}
               placeholder="Dialog title…"
-              className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-xs mb-1.5"
+              className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-xs mb-1.5"
             />
             <textarea
               value={obj.dialog_content ?? ''}
               onChange={e => onChange({ dialog_content: e.target.value })}
               placeholder="Describe what happens when someone approaches or clicks this. What page or feature do you want built? Spirit will hear you."
               rows={4}
-              className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-[11px] resize-none"
+              className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-[11px] resize-none"
             />
           </>
         )}
@@ -545,7 +545,7 @@ function Inspector({
             value={obj.transport_target ?? ''}
             onChange={e => onChange({ transport_target: e.target.value })}
             placeholder="Target: interior, island-2, hut…"
-            className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-[11px]"
+            className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-[11px]"
           />
         )}
       </>)}
@@ -558,20 +558,20 @@ function Inspector({
             onChange={e => setSoundSearch(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && searchSound()}
             placeholder="Search sound effect…"
-            className="flex-1 bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-[11px]"
+            className="flex-1 bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-[11px]"
           />
           <button onClick={searchSound} disabled={searching}
-            className="px-2 py-1.5 bg-[#0D2A14] border border-[#2A5C14] rounded-lg text-[#4ADE80] text-[10px] disabled:opacity-50">
+            className="px-2 py-1.5 bg-blue-50 border border-green-300 rounded-lg text-green-600 text-[10px] disabled:opacity-50">
             {searching ? '…' : '🔍'}
           </button>
         </div>
 
         {soundResults.length > 0 && (
-          <div className="max-h-28 overflow-y-auto space-y-0.5 mb-2 border border-[#1A3A1A] rounded-lg">
+          <div className="max-h-28 overflow-y-auto space-y-0.5 mb-2 border border-gray-200 rounded-lg">
             {soundResults.map((r: any) => (
               <button key={r.id}
                 onClick={() => { onChange({ sound_url: r.preview_url, sound_loop: true }); setSoundResults([]); }}
-                className="w-full text-left px-2 py-1.5 hover:bg-[#0D1A0F] text-[11px] text-[#C8E8C8] truncate">
+                className="w-full text-left px-2 py-1.5 hover:bg-gray-50 text-[11px] text-gray-800 truncate">
                 🎵 {r.name}
               </button>
             ))}
@@ -580,10 +580,10 @@ function Inspector({
 
         {obj.sound_url ? (
           <div className="mb-2">
-            <div className="flex items-center gap-2 text-[11px] text-[#4ADE80] mb-1.5 bg-[#0D2A14] px-2 py-1 rounded-lg border border-[#2A5C14]">
+            <div className="flex items-center gap-2 text-[11px] text-green-600 mb-1.5 bg-blue-50 px-2 py-1 rounded-lg border border-green-300">
               <span>🎵</span>
               <span className="truncate flex-1">{obj.sound_url.split('/').pop()}</span>
-              <button onClick={() => onChange({ sound_url: undefined })} className="text-[#4A7A4A] hover:text-red-400 flex-shrink-0">×</button>
+              <button onClick={() => onChange({ sound_url: undefined })} className="text-gray-500 hover:text-red-500 flex-shrink-0">×</button>
             </div>
             {slider('Volume', 'sound_volume', 0, 1, 0.05)}
             {slider('Trigger distance', 'sound_trigger_dist', 2, 50, 1, 'u')}
@@ -592,18 +592,18 @@ function Inspector({
               <input type="checkbox" checked={obj.sound_loop}
                 onChange={e => onChange({ sound_loop: e.target.checked })}
                 className="accent-green-400" />
-              <span className="text-[#8AAA8A] text-[11px]">Loop</span>
+              <span className="text-gray-600 text-[11px]">Loop</span>
             </label>
           </div>
         ) : (
-          <p className="text-[#3A5A3A] text-[10px] italic">Search for a sound above, or paste a URL</p>
+          <p className="text-gray-500 text-[10px] italic">Search for a sound above, or paste a URL</p>
         )}
 
         {!obj.sound_url && (
           <input
             placeholder="Or paste sound URL (.mp3, .ogg)…"
             onBlur={e => { if (e.target.value) onChange({ sound_url: e.target.value }); }}
-            className="w-full bg-[#0A1A0A] border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-[#C8E8C8] text-[10px] mt-1"
+            className="w-full bg-gray-50 border border-[#2A4A2A] rounded-lg px-2 py-1.5 text-gray-800 text-[10px] mt-1"
           />
         )}
       </>)}
@@ -611,15 +611,15 @@ function Inspector({
       {/* Trigger */}
       {section('Trigger', <>
         <div className="mb-2">
-          <p className="text-[#4A7A4A] text-[10px] mb-1">How is this item activated?</p>
+          <p className="text-gray-500 text-[10px] mb-1">How is this item activated?</p>
           <div className="flex gap-1">
             {(['click','approach','both'] as const).map(t => (
               <button key={t}
                 onClick={() => onChange({ trigger_type: t })}
                 className={`flex-1 py-1.5 rounded text-[10px] font-bold capitalize transition-colors border ${
                   obj.trigger_type === t
-                    ? 'bg-[#0D2A14] text-[#4ADE80] border-[#2A5C14]'
-                    : 'text-[#3A5A3A] border-[#1A3A1A] hover:text-[#8AAA8A]'
+                    ? 'bg-blue-50 text-green-600 border-green-400'
+                    : 'text-gray-500 border-gray-200 hover:text-gray-600'
                 }`}>
                 {t === 'click' ? '👆 Click' : t === 'approach' ? '🚶 Approach' : '🔀 Both'}
               </button>
@@ -633,10 +633,10 @@ function Inspector({
           <input type="checkbox" checked={obj.item_info_enabled}
             onChange={e => onChange({ item_info_enabled: e.target.checked })}
             className="accent-green-400" />
-          <span className="text-[#C8E8C8] text-[11px]">🔍 Show "Learn about this" info button</span>
+          <span className="text-gray-800 text-[11px]">🔍 Show "Learn about this" info button</span>
         </label>
         {obj.item_info_enabled && (
-          <p className="text-[#3A5A3A] text-[9px] mt-1 italic">
+          <p className="text-gray-500 text-[9px] mt-1 italic">
             Spirit will describe the real-world item (what a maple tree is, etc.)
           </p>
         )}
@@ -648,14 +648,14 @@ function Inspector({
           <input type="checkbox" checked={obj.trail_enabled}
             onChange={e => onChange({ trail_enabled: e.target.checked })}
             className="accent-green-400" />
-          <span className="text-[#C8E8C8] text-[11px]">Auto-trail from Mugsum Hut</span>
+          <span className="text-gray-800 text-[11px]">Auto-trail from Mugsum Hut</span>
         </label>
         {obj.trail_enabled && (
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={obj.trail_passable}
               onChange={e => onChange({ trail_passable: e.target.checked })}
               className="accent-green-400" />
-            <span className="text-[#8AAA8A] text-[11px]">Trail passes through this item</span>
+            <span className="text-gray-600 text-[11px]">Trail passes through this item</span>
           </label>
         )}
       </>)}
@@ -666,18 +666,18 @@ function Inspector({
           <input type="checkbox" checked={obj.is_building}
             onChange={e => onChange({ is_building: e.target.checked })}
             className="accent-green-400" />
-          <span className="text-[#C8E8C8] text-[11px]">Show on village map</span>
+          <span className="text-gray-800 text-[11px]">Show on village map</span>
         </label>
       </>)}
 
       {/* Actions */}
-      <div className="flex gap-2 pt-2 border-t border-[#1A3A1A]">
+      <div className="flex gap-2 pt-2 border-t border-gray-200">
         <button onClick={onDuplicate}
-          className="flex-1 py-1.5 text-[11px] bg-[#0D2A14] border border-[#2A5C14] text-[#4ADE80] rounded-lg hover:bg-[#162814] transition-colors">
+          className="flex-1 py-1.5 text-[11px] bg-blue-50 border border-green-300 text-green-600 rounded-lg hover:bg-blue-100 transition-colors">
           Duplicate
         </button>
         <button onClick={onDelete}
-          className="flex-1 py-1.5 text-[11px] bg-[#2A0A0A] border border-[#5C1414] text-red-400 rounded-lg hover:bg-[#3A1414] transition-colors">
+          className="flex-1 py-1.5 text-[11px] bg-red-50 border border-red-300 text-red-500 rounded-lg hover:bg-[#3A1414] transition-colors">
           Delete
         </button>
       </div>
@@ -698,13 +698,13 @@ function PaletteItem({
       onClick={() => onSelect(active ? null : model)}
       className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] flex items-center gap-2 transition-colors border ${
         active
-          ? 'bg-[#0D2A14] text-[#4ADE80] border-[#4ADE80]/40'
-          : 'text-[#C8E8C8] hover:bg-[#0A1A0A] border-transparent'
+          ? 'bg-blue-50 text-green-600 border-[#4ADE80]/40'
+          : 'text-gray-800 hover:bg-gray-50 border-transparent'
       }`}
     >
       <span className="text-base leading-none shrink-0">{model.emoji}</span>
       <span className="truncate">{model.label}</span>
-      {model.isBuilding && <span className="ml-auto text-[9px] text-[#4A7A4A] shrink-0">🏠</span>}
+      {model.isBuilding && <span className="ml-auto text-[9px] text-gray-500 shrink-0">🏠</span>}
     </button>
   );
 }
@@ -738,9 +738,14 @@ export function WorldBuilder() {
   const [snapSize,      setSnapSize]     = useState(1);
   const [showHelp,      setShowHelp]     = useState(false);
   // Draggable inspector panel
-  const [inspPos, setInspPos] = useState({ x: -1, y: -1 }); // -1 = default docked right
+  const [inspPos, setInspPos] = useState({ x: -1, y: -1 });
   const inspDragRef = useRef<{ dragging: boolean; ox: number; oy: number }>({ dragging: false, ox: 0, oy: 0 });
   const inspRef = useRef<HTMLDivElement>(null);
+  // Path drawing mode
+  const [pathDrawing, setPathDrawing] = useState(false);
+  // Stats
+  const [fps, setFps] = useState(60);
+  const fpsRef = useRef({ last: performance.now(), frames: 0 });
 
   // ── Undo/Redo history
   const history    = useRef<WorldObject[][]>([]);
@@ -971,20 +976,43 @@ export function WorldBuilder() {
 
   const CATEGORIES = Object.entries(CATEGORY_META) as [ModelCategory, typeof CATEGORY_META[ModelCategory]][];
 
+  // Toolbar draggable state
+  const [toolbarPos, setToolbarPos] = useState({ x: 8, y: 8 });
+  const [toolbarMin, setToolbarMin] = useState(false);
+  const toolbarDrag = useRef<{ active: boolean; ox: number; oy: number }>({ active: false, ox: 0, oy: 0 });
+  const toolbarRef = useRef<HTMLDivElement>(null);
+
+  // Color palette — light grey theme
+  const WB = {
+    bg:       '#F2F4F7',
+    panel:    '#FFFFFF',
+    border:   '#DDE1E7',
+    text:     '#1A1A2E',
+    muted:    '#6B7280',
+    accent:   '#2563EB',
+    green:    '#16A34A',
+    greenBg:  '#DCFCE7',
+    blueBg:   '#DBEAFE',
+    toolbar:  'rgba(255,255,255,0.95)',
+  };
+
   return (
-    <div className="flex h-full bg-[#040A06] overflow-hidden" style={{ fontFamily: 'monospace' }}>
+    <div className="flex h-full overflow-hidden" style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif', background: WB.bg }}>
 
       {/* ── Left: Palette ─────────────────────────────────────────────── */}
-      <div className="w-60 flex flex-col border-r border-[#1A3A1A]/60 shrink-0 bg-[#060E08]">
+      <div className="w-60 flex flex-col shrink-0" style={{ background: WB.panel, borderRight: `1px solid ${WB.border}` }}>
 
         {/* Tabs */}
-        <div className="flex border-b border-[#1A3A1A]/60 overflow-x-auto">
+        <div className="flex overflow-x-auto" style={{ borderBottom: `1px solid ${WB.border}` }}>
           {(['models', 'ai', 'pages', 'features', 'objects'] as const).map(t => (
             <button key={t} onClick={() => setActiveTab(t)}
-              className={`flex-1 py-2 text-[9px] uppercase tracking-wider font-bold transition-colors whitespace-nowrap ${
-                activeTab === t ? 'text-[#4ADE80] border-b-2 border-[#4ADE80]' : 'text-[#3A5A3A]'
-              }`}>
-              {t === 'models' ? '🧱' : t === 'ai' ? '🤖' : t === 'pages' ? '📄' : t === 'features' ? '⚡' : '📋'}
+              className="flex-1 py-2.5 text-[10px] font-bold transition-colors whitespace-nowrap"
+              style={{
+                color: activeTab === t ? WB.accent : WB.muted,
+                borderBottom: activeTab === t ? `2px solid ${WB.accent}` : '2px solid transparent',
+                background: 'transparent',
+              }}>
+              {t === 'models' ? '🧱 Models' : t === 'ai' ? '🤖 AI' : t === 'pages' ? '📄' : t === 'features' ? '⚡' : '📋'}
             </button>
           ))}
         </div>
@@ -992,24 +1020,24 @@ export function WorldBuilder() {
         {activeTab === 'models' && (
           <>
             {/* Search */}
-            <div className="p-2 border-b border-[#1A3A1A]/60">
+            <div className="p-2 border-b border-gray-200">
               <input
                 value={searchQ}
                 onChange={e => setSearchQ(e.target.value)}
-                placeholder="Search 304 models…"
-                className="w-full bg-[#0A1A0A] border border-[#1A3A1A]/60 rounded-lg px-2.5 py-1.5 text-[#C8E8C8] text-[11px] placeholder-[#2A4A2A]"
+                placeholder="Search 850+ models…"
+                className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-1.5 text-gray-800 text-[11px] placeholder-gray-400"
               />
             </div>
 
             {/* Category pills */}
             {!searchQ && (
-              <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-[#1A3A1A]/60">
+              <div className="flex flex-wrap gap-0.5 p-1.5 border-b border-gray-200">
                 {CATEGORIES.map(([id, meta]) => (
                   <button key={id} onClick={() => setCategory(id)}
                     className={`px-1.5 py-0.5 rounded text-[9px] transition-colors ${
                       activeCategory === id
-                        ? 'bg-[#0D2A14] text-[#4ADE80]'
-                        : 'text-[#3A5A3A] hover:text-[#8AAA8A]'
+                        ? 'bg-blue-50 text-green-600'
+                        : 'text-gray-500 hover:text-gray-600'
                     }`}>
                     {meta.emoji}
                   </button>
@@ -1029,19 +1057,19 @@ export function WorldBuilder() {
 
         {activeTab === 'pages' && (
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            <p className="text-[#3A5A3A] text-[10px] px-1 py-1">Click a page to assign to selected object</p>
+            <p className="text-gray-500 text-[10px] px-1 py-1">Click a page to assign to selected object</p>
             {VILLAGE_PAGES.map(p => (
               <button key={p.id}
                 onClick={() => selectedObj && patchObj(selectedObj.id, { linked_page: p.id, behavior: 'page' })}
                 className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] flex items-center gap-2 transition-colors ${
                   selectedObj?.linked_page === p.id
-                    ? 'bg-[#0D2A14] text-[#4ADE80] border border-[#2A5C14]'
-                    : 'text-[#C8E8C8] hover:bg-[#0A1A0A]'
+                    ? 'bg-blue-50 text-green-600 border border-green-300'
+                    : 'text-gray-800 hover:bg-gray-50'
                 }`}>
                 <span>{p.emoji}</span>
                 <div>
                   <p className="font-bold">{p.label}</p>
-                  <p className="text-[9px] text-[#4A7A4A]">{p.id}</p>
+                  <p className="text-[9px] text-gray-500">{p.id}</p>
                 </div>
               </button>
             ))}
@@ -1052,7 +1080,7 @@ export function WorldBuilder() {
         {activeTab === 'ai' && (
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
             <div className="text-center">
-              <p className="text-[#4ADE80] text-[11px] font-black">🤖 Generate 3D with AI</p>
+              <p className="text-green-600 text-[11px] font-black">🤖 Generate 3D with AI</p>
               <p className="text-[#2A5A2A] text-[9px] mt-0.5">Powered by Meshy.ai · Type anything, place it in the world</p>
             </div>
 
@@ -1061,7 +1089,7 @@ export function WorldBuilder() {
               onChange={e => setMeshyPrompt(e.target.value)}
               placeholder="Describe a 3D object… e.g. 'ancient stone fountain with mossy carvings'"
               rows={3}
-              className="w-full bg-[#0A1A0A] border border-[#1A3A1A]/60 rounded-lg px-2.5 py-2 text-[#C8E8C8] text-[11px] placeholder-[#2A4A2A] resize-none"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg px-2.5 py-2 text-gray-800 text-[11px] placeholder-gray-400 resize-none"
             />
 
             <button
@@ -1077,31 +1105,30 @@ export function WorldBuilder() {
                     body: JSON.stringify({ prompt: meshyPrompt }),
                   });
                   const data = await res.json();
-                  if (data.result) {
-                    setMeshyTask(data.result);
-                    // Poll for completion
+                  const taskId = data.result ?? data.id;
+                  const apiVer = data.version ?? 'v2';
+                  if (taskId) {
+                    setMeshyTask(taskId);
                     const poll = setInterval(async () => {
-                      const r = await fetch(`/api/admin/meshy?task_id=${data.result}`);
+                      const r = await fetch(`/api/admin/meshy?task_id=${taskId}&ver=${apiVer}`);
                       const d = await r.json();
-                      if (d.status === 'SUCCEEDED') {
+                      const status = (d.status ?? '').toUpperCase();
+                      if (status === 'SUCCEEDED') {
                         clearInterval(poll);
                         setMeshyStatus('done');
                         const urls = d.model_urls ?? {};
                         setMeshyModel(urls);
-                        // Auto-add to history
                         const url = urls.glb ?? urls.gltf;
-                        if (url) {
-                          const label = meshyPrompt.slice(0, 30);
-                          setMeshyHistory(h => [{ label, url }, ...h.slice(0, 19)]);
-                        }
-                      } else if (d.status === 'FAILED' || d.status === 'EXPIRED') {
+                        if (url) setMeshyHistory(h => [{ label: meshyPrompt.slice(0, 30), url }, ...h.slice(0, 19)]);
+                      } else if (status === 'FAILED' || status === 'EXPIRED') {
                         clearInterval(poll);
                         setMeshyStatus('error');
                       } else {
-                        setMeshyStatus(d.status?.toLowerCase() === 'refining' ? 'refining' : 'generating');
+                        setMeshyStatus(status === 'REFINING' ? 'refining' : 'generating');
                       }
-                    }, 4000);
+                    }, 5000);
                   } else {
+                    console.error('[Meshy]', data);
                     setMeshyStatus('error');
                   }
                 } catch {
@@ -1120,8 +1147,8 @@ export function WorldBuilder() {
 
             {/* Generated model — place button */}
             {meshyStatus === 'done' && meshyModel && (
-              <div className="bg-[#0A1A0A] border border-[#2A5C14] rounded-xl p-3 space-y-2">
-                <p className="text-[#4ADE80] text-[10px] font-black">Generated model ready</p>
+              <div className="bg-gray-50 border border-green-300 rounded-xl p-3 space-y-2">
+                <p className="text-green-600 text-[10px] font-black">Generated model ready</p>
                 <button
                   onClick={() => {
                     const url = meshyModel.glb ?? meshyModel.gltf;
@@ -1140,7 +1167,7 @@ export function WorldBuilder() {
                       setActiveTab('models');
                     }
                   }}
-                  className="w-full py-2 bg-[#4ADE80] text-[#040A06] text-[11px] font-black rounded-lg"
+                  className="w-full py-2 bg-[#4ADE80] text-gray-900 text-[11px] font-black rounded-lg"
                 >
                   📍 Place in World
                 </button>
@@ -1166,21 +1193,18 @@ export function WorldBuilder() {
                       };
                       setPending(model);
                     }}
-                    className="w-full text-left px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-2 hover:bg-[#0A1A0A] transition-colors">
+                    className="w-full text-left px-2 py-1.5 rounded-lg text-[10px] flex items-center gap-2 hover:bg-gray-50 transition-colors">
                     <span>🤖</span>
-                    <span className="text-[#C8E8C8] truncate">{m.label}</span>
+                    <span className="text-gray-800 truncate">{m.label}</span>
                   </button>
                 ))}
               </div>
             )}
 
-            {!process.env.NEXT_PUBLIC_HAS_MESHY && (
-              <div className="bg-amber-900/20 border border-amber-700/30 rounded-xl p-3">
-                <p className="text-amber-400 text-[10px] font-bold">Setup Required</p>
-                <p className="text-amber-700 text-[9px] mt-1">
-                  Add MESHY_API_KEY to your Vercel environment variables to enable AI generation.
-                  Get a key at meshy.ai
-                </p>
+            {meshyStatus === 'error' && (
+              <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-3">
+                <p className="text-red-500 text-[10px] font-bold">Generation failed</p>
+                <p className="text-red-700 text-[9px] mt-1">Try a different prompt, or check the Vercel logs. API key is configured.</p>
               </div>
             )}
           </div>
@@ -1188,19 +1212,19 @@ export function WorldBuilder() {
 
         {activeTab === 'features' && (
           <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-            <p className="text-[#3A5A3A] text-[10px] px-1 py-1">Click a feature to assign to selected object</p>
+            <p className="text-gray-500 text-[10px] px-1 py-1">Click a feature to assign to selected object</p>
             {APP_FEATURES.map(f => (
               <button key={f.id}
                 onClick={() => selectedObj && patchObj(selectedObj.id, { linked_feature: f.id, behavior: 'page' })}
                 className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] flex items-center gap-2 transition-colors ${
                   selectedObj?.linked_feature === f.id
-                    ? 'bg-[#0D2A14] text-[#4ADE80] border border-[#2A5C14]'
-                    : 'text-[#C8E8C8] hover:bg-[#0A1A0A]'
+                    ? 'bg-blue-50 text-green-600 border border-green-300'
+                    : 'text-gray-800 hover:bg-gray-50'
                 }`}>
                 <span className="text-sm">{f.emoji}</span>
                 <div>
                   <p className="font-bold">{f.label}</p>
-                  <p className="text-[9px] text-[#4A7A4A]">{f.description}</p>
+                  <p className="text-[9px] text-gray-500">{f.description}</p>
                 </div>
               </button>
             ))}
@@ -1210,16 +1234,16 @@ export function WorldBuilder() {
         {activeTab === 'objects' && (
           <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5">
             {objects.length === 0 && (
-              <p className="text-[#2A4A2A] text-[10px] text-center py-6">No objects placed yet</p>
+              <p className="text-gray-400 text-[10px] text-center py-6">No objects placed yet</p>
             )}
             {objects.map(o => (
               <button key={o.id} onClick={() => setSelectedId(o.id)}
                 className={`w-full text-left px-2 py-1.5 rounded-lg flex items-center gap-2 text-[11px] transition-colors ${
-                  selectedId === o.id ? 'bg-[#0D2A14] text-[#4ADE80]' : 'text-[#C8E8C8] hover:bg-[#0A1A0A]'
+                  selectedId === o.id ? 'bg-blue-50 text-green-600' : 'text-gray-800 hover:bg-gray-50'
                 }`}>
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${o.is_live ? 'bg-green-400' : 'bg-[#2A4A2A]'}`} />
                 <span className="truncate flex-1">{o.world_name ?? o.label}</span>
-                {o.is_building && <span className="text-[#4A7A4A] text-[9px]">🏠</span>}
+                {o.is_building && <span className="text-gray-500 text-[9px]">🏠</span>}
               </button>
             ))}
           </div>
@@ -1227,8 +1251,8 @@ export function WorldBuilder() {
 
         {/* Placement hint */}
         {pending && (
-          <div className="p-2.5 border-t border-[#1A3A1A]/60 bg-[#040A06]">
-            <p className="text-[#4ADE80] text-[10px] font-bold">{pending.emoji} {pending.label}</p>
+          <div className="p-2.5 border-t border-gray-200 bg-gray-100">
+            <p className="text-green-600 text-[10px] font-bold">{pending.emoji} {pending.label}</p>
             <p className="text-[#2A5A2A] text-[9px] mt-0.5">Click world to place · Esc cancel</p>
           </div>
         )}
@@ -1237,83 +1261,102 @@ export function WorldBuilder() {
       {/* ── Center: 3D Canvas ──────────────────────────────────────────── */}
       <div className="flex-1 relative flex flex-col" style={{ cursor: pending ? 'crosshair' : 'default' }}>
 
-        {/* Mode toggle bar */}
-        <div className="flex items-center gap-3 px-4 py-2 bg-[#040A06] border-b border-[#1A3A1A]/60 shrink-0">
-          {/* Sandbox / Production toggle */}
-          <div className="flex items-center gap-0.5 bg-[#0A1A0A] rounded-lg border border-[#1A3A1A]/60 p-0.5">
-            <button
-              onClick={() => setMode('sandbox')}
-              className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
-                mode === 'sandbox'
-                  ? 'bg-amber-900/50 text-amber-400 border border-amber-700/40'
-                  : 'text-[#3A5A3A] hover:text-[#8AAA8A]'
-              }`}
-            >
-              🏗️ Sandbox
-            </button>
-            <button
-              onClick={() => setMode('production')}
-              className={`px-3 py-1 rounded text-[11px] font-bold transition-colors ${
-                mode === 'production'
-                  ? 'bg-[#0D2A14] text-[#4ADE80] border border-[#2A5C14]'
-                  : 'text-[#3A5A3A] hover:text-[#8AAA8A]'
-              }`}
-            >
-              🌍 Live Village
-            </button>
-          </div>
-
-          <div className="text-[10px] text-[#3A5A3A]">
-            {objects.length} obj · {liveCount} live
-          </div>
-
-          {/* Undo / Redo */}
-          <div className="flex gap-1">
-            <button onClick={undo} title="Undo (Ctrl+Z)"
-              className="px-2 py-1 text-[10px] bg-[#0A1A0A] border border-[#1A3A1A] text-[#3A5A3A] hover:text-[#4ADE80] rounded transition-colors">
-              ↩ Undo
-            </button>
-            <button onClick={redo} title="Redo (Ctrl+Shift+Z)"
-              className="px-2 py-1 text-[10px] bg-[#0A1A0A] border border-[#1A3A1A] text-[#3A5A3A] hover:text-[#4ADE80] rounded transition-colors">
-              ↪ Redo
-            </button>
-          </div>
-
-          {/* Grid snap toggle */}
-          <button
-            onClick={() => setGridSnap(v => !v)}
-            title="Toggle grid snap (G)"
-            className={`px-2 py-1 text-[10px] rounded border transition-colors ${
-              gridSnap
-                ? 'bg-[#0D2A14] text-[#4ADE80] border-[#2A5C14]'
-                : 'bg-[#0A1A0A] text-[#3A5A3A] border-[#1A3A1A]'
-            }`}
+        {/* ── Floating draggable toolbar ── */}
+        <div
+          ref={toolbarRef}
+          style={{
+            position: 'absolute',
+            left: toolbarPos.x,
+            top: toolbarPos.y,
+            zIndex: 30,
+            background: 'rgba(255,255,255,0.97)',
+            border: '1px solid #DDE1E7',
+            borderRadius: 12,
+            boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+            minWidth: toolbarMin ? 120 : 560,
+            maxWidth: '90%',
+            userSelect: 'none',
+          }}
+        >
+          {/* Drag handle + minimize */}
+          <div
+            className="flex items-center gap-2 px-3 py-2 cursor-move rounded-t-xl"
+            style={{ borderBottom: toolbarMin ? 'none' : '1px solid #EEF0F4', background: '#F8F9FB' }}
+            onPointerDown={e => {
+              const rect = toolbarRef.current?.getBoundingClientRect();
+              if (!rect) return;
+              toolbarDrag.current = { active: true, ox: e.clientX - rect.left, oy: e.clientY - rect.top };
+              const move = (ev: PointerEvent) => {
+                if (!toolbarDrag.current.active) return;
+                setToolbarPos({ x: ev.clientX - toolbarDrag.current.ox, y: ev.clientY - toolbarDrag.current.oy });
+              };
+              const up = () => { toolbarDrag.current.active = false; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+              window.addEventListener('pointermove', move);
+              window.addEventListener('pointerup', up);
+            }}
           >
-            ⊞ {gridSnap ? `Snap ${snapSize}u` : 'Free'}
-          </button>
-          {gridSnap && (
-            <select value={snapSize} onChange={e => setSnapSize(Number(e.target.value))}
-              className="bg-[#0A1A0A] border border-[#1A3A1A] text-[#4A7A4A] text-[10px] rounded px-1">
-              {[0.25, 0.5, 1, 2, 5].map(s => <option key={s} value={s}>{s}u</option>)}
-            </select>
-          )}
-
-          <div className="flex-1" />
-
-          {/* Keyboard hint */}
-          <div className="hidden xl:flex gap-2 text-[9px] text-[#2A4A2A]">
-            <span>Arrows=move</span>
-            <span>[]=rotate</span>
-            <span>+/-=scale</span>
-            <span>L=live</span>
-            <span>Ctrl+D=dupe</span>
-            <span>Del=remove</span>
+            <span className="text-gray-400 text-xs select-none">⠿</span>
+            <span className="text-[10px] font-bold text-gray-600">
+              {mode === 'sandbox' ? '🏗️ Sandbox' : '🌍 Live'} ·  {objects.length} objs · {liveCount} live
+            </span>
+            {selectedObj && (
+              <span className="text-[10px] text-blue-600 bg-blue-50 px-2 rounded font-bold truncate max-w-[100px]">
+                ✏️ {selectedObj.world_name ?? selectedObj.label}
+              </span>
+            )}
+            <div className="flex-1" />
+            <button onClick={() => setToolbarMin(m => !m)}
+              className="w-5 h-5 rounded text-gray-400 hover:text-gray-700 text-xs flex items-center justify-center">
+              {toolbarMin ? '▼' : '▲'}
+            </button>
           </div>
 
-          {/* Selected object quick indicator */}
-          {selectedObj && (
-            <div className="text-[10px] text-[#4ADE80] bg-[#0D2A14] px-2 py-1 rounded border border-[#2A5C14] max-w-[120px] truncate">
-              ✏️ {selectedObj.world_name ?? selectedObj.label}
+          {!toolbarMin && (
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2">
+              {/* Mode */}
+              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-[10px]">
+                <button onClick={() => setMode('sandbox')}
+                  className="px-2.5 py-1 font-bold transition-colors"
+                  style={{ background: mode === 'sandbox' ? '#FEF3C7' : '#F9FAFB', color: mode === 'sandbox' ? '#92400E' : '#6B7280' }}>
+                  🏗️ Sandbox
+                </button>
+                <button onClick={() => setMode('production')}
+                  className="px-2.5 py-1 font-bold transition-colors"
+                  style={{ background: mode === 'production' ? '#DCFCE7' : '#F9FAFB', color: mode === 'production' ? '#166534' : '#6B7280', borderLeft: '1px solid #E5E7EB' }}>
+                  🌍 Live
+                </button>
+              </div>
+
+              {/* Undo/Redo */}
+              <div className="flex gap-1">
+                <button onClick={undo} title="Ctrl+Z"
+                  className="px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 rounded transition-colors">↩</button>
+                <button onClick={redo} title="Ctrl+Shift+Z"
+                  className="px-2 py-1 text-[10px] bg-gray-50 border border-gray-200 text-gray-500 hover:text-blue-600 rounded transition-colors">↪</button>
+              </div>
+
+              {/* Grid snap */}
+              <button onClick={() => setGridSnap(v => !v)} title="G key"
+                className="px-2 py-1 text-[10px] rounded border transition-colors"
+                style={{ background: gridSnap ? '#DBEAFE' : '#F9FAFB', color: gridSnap ? '#1D4ED8' : '#6B7280', borderColor: gridSnap ? '#93C5FD' : '#E5E7EB' }}>
+                ⊞ {gridSnap ? `${snapSize}u` : 'Free'}
+              </button>
+              {gridSnap && (
+                <select value={snapSize} onChange={e => setSnapSize(Number(e.target.value))}
+                  className="text-[10px] rounded border border-gray-200 text-gray-600 px-1 bg-white">
+                  {[0.25, 0.5, 1, 2, 5].map(s => <option key={s} value={s}>{s}u</option>)}
+                </select>
+              )}
+
+              {/* Path drawing mode */}
+              <button
+                onClick={() => setPathDrawing(d => !d)}
+                className="px-2 py-1 text-[10px] rounded border transition-colors"
+                style={{ background: pathDrawing ? '#FEF3C7' : '#F9FAFB', color: pathDrawing ? '#92400E' : '#6B7280', borderColor: pathDrawing ? '#FCD34D' : '#E5E7EB' }}>
+                🛤️ {pathDrawing ? 'Drawing Path…' : 'Draw Path'}
+              </button>
+
+              <div className="text-[9px] text-gray-400 hidden lg:block">Arrows=move []=rot +/-=scale L=live Del=delete</div>
             </div>
           )}
         </div>
@@ -1372,12 +1415,12 @@ export function WorldBuilder() {
             window.addEventListener('pointerup', up);
           }}
         >
-          <span className="text-[#4ADE80] text-[10px]">⠿</span>
-          <p className="text-[#4ADE80] text-[10px] font-black uppercase tracking-widest flex-1">
+          <span className="text-green-600 text-[10px]">⠿</span>
+          <p className="text-green-600 text-[10px] font-black uppercase tracking-widest flex-1">
             {selectedObj ? `✏️ ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
           </p>
           <button onClick={() => setInspPos({ x: -1, y: -1 })}
-            className="text-[#2A5A2A] hover:text-[#4ADE80] text-sm leading-none">⊠</button>
+            className="text-[#2A5A2A] hover:text-green-600 text-sm leading-none">⊠</button>
         </div>
 
         {/* Inspector body */}
@@ -1392,7 +1435,7 @@ export function WorldBuilder() {
           ) : (
             <div className="text-center py-8">
               <p className="text-3xl mb-3">🌍</p>
-              <p className="text-[#2A4A2A] text-[11px]">Select an object to edit.</p>
+              <p className="text-gray-400 text-[11px]">Select an object to edit.</p>
             </div>
           )}
         </div>
@@ -1411,7 +1454,7 @@ export function WorldBuilder() {
                   selectedObj.is_live ? 'translate-x-5' : 'translate-x-0.5'
                 }`} />
               </div>
-              <span className={`text-[11px] font-bold ${selectedObj.is_live ? 'text-[#4ADE80]' : 'text-[#3A5A3A]'}`}>
+              <span className={`text-[11px] font-bold ${selectedObj.is_live ? 'text-green-600' : 'text-gray-500'}`}>
                 {selectedObj.is_live ? 'Live in village' : 'Sandbox only'}
               </span>
             </label>
@@ -1421,11 +1464,11 @@ export function WorldBuilder() {
         {/* Save actions */}
         <div className="p-3 space-y-2" style={{ borderTop: '1px solid #1A3A1A', background: '#060E08' }}>
           <button onClick={() => handleSave(false)} disabled={saving}
-            className="w-full py-2 bg-[#0D2A14] hover:bg-[#122A14] text-[#4ADE80] text-[11px] font-black rounded-xl transition-colors border border-[#2A5C14] disabled:opacity-50">
+            className="w-full py-2 bg-blue-50 hover:bg-blue-100 text-green-600 text-[11px] font-black rounded-xl transition-colors border border-green-300 disabled:opacity-50">
             {saving ? 'Saving…' : saved ? '✓ Saved!' : '💾 Save Draft'}
           </button>
           <button onClick={() => handleSave(true)} disabled={saving}
-            className="w-full py-2 bg-[#4ADE80] hover:bg-[#22C55E] text-[#040A06] text-[11px] font-black rounded-xl transition-colors disabled:opacity-50">
+            className="w-full py-2 bg-[#4ADE80] hover:bg-[#22C55E] text-gray-900 text-[11px] font-black rounded-xl transition-colors disabled:opacity-50">
             🚀 Publish All Live
           </button>
         </div>
