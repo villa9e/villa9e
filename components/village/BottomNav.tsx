@@ -41,10 +41,19 @@ function BottomNavInner() {
   const path = usePathname();
   const searchParams = useSearchParams();
   const [unread, setUnread] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const supabase = createClient();
 
   const isVillagePage = path.startsWith('/village') || path.startsWith('/admin') || path === '/notifications' || path.startsWith('/messages');
   const isHidden = HIDE_ON.some(p => path === p || path.startsWith(p)) || searchParams.get('embedded') === '1';
+
+  useEffect(() => {
+    const supabaseClient = createClient();
+    supabaseClient.auth.getSession().then(({ data: { session } }) => {
+      const email = session?.user?.email ?? '';
+      setIsAdmin(email === 'admin@villa9e.app' || email === 'elitehousemusic@gmail.com');
+    });
+  }, []);
 
   useEffect(() => {
     async function loadUnread() {
@@ -145,6 +154,28 @@ function BottomNavInner() {
             </Link>
           );
         })}
+
+        {isAdmin && (
+          <Link href="/admin/sandbox"
+            className="relative flex flex-col items-center gap-1 px-3 py-2.5 min-w-[52px] transition-all">
+            {/* Active indicator pill */}
+            {path === '/admin/sandbox' && (
+              <motion.div layoutId="bottom-nav-pill"
+                className="absolute inset-0 rounded-2xl"
+                style={{ background: 'linear-gradient(135deg, rgba(212,175,55,0.15), rgba(184,134,11,0.1))', border: '1px solid rgba(212,175,55,0.3)' }}
+              />
+            )}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+              stroke={path === '/admin/sandbox' ? '#B8860B' : 'rgba(30,27,75,0.5)'}
+              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+            </svg>
+            <span className="text-[9px] font-bold"
+              style={{ color: path === '/admin/sandbox' ? '#B8860B' : 'rgba(30,27,75,0.45)' }}>
+              Builder
+            </span>
+          </Link>
+        )}
       </div>
     </nav>
   );

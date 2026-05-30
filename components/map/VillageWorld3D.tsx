@@ -203,6 +203,12 @@ function CarouselNav({
         }
       }}
       onTouchEnd={() => { touchStart.current = null; touchLock.current = false; }}
+      onWheel={e => {
+        // Horizontal trackpad swipe (deltaX) — ignore vertical scroll
+        if (Math.abs(e.deltaX) < Math.abs(e.deltaY)) return;
+        if (Math.abs(e.deltaX) < 15) return;
+        shiftCenter(e.deltaX > 0 ? 1 : -1);
+      }}
     >
       {/* Gold gradient indicator line */}
       <div style={{

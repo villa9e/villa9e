@@ -905,7 +905,7 @@ export function WorldBuilder() {
   const [multiSelect,   setMultiSelect]  = useState<Set<string>>(new Set());
   const [scatterMode,   setScatterMode]  = useState(false);
   const [pending,       setPending]      = useState<CatalogModel | null>(null);
-  const [mode,          setMode]         = useState<'sandbox' | 'production'>('sandbox');
+  // mode state removed — always sandbox
   const [saving,        setSaving]       = useState(false);
   const [saved,         setSaved]        = useState(false);
   const [searchQ,       setSearchQ]      = useState('');
@@ -923,10 +923,7 @@ export function WorldBuilder() {
   const [snapSize,      setSnapSize]     = useState(1);
   const [objSnap,       setObjSnap]      = useState(true);  // snap to other objects' edges
   const [showHelp,      setShowHelp]     = useState(false);
-  // Draggable inspector panel
-  const [inspPos, setInspPos] = useState({ x: -1, y: -1 });
-  const inspDragRef = useRef<{ dragging: boolean; ox: number; oy: number }>({ dragging: false, ox: 0, oy: 0 });
-  const inspRef = useRef<HTMLDivElement>(null);
+  // Inspector is now embedded — no drag state needed
   // Path drawing mode
   const [pathDrawing, setPathDrawing] = useState(false);
   // Stats
@@ -1628,7 +1625,7 @@ export function WorldBuilder() {
           >
             <span className="text-gray-400 text-xs select-none">⠿</span>
             <span className="text-[10px] font-bold text-gray-600">
-              {mode === 'sandbox' ? '🏗️ Sandbox' : '🌍 Live'} ·  {objects.length} objs · {liveCount} live
+              🏗️ Sandbox · {objects.length} objs · {liveCount} live
             </span>
             {selectedObj && (
               <span className="text-[10px] text-blue-600 bg-blue-50 px-2 rounded font-bold truncate max-w-[100px]">
@@ -1644,19 +1641,12 @@ export function WorldBuilder() {
 
           {!toolbarMin && (
             <div className="flex flex-wrap items-center gap-2 px-3 py-2">
-              {/* Mode */}
-              <div className="flex rounded-lg overflow-hidden border border-gray-200 text-[10px]">
-                <button onClick={() => setMode('sandbox')}
-                  className="px-2.5 py-1 font-bold transition-colors"
-                  style={{ background: mode === 'sandbox' ? '#FEF3C7' : '#F9FAFB', color: mode === 'sandbox' ? '#92400E' : '#6B7280' }}>
-                  🏗️ Sandbox
-                </button>
-                <button onClick={() => setMode('production')}
-                  className="px-2.5 py-1 font-bold transition-colors"
-                  style={{ background: mode === 'production' ? '#DCFCE7' : '#F9FAFB', color: mode === 'production' ? '#166534' : '#6B7280', borderLeft: '1px solid #E5E7EB' }}>
-                  🌍 Live
-                </button>
-              </div>
+              {/* Live View */}
+              <button onClick={() => window.open('/village/map', '_blank')}
+                className="px-2.5 py-1 font-bold transition-colors text-[10px] rounded-lg border"
+                style={{ background: '#DCFCE7', color: '#166634', borderColor: '#86EFAC' }}>
+                🌍 Live View ↗
+              </button>
 
               {/* Undo/Redo */}
               <div className="flex gap-1">
@@ -1726,7 +1716,7 @@ export function WorldBuilder() {
         <div className="flex-1 relative">
           <Canvas shadows camera={{ position: [0, 28, 48], fov: 52 }} gl={{ antialias: true }}>
             <BuilderScene
-              objects={objects.filter(o => mode === 'production' ? o.is_live : true)}
+              objects={objects}
               selectedId={selectedId}
               multiSelected={multiSelect}
               pendingModel={pending}
@@ -1764,47 +1754,20 @@ export function WorldBuilder() {
         </div>
       </div>
 
-      {/* ── Floating draggable Inspector panel ───────────────────────────── */}
-      <div
-        ref={inspRef}
-        style={{
-          position: 'fixed',
-          right: inspPos.x >= 0 ? undefined : 0,
-          left: inspPos.x >= 0 ? inspPos.x : undefined,
-          top: inspPos.y >= 0 ? inspPos.y : 48,
-          width: 288,
-          zIndex: 50,
-          userSelect: 'none',
-        }}
-        className="flex flex-col shadow-2xl"
-      >
-        {/* Inspector header — drag handle */}
-        <div
-          className="px-4 py-2.5 flex items-center gap-2 cursor-move select-none"
-          style={{ background: '#F0F9F0', borderBottom: '1px solid #D1FAE5' }}
-          onPointerDown={e => {
-            const rect = inspRef.current?.getBoundingClientRect();
-            if (!rect) return;
-            inspDragRef.current = { dragging: true, ox: e.clientX - rect.left, oy: e.clientY - rect.top };
-            const move = (ev: PointerEvent) => {
-              if (!inspDragRef.current.dragging) return;
-              setInspPos({ x: ev.clientX - inspDragRef.current.ox, y: ev.clientY - inspDragRef.current.oy });
-            };
-            const up = () => { inspDragRef.current.dragging = false; window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
-            window.addEventListener('pointermove', move);
-            window.addEventListener('pointerup', up);
-          }}
-        >
-          <span className="text-green-600 text-[10px]">⠿</span>
-          <p className="text-green-600 text-[10px] font-black uppercase tracking-widest flex-1">
+      {/* ── Right panel: embedded Inspector ───────────────────────────── */}
+      <div className="w-72 flex flex-col shrink-0 overflow-hidden"
+        style={{ borderLeft: `1px solid ${WB.border}`, background: WB.panel }}>
+
+        {/* Header */}
+        <div className="px-4 py-2.5 flex items-center gap-2 select-none"
+          style={{ background: '#F8F9FB', borderBottom: `1px solid ${WB.border}` }}>
+          <p className="text-[10px] font-black uppercase tracking-widest flex-1" style={{ color: WB.text }}>
             {multiSelect.size > 1 ? `☰ ${multiSelect.size} selected` : selectedObj ? `✏️ ${selectedObj.world_name ?? selectedObj.label}` : 'Inspector'}
           </p>
-          <button onClick={() => setInspPos({ x: -1, y: -1 })}
-            className="text-[#2A5A2A] hover:text-green-600 text-sm leading-none">⊠</button>
         </div>
 
-        {/* Inspector body */}
-        <div className="overflow-y-auto p-3" style={{ maxHeight: 'calc(100vh - 200px)', background: '#FAFAFA' }}>
+        {/* Body - scrollable */}
+        <div className="flex-1 overflow-y-auto p-3" style={{ background: '#FAFAFA' }}>
           {/* Multi-select batch panel */}
           {multiSelect.size > 1 ? (
             <div className="space-y-2">
@@ -1884,7 +1847,7 @@ export function WorldBuilder() {
 
         {/* Live toggle for selected */}
         {selectedObj && (
-          <div className="px-3 py-2" style={{ borderTop: '1px solid #1A3A1A', background: '#FAFAFA' }}>
+          <div className="px-3 py-2" style={{ borderTop: `1px solid ${WB.border}`, background: WB.panel }}>
             <label className="flex items-center gap-2 cursor-pointer">
               <div
                 onClick={() => patchObj(selectedObj.id, { is_live: !selectedObj.is_live })}
@@ -1904,7 +1867,7 @@ export function WorldBuilder() {
         )}
 
         {/* Save actions */}
-        <div className="p-3 space-y-2" style={{ borderTop: '1px solid #DDE1E7', background: '#FAFAFA' }}>
+        <div className="p-3 space-y-2" style={{ borderTop: `1px solid ${WB.border}`, background: WB.panel }}>
           {saveError && (
             <div className="rounded-lg p-2 text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 leading-snug">
               ✕ Save failed: {saveError}
