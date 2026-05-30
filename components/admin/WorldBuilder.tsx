@@ -887,6 +887,7 @@ export function WorldBuilder() {
   const [meshyHistory,  setMeshyHistory] = useState<{ label: string; url: string }[]>([]);
   const [gridSnap,      setGridSnap]     = useState(true);
   const [snapSize,      setSnapSize]     = useState(1);
+  const [objSnap,       setObjSnap]      = useState(true);  // snap to other objects' edges
   const [showHelp,      setShowHelp]     = useState(false);
   // Draggable inspector panel
   const [inspPos, setInspPos] = useState({ x: -1, y: -1 });
@@ -924,6 +925,31 @@ export function WorldBuilder() {
   function snap(v: number): number {
     if (!gridSnap || snapSize === 0) return v;
     return Math.round(v / snapSize) * snapSize;
+  }
+
+  // Snap position to nearby object edges (for modular alignment)
+  function snapToObjects(x: number, z: number, excludeId?: string): [number, number] {
+    if (!objSnap) return [x, z];
+    const SNAP_DIST = 1.2;
+    let bestX = x, bestZ = z;
+    let bestDX = SNAP_DIST, bestDZ = SNAP_DIST;
+    for (const o of objects) {
+      if (o.id === excludeId) continue;
+      const halfW = (o.scale ?? 1) * 1.0; // half-extent approximation
+      // Object edges on X axis
+      const edgesX = [o.pos_x - halfW, o.pos_x + halfW, o.pos_x];
+      for (const ex of edgesX) {
+        const dx = Math.abs(x - ex);
+        if (dx < bestDX) { bestDX = dx; bestX = ex; }
+      }
+      // Object edges on Z axis
+      const edgesZ = [o.pos_z - halfW, o.pos_z + halfW, o.pos_z];
+      for (const ez of edgesZ) {
+        const dz = Math.abs(z - ez);
+        if (dz < bestDZ) { bestDZ = dz; bestZ = ez; }
+      }
+    }
+    return [bestX, bestZ];
   }
 
   // Hut position (always the origin reference point for trails)
@@ -1027,8 +1053,9 @@ export function WorldBuilder() {
   }, []);
 
   const handleDragObj = useCallback((id: string, x: number, z: number) => {
-    setObjects(prev => prev.map(o => o.id === id ? { ...o, pos_x: snap(x), pos_z: snap(z) } : o));
-  }, [gridSnap, snapSize]);
+    const [sx, sz] = snapToObjects(snap(x), snap(z), id);
+    setObjects(prev => prev.map(o => o.id === id ? { ...o, pos_x: sx, pos_z: sz } : o));
+  }, [gridSnap, snapSize, objSnap, objects]);
 
   const handlePathClick = useCallback((x: number, z: number) => {
     if (!selectedId) return;
@@ -1059,8 +1086,9 @@ export function WorldBuilder() {
 
     const makeObj = (px: number, pz: number, rotOffset = 0, scaleVar = 0) => {
       const o = makeDefault(pending.url, pending.label, pending.isBuilding ?? false);
-      o.pos_x = snap(px); o.pos_z = snap(pz);
-      o.pos_y = terrainH(snap(px), snap(pz));
+      const [spx, spz] = snapToObjects(snap(px), snap(pz));
+      o.pos_x = spx; o.pos_z = spz;
+      o.pos_y = terrainH(spx, spz);
       o.scale = Math.max(0.1, (pending.defaultScale ?? 1) + scaleVar);
       o.rot_y = rotOffset;
       if (pending.isBuilding) {
@@ -1563,7 +1591,7 @@ export function WorldBuilder() {
               </div>
 
               {/* Grid snap */}
-              <button onClick={() => setGridSnap(v => !v)} title="G key"
+              <button onClick={() => setGridSnap(v => !v)} title="G key — toggle grid snap"
                 className="px-2 py-1 text-[10px] rounded border transition-colors"
                 style={{ background: gridSnap ? '#DBEAFE' : '#F9FAFB', color: gridSnap ? '#1D4ED8' : '#6B7280', borderColor: gridSnap ? '#93C5FD' : '#E5E7EB' }}>
                 ⊞ {gridSnap ? `${snapSize}u` : 'Free'}
@@ -1574,6 +1602,13 @@ export function WorldBuilder() {
                   {[0.25, 0.5, 1, 2, 5].map(s => <option key={s} value={s}>{s}u</option>)}
                 </select>
               )}
+
+              {/* Object-to-object snap */}
+              <button onClick={() => setObjSnap(v => !v)} title="Snap placed/dragged objects to edges of nearby objects"
+                className="px-2 py-1 text-[10px] rounded border transition-colors"
+                style={{ background: objSnap ? '#F0FDF4' : '#F9FAFB', color: objSnap ? '#16A34A' : '#6B7280', borderColor: objSnap ? '#86EFAC' : '#E5E7EB' }}>
+                🧲 {objSnap ? 'Snap' : 'No Snap'}
+              </button>
 
               {/* Path drawing mode */}
               <button
