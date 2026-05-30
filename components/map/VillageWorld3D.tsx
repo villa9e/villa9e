@@ -1841,7 +1841,7 @@ function AnimalModel({ obj }: { obj: AdminObj }) {
     mixerRef.current = mixer;
     const walk = animations.find(a => /walk|run|move/i.test(a.name)) ?? animations[0];
     if (walk) mixer.clipAction(walk).play();
-    return () => mixer.stopAllAction();
+    return () => { mixer.stopAllAction(); };
   }, [animations, clone]);
 
   useFrame((_, delta) => {
@@ -1897,7 +1897,7 @@ function NPCModel({ obj }: { obj: AdminObj }) {
     mixerRef.current = mixer;
     const idle = animations.find(a => /idle|stand|breath/i.test(a.name)) ?? animations[0];
     if (idle) mixer.clipAction(idle).play();
-    return () => mixer.stopAllAction();
+    return () => { mixer.stopAllAction(); };
   }, [animations, clone]);
 
   useFrame(({ clock }) => {
@@ -1940,7 +1940,7 @@ function PathModel({ obj }: { obj: AdminObj }) {
     mixerRef.current = mixer;
     const walk = animations.find(a => /walk|run/i.test(a.name)) ?? animations[0];
     if (walk) mixer.clipAction(walk).play();
-    return () => mixer.stopAllAction();
+    return () => { mixer.stopAllAction(); };
   }, [animations, clone]);
 
   useFrame((_, delta) => {
