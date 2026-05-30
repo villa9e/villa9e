@@ -214,6 +214,31 @@ function SceneObjectGltf({
         </>
       )}
 
+      {/* Trigger approach radius — blue filled disc with dashed border */}
+      {selected && (obj.trigger_type === 'approach' || obj.trigger_type === 'both') && (
+        <>
+          {/* Filled area — soft blue */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01 / obj.scale, 0]}>
+            <circleGeometry args={[obj.trigger_distance / obj.scale, 64]} />
+            <meshBasicMaterial color="#3B82F6" transparent opacity={0.08} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Solid border ring */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03 / obj.scale, 0]}>
+            <ringGeometry args={[
+              obj.trigger_distance / obj.scale - 0.12,
+              obj.trigger_distance / obj.scale + 0.12,
+              64,
+            ]} />
+            <meshBasicMaterial color="#1877F2" transparent opacity={0.7} side={THREE.DoubleSide} />
+          </mesh>
+          {/* Label mesh — small dot at edge */}
+          <mesh position={[obj.trigger_distance / obj.scale, 0.1 / obj.scale, 0]}>
+            <sphereGeometry args={[0.18 / obj.scale, 8, 6]} />
+            <meshBasicMaterial color="#1877F2" />
+          </mesh>
+        </>
+      )}
+
       {/* Sound radius ring */}
       {obj.sound_url && (
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02 / obj.scale, 0]}>
