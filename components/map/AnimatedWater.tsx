@@ -38,25 +38,37 @@ varying vec2 vUv;
 varying float vElevation;
 
 void main() {
-  float ripple1 = sin(vUv.x * 12.0 - uTime * 1.2) * 0.5 + 0.5;
-  float ripple2 = sin(vUv.y * 10.0 + uTime * 0.9) * 0.5 + 0.5;
-  float ripple3 = sin((vUv.x + vUv.y) * 8.0 - uTime * 1.6) * 0.5 + 0.5;
-  float pattern = (ripple1 + ripple2 + ripple3) / 3.0;
+  // Directional flow (scrolls in +X direction)
+  vec2 flowUv = vec2(vUv.x - uTime * 0.12, vUv.y);
+  vec2 flowUv2 = vec2(vUv.x - uTime * 0.09, vUv.y + uTime * 0.06);
 
-  float depth = (vElevation + 0.05) * 10.0;
-  depth = clamp(depth, 0.0, 1.0);
+  float ripple1 = sin(flowUv.x * 14.0) * sin(flowUv.y * 10.0) * 0.5 + 0.5;
+  float ripple2 = sin(flowUv2.x * 9.0 + 1.2) * sin(flowUv2.y * 12.0 - 0.8) * 0.5 + 0.5;
+  float ripple3 = sin((flowUv.x + flowUv.y) * 7.0) * 0.5 + 0.5;
+  float pattern = (ripple1 * 0.4 + ripple2 * 0.35 + ripple3 * 0.25);
 
-  vec3 color = mix(uColorDeep, uColorShallow, pattern * 0.5 + depth * 0.3);
+  // Depth: center of tile is deeper (darker), edges lighter
+  float edgeDist = 2.0 * length(vUv - 0.5);
+  float depth    = 1.0 - smoothstep(0.0, 1.0, edgeDist);
 
-  // Specular highlight
-  float spec = pow(pattern * ripple3, 4.0) * 0.4;
-  color += vec3(spec);
+  // Volume illusion: deep center dark, shallow edges light + animated ripple
+  vec3 color = mix(uColorShallow, uColorDeep, depth * 0.7);
+  color      = mix(color, uColorShallow, pattern * 0.35);
 
-  // Foam at high points
-  float foam = smoothstep(0.04, 0.06, vElevation);
-  color = mix(color, vec3(1.0), foam * 0.3);
+  // Surface specular (white glints)
+  float spec = pow(max(ripple1 * ripple2, 0.0), 6.0) * 0.55;
+  color     += vec3(spec * 0.9, spec, spec);
 
-  gl_FragColor = vec4(color, uOpacity);
+  // Shore foam at edges
+  float foam = smoothstep(0.75, 0.95, edgeDist) * 0.5;
+  foam      += smoothstep(0.04, 0.07, vElevation) * 0.35;
+  color      = mix(color, vec3(0.95, 0.98, 1.0), foam);
+
+  // Caustic-like shimmer
+  float caustic = sin(flowUv.x * 22.0 + uTime * 2.0) * sin(flowUv.y * 18.0 - uTime * 1.5) * 0.5 + 0.5;
+  color        += vec3(caustic * 0.05 * depth);
+
+  gl_FragColor = vec4(color, uOpacity * (0.85 + depth * 0.1));
 }
 `;
 
@@ -76,10 +88,10 @@ export function AnimatedWaterPlane({
   const meshRef = useRef<THREE.Mesh>(null);
 
   const PRESETS = {
-    ocean:     { deep: '#0A3A6E', shallow: '#1A9EC0', waveH: 0.08, waveS: 0.5, opacity: 0.82, segs: 32 },
-    river:     { deep: '#1565C0', shallow: '#42A5F5', waveH: 0.04, waveS: 0.8, opacity: 0.75, segs: 24 },
-    waterfall: { deep: '#0D47A1', shallow: '#64B5F6', waveH: 0.12, waveS: 1.4, opacity: 0.70, segs: 20 },
-    tile:      { deep: '#1565C0', shallow: '#29B6F6', waveH: 0.04, waveS: 0.6, opacity: 0.80, segs: 16 },
+    ocean:     { deep: '#0A3A6E', shallow: '#1A9EC0', waveH: 0.12, waveS: 0.5, opacity: 0.88, segs: 40 },
+    river:     { deep: '#1565C0', shallow: '#42A5F5', waveH: 0.06, waveS: 0.9, opacity: 0.82, segs: 28 },
+    waterfall: { deep: '#0D47A1', shallow: '#64B5F6', waveH: 0.15, waveS: 1.6, opacity: 0.75, segs: 24 },
+    tile:      { deep: '#0D47A1', shallow: '#29B6F6', waveH: 0.06, waveS: 0.7, opacity: 0.88, segs: 24 },
   };
   const p = PRESETS[type];
 
