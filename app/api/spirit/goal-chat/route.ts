@@ -139,20 +139,24 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
 
   if (!response) {
     const status  = lastErr?.status ?? 0;
-    const isOverload  = status === 529 || lastErr?.message?.includes('overload');
+    const errType = lastErr?.error?.type ?? lastErr?.constructor?.name ?? 'unknown';
+    const errMsg  = lastErr?.message ?? 'no message';
+    const isOverload  = status === 529 || errMsg.includes('overload');
     const isRateLimit = status === 429;
-    const isAuth      = status === 401;
-    console.error('[Spirit goal-chat] Claude API error:', { status, message: lastErr?.message, type: lastErr?.error?.type });
+    const isAuth      = status === 401 || status === 403;
+    console.error('[Spirit goal-chat] Claude API error:', { status, errType, errMsg });
+    const humanMessage = isOverload
+      ? 'Spirit is in high demand right now — try again in a moment.'
+      : isRateLimit
+      ? 'Spirit is getting a lot of love right now. Give it 10 seconds and try again.'
+      : isAuth
+      ? 'Spirit needs to reconnect. Refresh the page and try again.'
+      : `Spirit had a moment [${status || errType}]. Send that again and we will keep going.`;
     return NextResponse.json({
-      message: isOverload
-        ? 'Spirit is in high demand right now — try again in a moment.'
-        : isRateLimit
-        ? 'Spirit is getting a lot of love right now. Give it 10 seconds and try again.'
-        : isAuth
-        ? 'Spirit needs to reconnect. Refresh the page and try again.'
-        : 'Spirit had a moment. Send that again and we will keep going.',
+      message: humanMessage,
       phase: 'discovery',
       gpsReady: false,
+      _debug: { status, errType, errMsg: errMsg.slice(0, 100) },
     }, { status: 200 });
   }
 
