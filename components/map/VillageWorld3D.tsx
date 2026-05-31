@@ -3300,16 +3300,8 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
             blocked = true; break;
           }
         }
-        // Admin-placed buildings that block movement (trail_passable = false)
-        if (!blocked) {
-          for (const obj of liveAdminObjectsRef.current) {
-            if (obj.trail_passable !== false) continue;
-            const halfSize = obj.scale * 2.5;
-            if (Math.abs(nx - obj.pos_x) < halfSize && Math.abs(nz - obj.pos_z) < halfSize) {
-              blocked = true; break;
-            }
-          }
-        }
+        // Note: admin-placed objects don't block movement — players walk freely
+        // through buildings. Only the moat + outer wall are hard boundaries.
         // Circular moat — ring of water at radius 32–39 around village center
         // Players must use one of the 4 stone bridges to cross
         const pDist = Math.sqrt(nx * nx + nz * nz);
