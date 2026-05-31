@@ -35,6 +35,18 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [sprintIntention, setSprintIntention] = useState('');
   const [selectedStepIds, setSelectedStepIds] = useState<Set<string>>(new Set());
   const [creatingSprint, setCreatingSprint]   = useState(false);
+
+  // GPS V2 state
+  const [gpsData, setGpsData]             = useState<any>(null);
+  const [assessing, setAssessing]         = useState(false);
+  const [activating, setActivating]       = useState(false);
+  const [showLifeEvent, setShowLifeEvent] = useState(false);
+  const [lifeEventType, setLifeEventType] = useState('');
+  const [lifeEventTitle, setLifeEventTitle] = useState('');
+  const [lifeEventDesc, setLifeEventDesc] = useState('');
+  const [loggingEvent, setLoggingEvent]   = useState(false);
+  const [recalibDelta, setRecalibDelta]   = useState<any>(null);
+
   const router = useRouter();
   const supabase = createClient();
 
@@ -201,6 +213,71 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     return recalibrate();
   }
 
+  async function assessGoal() {
+    if (!goal || assessing) return;
+    setAssessing(true);
+    try {
+      const res = await fetch('/api/gps/assess', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_id: params.id }),
+      });
+      const data = await res.json();
+      setGpsData(data);
+      setGoal((g: any) => g ? { ...g, probability_score: data.probability?.score ?? g.probability_score, gps_stage: data.stage } : g);
+    } catch { /* silent */ }
+    setAssessing(false);
+  }
+
+  async function activateSprints() {
+    if (!goal || activating) return;
+    setActivating(true);
+    try {
+      const res = await fetch('/api/gps/activate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_id: params.id }),
+      });
+      const data = await res.json();
+      if (data.activated) {
+        setGoal((g: any) => g ? { ...g, gps_stage: 'active', estimated_weeks: data.totalWeeks } : g);
+        setGpsData((d: any) => d ? { ...d, stage: 'active', sprints: data.sprints } : d);
+        // Reload to show new sprint structure
+        loadGoal();
+      } else if (data.blocked) {
+        setGpsData((d: any) => d ? { ...d, blocked: data } : { blocked: data });
+      }
+    } catch { /* silent */ }
+    setActivating(false);
+  }
+
+  async function logLifeEvent() {
+    if (!lifeEventType || !lifeEventTitle || loggingEvent) return;
+    setLoggingEvent(true);
+    try {
+      const res = await fetch('/api/gps/life-event', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          goal_id: params.id,
+          event_type: lifeEventType,
+          title: lifeEventTitle,
+          description: lifeEventDesc,
+        }),
+      });
+      const data = await res.json();
+      setRecalibDelta(data.deltas);
+      setGoal((g: any) => g ? {
+        ...g,
+        probability_score: data.recalibration?.newProbability ?? g.probability_score,
+        estimated_weeks: data.recalibration?.newTimelineWeeks ?? g.estimated_weeks,
+        gps_stage: data.newStage ?? g.gps_stage,
+      } : g);
+      setShowLifeEvent(false);
+      setLifeEventType('');
+      setLifeEventTitle('');
+      setLifeEventDesc('');
+    } catch { /* silent */ }
+    setLoggingEvent(false);
+  }
+
   async function shareGoalToDreamLine() {
     if (!userId || sharing) return;
     setSharing(true);
@@ -352,54 +429,275 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
           )}
         </AnimatePresence>
 
-        {/* Probability + progress */}
-        <div className="village-card">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-xs uppercase tracking-wide village-text-muted">GPS Probability</p>
-              <p className="text-3xl font-bold text-village-blue">{goal.probability_score ?? 0}%</p>
-              {recalcResult?.delta !== undefined && (
-                <p className={`text-xs font-medium mt-0.5 ${recalcResult.delta >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                  {recalcResult.delta >= 0 ? '+' : ''}{recalcResult.delta}% · {recalcResult.reasoning}
-                </p>
-              )}
-            </div>
-            <div className="text-right">
-              <p className="text-xs village-text-muted">Progress</p>
-              <p className="text-2xl font-bold" style={{ color: accentHex }}>{doneCount}/{steps.length}</p>
-              <p className="text-xs village-text-sub">steps done</p>
-            </div>
-          </div>
-          {isOwner && (
-            <div>
-              <button onClick={recalculateProbability} disabled={recalculating}
-                className="text-xs font-medium hover:underline disabled:opacity-50" style={{ color: '#1877F2' }}>
-                {recalculating ? '🌀 Spirit recalibrating…' : '🗺️ Recalibrate GPS'}
-              </button>
-              {recalcResult?.spirit_message && (
-                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
-                  className="mt-3 rounded-2xl p-3 text-sm"
-                  style={{ background: isNight ? '#0D1020' : '#EEF2FF', border: `1px solid ${isNight ? '#1E2240' : '#C7D2FE'}` }}>
-                  <p className="font-bold text-xs mb-1" style={{ color: '#6366F1' }}>🌀 Spirit recalibrated your GPS:</p>
-                  <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{recalcResult.spirit_message}</p>
-                  {recalcResult.momentum_action && (
-                    <p className="mt-2 font-semibold text-xs" style={{ color: '#6366F1' }}>
-                      Today: {recalcResult.momentum_action}
+        {/* GPS V2: Stage + Probability + Gap Analysis */}
+        {(() => {
+          const stage = goal.gps_stage ?? 'intake';
+          const score = goal.probability_score ?? 0;
+          const THRESHOLD = 95;
+          const meetsThreshold = score >= THRESHOLD;
+          const stages = ['intake', 'gap_filling', 'ready', 'active', 'complete'];
+          const stageIdx = stages.indexOf(stage === 'assessing' ? 'intake' : stage);
+          const stageLabels: Record<string, string> = {
+            intake: 'Not Assessed', gap_filling: 'Filling Gaps', ready: 'Ready to Launch',
+            active: 'GPS Active', complete: 'Complete', assessing: 'Assessing…',
+          };
+          const stageColors: Record<string, string> = {
+            intake: '#9CA3AF', gap_filling: '#F59E0B', ready: '#10B981', active: '#1877F2', complete: '#22C55E',
+          };
+          const stageColor = stageColors[stage] ?? '#9CA3AF';
+          const scoreColor = meetsThreshold ? '#10B981' : score >= 80 ? '#F59E0B' : '#EF4444';
+
+          // Probability ring dimensions
+          const r = 36; const circ = 2 * Math.PI * r;
+          const dash = (score / 100) * circ;
+          const threshDash = (THRESHOLD / 100) * circ;
+
+          const gaps = gpsData?.gapAnalysis?.gaps ?? [];
+          const circumstances = gpsData?.circumstances;
+
+          return (
+            <>
+              {/* GPS Stage Bar */}
+              <div className="village-card">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">🗺️</span>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide" style={{ color: 'var(--v-text-muted)' }}>GPS Stage</p>
+                      <p className="font-black text-sm" style={{ color: stageColor }}>{stageLabels[stage] ?? stage}</p>
+                    </div>
+                  </div>
+                  {/* Mini stage pipeline */}
+                  <div className="flex items-center gap-1">
+                    {stages.slice(0, 4).map((s, i) => (
+                      <div key={s} className="flex items-center gap-1">
+                        <div className="w-2 h-2 rounded-full" style={{ background: i <= stageIdx ? stageColor : (isNight ? '#1E2240' : '#E5E7EB') }} />
+                        {i < 3 && <div className="w-4 h-0.5" style={{ background: i < stageIdx ? stageColor : (isNight ? '#1E2240' : '#E5E7EB') }} />}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Probability ring + stats */}
+                <div className="flex items-center gap-4">
+                  {/* SVG Ring */}
+                  <div className="relative flex-shrink-0">
+                    <svg width="88" height="88" viewBox="0 0 88 88">
+                      {/* Background ring */}
+                      <circle cx="44" cy="44" r={r} fill="none" stroke={isNight ? '#1E2240' : '#E5E7EB'} strokeWidth="8" />
+                      {/* Score ring */}
+                      <circle cx="44" cy="44" r={r} fill="none" stroke={scoreColor} strokeWidth="8"
+                        strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+                        style={{ transform: 'rotate(-90deg)', transformOrigin: '44px 44px', transition: 'stroke-dasharray 0.6s ease' }} />
+                      {/* 95% threshold marker */}
+                      <circle cx="44" cy="44" r={r} fill="none" stroke="#10B981" strokeWidth="3" strokeOpacity="0.6"
+                        strokeDasharray={`2 ${circ - 2}`}
+                        style={{ transform: `rotate(${(THRESHOLD / 100) * 360 - 90}deg)`, transformOrigin: '44px 44px' }} />
+                      <text x="44" y="40" textAnchor="middle" fill={scoreColor} fontSize="16" fontWeight="900">{score}%</text>
+                      <text x="44" y="54" textAnchor="middle" fill={isNight ? '#4A4F72' : '#9CA3AF'} fontSize="9">GPS Score</text>
+                    </svg>
+                  </div>
+
+                  <div className="flex-1 space-y-2">
+                    {/* Key stats */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs" style={{ color: 'var(--v-text-muted)' }}>Progress</p>
+                        <p className="font-black text-lg" style={{ color: accentHex }}>{doneCount}/{steps.length} <span className="text-xs font-normal">steps</span></p>
+                      </div>
+                      <div>
+                        <p className="text-xs" style={{ color: 'var(--v-text-muted)' }}>Timeline</p>
+                        <p className="font-black text-lg" style={{ color: 'var(--v-text)' }}>{goal.estimated_weeks ?? '?'}<span className="text-xs font-normal"> weeks</span></p>
+                      </div>
+                    </div>
+
+                    {/* Threshold indicator */}
+                    {!meetsThreshold && (
+                      <div className="rounded-xl px-3 py-1.5 text-xs" style={{ background: isNight ? 'rgba(239,68,68,0.1)' : '#FEF2F2', color: '#EF4444' }}>
+                        Need {THRESHOLD - score}% more to unlock sprints
+                      </div>
+                    )}
+                    {meetsThreshold && stage !== 'active' && (
+                      <div className="rounded-xl px-3 py-1.5 text-xs font-bold" style={{ background: isNight ? 'rgba(16,185,129,0.1)' : '#ECFDF5', color: '#10B981' }}>
+                        95% reached — ready to activate
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Recalibration delta banner */}
+                <AnimatePresence>
+                  {recalibDelta && (
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="mt-3 rounded-2xl p-3 text-xs space-y-1"
+                      style={{ background: isNight ? '#0D1020' : '#F0FDF4', border: `1px solid ${isNight ? '#1A3D2F' : '#BBF7D0'}` }}>
+                      <p className="font-bold" style={{ color: '#10B981' }}>🗺️ GPS Recalibrated</p>
+                      <div className="flex gap-4">
+                        {recalibDelta.probability?.delta !== 0 && (
+                          <span style={{ color: recalibDelta.probability.delta > 0 ? '#10B981' : '#EF4444' }}>
+                            Probability {recalibDelta.probability.delta > 0 ? '+' : ''}{recalibDelta.probability.delta}%
+                          </span>
+                        )}
+                        {recalibDelta.timeline?.delta !== 0 && (
+                          <span style={{ color: recalibDelta.timeline.delta < 0 ? '#10B981' : '#F59E0B' }}>
+                            Timeline {recalibDelta.timeline.delta > 0 ? '+' : ''}{recalibDelta.timeline.delta} weeks
+                          </span>
+                        )}
+                      </div>
+                      {recalibDelta.probability?.explainer && (
+                        <p style={{ color: 'var(--v-text-muted)' }}>{recalibDelta.probability.explainer}</p>
+                      )}
+                      <button onClick={() => setRecalibDelta(null)} className="text-xs underline" style={{ color: 'var(--v-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>Dismiss</button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Recalibrate result */}
+                <AnimatePresence>
+                  {recalcResult?.spirit_message && (
+                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="mt-3 rounded-2xl p-3 text-sm"
+                      style={{ background: isNight ? '#0D1020' : '#EEF2FF', border: `1px solid ${isNight ? '#1E2240' : '#C7D2FE'}` }}>
+                      <p className="font-bold text-xs mb-1" style={{ color: '#6366F1' }}>🌀 Spirit recalibrated your GPS:</p>
+                      <p style={{ color: isNight ? '#C8C3B8' : '#374151' }}>{recalcResult.spirit_message}</p>
+                      {recalcResult.momentum_action && (
+                        <p className="mt-2 font-semibold text-xs" style={{ color: '#6366F1' }}>Today: {recalcResult.momentum_action}</p>
+                      )}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Progress bar */}
+                <div className="mt-3 w-full rounded-full h-2 village-progress-bg">
+                  <div className="h-2 rounded-full village-gradient transition-all" style={{ width: `${goal.progress_percentage ?? 0}%` }} />
+                </div>
+                {goal.target_date && (
+                  <p className="text-xs mt-1.5" style={{ color: 'var(--v-text-muted)' }}>
+                    Target: {new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  </p>
+                )}
+
+                {/* GPS action buttons */}
+                {isOwner && (
+                  <div className="flex gap-2 mt-3 flex-wrap">
+                    {/* Assess / Reassess */}
+                    {(stage === 'intake' || stage === 'gap_filling') && (
+                      <button onClick={assessGoal} disabled={assessing}
+                        className="flex-1 rounded-xl py-2.5 text-xs font-black text-white disabled:opacity-50"
+                        style={{ background: assessing ? '#9CA3AF' : 'linear-gradient(135deg,#1877F2,#7C3AED)', minWidth: 120 }}>
+                        {assessing ? '🌀 Assessing…' : stage === 'intake' ? '🔍 Assess Goal' : '🔍 Reassess'}
+                      </button>
+                    )}
+                    {/* Activate Sprints */}
+                    {(stage === 'ready') && (
+                      <button onClick={activateSprints} disabled={activating}
+                        className="flex-1 rounded-xl py-2.5 text-xs font-black text-white disabled:opacity-50"
+                        style={{ background: activating ? '#9CA3AF' : 'linear-gradient(135deg,#10B981,#059669)', minWidth: 140 }}>
+                        {activating ? '🌀 Activating…' : '⚡ Activate GPS Sprints'}
+                      </button>
+                    )}
+                    {/* Life Event */}
+                    {(stage === 'active' || stage === 'gap_filling' || stage === 'ready') && (
+                      <button onClick={() => setShowLifeEvent(true)}
+                        className="rounded-xl px-3 py-2.5 text-xs font-bold"
+                        style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: 'var(--v-text)', border: '1px solid var(--v-card-border)' }}>
+                        📍 Life Event
+                      </button>
+                    )}
+                    {/* Recalibrate */}
+                    {stage === 'active' && (
+                      <button onClick={recalibrate} disabled={recalculating}
+                        className="rounded-xl px-3 py-2.5 text-xs font-bold disabled:opacity-50"
+                        style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: '#4338CA', border: '1px solid #C7D2FE' }}>
+                        {recalculating ? '🌀' : '🗺️ Recalibrate'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Gap Analysis Panel — shown when gaps exist */}
+              {(gaps.length > 0 || (gpsData?.gapAnalysis?.analysisText)) && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="village-card"
+                  style={{ border: `1px solid ${isNight ? '#2D2510' : '#FDE68A'}`, background: isNight ? 'rgba(245,158,11,0.05)' : '#FFFBEB' }}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span>⚠️</span>
+                    <div>
+                      <p className="font-black text-sm" style={{ color: '#D97706' }}>Gaps to Fill</p>
+                      <p className="text-xs" style={{ color: 'var(--v-text-muted)' }}>
+                        {gpsData?.gapAnalysis?.analysisText}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {gaps.map((gap: any, i: number) => {
+                      const sevColors: Record<string, string> = { low: '#10B981', moderate: '#F59E0B', high: '#EF4444', critical: '#7C3AED' };
+                      const sevColor = sevColors[gap.severity] ?? '#9CA3AF';
+                      const dimIcons: Record<string, string> = { skills: '🎓', funding: '💰', team: '👥', time: '⏱️' };
+                      return (
+                        <div key={i} className="rounded-xl p-3 flex items-start gap-3"
+                          style={{ background: isNight ? 'rgba(255,255,255,0.04)' : '#fff', border: `1px solid ${isNight ? '#2D2510' : '#FDE68A'}` }}>
+                          <span className="text-lg flex-shrink-0">{dimIcons[gap.dimension] ?? '📌'}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-bold text-xs" style={{ color: 'var(--v-text)' }}>{gap.gap}</p>
+                              <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: `${sevColor}20`, color: sevColor }}>{gap.severity}</span>
+                              {gap.probabilityImpact > 0 && (
+                                <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981' }}>+{gap.probabilityImpact}% when filled</span>
+                              )}
+                            </div>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--v-text-muted)' }}>{gap.fillStrategy}</p>
+                            {gap.estimatedTimeToFillWeeks > 0 && (
+                              <p className="text-xs mt-0.5" style={{ color: 'var(--v-text-muted)' }}>~{gap.estimatedTimeToFillWeeks} week{gap.estimatedTimeToFillWeeks !== 1 ? 's' : ''} to close</p>
+                            )}
+                          </div>
+                          {gap.villageRoute && (
+                            <Link href={gap.villageRoute}
+                              className="flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full text-white"
+                              style={{ background: '#1877F2' }}>
+                              Go →
+                            </Link>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {gpsData?.gapAnalysis?.canReach95 === false && (
+                    <p className="mt-3 text-xs text-center" style={{ color: '#D97706' }}>
+                      Filling all gaps brings probability to ~{gpsData?.gapAnalysis?.probWithAllGapsFilled ?? '?'}% — close but more work needed.
+                    </p>
+                  )}
+                  {gpsData?.gapAnalysis?.canReach95 === true && (
+                    <p className="mt-3 text-xs text-center font-bold" style={{ color: '#10B981' }}>
+                      Filling recommended gaps can reach 95%+ — sprints will unlock.
                     </p>
                   )}
                 </motion.div>
               )}
-            </div>
-          )}
-          <div className="w-full rounded-full h-3 village-progress-bg">
-            <div className="h-3 rounded-full village-gradient transition-all" style={{ width: `${goal.progress_percentage ?? 0}%` }} />
-          </div>
-          {goal.target_date && (
-            <p className="text-xs village-text-sub mt-2">
-              Target: {new Date(goal.target_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            </p>
-          )}
-        </div>
+
+              {/* AI Resources Panel */}
+              {circumstances?.aiResources?.applicableTools?.length > 0 && (
+                <div className="village-card">
+                  <p className="font-black text-sm mb-2" style={{ color: 'var(--v-text)' }}>🤖 AI Can Accelerate This Goal</p>
+                  <p className="text-xs mb-3" style={{ color: 'var(--v-text-muted)' }}>
+                    AI reduces your workload by ~{Math.round((circumstances.aiResources.totalAccelerationFactor ?? 0) * 100)}%
+                  </p>
+                  <div className="space-y-1.5">
+                    {circumstances.aiResources.applicableTools.slice(0, 4).map((tool: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: tool.availableInVilla9e ? '#1877F2' : '#9CA3AF' }} />
+                        <span className="font-bold" style={{ color: 'var(--v-text)' }}>{tool.tool}</span>
+                        <span style={{ color: 'var(--v-text-muted)' }}>— {tool.use}</span>
+                        <span className="ml-auto font-bold" style={{ color: '#10B981' }}>-{Math.round(tool.accelerationFactor * 100)}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
 
         {/* GPS Steps — Sprint-grouped if sprints available, flat fallback */}
         {(() => {
@@ -717,6 +1015,79 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
           </div>
         )}
       </div>
+
+      {/* Life Event Modal */}
+      <AnimatePresence>
+        {showLifeEvent && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setShowLifeEvent(false)}>
+            <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl p-6 space-y-4"
+              style={{ background: isNight ? '#0D0F1E' : '#fff', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}` }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-black text-lg" style={{ color: 'var(--v-text)' }}>📍 Log Life Event</h2>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--v-text-muted)' }}>GPS recalibrates based on what changed</p>
+                </div>
+                <button onClick={() => setShowLifeEvent(false)}
+                  style={{ color: 'var(--v-text-muted)', background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
+              </div>
+
+              {/* Event type grid */}
+              <div>
+                <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--v-text-muted)' }}>What happened?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { type: 'skill_acquired',      icon: '🎓', label: 'Learned a skill',      color: '#10B981' },
+                    { type: 'team_member_joined',   icon: '👥', label: 'Team member joined',    color: '#1877F2' },
+                    { type: 'funding_secured',      icon: '💰', label: 'Funding secured',       color: '#10B981' },
+                    { type: 'funding_lost',         icon: '📉', label: 'Funding lost',           color: '#EF4444' },
+                    { type: 'mentor_connected',     icon: '🧭', label: 'Mentor connected',       color: '#8B5CF6' },
+                    { type: 'schedule_change_pos',  icon: '⏱️', label: 'Got more time',          color: '#10B981' },
+                    { type: 'schedule_change_neg',  icon: '⏰', label: 'Less time available',    color: '#F59E0B' },
+                    { type: 'health_setback',       icon: '🏥', label: 'Health setback',         color: '#EF4444' },
+                    { type: 'positive_windfall',    icon: '🌟', label: 'Positive windfall',      color: '#F59E0B' },
+                    { type: 'new_resource',         icon: '🛠️', label: 'New resource/tool',     color: '#1877F2' },
+                    { type: 'life_obstacle',        icon: '🚧', label: 'Life obstacle',          color: '#EF4444' },
+                    { type: 'scope_change',         icon: '🔄', label: 'Goal scope changed',     color: '#9CA3AF' },
+                  ].map(ev => (
+                    <button key={ev.type} onClick={() => setLifeEventType(ev.type)}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition-all"
+                      style={{
+                        background: lifeEventType === ev.type ? `${ev.color}20` : (isNight ? 'rgba(255,255,255,0.04)' : '#F9FAFB'),
+                        border: lifeEventType === ev.type ? `1.5px solid ${ev.color}` : `1px solid ${isNight ? '#1E2240' : '#E5E7EB'}`,
+                        color: lifeEventType === ev.type ? ev.color : 'var(--v-text)',
+                      }}>
+                      <span>{ev.icon}</span>
+                      <span>{ev.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <input value={lifeEventTitle} onChange={e => setLifeEventTitle(e.target.value)}
+                  placeholder="Brief title (e.g. 'Got a videographer')"
+                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                  style={{ background: isNight ? 'rgba(255,255,255,0.06)' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: 'var(--v-text)' }} />
+                <textarea value={lifeEventDesc} onChange={e => setLifeEventDesc(e.target.value)} rows={2}
+                  placeholder="Tell Spirit what happened (optional)…"
+                  className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
+                  style={{ background: isNight ? 'rgba(255,255,255,0.06)' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: 'var(--v-text)', fontFamily: 'inherit' }} />
+              </div>
+
+              <button onClick={logLifeEvent} disabled={!lifeEventType || !lifeEventTitle.trim() || loggingEvent}
+                className="w-full py-3.5 rounded-2xl font-black text-white disabled:opacity-50 transition-all"
+                style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
+                {loggingEvent ? '🌀 Recalibrating GPS…' : '📍 Log Event + Recalibrate'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

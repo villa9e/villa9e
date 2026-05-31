@@ -1,112 +1,134 @@
+// GPS Recalibration — routes to GPS V2 life-event engine
+// Handles: missed steps, overdue sprints, user-requested recalibration
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
-import { fetchSpiritContext, buildSpiritSystemPrompt, storeMemory } from '@/lib/claude/spirit';
-import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
+import { runRecalibration, RecalibrationEvent, GPSSprint } from '@/lib/claude/gps';
+import { fetchSpiritContext, storeMemory } from '@/lib/claude/spirit';
 
-// Spirit GPS Recalibration — called when:
-// 1. A step is missed (overdue)
-// 2. A user manually asks Spirit to recalibrate
-// 3. A sprint milestone is passed without completion
-//
-// Spirit does what a GPS does: doesn't scold you for missing a turn.
-// It recalculates. It finds the fastest new path from where you actually are.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   const supabase = createServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { goal_id, reason = 'user_request', missed_step_id = null } = await req.json();
-
   const admin = createAdminClient();
 
-  // Get full goal state
-  const [{ data: goal }, { data: steps }] = await Promise.all([
-    (admin as any).from('goals').select('title, probability_score, progress_percentage, estimated_weeks, created_at').eq('id', goal_id).single(),
+  const [{ data: goal }, { data: steps }, { data: sprints }, ctx] = await Promise.all([
+    (admin as any).from('goals').select('*').eq('id', goal_id).single(),
     (admin as any).from('goal_steps').select('*').eq('goal_id', goal_id).order('step_number'),
+    (admin as any).from('sprints').select('*, sprint_actions(*)').eq('goal_id', goal_id).eq('user_id', user.id).order('created_at'),
+    fetchSpiritContext(user.id),
   ]);
 
-  if (!goal || !steps) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
+  if (!goal) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
 
-  const completed = (steps as any[]).filter(s => s.status === 'completed');
-  const pending   = (steps as any[]).filter(s => s.status === 'pending');
-  const overdue   = (steps as any[]).filter(s => {
-    if (s.status !== 'pending') return false;
-    if (!s.due_date) return false;
+  const pending = ((steps ?? []) as any[]).filter((s: any) => s.status === 'pending');
+  const overdue = ((steps ?? []) as any[]).filter((s: any) => {
+    if (s.status !== 'pending' || !s.due_date) return false;
     return new Date(s.due_date) < new Date();
   });
 
-  const weeksElapsed = Math.floor((Date.now() - new Date(goal.created_at).getTime()) / (1000 * 60 * 60 * 24 * 7));
-  const ctx = await fetchSpiritContext(user.id);
-  const system = buildSpiritSystemPrompt(ctx);
+  // Map old reason codes to new event system
+  const eventMap: Record<string, RecalibrationEvent> = {
+    missed_step:    { type: 'action_missed',  description: `Action missed${missed_step_id ? '' : ' (overdue)'}`, impact: 'negative', magnitude: 'minor',    dimension: 'general' },
+    overdue:        { type: 'action_missed',  description: `${overdue.length} action(s) overdue`,                impact: 'negative', magnitude: 'moderate', dimension: 'general' },
+    user_request:   { type: 'user_request',   description: 'User requested recalibration',                       impact: 'neutral',  magnitude: 'minor',    dimension: 'general' },
+    sprint_missed:  { type: 'sprint_missed',  description: 'Sprint milestone not reached',                       impact: 'negative', magnitude: 'moderate', dimension: 'general' },
+  };
 
-  const prompt = `${ctx.displayName}'s GPS needs recalibration.
+  const event: RecalibrationEvent = eventMap[reason] ?? eventMap.user_request;
 
-Goal: "${goal.title}"
-Progress: ${goal.progress_percentage}% complete
-${completed.length} of ${steps.length} actions done
-Weeks elapsed: ${weeksElapsed} of ${goal.estimated_weeks ?? '?'} planned
-Reason for recalibration: ${reason === 'missed_step' ? 'A step was missed/delayed' : reason === 'overdue' ? 'Steps are overdue' : 'User requested recalibration'}
-${overdue.length > 0 ? `Overdue actions: ${overdue.map((s: any) => `"${s.title}"`).join(', ')}` : ''}
+  const currentSprints: GPSSprint[] = ((sprints ?? []) as any[]).map((s: any) => ({
+    title:                  s.title,
+    milestone:              s.focus_intention ?? '',
+    direction:              s.focus_intention ?? '',
+    durationWeeks:          1,
+    actions:                (s.sprint_actions ?? []).map((a: any) => ({
+      id: a.id, title: a.title, description: a.description ?? '', estimatedHours: 2,
+      resourceCategory: 'creation' as const, canRunInParallel: false, dependsOn: [], aiCanAssist: false,
+    })),
+    probabilityContribution: 5,
+    dependsOnSprints: [],
+    canRunParallelWith: [],
+  }));
 
-Remaining actions:
-${pending.map((s: any, i: number) => `${i + 1}. ${s.title}`).join('\n')}
+  const userProfile = {
+    id: user.id,
+    displayName: ctx.displayName,
+    archetype: ctx.archetype,
+    skills: [],
+    weeklyAvailableHours: goal.weekly_hours_available ?? 10,
+    financialProfile: { plaidConnected: false, estimatedMonthlyBudget: 200, crowdfundCapacity: 0 },
+    completionRate: 0.65,
+  };
 
-You are the GPS. You don't scold. You don't replay the missed turn. You recalculate.
-Find the fastest constructive path from where they ARE, not where they should be.
-If they're behind, adjust the timeline realistically. If some steps need to be resequenced, do it.
-If the goal probability has changed, update it honestly.
+  const recalibration = await runRecalibration(
+    { id: goal.id, title: goal.title, probability_score: goal.probability_score ?? 70, estimated_weeks: goal.estimated_weeks ?? 12 },
+    currentSprints,
+    event,
+    userProfile
+  );
 
-Return JSON:
-{
-  "spirit_message": "2-3 sentences — warm recalibration. Acknowledge the gap without shame. Show the new path with clarity and confidence.",
-  "new_probability_score": 68,
-  "recalibrated_steps": [
-    {"title": "...", "priority": "immediate|this_week|next_week", "estimated_hours": 3, "why_now": "One sentence on why this comes first"}
-  ],
-  "new_estimated_weeks": 14,
-  "recalibration_insight": "One key insight about what caused the gap and how to prevent it — not a lecture, just honest clarity",
-  "momentum_action": "The single most important thing they can do TODAY to get back on track"
-}`;
+  // Save recalibration record
+  await (admin as any).from('goal_recalibrations').insert({
+    goal_id,
+    user_id:              user.id,
+    reason,
+    probability_before:   goal.probability_score,
+    probability_after:    recalibration.newProbability,
+    probability_delta:    recalibration.probabilityDelta,
+    timeline_weeks_before: goal.estimated_weeks,
+    timeline_weeks_after: recalibration.newTimelineWeeks,
+    timeline_delta_weeks: recalibration.timelineDeltaWeeks,
+    spirit_message:       recalibration.spiritMessage,
+    momentum_action:      recalibration.momentumAction,
+    recalibration_insight: recalibration.recalibrationInsight,
+    timeline_explainer:   recalibration.timelineDeltaExplainer,
+    probability_explainer: recalibration.probabilityExplainer,
+    is_on_track:          recalibration.isOnTrack,
+  }).catch(() => {});
 
-  const message = await claude.messages.create({
-    model: CLAUDE_MODEL, max_tokens: 800, system,
-    messages: [{ role: 'user', content: prompt }],
+  // Update goal
+  await (admin as any).from('goals').update({
+    probability_score:    recalibration.newProbability,
+    estimated_weeks:      recalibration.newTimelineWeeks,
+    last_recalibrated_at: new Date().toISOString(),
+    recalibration_count:  (goal.recalibration_count ?? 0) + 1,
+  }).eq('id', goal_id);
+
+  storeMemory(
+    user.id, 'pattern',
+    `GPS recalibrated for "${goal.title}": ${recalibration.recalibrationInsight}`,
+    { goal_id, reason, new_probability: recalibration.newProbability }, 8
+  ).catch(() => {});
+
+  await (admin as any).from('notifications').insert({
+    user_id:        user.id,
+    type:           'goal_step',
+    title:          '🗺️ GPS Recalibrated',
+    body:           recalibration.momentumAction,
+    reference_id:   goal_id,
+    reference_type: 'goal',
+  }).catch(() => {});
+
+  // Return in both old format (backward compat) and new format
+  return NextResponse.json({
+    // Legacy fields
+    spirit_message:       recalibration.spiritMessage,
+    new_probability_score: recalibration.newProbability,
+    new_estimated_weeks:  recalibration.newTimelineWeeks,
+    momentum_action:      recalibration.momentumAction,
+    recalibration_insight: recalibration.recalibrationInsight,
+    recalibrated_steps:   pending.slice(0, 5).map((s: any) => ({
+      title: s.title, priority: 'this_week', estimated_hours: 2, why_now: 'Next in sequence',
+    })),
+    // New GPS V2 fields
+    recalibration,
+    deltas: {
+      probability: { before: goal.probability_score, after: recalibration.newProbability, delta: recalibration.probabilityDelta },
+      timeline:    { before: goal.estimated_weeks, after: recalibration.newTimelineWeeks, delta: recalibration.timelineDeltaWeeks },
+    },
   });
-
-  const text = message.content[0].type === 'text' ? message.content[0].text : '{}';
-
-  try {
-    const result = JSON.parse(text);
-
-    // Update goal's probability score if recalibrated
-    if (result.new_probability_score) {
-      await (admin as any).from('goals').update({
-        probability_score: result.new_probability_score,
-        estimated_weeks:   result.new_estimated_weeks ?? goal.estimated_weeks,
-      }).eq('id', goal_id);
-    }
-
-    // Store recalibration as a Spirit memory
-    storeMemory(
-      user.id,
-      'pattern',
-      `GPS recalibrated for "${goal.title}": ${result.recalibration_insight ?? 'course correction'}`,
-      { goal_id, reason, new_probability: result.new_probability_score },
-      8
-    ).catch(() => {});
-
-    // Send a notification
-    await (admin as any).from('notifications').insert({
-      user_id:        user.id,
-      type:           'goal_step',
-      title:          '🗺️ Spirit recalibrated your GPS',
-      body:           result.momentum_action ?? 'Your route has been updated. Check your next step.',
-      reference_id:   goal_id,
-      reference_type: 'goal',
-    });
-
-    return NextResponse.json(result);
-  } catch {
-    return NextResponse.json({ spirit_message: text, recalibrated_steps: pending.slice(0, 3), new_probability_score: goal.probability_score });
-  }
 }
