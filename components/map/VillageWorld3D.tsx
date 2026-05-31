@@ -3256,24 +3256,17 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
 
   // ── Movement loop ─────────────────────────────────────────────────────────
   useEffect(() => {
-    const SPEED = 0.13;
+    const SPEED = 0.16;
 
     const loop = setInterval(() => {
-      // Raw directional input (local axes: +x=right, +z=back)
-      let localX = moveInput.current.dx; // joystick horizontal
-      let localZ = moveInput.current.dy; // joystick vertical
+      let dx = moveInput.current.dx;
+      let dz = moveInput.current.dy;
 
-      // WASD + Arrow keys all move the avatar
-      if (keys.current.has('ArrowUp')    || keys.current.has('w') || keys.current.has('W')) localZ = -1;
-      if (keys.current.has('ArrowDown')  || keys.current.has('s') || keys.current.has('S')) localZ =  1;
-      if (keys.current.has('ArrowLeft')  || keys.current.has('a') || keys.current.has('A')) localX = -1;
-      if (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('D')) localX =  1;
-
-      // Rotate input by camera azimuth so "forward" always matches camera direction
-      const az  = cameraAzimuth.current;
-      const cosA = Math.cos(az), sinA = Math.sin(az);
-      let dx = localX * cosA + localZ * (-sinA);
-      let dz = localX * sinA + localZ * cosA;
+      // WASD + Arrow keys — simple world-space movement
+      if (keys.current.has('ArrowUp')    || keys.current.has('w') || keys.current.has('W')) dz = -1;
+      if (keys.current.has('ArrowDown')  || keys.current.has('s') || keys.current.has('S')) dz =  1;
+      if (keys.current.has('ArrowLeft')  || keys.current.has('a') || keys.current.has('A')) dx = -1;
+      if (keys.current.has('ArrowRight') || keys.current.has('d') || keys.current.has('D')) dx =  1;
 
       // Drag/tap-to-walk: steer toward pointerTarget if no other input
       if (pointerTarget.current && dx === 0 && dz === 0) {
@@ -3855,6 +3848,11 @@ export default function VillageWorld3D({ onNavigate }: { onNavigate?: (href: str
       <AnimatePresence>
         {showTour && <VillageTour onComplete={() => setShowTour(false)} />}
       </AnimatePresence>
+
+      {/* ── Mobile joystick (touch only) ───────────────────────────── */}
+      {typeof window !== 'undefined' && navigator.maxTouchPoints > 0 && (
+        <VirtualJoystick onMove={(dx, dy) => { moveInput.current = { dx, dy }; }} />
+      )}
 
       {/* ── Carousel bottom nav ────────────────────────────────────── */}
       <CarouselNav
