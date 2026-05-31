@@ -126,6 +126,11 @@ function PostCard({
                 🏆 Milestone
               </span>
             )}
+            {(post.has_affiliate || post.is_ad) && (
+              <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, fontWeight: 700, background: 'rgba(245,158,11,0.15)', color: '#D97706' }}>
+                Sponsored
+              </span>
+            )}
           </div>
           <span style={{ fontSize: 11, color: muted }}>
             {new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}

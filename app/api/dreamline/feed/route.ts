@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Query studio_posts — normalize to dreamline shape
   const spQ = (supabase as any)
     .from('studio_posts')
-    .select('id, user_id, caption, media_url, content_type, thumbnail_url, oowop_count, comment_count, visibility, created_at, profiles(username, avatar_url, score_tier)')
+    .select('id, user_id, caption, media_url, content_type, thumbnail_url, oowop_count, comment_count, visibility, has_affiliate, is_ad, created_at, profiles(username, avatar_url, score_tier)')
     .eq('visibility', 'everyone')
     .eq('status', 'published')
     .order('created_at', { ascending: false })
@@ -48,6 +48,8 @@ export async function GET(req: NextRequest) {
     post_type:     p.content_type === 'video' ? 'reel' : p.content_type ?? 'reel',
     oowop_count:   p.oowop_count ?? 0,
     comment_count: p.comment_count ?? 0,
+    has_affiliate: p.has_affiliate ?? false,
+    is_ad:         p.is_ad ?? false,
     visibility:    'public',
     created_at:    p.created_at,
     profiles:      p.profiles,

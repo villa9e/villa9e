@@ -50,6 +50,10 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [videoOoWops, setVideoOoWops] = useState<Record<string, number>>({});
   const [videoFavorites, setVideoFavorites] = useState<Set<string>>(new Set());
   const [showCommentDrawer, setShowCommentDrawer] = useState(false);
+  const [drawerComments, setDrawerComments]       = useState<any[]>([]);
+  const [drawerCommentText, setDrawerCommentText] = useState('');
+  const [postingComment, setPostingComment]       = useState(false);
+  const [loadingComments, setLoadingComments]     = useState(false);
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapCountRef = useRef(0);
 
@@ -423,6 +427,34 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
       : `https://villa9e.app/studio/${vid.id}`;
     if (navigator.share) navigator.share({ title: vid.title, url }).catch(() => {});
     else navigator.clipboard.writeText(url).catch(() => {});
+  }
+
+  async function openCommentDrawer() {
+    const vid = feed[feedIdx];
+    if (!vid) return;
+    setShowCommentDrawer(true);
+    if (vid.source === 'youtube') return;
+    setLoadingComments(true);
+    const res = await fetch(`/api/studio/comment?post_id=${vid.id}`).catch(() => null);
+    if (res?.ok) { const d = await res.json(); setDrawerComments(d.comments ?? []); }
+    setLoadingComments(false);
+  }
+
+  async function submitDrawerComment() {
+    const vid = feed[feedIdx];
+    if (!vid || !drawerCommentText.trim() || postingComment) return;
+    setPostingComment(true);
+    const res = await fetch('/api/studio/comment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: vid.id, content: drawerCommentText }),
+    }).catch(() => null);
+    if (res?.ok) {
+      setDrawerCommentText('');
+      const r = await fetch(`/api/studio/comment?post_id=${vid.id}`).catch(() => null);
+      if (r?.ok) { const d = await r.json(); setDrawerComments(d.comments ?? []); }
+    }
+    setPostingComment(false);
   }
 
   // ─── Close dropdown on outside click ─────────────────────────────────────
@@ -1218,7 +1250,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
                           {/* Comment */}
                           <div className="flex flex-col items-center gap-1">
-                            <button onClick={e => { e.stopPropagation(); setShowCommentDrawer(true); }}
+                            <button onClick={e => { e.stopPropagation(); openCommentDrawer(); }}
                               className="flex items-center justify-center transition-transform active:scale-90"
                               style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
                               {/* Speech bubble */}
@@ -1319,10 +1351,52 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       <p className="font-black text-sm" style={{ color: text }}>Comments</p>
                       <button onClick={() => setShowCommentDrawer(false)} style={{ color: muted, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
                     </div>
-                    <div className="px-5 py-8 text-center">
-                      <p className="text-2xl mb-2">💬</p>
-                      <p className="text-sm" style={{ color: muted }}>Comments coming soon.</p>
-                    </div>
+                    {feed[feedIdx]?.source === 'youtube' ? (
+                      <div className="px-5 py-8 text-center">
+                        <p className="text-2xl mb-2">📺</p>
+                        <p className="text-sm" style={{ color: muted }}>Comments are on YouTube for this video.</p>
+                        <a href={`https://www.youtube.com/watch?v=${feed[feedIdx]?.id}`} target="_blank" rel="noreferrer"
+                          className="inline-block mt-3 text-xs font-bold" style={{ color: accent }}>Open on YouTube →</a>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="overflow-y-auto flex-1 px-5 py-3 space-y-3" style={{ maxHeight: 280 }}>
+                          {loadingComments ? (
+                            <div className="py-6 flex justify-center">
+                              <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: accent, borderTopColor: 'transparent' }} />
+                            </div>
+                          ) : drawerComments.length === 0 ? (
+                            <p className="text-center text-sm py-6" style={{ color: muted }}>No comments yet. Be the first.</p>
+                          ) : drawerComments.map((c: any) => (
+                            <div key={c.id} className="flex gap-3">
+                              <div className="w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-black" style={{ background: accent, color: '#fff' }}>
+                                {(c.profiles?.username ?? 'V')[0].toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold" style={{ color: text }}>@{c.profiles?.username ?? 'villager'}</p>
+                                <p className="text-sm" style={{ color: text }}>{c.content}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 px-5 py-3 border-t" style={{ borderColor: border }}>
+                          <input
+                            value={drawerCommentText}
+                            onChange={e => setDrawerCommentText(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitDrawerComment(); } }}
+                            placeholder="Add a comment…"
+                            maxLength={500}
+                            className="flex-1 text-sm px-3 py-2 rounded-xl outline-none"
+                            style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: text, border: 'none' }}
+                          />
+                          <button onClick={submitDrawerComment} disabled={postingComment || !drawerCommentText.trim()}
+                            className="px-3 py-2 rounded-xl text-xs font-black"
+                            style={{ background: accent, color: '#fff', border: 'none', cursor: 'pointer', opacity: postingComment || !drawerCommentText.trim() ? 0.5 : 1 }}>
+                            {postingComment ? '…' : 'Post'}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>

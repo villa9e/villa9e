@@ -57,17 +57,22 @@ export default function TermsPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">10. Limitation of Liability</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">10. Affiliate & Sponsored Content Disclosure</h2>
+            <p>Some posts, videos, and product recommendations on villa9e may be sponsored or may contain affiliate links. When a creator or villa9e earns a commission or has a material connection to content, it will be labeled "Sponsored" in the feed. This disclosure complies with FTC guidelines. Clicking affiliate links may result in villa9e or the creator earning a commission at no additional cost to you.</p>
+          </section>
+
+          <section>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">11. Limitation of Liability</h2>
             <p>villa9e is provided "as is." To the maximum extent permitted by law, Legaci Jackson LLC is not liable for indirect, incidental, or consequential damages arising from your use of villa9e. Our total liability is limited to amounts you have paid us in the 12 months preceding any claim.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">11. Governing Law</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">12. Governing Law</h2>
             <p>These Terms are governed by the laws of the United States. Any disputes will be resolved through binding arbitration, not class action.</p>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">12. Contact</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-2">13. Contact</h2>
             <p>Legaci Jackson LLC · <a href="mailto:legal@villa9e.app" className="text-village-blue">legal@villa9e.app</a></p>
           </section>
         </div>
