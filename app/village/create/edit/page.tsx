@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSession } from '@/lib/create/session';
@@ -82,8 +82,16 @@ export default function EditPage() {
   const [newBg, setNewBg]               = useState('transparent');
   const [newSize, setNewSize]           = useState(24);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const videoRef     = useRef<HTMLVideoElement>(null);
+  const previewRef   = useRef<HTMLDivElement>(null);
+  const timelineRef  = useRef<HTMLDivElement>(null);
+
+  // Video playback state (for trim tool)
+  const [isPlaying,    setIsPlaying]    = useState(false);
+  const [currentTime,  setCurrentTime]  = useState(0);
+  const [duration,     setDuration]     = useState(0);
+  const [keyMarkers,   setKeyMarkers]   = useState<number[]>([]);
+  const [trimHistory,  setTrimHistory]  = useState<[number, number | null][]>([]);
 
   // Redirect if no session media
   useEffect(() => {
@@ -91,6 +99,74 @@ export default function EditPage() {
       router.replace('/village/create');
     }
   }, []);
+
+  // Sync video time
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onTime  = () => setCurrentTime(v.currentTime);
+    const onMeta  = () => setDuration(v.duration ?? 0);
+    const onEnded = () => setIsPlaying(false);
+    v.addEventListener('timeupdate',       onTime);
+    v.addEventListener('loadedmetadata',   onMeta);
+    v.addEventListener('ended',            onEnded);
+    return () => {
+      v.removeEventListener('timeupdate',     onTime);
+      v.removeEventListener('loadedmetadata', onMeta);
+      v.removeEventListener('ended',          onEnded);
+    };
+  }, []);
+
+  function togglePlay() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (isPlaying) { v.pause(); setIsPlaying(false); }
+    else           { v.play(); setIsPlaying(true); }
+  }
+
+  function seekTo(t: number) {
+    const v = videoRef.current;
+    if (!v) return;
+    v.currentTime = t;
+    setCurrentTime(t);
+  }
+
+  function addKeyMarker() {
+    setKeyMarkers(m => [...m, currentTime]);
+  }
+
+  function applyTrim(start: number, end: number | null) {
+    setTrimHistory(h => [...h, [trimStart, trimEnd]]);
+    setTrim(start, end);
+  }
+
+  function undoTrim() {
+    const prev = trimHistory[trimHistory.length - 1];
+    if (!prev) return;
+    setTrim(prev[0], prev[1]);
+    setTrimHistory(h => h.slice(0, -1));
+  }
+
+  function fmt(s: number): string {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  }
+
+  // Timeline drag for trim handles
+  function handleTimelineDrag(e: React.MouseEvent | React.TouchEvent, handle: 'start' | 'end') {
+    const el = timelineRef.current;
+    if (!el || duration === 0) return;
+    const rect = el.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const t = ratio * duration;
+    if (handle === 'start') {
+      applyTrim(Math.min(t, (trimEnd ?? duration) - 0.5), trimEnd);
+    } else {
+      applyTrim(trimStart, Math.max(t, trimStart + 0.5));
+    }
+  }
 
   const cssFilter = buildCSSFilter(adjustments, CSS_FILTERS[selectedFilter] ?? '');
 
@@ -360,19 +436,133 @@ export default function EditPage() {
               </div>
             )}
 
-            {/* ── TRIM ── */}
+            {/* ── TRIM / TIMELINE ── */}
             {activeTool === 'trim' && session.mediaType === 'video' && (
-              <div className="p-4 space-y-4">
-                <p className="text-white text-sm font-black">Trim</p>
-                <div className="h-16 rounded-xl relative overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                  {/* Playhead track placeholder */}
-                  <div className="absolute inset-y-0 left-0 flex items-center px-3">
-                    <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>Drag handles to trim</span>
+              <div className="p-4 space-y-3">
+
+                {/* Position + controls row */}
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(currentTime)} / {fmt(duration || 0)}
+                  </span>
+                  <div className="flex items-center gap-3">
+                    {/* Undo */}
+                    <button onClick={undoTrim} disabled={trimHistory.length === 0}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: trimHistory.length ? 1 : 0.3 }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                        <polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 00-4-4H4"/>
+                      </svg>
+                    </button>
+                    {/* Play/pause */}
+                    <button onClick={togglePlay}
+                      style={{ background: '#1877F2', border: 'none', cursor: 'pointer', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                        {isPlaying
+                          ? <><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>
+                          : <polygon points="5 3 19 12 5 21 5 3"/>}
+                      </svg>
+                    </button>
+                    {/* Key marker */}
+                    <button onClick={addKeyMarker}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                      </svg>
+                    </button>
+                    {/* Next */}
+                    <button onClick={() => router.push('/village/create/post-details')}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1877F2', fontSize: 12, fontWeight: 700 }}>
+                      Next →
+                    </button>
                   </div>
                 </div>
-                <div className="flex justify-between text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-                  <span>Start: {trimStart.toFixed(1)}s</span>
-                  <span>End: {trimEnd !== null ? `${trimEnd.toFixed(1)}s` : 'End'}</span>
+
+                {/* Timeline strip */}
+                <div ref={timelineRef} className="relative rounded-lg overflow-hidden select-none"
+                  style={{ height: 56, background: 'rgba(255,255,255,0.06)', cursor: 'pointer' }}
+                  onClick={e => {
+                    const rect = timelineRef.current!.getBoundingClientRect();
+                    seekTo(((e.clientX - rect.left) / rect.width) * (duration || 0));
+                  }}>
+
+                  {/* Trimmed-out region (start) */}
+                  {trimStart > 0 && (
+                    <div className="absolute inset-y-0 left-0 bg-black opacity-60"
+                      style={{ width: `${(trimStart / (duration || 1)) * 100}%` }} />
+                  )}
+                  {/* Trimmed-out region (end) */}
+                  {trimEnd !== null && (
+                    <div className="absolute inset-y-0 right-0 bg-black opacity-60"
+                      style={{ width: `${(1 - trimEnd / (duration || 1)) * 100}%` }} />
+                  )}
+
+                  {/* Active region highlight */}
+                  <div className="absolute inset-y-0"
+                    style={{
+                      left:  `${(trimStart / (duration || 1)) * 100}%`,
+                      right: trimEnd !== null ? `${(1 - trimEnd / (duration || 1)) * 100}%` : '0%',
+                      border: '2px solid #1877F2',
+                      borderRadius: 4,
+                    }} />
+
+                  {/* Gradient strip (faux waveform) */}
+                  <div className="absolute inset-1 rounded opacity-40"
+                    style={{ background: 'linear-gradient(90deg, #1877F2 0%, #7C3AED 50%, #1877F2 100%)' }} />
+
+                  {/* Playhead */}
+                  {duration > 0 && (
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-white"
+                      style={{ left: `${(currentTime / duration) * 100}%`, boxShadow: '0 0 4px rgba(255,255,255,0.8)' }}>
+                      <div className="absolute -top-1 -left-1.5 w-3 h-3 rounded-full bg-white" />
+                    </div>
+                  )}
+
+                  {/* Key markers */}
+                  {keyMarkers.map((m, i) => (
+                    <div key={i} className="absolute top-0 bottom-0 w-0.5"
+                      style={{ left: `${(m / (duration || 1)) * 100}%`, background: '#F59E0B' }} />
+                  ))}
+
+                  {/* Start trim handle */}
+                  <motion.div className="absolute top-0 bottom-0 w-3 flex items-center justify-center"
+                    style={{ left: `${(trimStart / (duration || 1)) * 100}%`, background: '#1877F2', cursor: 'ew-resize', borderRadius: '4px 0 0 4px' }}
+                    drag="x" dragMomentum={false} dragConstraints={timelineRef}
+                    onDrag={(e, info) => {
+                      const el = timelineRef.current;
+                      if (!el || duration === 0) return;
+                      const rect = el.getBoundingClientRect();
+                      const ratio = Math.max(0, Math.min(0.98, (info.point.x - rect.left) / rect.width));
+                      const t = ratio * duration;
+                      applyTrim(Math.min(t, (trimEnd ?? duration) - 0.5), trimEnd);
+                    }}>
+                    <svg width="6" height="16" viewBox="0 0 6 16" fill="white"><rect x="1" y="1" width="1" height="14" rx="0.5"/><rect x="4" y="1" width="1" height="14" rx="0.5"/></svg>
+                  </motion.div>
+
+                  {/* End trim handle */}
+                  <motion.div className="absolute top-0 bottom-0 w-3 flex items-center justify-center"
+                    style={{ left: `${((trimEnd ?? duration) / (duration || 1)) * 100}%`, background: '#1877F2', cursor: 'ew-resize', borderRadius: '0 4px 4px 0', transform: 'translateX(-100%)' }}
+                    drag="x" dragMomentum={false} dragConstraints={timelineRef}
+                    onDrag={(e, info) => {
+                      const el = timelineRef.current;
+                      if (!el || duration === 0) return;
+                      const rect = el.getBoundingClientRect();
+                      const ratio = Math.max(0.02, Math.min(1, (info.point.x - rect.left) / rect.width));
+                      const t = ratio * duration;
+                      applyTrim(trimStart, Math.max(t, trimStart + 0.5));
+                    }}>
+                    <svg width="6" height="16" viewBox="0 0 6 16" fill="white"><rect x="1" y="1" width="1" height="14" rx="0.5"/><rect x="4" y="1" width="1" height="14" rx="0.5"/></svg>
+                  </motion.div>
+                </div>
+
+                {/* Audio track label */}
+                <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Audio track</span>
+                  {trimStart > 0 || trimEnd !== null ? (
+                    <span style={{ color: '#1877F2', fontSize: 11, marginLeft: 'auto', fontWeight: 700 }}>
+                      {fmt(trimStart)} – {fmt(trimEnd ?? duration)}
+                    </span>
+                  ) : null}
                 </div>
               </div>
             )}

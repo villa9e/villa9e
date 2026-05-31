@@ -217,6 +217,23 @@ export default function WorkshopPage() {
 
     if (user && goals?.data) setActiveGoals(goals.data as any[]);
 
+    // Fetch general YouTube content when user has no goals
+    let ytFeed: any[] = [];
+    const hasGoals = (goals?.data ?? []).length > 0;
+    if (!hasGoals) {
+      try {
+        const ytRes = await fetch('/api/gps/action-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (ytRes.ok) {
+          const ytData = await ytRes.json();
+          ytFeed = ytData.feed ?? [];
+        }
+      } catch { /* non-blocking */ }
+    }
+
     const feed: FeedCard[] = [];
     const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
 
@@ -258,6 +275,21 @@ export default function WorkshopPage() {
         author: { username: v.profiles?.username ?? 'creator' },
         media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
         color: '#FF6B2B', accent: '#FF6B2B',
+      });
+    });
+
+    // Add YouTube general content (no-goal state)
+    ytFeed.forEach((v: any, i: number) => {
+      feed.push({
+        id:       `yt-${v.id}`,
+        type:     'video' as CardType,
+        title:    v.title,
+        subtitle: v.channel ?? 'YouTube',
+        content:  '',
+        author:   { username: v.channel ?? 'YouTube' },
+        media:    { videoId: v.id, thumbnail: v.thumbnail },
+        color:    '#FF0000',
+        accent:   '#FF0000',
       });
     });
 
