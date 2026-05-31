@@ -34,6 +34,14 @@ async function searchYouTube(query: string, maxResults = 6, preferShort = false)
   } catch { return []; }
 }
 
+const GENERAL_QUERIES = [
+  'motivation inspiration success mindset',
+  'habits productivity self improvement',
+  'goal setting achievement success',
+  'personal development growth mindset',
+  'morning routine success habits',
+];
+
 export async function POST(req: NextRequest) {
   const supabase = createServerClient() as any;
   const admin    = createAdminClient() as any;
@@ -41,6 +49,18 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { action_title, goal_title, goal_category, goal_id } = await req.json();
+
+  // No goal selected — return general motivational/wellness content
+  if (!goal_id && !action_title) {
+    const q = GENERAL_QUERIES[Math.floor(Math.random() * GENERAL_QUERIES.length)];
+    const [yt1, yt2] = await Promise.all([
+      searchYouTube(q, 5, false),
+      searchYouTube('wellness wellbeing mental health growth', 4, true),
+    ]);
+    const seen = new Set<string>();
+    const feed = [...yt1, ...yt2].filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true; });
+    return NextResponse.json({ feed, preferredFormat: 'long', actionTitle: null, totalResults: feed.length, isGeneral: true });
+  }
 
   // Load user format preferences + studio content in parallel
   const [prefRes, studioRes] = await Promise.allSettled([
