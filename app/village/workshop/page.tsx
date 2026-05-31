@@ -248,119 +248,140 @@ export default function WorkshopPage() {
   const [owopped,      setOwopped]      = useState<Set<string>>(new Set());
   const [loading,      setLoading]      = useState(true);
   const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
+  const [showNudge,    setShowNudge]    = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY  = useRef(0);
+  const touchStartX  = useRef(0);
+  const hasGoals     = activeGoals.length > 0;
 
   useEffect(() => { loadFeed(); }, []);
 
+  // Show nudge on first load (no goals) and every 3 cards thereafter
+  useEffect(() => {
+    if (!hasGoals && !loading) {
+      setShowNudge(true);
+      const t = setTimeout(() => setShowNudge(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [hasGoals, loading]);
+
+  useEffect(() => {
+    if (!hasGoals && current > 0 && current % 3 === 0) {
+      setShowNudge(true);
+      const t = setTimeout(() => setShowNudge(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [current, hasGoals]);
+
   async function loadFeed() {
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
 
-    const [{ data: templates }, { data: goals }, { data: videos }] = await Promise.all([
-      (supabase as any).from('goal_templates').select('*, profiles!creator_id(username, score_tier)').eq('is_public', true).order('clone_count', { ascending: false }).limit(10),
-      user ? (supabase as any).from('goals').select('title, description, category, progress_percentage, probability_score, goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(5) : Promise.resolve({ data: [] as any[] }),
-      (supabase as any).from('studio_videos').select('*, profiles!creator_id(username)').eq('is_published', true).order('watch_count', { ascending: false }).limit(10).catch(() => ({ data: [] })),
-    ]);
+      const [templatesRes, goalsRes, videosRes] = await Promise.all([
+        (supabase as any).from('goal_templates')
+          .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
+          .eq('is_public', true).order('clone_count', { ascending: false }).limit(10)
+          .then((r: any) => r).catch(() => ({ data: [] })),
+        user
+          ? (supabase as any).from('goals')
+              .select('title, description, category, progress_percentage, probability_score, goal_steps(status)')
+              .eq('user_id', user.id).eq('status', 'active').limit(5)
+              .then((r: any) => r).catch(() => ({ data: [] }))
+          : Promise.resolve({ data: [] }),
+        (supabase as any).from('studio_videos')
+          .select('id, title, description, category, video_url, thumbnail_url, profiles!creator_id(username)')
+          .eq('is_published', true).order('watch_count', { ascending: false }).limit(10)
+          .then((r: any) => r).catch(() => ({ data: [] })),
+      ]);
 
-    if (user && goals?.data) setActiveGoals(goals.data as any[]);
+      const templates: any[] = templatesRes.data ?? [];
+      const goals:     any[] = goalsRes.data     ?? [];
+      const videos:    any[] = videosRes.data    ?? [];
 
-    // Fetch general YouTube content when user has no goals
-    let ytFeed: any[] = [];
-    const hasGoals = (goals?.data ?? []).length > 0;
-    if (!hasGoals) {
-      try {
-        const ytRes = await fetch('/api/gps/action-content', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+      if (user && goals.length) setActiveGoals(goals);
+
+      const hasGoals = goals.length > 0;
+
+      const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
+      const feed: FeedCard[] = [];
+
+      // User's active goals
+      goals.forEach((g: any, i: number) => {
+        const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
+        const total = g.goal_steps?.length ?? 1;
+        feed.push({
+          id: `goal-${i}`, type: 'goal', title: g.title,
+          subtitle: `${done}/${total} steps · ${g.category ?? 'personal'}`,
+          content: g.description ?? '',
+          author: { username: 'You' },
+          color: COLORS[i % COLORS.length], accent: COLORS[i % COLORS.length],
+          data: { progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
         });
-        if (ytRes.ok) {
-          const ytData = await ytRes.json();
-          ytFeed = ytData.feed ?? [];
-        }
-      } catch { /* non-blocking */ }
+      });
+
+      // Public templates
+      templates.forEach((t: any, i: number) => {
+        feed.push({
+          id: t.id, type: 'template', title: t.title,
+          subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
+          content: t.description ?? '',
+          author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
+          color: COLORS[(i + 2) % COLORS.length], accent: COLORS[(i + 2) % COLORS.length],
+          data: { steps: t.steps ?? [] }, oowops: t.oowop_count ?? 0,
+        });
+      });
+
+      // Studio videos
+      videos.forEach((v: any) => {
+        feed.push({
+          id: v.id, type: 'video', title: v.title,
+          subtitle: v.category ?? 'Training', content: v.description ?? '',
+          author: { username: v.profiles?.username ?? 'creator' },
+          media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
+          color: '#FF6B2B', accent: '#FF6B2B',
+        });
+      });
+
+      const guideCard: FeedCard = {
+        id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
+        subtitle: 'Start with your Goal GPS', content: '',
+        author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
+      };
+
+      const shuffled: FeedCard[] = !hasGoals
+        ? [guideCard, ...feed]
+        : feed.length > 0 ? feed : [guideCard];
+
+      setCards(shuffled);
+      if (shuffled[0]) speak(shuffled[0].title, 'casual');
+    } catch {
+      // Always show guide card on any error so the page isn't stuck
+      setCards([{
+        id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
+        subtitle: 'Start with your Goal GPS', content: '',
+        author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
+      }]);
+    } finally {
+      setLoading(false);
     }
-
-    const feed: FeedCard[] = [];
-    const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
-
-    // Add user's active goals first
-    ((goals?.data ?? []) as any[]).forEach((g: any, i: number) => {
-      const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
-      const total = g.goal_steps?.length ?? 1;
-      feed.push({
-        id: `goal-${i}`, type: 'goal', title: g.title,
-        subtitle: `${done}/${total} steps complete · ${g.category ?? 'personal'}`,
-        content: g.description ?? '',
-        author: { username: 'You' },
-        color: COLORS[i % COLORS.length],
-        accent: COLORS[i % COLORS.length],
-        data: { progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
-      });
-    });
-
-    // Add templates
-    ((templates ?? []) as any[]).forEach((t: any, i: number) => {
-      feed.push({
-        id: t.id, type: 'template', title: t.title,
-        subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
-        content: t.description ?? '',
-        author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
-        color: COLORS[(i + 2) % COLORS.length],
-        accent: COLORS[(i + 2) % COLORS.length],
-        data: { steps: t.steps ?? [] },
-        oowops: t.oowop_count ?? 0,
-      });
-    });
-
-    // Add studio videos
-    ((videos?.data ?? []) as any[]).forEach((v: any, i: number) => {
-      feed.push({
-        id: v.id, type: 'video', title: v.title,
-        subtitle: v.category ?? 'Training',
-        content: v.description ?? '',
-        author: { username: v.profiles?.username ?? 'creator' },
-        media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
-        color: '#FF6B2B', accent: '#FF6B2B',
-      });
-    });
-
-    // Add YouTube general content (no-goal state)
-    ytFeed.forEach((v: any, i: number) => {
-      feed.push({
-        id:       `yt-${v.id}`,
-        type:     'video' as CardType,
-        title:    v.title,
-        subtitle: v.channel ?? 'YouTube',
-        content:  '',
-        author:   { username: v.channel ?? 'YouTube' },
-        media:    { videoId: v.id, thumbnail: v.thumbnail },
-        color:    '#FF0000',
-        accent:   '#FF0000',
-      });
-    });
-
-    // If no goals, prepend the guide card so it shows first
-    const guideCard: FeedCard = {
-      id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
-      subtitle: 'Start with your Goal GPS', content: '',
-      author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
-    };
-
-    const shuffled: FeedCard[] = !hasGoals
-      ? [guideCard, ...feed]
-      : feed.length > 0 ? feed : [guideCard];
-
-    setCards(shuffled);
-    if (shuffled[0]) speak(shuffled[0].title, 'casual');
-    setLoading(false);
   }
 
-  // Swipe up/down navigation
-  function onTouchStart(e: React.TouchEvent) { touchStartY.current = e.touches[0].clientY; }
+  // Swipe up/down navigation; swipe right → create goal (when no goals)
+  function onTouchStart(e: React.TouchEvent) {
+    touchStartY.current = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+  }
   function onTouchEnd(e: React.TouchEvent) {
     const dy = touchStartY.current - e.changedTouches[0].clientY;
+    const dx = e.changedTouches[0].clientX - touchStartX.current;
+
+    // Swipe right (dx > 80 and not primarily vertical) → go create goal
+    if (dx > 80 && Math.abs(dy) < 60) {
+      router.push('/village/workshop/chat');
+      return;
+    }
+
     if (dy > 60 && current < cards.length - 1) {
       const next = current + 1;
       setCurrent(next);
@@ -462,6 +483,33 @@ export default function WorkshopPage() {
 
       {/* Bottom nav space */}
       <div className="absolute bottom-0 left-0 right-0 h-20" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }} />
+
+      {/* Swipe-right nudge — shown when user has no goals */}
+      <AnimatePresence>
+        {showNudge && !hasGoals && (
+          <motion.div
+            initial={{ x: -120, opacity: 0 }}
+            animate={{ x: [0, 14, 0, 14, 0], opacity: 1 }}
+            exit={{ x: -120, opacity: 0 }}
+            transition={{ x: { duration: 1.4, repeat: 1, repeatDelay: 0.8, ease: 'easeInOut' }, opacity: { duration: 0.3 } }}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
+            onClick={() => router.push('/village/workshop/chat')}
+          >
+            <div className="flex items-center gap-3 pl-4 pr-5 py-4 rounded-r-2xl cursor-pointer"
+              style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '4px 0 24px rgba(124,58,237,0.5)' }}>
+              <div className="flex flex-col">
+                <span className="text-xs font-black text-white leading-tight">Swipe right</span>
+                <span className="text-[10px] text-white/70 leading-tight">to create your first goal</span>
+              </div>
+              <motion.span
+                animate={{ x: [0, 6, 0] }}
+                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
+                className="text-white text-lg"
+              >→</motion.span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
