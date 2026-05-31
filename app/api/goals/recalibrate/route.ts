@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const userProfile = {
     id: user.id,
     displayName: ctx.displayName,
-    archetype: ctx.archetype,
+    archetype: ctx.archetype ?? undefined,
     skills: [],
     weeklyAvailableHours: goal.weekly_hours_available ?? 10,
     financialProfile: { plaidConnected: false, estimatedMonthlyBudget: 200, crowdfundCapacity: 0 },

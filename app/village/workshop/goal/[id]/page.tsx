@@ -45,6 +45,13 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [feed, setFeed]               = useState<any[]>([]);
   const [feedIdx, setFeedIdx]         = useState(0);
   const [loadingFeed, setLoadingFeed] = useState(false);
+  const [videoPaused, setVideoPaused] = useState(false);
+  const [showOoWopAnim, setShowOoWopAnim] = useState(false);
+  const [videoOoWops, setVideoOoWops] = useState<Record<string, number>>({});
+  const [videoFavorites, setVideoFavorites] = useState<Set<string>>(new Set());
+  const [showCommentDrawer, setShowCommentDrawer] = useState(false);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapCountRef = useRef(0);
 
   // GPS / Life event state
   const [assessing, setAssessing]     = useState(false);
@@ -353,6 +360,49 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     else navigator.clipboard.writeText(text).catch(() => {});
     setShared(true);
     setTimeout(() => { setShared(false); setSharing(false); }, 2000);
+  }
+
+  // ─── Workshop tap: single = pause, double = OoWop ────────────────────────
+  function handleVideoTap() {
+    tapCountRef.current += 1;
+    if (tapCountRef.current === 1) {
+      tapTimerRef.current = setTimeout(() => {
+        if (tapCountRef.current === 1) setVideoPaused(p => !p);
+        tapCountRef.current = 0;
+      }, 280);
+    } else if (tapCountRef.current === 2) {
+      if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+      tapCountRef.current = 0;
+      triggerOoWop();
+    }
+  }
+
+  function triggerOoWop() {
+    const vid = feed[feedIdx];
+    if (!vid) return;
+    setVideoOoWops(prev => ({ ...prev, [vid.id]: (prev[vid.id] ?? 0) + 1 }));
+    setShowOoWopAnim(true);
+    setTimeout(() => setShowOoWopAnim(false), 900);
+  }
+
+  function toggleFavorite() {
+    const vid = feed[feedIdx];
+    if (!vid) return;
+    setVideoFavorites(prev => {
+      const next = new Set(prev);
+      if (next.has(vid.id)) next.delete(vid.id); else next.add(vid.id);
+      return next;
+    });
+  }
+
+  function handleShareVideo() {
+    const vid = feed[feedIdx];
+    if (!vid) return;
+    const url = vid.source === 'youtube'
+      ? `https://www.youtube.com/watch?v=${vid.id}`
+      : `https://villa9e.app/studio/${vid.id}`;
+    if (navigator.share) navigator.share({ title: vid.title, url }).catch(() => {});
+    else navigator.clipboard.writeText(url).catch(() => {});
   }
 
   // ─── Close dropdown on outside click ─────────────────────────────────────
@@ -929,98 +979,235 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
           ) : (
 
-            /* ── WORKSHOP TAB ───────────────────────────────────────────── */
+            /* ── WORKSHOP TAB — full-screen Reels style ─────────────────── */
             <motion.div key="workshop" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-              className="flex-1 flex flex-col">
-
-              {/* Action context bar */}
-              {currentStep && (
-                <div className="px-4 py-3 border-b flex items-center gap-2" style={{ background: cardBg, borderColor: border }}>
-                  <span className="w-2 h-2 rounded-full" style={{ background: accent }} />
-                  <p className="text-xs font-bold truncate" style={{ color: muted }}>Workshop for: {currentStep.title}</p>
-                  <span className="ml-auto text-xs" style={{ color: muted }}>{feedIdx + 1}/{feed.length}</span>
-                </div>
-              )}
+              className="relative overflow-hidden"
+              style={{ height: 'calc(100vh - 130px)', background: '#000' }}>
 
               {loadingFeed ? (
-                <div className="flex-1 flex items-center justify-center flex-col gap-3">
+                <div className="absolute inset-0 flex items-center justify-center flex-col gap-3">
                   <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: accent, borderTopColor: 'transparent' }} />
-                  <p className="text-sm" style={{ color: muted }}>Finding content for this action…</p>
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>Finding content for this action…</p>
                 </div>
               ) : feed.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center flex-col gap-3 p-8">
+                <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 p-8">
                   <p className="text-4xl">📺</p>
-                  <p className="text-sm text-center" style={{ color: muted }}>No workshop content found for this action yet.</p>
+                  <p className="text-sm text-center" style={{ color: 'rgba(255,255,255,0.5)' }}>No workshop content found for this action yet.</p>
                   <button onClick={fetchWorkshopFeed} className="text-sm font-bold" style={{ color: accent, background: 'none', border: 'none', cursor: 'pointer' }}>Try again</button>
                 </div>
               ) : (
-                <motion.div className="flex-1 relative" drag="y" dragConstraints={{ top: 0, bottom: 0 }} onDragEnd={handleFeedSwipe}
-                  style={{ touchAction: 'pan-x', cursor: 'grab' }}>
+                <motion.div className="absolute inset-0" drag="y" dragConstraints={{ top: 0, bottom: 0 }} onDragEnd={handleFeedSwipe}
+                  style={{ touchAction: 'pan-x' }}>
                   <AnimatePresence mode="wait">
                     {currentVideo && (
-                      <motion.div key={feedIdx} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
-                        className="absolute inset-0 flex flex-col">
+                      <motion.div key={feedIdx} initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }}
+                        className="absolute inset-0">
 
-                        {/* Video thumbnail */}
-                        <div className="relative flex-1" style={{ background: '#000', minHeight: 200 }}>
+                        {/* Full-screen thumbnail — tap to pause, double-tap to OoWop */}
+                        <div className="absolute inset-0" onClick={handleVideoTap} style={{ cursor: 'pointer' }}>
                           {currentVideo.thumbnail && (
                             <img src={currentVideo.thumbnail} alt={currentVideo.title}
-                              className="w-full h-full object-cover" style={{ opacity: 0.9 }} />
+                              className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover' }} />
                           )}
+                          {/* Gradient: dark at top + bottom, clear in middle */}
+                          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.85) 100%)' }} />
+                        </div>
 
-                          {/* Play overlay */}
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            {currentVideo.source === 'youtube' ? (
-                              <a href={`https://www.youtube.com/watch?v=${currentVideo.id}`} target="_blank" rel="noopener noreferrer"
-                                className="w-16 h-16 rounded-full flex items-center justify-center"
-                                style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-                                <span style={{ color: '#fff', fontSize: 28, marginLeft: 4 }}>▶</span>
-                              </a>
-                            ) : (
-                              <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                                style={{ background: `${accent}CC`, backdropFilter: 'blur(4px)' }}>
-                                <span style={{ color: '#fff', fontSize: 28, marginLeft: 4 }}>▶</span>
-                              </div>
-                            )}
+                        {/* Pause indicator */}
+                        {videoPaused && (
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                            </div>
                           </div>
+                        )}
 
-                          {/* Source badge */}
-                          <div className="absolute top-3 right-3">
+                        {/* OoWop fly-up animation */}
+                        <AnimatePresence>
+                          {showOoWopAnim && (
+                            <motion.div
+                              initial={{ opacity: 1, scale: 0.6, y: 0 }}
+                              animate={{ opacity: 0, scale: 1.8, y: -120 }}
+                              exit={{ opacity: 0 }}
+                              transition={{ duration: 0.85, ease: 'easeOut' }}
+                              style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 20 }}>
+                              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 6V4a1 1 0 012 0v2"/>
+                                <path d="M11 6.5V3a1 1 0 012 0v3.5"/>
+                                <path d="M13 7V5a1 1 0 012 0v2"/>
+                                <path d="M7 13V7a1 1 0 012 0v5"/>
+                                <path d="M7 12a5 5 0 0010 0v-3a1 1 0 00-2 0V11a1 1 0 01-2 0V7"/>
+                              </svg>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        {/* Top badges */}
+                        <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 5 }}>
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                            style={{ background: currentVideo.source === 'studio' ? accent : '#FF0000', color: '#fff' }}>
+                            {currentVideo.source === 'studio' ? 'villa9e' : 'YouTube'}
+                          </span>
+                          {currentVideo.format && (
                             <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                              style={{ background: currentVideo.source === 'studio' ? accent : '#FF0000', color: '#fff' }}>
-                              {currentVideo.source === 'studio' ? 'villa9e' : 'YouTube'}
+                              style={{ background: 'rgba(0,0,0,0.55)', color: '#fff' }}>
+                              {currentVideo.format === 'short' ? '⚡ Short' : '📺 Long'}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Right action rail */}
+                        <div className="absolute flex flex-col items-center gap-6"
+                          style={{ right: 14, bottom: 100, zIndex: 10 }}>
+
+                          {/* OoWop */}
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={e => { e.stopPropagation(); triggerOoWop(); }}
+                              className="flex items-center justify-center transition-transform active:scale-90"
+                              style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
+                              {/* Raised fist */}
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 6V4a1 1 0 012 0v2"/>
+                                <path d="M11 6.5V3a1 1 0 012 0v3.5"/>
+                                <path d="M13 7V5a1 1 0 012 0v2"/>
+                                <path d="M7 13V7a1 1 0 012 0v5"/>
+                                <path d="M7 12a5 5 0 0010 0v-3a1 1 0 00-2 0V11a1 1 0 01-2 0V7"/>
+                              </svg>
+                            </button>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>
+                              {(videoOoWops[currentVideo.id] ?? 0) > 0 ? videoOoWops[currentVideo.id] : 'OoWop'}
                             </span>
                           </div>
 
-                          {/* Format badge */}
-                          <div className="absolute top-3 left-3">
-                            <span className="text-xs font-bold px-2.5 py-1 rounded-full"
-                              style={{ background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
-                              {currentVideo.format === 'short' ? '⚡ Short' : '📺 Long form'}
-                            </span>
+                          {/* Not helpful */}
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={e => e.stopPropagation()}
+                              className="flex items-center justify-center transition-transform active:scale-90"
+                              style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
+                              {/* Thumbs down */}
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M10 9V5a3 3 0 00-3-3l-3 9v4h11.28a2 2 0 002-1.7l1.38-9a2 2 0 00-2-2.3H10z"/>
+                                <path d="M7 22H4a2 2 0 01-2-2v-4a2 2 0 012-2h3"/>
+                              </svg>
+                            </button>
+                            <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 700 }}>Skip</span>
+                          </div>
+
+                          {/* Comment */}
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={e => { e.stopPropagation(); setShowCommentDrawer(true); }}
+                              className="flex items-center justify-center transition-transform active:scale-90"
+                              style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
+                              {/* Speech bubble */}
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+                              </svg>
+                            </button>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>Comment</span>
+                          </div>
+
+                          {/* Share */}
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={e => { e.stopPropagation(); handleShareVideo(); }}
+                              className="flex items-center justify-center transition-transform active:scale-90"
+                              style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
+                              {/* Paper plane */}
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13"/>
+                                <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                              </svg>
+                            </button>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>Share</span>
+                          </div>
+
+                          {/* Save */}
+                          <div className="flex flex-col items-center gap-1">
+                            <button onClick={e => { e.stopPropagation(); toggleFavorite(); }}
+                              className="flex items-center justify-center transition-transform active:scale-90"
+                              style={{ width: 48, height: 48, borderRadius: '50%', background: videoFavorites.has(currentVideo.id) ? `${accent}CC` : 'rgba(0,0,0,0.45)', border: 'none', cursor: 'pointer' }}>
+                              {/* Bookmark */}
+                              <svg width="20" height="20" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round"
+                                fill={videoFavorites.has(currentVideo.id) ? 'white' : 'none'}
+                                stroke="white" strokeWidth="1.7">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                              </svg>
+                            </button>
+                            <span style={{ color: videoFavorites.has(currentVideo.id) ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: 700 }}>Save</span>
                           </div>
                         </div>
 
-                        {/* Video info */}
-                        <div className="px-4 py-4" style={{ background: cardBg }}>
-                          <p className="font-bold text-sm leading-snug mb-1" style={{ color: text }}>{currentVideo.title}</p>
-                          {currentVideo.channel && <p className="text-xs mb-3" style={{ color: muted }}>{currentVideo.channel}</p>}
+                        {/* Bottom overlay — title + channel + action tag */}
+                        <div className="absolute left-0 right-16 bottom-0 px-4 pb-6 pt-4" style={{ zIndex: 10 }}>
+                          {currentVideo.channel && (
+                            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 600, marginBottom: 4 }}>
+                              @{currentVideo.channel}
+                            </p>
+                          )}
+                          <p style={{ color: '#fff', fontWeight: 800, fontSize: 14, lineHeight: 1.35 }}>
+                            {currentVideo.title}
+                          </p>
+                          {currentStep && (
+                            <div className="flex items-center gap-1.5 mt-2">
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, display: 'inline-block', flexShrink: 0 }} />
+                              <span style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11 }}>
+                                For: {currentStep.title}
+                              </span>
+                            </div>
+                          )}
 
-                          {/* Navigation dots */}
-                          <div className="flex justify-center gap-1.5 mb-3">
-                            {feed.map((_: any, i: number) => (
-                              <button key={i} onClick={() => setFeedIdx(i)}
-                                className="rounded-full transition-all"
-                                style={{ width: i === feedIdx ? 16 : 6, height: 6, background: i === feedIdx ? accent : (isNight ? '#1E2240' : '#E5E7EB'), border: 'none', cursor: 'pointer', padding: 0 }} />
-                            ))}
-                          </div>
+                          {/* Open in YouTube link */}
+                          {currentVideo.source === 'youtube' && (
+                            <a href={`https://www.youtube.com/watch?v=${currentVideo.id}`} target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, color: '#FF0000', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#FF0000"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                              Watch on YouTube
+                            </a>
+                          )}
+                        </div>
 
-                          <p className="text-center text-xs" style={{ color: isNight ? '#2A2E4A' : '#D1D5DB' }}>swipe up/down for more videos</p>
+                        {/* Vertical progress dots — left edge */}
+                        <div className="absolute left-2 flex flex-col gap-1.5 items-center"
+                          style={{ top: '50%', transform: 'translateY(-50%)', zIndex: 10 }}>
+                          {feed.map((_: any, i: number) => (
+                            <button key={i} onClick={e => { e.stopPropagation(); setFeedIdx(i); }}
+                              style={{ width: 3, height: i === feedIdx ? 18 : 5, borderRadius: 2, background: i === feedIdx ? '#fff' : 'rgba(255,255,255,0.28)', border: 'none', cursor: 'pointer', padding: 0, transition: 'all 0.2s' }} />
+                          ))}
+                        </div>
+
+                        {/* Swipe hint (fades out) */}
+                        <div className="absolute bottom-2 left-0 right-0 flex justify-center pointer-events-none">
+                          <span style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11 }}>swipe up for next · double-tap to OoWop</span>
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
                 </motion.div>
+              )}
+
+              {/* Comment drawer */}
+              <AnimatePresence>
+                {showCommentDrawer && (
+                  <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28 }}
+                    className="absolute bottom-0 left-0 right-0 rounded-t-3xl overflow-hidden"
+                    style={{ background: isNight ? '#12152A' : '#fff', zIndex: 30, maxHeight: '65%' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: border }}>
+                      <p className="font-black text-sm" style={{ color: text }}>Comments</p>
+                      <button onClick={() => setShowCommentDrawer(false)} style={{ color: muted, background: 'none', border: 'none', fontSize: 22, cursor: 'pointer' }}>×</button>
+                    </div>
+                    <div className="px-5 py-8 text-center">
+                      <p className="text-2xl mb-2">💬</p>
+                      <p className="text-sm" style={{ color: muted }}>Comments coming soon.</p>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Backdrop for comment drawer */}
+              {showCommentDrawer && (
+                <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)', zIndex: 25 }}
+                  onClick={() => setShowCommentDrawer(false)} />
               )}
             </motion.div>
           )}
