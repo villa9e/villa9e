@@ -4,16 +4,13 @@ import { persist } from 'zustand/middleware';
 
 type VillageTheme = 'day' | 'night';
 type OverlayTheme = 'white' | 'black';
-export type VillageView = '3d' | 'illustrated';
 
 interface ThemeStore {
   theme:        VillageTheme;
   overlayTheme: OverlayTheme;
-  villageView:  VillageView;
   setTheme:        (t: VillageTheme) => void;
   toggle:          () => void;
   toggleOverlay:   () => void;
-  setVillageView:  (v: VillageView) => void;
 }
 
 export const useVillageTheme = create<ThemeStore>()(
@@ -21,7 +18,6 @@ export const useVillageTheme = create<ThemeStore>()(
     (set, get) => ({
       theme:        'day',
       overlayTheme: 'white',
-      villageView:  '3d',
       setTheme: (theme) => {
         set({ theme });
         if (typeof document !== 'undefined') {
@@ -38,7 +34,6 @@ export const useVillageTheme = create<ThemeStore>()(
       toggleOverlay: () => {
         set(s => ({ overlayTheme: s.overlayTheme === 'white' ? 'black' : 'white' }));
       },
-      setVillageView: (villageView) => set({ villageView }),
     }),
     {
       name: 'villa9e-theme',

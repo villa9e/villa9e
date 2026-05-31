@@ -23,7 +23,7 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const supabase = createClient();
-  const { theme, toggle, overlayTheme, toggleOverlay, villageView, setVillageView } = useVillageTheme();
+  const { theme, toggle, overlayTheme, toggleOverlay } = useVillageTheme();
   const isNight = theme === 'night';
 
   const bg     = isNight ? '#0A0B12' : '#F8F9FF';
@@ -249,33 +249,6 @@ export default function SettingsPage() {
         </Section>
 
         <Section title="Display">
-          {/* Village view mode */}
-          <div className="flex items-center justify-between p-3 rounded-xl"
-            style={{ background: isNight ? 'rgba(255,255,255,0.03)' : 'rgba(24,119,242,0.03)', border: `1px solid ${border}` }}>
-            <div>
-              <p className="font-semibold text-sm" style={{ color: text }}>Village View</p>
-              <p className="text-xs" style={{ color: muted }}>Choose between the 3D walkable world or the illustrated map</p>
-            </div>
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: isNight ? '#1E2240' : '#E8EDFF' }}>
-              <button onClick={() => setVillageView('3d')}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                style={{
-                  background: villageView === '3d' ? '#1877F2' : 'transparent',
-                  color:      villageView === '3d' ? '#fff' : muted,
-                }}>
-                3D World
-              </button>
-              <button onClick={() => setVillageView('illustrated')}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
-                style={{
-                  background: villageView === 'illustrated' ? '#1877F2' : 'transparent',
-                  color:      villageView === 'illustrated' ? '#fff' : muted,
-                }}>
-                Illustrated
-              </button>
-            </div>
-          </div>
-
           {/* Map building overlay color */}
           <div className="flex items-center justify-between p-3 rounded-xl"
             style={{ background: isNight ? 'rgba(255,255,255,0.03)' : 'rgba(24,119,242,0.03)', border: `1px solid ${border}` }}>

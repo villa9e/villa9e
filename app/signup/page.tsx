@@ -81,7 +81,7 @@ function SignupPageInner() {
 
     // If Supabase auto-confirms (no email verification required), session is returned immediately
     if (signupData?.session) {
-      router.push('/village/map?welcome=1');
+      router.push('/village/workshop?welcome=1');
       return;
     }
 

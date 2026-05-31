@@ -47,5 +47,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/village/map`);
+  return NextResponse.redirect(`${origin}/village/workshop`);
 }

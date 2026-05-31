@@ -43,7 +43,7 @@ export default function LoginPage() {
       setLoading(false);
       return;
     }
-    router.push('/village/map');
+    router.push('/village/workshop');
     router.refresh();
   }
 

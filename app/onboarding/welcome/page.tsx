@@ -182,7 +182,7 @@ export default function OnboardingWelcomePage() {
               </div>
               <motion.button
                 whileTap={{ scale: 0.97 }}
-                onClick={() => router.push('/village/map')}
+                onClick={() => router.push('/village/workshop')}
                 className="w-full py-4 rounded-2xl font-black text-white text-lg"
                 style={{
                   background: 'linear-gradient(135deg,#1877F2,#7C3AED)',
@@ -191,7 +191,7 @@ export default function OnboardingWelcomePage() {
               >
                 Enter the Village →
               </motion.button>
-              <button onClick={() => router.push('/village/map')}
+              <button onClick={() => router.push('/village/workshop')}
                 className="text-xs" style={{ color: 'rgba(255,255,255,0.2)' }}>
                 Skip intro
               </button>

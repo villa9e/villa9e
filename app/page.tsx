@@ -14,7 +14,7 @@ export default async function Home() {
       .select('onboarding_complete')
       .eq('id', user.id)
       .single();
-    if (profile?.onboarding_complete) redirect('/village/map');
+    if (profile?.onboarding_complete) redirect('/village/workshop');
     else redirect('/onboarding/spirit');
   }
 
