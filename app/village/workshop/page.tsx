@@ -417,91 +417,94 @@ export default function WorkshopPage() {
   }
 
   const card = cards[current];
+  // Nav height: 80px + safe area. Content fills viewport minus nav.
+  const CARD_H = 'calc(100dvh - 80px)';
 
   return (
-    <div ref={containerRef} className="fixed inset-0 overflow-hidden select-none"
-      style={{ background: '#000', touchAction: 'none' }}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      onWheel={onWheel}
-    >
-      {/* Current card */}
-      <AnimatePresence mode="wait">
-        <motion.div key={card?.id}
-          initial={{ y: '100%', opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: '-100%', opacity: 0 }}
-          transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-          className="absolute inset-0"
-        >
-          {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-          {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-          {card?.type === 'goal'        && <GoalCard card={card} />}
-          {card?.type === 'achievement' && <GoalCard card={card} />}
-          {card?.type === 'guide'       && <GuideCard />}
-
-          {/* Author + actions */}
-          {card && card.type !== 'guide' && <AuthorBar card={card} />}
-          {card && card.type !== 'goal' && card.type !== 'guide' && (
-            <SideActions card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)} />
-          )}
-        </motion.div>
-      </AnimatePresence>
-
+    <div style={{ background: '#000', minHeight: '100dvh' }}>
       {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 px-5 pt-12 pb-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }}>
+      <div className="sticky top-0 z-30 px-5 pt-12 pb-3"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 70%, transparent 100%)' }}>
         <span className="text-base font-black text-white">Workshop</span>
       </div>
 
-      {/* Progress dots */}
-      <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
-        {cards.slice(0, 8).map((_, i) => (
-          <div key={i} className="rounded-full transition-all"
-            style={{ width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.25)' }} />
-        ))}
-      </div>
-
-      {/* Swipe hint */}
-      {current === 0 && cards.length > 1 && (
-        <motion.div
-          className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1"
-          initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -6, 0] }}
-          transition={{ delay: 2, duration: 1.5, repeat: 3 }}>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Swipe up</p>
-        </motion.div>
-      )}
-
-      {/* Bottom nav space */}
-      <div className="absolute bottom-0 left-0 right-0 h-20" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7), transparent)' }} />
-
-      {/* Swipe-right nudge — shown when user has no goals */}
-      <AnimatePresence>
-        {showNudge && !hasGoals && (
-          <motion.div
-            initial={{ x: -120, opacity: 0 }}
-            animate={{ x: [0, 14, 0, 14, 0], opacity: 1 }}
-            exit={{ x: -120, opacity: 0 }}
-            transition={{ x: { duration: 1.4, repeat: 1, repeatDelay: 0.8, ease: 'easeInOut' }, opacity: { duration: 0.3 } }}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
-            onClick={() => router.push('/village/workshop/chat')}
+      {/* Full-screen card area — fills remaining height above nav */}
+      <div
+        ref={containerRef}
+        className="relative overflow-hidden select-none"
+        style={{ height: CARD_H, marginTop: '-60px', touchAction: 'pan-y' }}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        onWheel={onWheel}
+      >
+        {/* Current card */}
+        <AnimatePresence mode="wait">
+          <motion.div key={card?.id}
+            initial={{ y: '100%', opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: '-100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+            className="absolute inset-0"
           >
-            <div className="flex items-center gap-3 pl-4 pr-5 py-4 rounded-r-2xl cursor-pointer"
-              style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '4px 0 24px rgba(124,58,237,0.5)' }}>
-              <div className="flex flex-col">
-                <span className="text-xs font-black text-white leading-tight">Swipe right</span>
-                <span className="text-[10px] text-white/70 leading-tight">to create your first goal</span>
-              </div>
-              <motion.span
-                animate={{ x: [0, 6, 0] }}
-                transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
-                className="text-white text-lg"
-              >→</motion.span>
-            </div>
+            {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+            {card?.type === 'goal'        && <GoalCard card={card} />}
+            {card?.type === 'achievement' && <GoalCard card={card} />}
+            {card?.type === 'guide'       && <GuideCard />}
+
+            {card && card.type !== 'guide' && <AuthorBar card={card} />}
+            {card && card.type !== 'goal' && card.type !== 'guide' && (
+              <SideActions card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)} />
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Progress dots */}
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
+          {cards.slice(0, 8).map((_, i) => (
+            <div key={i} className="rounded-full transition-all"
+              style={{ width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.25)' }} />
+          ))}
+        </div>
+
+        {/* Swipe hint */}
+        {current === 0 && cards.length > 1 && (
+          <motion.div
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1"
+            initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -6, 0] }}
+            transition={{ delay: 2, duration: 1.5, repeat: 3 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
+            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Swipe up</p>
           </motion.div>
         )}
-      </AnimatePresence>
+
+        {/* Swipe-right nudge */}
+        <AnimatePresence>
+          {showNudge && !hasGoals && (
+            <motion.div
+              initial={{ x: -120, opacity: 0 }}
+              animate={{ x: [0, 14, 0, 14, 0], opacity: 1 }}
+              exit={{ x: -120, opacity: 0 }}
+              transition={{ x: { duration: 1.4, repeat: 1, repeatDelay: 0.8, ease: 'easeInOut' }, opacity: { duration: 0.3 } }}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
+              onClick={() => router.push('/village/workshop/chat')}
+            >
+              <div className="flex items-center gap-3 pl-4 pr-5 py-4 rounded-r-2xl cursor-pointer"
+                style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '4px 0 24px rgba(124,58,237,0.5)' }}>
+                <div className="flex flex-col">
+                  <span className="text-xs font-black text-white leading-tight">Swipe right</span>
+                  <span className="text-[10px] text-white/70 leading-tight">to create your first goal</span>
+                </div>
+                <motion.span
+                  animate={{ x: [0, 6, 0] }}
+                  transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
+                  className="text-white text-lg"
+                >→</motion.span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

@@ -16,33 +16,30 @@ const MUTED  = 'rgba(30,27,75,0.38)';
 
 const NAV_ITEMS = [
   {
-    href:  '/village/map',
-    label: 'Village',
-    svg:   'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-  },
-  {
     href:  '/village/workshop',
     label: 'Goals',
-    // Target/bullseye — distinct from Village pin
     svg:   'M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10zm0-14a4 4 0 110 8 4 4 0 010-8zm0 2a2 2 0 100 4 2 2 0 000-4z',
   },
   {
     href:  '/village/dreamline',
     label: 'Feed',
-    // Spark / lightning — distinct from chat bubble
     svg:   'M13 2L4.09 12.26A1 1 0 005 14h5.5l-1 8L20 9.74A1 1 0 0019 8h-5.5l1-6z',
+  },
+  {
+    href:  '/village/spirit',
+    label: 'Spirit',
+    // Sparkle / 4-pointed star
+    svg:   'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z',
   },
   {
     href:  '/notifications',
     label: 'Alerts',
     isAlerts: true,
-    // Bell with dot — already unique
     svg:   'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0',
   },
   {
     href:  '/village/hut',
     label: 'Hut',
-    // House with chimney — distinct from village pin
     svg:   'M3 12L12 3l9 9M5 10v10a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V10',
   },
 ] as const;
@@ -97,7 +94,7 @@ function BottomNavInner() {
 
   // Sync centerIdx to current active page
   useEffect(() => {
-    const idx = allItems.findIndex(it => it.href === path || (it.href !== '/village/map' && path.startsWith(it.href)));
+    const idx = allItems.findIndex(it => it.href === path || (it.href.length > 1 && path.startsWith(it.href)));
     if (idx >= 0) setCenterIdx(idx);
   }, [path, isAdmin]);
 
@@ -179,7 +176,7 @@ function BottomNavInner() {
           const isC    = dist === 0;
           const sz     = ICON_SZ[abs] ?? 10;
           const op     = OPAC[abs] ?? 0.08;
-          const isActive = path === item.href || (item.href !== '/village/map' && path.startsWith(item.href));
+          const isActive = path === item.href || (item.href.length > 1 && path.startsWith(item.href));
           const iconColor = isC ? BLUE : MUTED;
           const isAlerts  = 'isAlerts' in item && item.isAlerts;
 
