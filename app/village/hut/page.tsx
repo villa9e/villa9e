@@ -29,14 +29,15 @@ const HUT_LINKS = [
 ];
 
 export default function HutPage() {
-  const [profile, setProfile]  = useState<any>(null);
-  const [xp, setXp]            = useState<any>(null);
-  const [skills, setSkills]    = useState<any[]>([]);
-  const [goals, setGoals]      = useState<any[]>([]);
-  const [wallet, setWallet]    = useState<any>(null);
-  const [provider, setProvider]= useState<any>(null);
-  const [loading, setLoading]  = useState(true);
-  const [badges, setBadges]    = useState<any[]>([]);
+  const [profile, setProfile]       = useState<any>(null);
+  const [xp, setXp]                 = useState<any>(null);
+  const [skills, setSkills]         = useState<any[]>([]);
+  const [goals, setGoals]           = useState<any[]>([]);
+  const [wallet, setWallet]         = useState<any>(null);
+  const [provider, setProvider]     = useState<any>(null);
+  const [loading, setLoading]       = useState(true);
+  const [badges, setBadges]         = useState<any[]>([]);
+  const [completedSprints, setCompletedSprints] = useState<any[]>([]);
   const supabase = createClient();
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
@@ -75,6 +76,17 @@ export default function HutPage() {
         .eq('user_id', user.id)
         .order('earned_at', { ascending: false });
       setBadges(earned ?? []);
+
+      // Load completed sprints (verified accomplishments)
+      const { data: sprints } = await (supabase as any)
+        .from('sprints')
+        .select('id, title, goal_id, week_start, week_end, focus_intention, goals(title, category)')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('week_end', { ascending: false })
+        .limit(10);
+      setCompletedSprints(sprints ?? []);
+
       setLoading(false);
     }
     load();
@@ -286,6 +298,53 @@ export default function HutPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* ── Verified Wins (completed sprints) ────────────────── */}
+        {completedSprints.length > 0 && (
+          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⚡</span>
+                <p className="font-black text-sm" style={{ color: textMain }}>Verified Wins</p>
+              </div>
+              <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+                style={{ background: isNight ? '#0D2D1A' : '#DCFCE7', color: '#16A34A' }}>
+                {completedSprints.length} sprints
+              </span>
+            </div>
+            <div className="space-y-2.5">
+              {completedSprints.map((sp: any) => {
+                const goal = sp.goals;
+                const endDate = new Date(sp.week_end);
+                return (
+                  <Link key={sp.id} href={`/village/workshop/sprint/${sp.id}`}>
+                    <div className="flex items-start gap-3 rounded-2xl px-3 py-2.5"
+                      style={{ background: isNight ? 'rgba(34,197,94,0.06)' : '#F0FDF4', border: `1px solid ${isNight ? 'rgba(34,197,94,0.15)' : '#BBF7D0'}` }}>
+                      <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                        style={{ background: 'rgba(34,197,94,0.15)' }}>
+                        <span className="text-xs">✓</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold leading-tight" style={{ color: textMain }}>{sp.title}</p>
+                        {goal?.title && (
+                          <p className="text-xs mt-0.5" style={{ color: textMute }}>
+                            {goal.category} · {goal.title}
+                          </p>
+                        )}
+                        <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>
+                          Completed {endDate.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            <p className="text-xs mt-3 text-center" style={{ color: textMute }}>
+              These accomplishments are visible on your public profile and can be used when applying for opportunities or monetizing your experience.
+            </p>
           </div>
         )}
 

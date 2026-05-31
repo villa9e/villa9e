@@ -2,16 +2,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function SprintPage({ params }: { params: { id: string } }) {
-  const [sprint, setSprint]       = useState<any>(null);
-  const [actions, setActions]     = useState<any[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [completing, setCompleting] = useState<string | null>(null);
-  const [celebrate, setCelebrate]  = useState(false);
+  const [sprint, setSprint]           = useState<any>(null);
+  const [actions, setActions]         = useState<any[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [completing, setCompleting]   = useState<string | null>(null);
+  const [celebrate, setCelebrate]     = useState(false);
+  const [newBadges, setNewBadges]     = useState<string[]>([]);
+  const router = useRouter();
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
@@ -35,18 +38,21 @@ export default function SprintPage({ params }: { params: { id: string } }) {
 
   async function completeAction(actionId: string) {
     setCompleting(actionId);
-    await fetch('/api/sprints', {
+    const updatedActions = actions.map(a => a.id === actionId ? { ...a, completed: true, completed_at: new Date() } : a);
+    setActions(updatedActions);
+
+    const res = await fetch('/api/sprints', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action_id: actionId }),
-    });
-    setActions(prev => prev.map(a => a.id === actionId ? { ...a, completed: true, completed_at: new Date() } : a));
+    }).then(r => r.json()).catch(() => ({ ok: true }));
+
     setCompleting(null);
 
-    const newActions = actions.map(a => a.id === actionId ? { ...a, completed: true } : a);
-    if (newActions.every(a => a.completed)) {
+    if (res.sprint_completed) {
+      setSprint((s: any) => s ? { ...s, status: 'completed' } : s);
+      setNewBadges(res.new_badges ?? []);
       setCelebrate(true);
-      setTimeout(() => setCelebrate(false), 4000);
     }
   }
 
@@ -92,19 +98,90 @@ export default function SprintPage({ params }: { params: { id: string } }) {
         </span>
       </div>
 
-      {/* Celebration overlay */}
+      {/* Sprint completion celebration modal */}
       <AnimatePresence>
         {celebrate && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} exit={{ scale: 0.5 }}
-              className="text-center p-8 rounded-3xl"
-              style={{ background: 'rgba(24,119,242,0.95)', backdropFilter: 'blur(16px)' }}>
-              <div className="text-6xl mb-3">⚡</div>
-              <p className="text-2xl font-black text-white">Sprint Complete!</p>
-              <p className="text-blue-200 text-sm mt-1">+50 VLG earned</p>
+          <>
+            {/* Confetti particles */}
+            <div className="fixed inset-0 z-50 pointer-events-none overflow-hidden">
+              {Array.from({ length: 36 }, (_, i) => (
+                <motion.div key={i}
+                  initial={{ y: -20, x: `${Math.random() * 100}vw`, opacity: 1, rotate: 0 }}
+                  animate={{ y: '110vh', opacity: [1, 1, 0], rotate: 360 * (Math.random() > 0.5 ? 1 : -1) }}
+                  transition={{ duration: 2.5 + Math.random() * 1.5, delay: Math.random() * 0.8, ease: 'easeIn' }}
+                  style={{
+                    position: 'absolute', width: 8 + Math.random() * 8, height: 8 + Math.random() * 8,
+                    backgroundColor: ['#1877F2','#22C55E','#FFD700','#FF6B2B','#8B5CF6','#F9A8D4'][Math.floor(Math.random() * 6)],
+                    borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[60] flex items-center justify-center p-6"
+              style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+            >
+              <motion.div
+                initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
+                transition={{ type: 'spring', damping: 16, stiffness: 280 }}
+                className="w-full max-w-sm rounded-3xl p-8 text-center"
+                style={{ background: isNight ? '#0E1020' : '#fff', border: `1px solid ${border}` }}
+              >
+                <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
+                  <span className="text-7xl">⚡</span>
+                </motion.div>
+
+                <div className="mt-4 mb-1">
+                  <span className="text-xs font-bold px-3 py-1 rounded-full"
+                    style={{ background: 'rgba(34,197,94,0.15)', color: '#22C55E' }}>
+                    SPRINT COMPLETE
+                  </span>
+                </div>
+                <h2 className="text-2xl font-black mt-3 mb-1" style={{ color: text }}>You crushed it.</h2>
+                <p className="text-sm mb-4" style={{ color: muted }}>"{sprint?.title}"</p>
+
+                {/* Rewards */}
+                <div className="rounded-2xl p-4 mb-5 space-y-2"
+                  style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${border}` }}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold" style={{ color: muted }}>Village Score</span>
+                    <span className="text-sm font-black" style={{ color: '#22C55E' }}>+50 pts</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold" style={{ color: muted }}>$VLG Earned</span>
+                    <span className="text-sm font-black" style={{ color: '#FFB84D' }}>+0 VLG</span>
+                  </div>
+                  {newBadges.length > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold" style={{ color: muted }}>Badge Unlocked</span>
+                      <span className="text-sm font-black" style={{ color: '#8B5CF6' }}>🏆 ×{newBadges.length}</span>
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs mb-5" style={{ color: muted }}>
+                  This accomplishment is stored in your verified profile and visible to the village.
+                </p>
+
+                <div className="flex flex-col gap-2">
+                  <Link href="/village/hut"
+                    onClick={() => setCelebrate(false)}
+                    className="w-full py-3.5 rounded-2xl font-bold text-sm text-white"
+                    style={{ background: 'linear-gradient(135deg,#1877F2,#6366F1)', display: 'block' }}>
+                    View in Profile →
+                  </Link>
+                  <button onClick={() => setCelebrate(false)}
+                    className="w-full py-3 rounded-2xl font-semibold text-sm"
+                    style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: muted }}>
+                    Close
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
+          </>
         )}
       </AnimatePresence>
 
@@ -234,16 +311,17 @@ export default function SprintPage({ params }: { params: { id: string } }) {
         {sprint.status === 'active' && done > 0 && done === total && (
           <button
             onClick={async () => {
-              await fetch('/api/sprints', {
+              const res = await fetch('/api/sprints', {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ sprint_id: sprint.id }),
-              });
+              }).then(r => r.json()).catch(() => ({}));
               setSprint((s: any) => ({ ...s, status: 'completed' }));
+              setNewBadges(res.new_badges ?? []);
               setCelebrate(true);
             }}
             className="w-full py-4 rounded-2xl font-black text-white text-base"
             style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)' }}>
-            ⚡ Complete Sprint → +50 VLG
+            ⚡ Complete Sprint → +50 pts
           </button>
         )}
       </div>

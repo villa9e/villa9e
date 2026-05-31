@@ -3,7 +3,7 @@ import { test, expect, Page } from '@playwright/test';
 // Test credentials — create this account in Supabase dashboard first
 const TEST_EMAIL    = 'testuser@villa9e.app';
 const TEST_PASSWORD = 'TestVilla9e2026!';
-const BASE          = 'https://villa9e.vercel.app';
+const BASE          = 'https://villa9e.app';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

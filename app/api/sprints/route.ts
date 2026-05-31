@@ -104,33 +104,49 @@ export async function PATCH(req: NextRequest) {
     }).eq('id', body.action_id);
 
     // Check if all actions done → auto-complete sprint
-    const { data: sprint } = await supabase
+    const { data: actionRow } = await supabase
       .from('sprint_actions')
-      .select('completed, sprint_id')
+      .select('sprint_id')
       .eq('id', body.action_id)
       .single();
 
-    if (sprint) {
+    let sprintCompleted = false;
+    let completedSprintId: string | null = null;
+
+    if (actionRow) {
       const { data: allActions } = await supabase
         .from('sprint_actions')
         .select('completed')
-        .eq('sprint_id', sprint.sprint_id);
+        .eq('sprint_id', actionRow.sprint_id);
 
       if (allActions?.every((a: any) => a.completed)) {
-        await supabase.from('sprints').update({ status: 'completed' }).eq('id', sprint.sprint_id);
-        await supabase.rpc('award_village_score', { p_user_id: user.id, p_points: 50, p_reason: 'Sprint completed' });
-        await checkAndAwardAchievements(user.id);
+        await supabase.from('sprints')
+          .update({ status: 'completed', completed_at: new Date().toISOString() })
+          .eq('id', actionRow.sprint_id);
+        await supabase.rpc('award_village_score', {
+          p_user_id: user.id, p_points: 50, p_vlg: 0,
+          p_reason: 'Sprint completed', p_reference_id: actionRow.sprint_id,
+        });
+        const newBadges = await checkAndAwardAchievements(user.id);
+        sprintCompleted = true;
+        completedSprintId = actionRow.sprint_id;
+        return NextResponse.json({ ok: true, sprint_completed: true, sprint_id: completedSprintId, new_badges: newBadges });
       }
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, sprint_completed: sprintCompleted });
   }
 
   // Manually complete a sprint
   if (body.sprint_id) {
-    await supabase.from('sprints').update({ status: 'completed' }).eq('id', body.sprint_id).eq('user_id', user.id);
-    await supabase.rpc('award_village_score', { p_user_id: user.id, p_points: 50, p_reason: 'Sprint completed' });
-    await checkAndAwardAchievements(user.id);
-    return NextResponse.json({ ok: true });
+    await supabase.from('sprints')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', body.sprint_id).eq('user_id', user.id);
+    await supabase.rpc('award_village_score', {
+      p_user_id: user.id, p_points: 50, p_vlg: 0,
+      p_reason: 'Sprint completed', p_reference_id: body.sprint_id,
+    });
+    const newBadges = await checkAndAwardAchievements(user.id);
+    return NextResponse.json({ ok: true, sprint_completed: true, sprint_id: body.sprint_id, new_badges: newBadges });
   }
 
   return NextResponse.json({ error: 'No action_id or sprint_id' }, { status: 400 });

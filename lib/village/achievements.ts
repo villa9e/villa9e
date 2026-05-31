@@ -91,8 +91,10 @@ export async function checkAndAwardAchievements(userId: string): Promise<string[
   if (profile?.personality_type) await award('archetype_set');
 
   // Sprints
-  if (sp >= 1) await award('first_sprint');
-  if (sp >= 4) await award('sprint_streak_4');
+  if (sp >= 1)  await award('first_sprint');
+  if (sp >= 4)  await award('sprint_streak_4');
+  if (sp >= 10) await award('sprint_master');
+  if (sp >= 25) await award('sprint_legend');
 
   // Special
   if (profile?.is_founding_villager) await award('founding');
