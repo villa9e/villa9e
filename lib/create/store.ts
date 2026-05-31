@@ -52,10 +52,14 @@ export interface PostDetails {
   saveToDevice:     boolean;
   saveWithWatermark: boolean;
   allowVisualSearch: boolean;
-  isAd:             boolean;
-  adOnly:           boolean;
-  ctaText:          string;
-  ctaURL:           string;
+  isAd:                     boolean;
+  adOnly:                   boolean;
+  ctaText:                  string;
+  ctaURL:                   string;
+  autoCheckCopyright:       boolean;
+  identifySimilarProducts:  boolean;
+  allowHighQualityUploads:  boolean;
+  videoLanguage:            string;
 }
 
 const DEFAULT_POST_DETAILS: PostDetails = {
@@ -66,6 +70,8 @@ const DEFAULT_POST_DETAILS: PostDetails = {
   allowComments: true, allowRemixes: true, isTemplate: false,
   isAiGenerated: false, saveToDevice: true, saveWithWatermark: false,
   allowVisualSearch: true, isAd: false, adOnly: false, ctaText: '', ctaURL: '',
+  autoCheckCopyright: true, identifySimilarProducts: false,
+  allowHighQualityUploads: true, videoLanguage: 'English',
 };
 
 interface CreateStore {

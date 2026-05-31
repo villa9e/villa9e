@@ -17,14 +17,19 @@ const POST_LABELS = [
 
 type Toggle = { key: string; label: string; desc: string; default?: boolean };
 const TOGGLES: Toggle[] = [
-  { key: 'allowComments',    label: 'Allow Comments',         desc: 'Let others comment',         default: true  },
-  { key: 'allowRemixes',     label: 'Allow Remixes',          desc: 'Let others remix this post', default: true  },
-  { key: 'isTemplate',       label: 'Post as Template',       desc: 'Others can use your layout', default: false },
-  { key: 'isAiGenerated',    label: 'AI-Generated Content',   desc: 'Label this as AI content',   default: false },
-  { key: 'saveToDevice',     label: 'Save to Device',         desc: 'Auto-save a local copy',     default: true  },
-  { key: 'saveWithWatermark',label: 'Save with Watermark',    desc: 'Add villa9e watermark',       default: false },
-  { key: 'allowVisualSearch',label: 'Allow Visual Search',    desc: 'Appear in visual search',    default: true  },
+  { key: 'allowComments',           label: 'Allow Comments',              desc: 'Let others comment on this post',      default: true  },
+  { key: 'allowRemixes',            label: 'Allow Remixes',               desc: 'Let others remix and duet this post',  default: true  },
+  { key: 'isTemplate',              label: 'Post as Template',            desc: 'Others can reuse your timing & effects', default: false },
+  { key: 'isAiGenerated',           label: 'AI-Generated Content',        desc: 'Disclose this was made with AI',       default: false },
+  { key: 'autoCheckCopyright',      label: 'Auto-Check Sound Copyright',  desc: 'Check audio for copyright before posting', default: true  },
+  { key: 'identifySimilarProducts', label: 'Identify Similar Products',   desc: 'Let viewers shop similar items',       default: false },
+  { key: 'allowVisualSearch',       label: 'Allow Visual Search',         desc: 'Appear in visual & product search',    default: true  },
+  { key: 'allowHighQualityUploads', label: 'High-Quality Upload',         desc: 'Higher quality, may take longer',      default: true  },
+  { key: 'saveToDevice',            label: 'Save to Device',              desc: 'Auto-save a local copy after posting', default: true  },
+  { key: 'saveWithWatermark',       label: 'Save with Watermark',         desc: 'Add villa9e watermark to saved copy',  default: false },
 ];
+
+const VIDEO_LANGUAGES = ['English', 'Spanish', 'French', 'Portuguese', 'German', 'Arabic', 'Mandarin', 'Japanese', 'Korean', 'Hindi', 'Other'];
 
 export default function PostDetailsPage() {
   const router  = useRouter();
@@ -129,6 +134,8 @@ export default function PostDetailsPage() {
         save_to_device:     d.saveToDevice,
         save_with_watermark: d.saveWithWatermark,
         allow_visual_search: d.allowVisualSearch,
+        allow_high_quality:  (d as any).allowHighQualityUploads ?? true,
+        video_language:      (d as any).videoLanguage ?? 'English',
         is_ad:              d.isAd,
         ad_only:            d.adOnly,
         cta_text:           d.ctaText,
@@ -391,8 +398,27 @@ export default function PostDetailsPage() {
             {TOGGLES.map(t => (
               <ToggleRow key={t.key} label={t.label} desc={t.desc}
                 value={(d as any)[t.key] ?? t.default}
-                onChange={v => store.setDetails({ [t.key]: v })} />
+                onChange={v => store.setDetails({ [t.key]: v } as any)} />
             ))}
+          </div>
+        </Section>
+
+        {/* Video language */}
+        <Section title="Video Language" subtitle="Helps auto-generate accurate captions">
+          <div className="px-4">
+            <div className="relative">
+              <select
+                value={d.videoLanguage ?? 'English'}
+                onChange={e => store.setDetails({ videoLanguage: e.target.value } as any)}
+                className="w-full rounded-xl px-4 py-3 text-sm text-white focus:outline-none appearance-none"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
+              >
+                {VIDEO_LANGUAGES.map(lang => (
+                  <option key={lang} value={lang} style={{ background: '#0A0B12' }}>{lang}</option>
+                ))}
+              </select>
+              <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
           </div>
         </Section>
 

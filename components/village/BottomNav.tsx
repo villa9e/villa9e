@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useRef, Suspense, Fragment } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
@@ -113,6 +113,8 @@ function BottomNavInner() {
 
   if (!isVillagePage || isHidden) return null;
 
+  const isOnCreatePage = path.startsWith('/village/create');
+
   // Show center ± 3 items (7 visible max)
   const visible = allItems
     .map((item, i) => ({ item, i, dist: i - centerIdx }))
@@ -122,6 +124,33 @@ function BottomNavInner() {
   const OPAC    = [1, 0.55, 0.3, 0.14];
 
   return (
+    <Fragment>
+    {/* Create button — floating above center of nav */}
+    {!isOnCreatePage && (
+      <Link
+        href="/village/create"
+        onClick={() => haptic(12)}
+        style={{
+          position:    'fixed',
+          bottom:      'calc(68px + env(safe-area-inset-bottom, 0px))',
+          left:        '50%',
+          transform:   'translateX(-50%)',
+          width:        54,
+          height:       54,
+          borderRadius: 27,
+          background:  'linear-gradient(135deg, #1877F2, #7C3AED)',
+          boxShadow:   '0 6px 28px rgba(24,119,242,0.55)',
+          display:     'flex',
+          alignItems:  'center',
+          justifyContent: 'center',
+          zIndex:       49,
+        }}
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
+    )}
     <nav
       className="fixed bottom-0 left-0 right-0 z-50"
       style={{ background: '#FFFFFF', borderTop: `1.5px solid ${BLUE_B}`, boxShadow: '0 -4px 20px rgba(24,119,242,0.10)' }}
@@ -212,6 +241,7 @@ function BottomNavInner() {
         ))}
       </div>
     </nav>
+    </Fragment>
   );
 }
 

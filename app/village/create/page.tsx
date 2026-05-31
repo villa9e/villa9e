@@ -329,26 +329,27 @@ export default function CreatePage() {
         )}
       </AnimatePresence>
 
-      {/* ── TOP BAR ────────────────────────────────────────────────────────── */}
-      {!capturedURL && (
-        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 z-20"
-          style={{ paddingTop: 'max(env(safe-area-inset-top), 16px)' }}>
+      {/* ── TOP BAR — hidden during active recording ──────────────────────── */}
+      {!capturedURL && !isRecording && (
+        <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 z-20"
+          style={{ paddingTop: 'max(env(safe-area-inset-top), 14px)' }}>
 
-          {/* Close */}
-          <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
+          {/* Left: close + music note */}
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <button onClick={() => setShowMusicPicker(true)} style={{ background: 'rgba(0,0,0,0.35)', border: 'none', cursor: 'pointer', borderRadius: 20, padding: '6px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+              </svg>
+              <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>Sound</span>
+            </button>
+          </div>
 
-          {/* Music note */}
-          <button onClick={() => setShowMusicPicker(true)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
-            </svg>
-          </button>
-
-          {/* Village tent logo */}
+          {/* Right: Village tent logo */}
           <motion.button
             onClick={() => { setShowLogoMenu(m => !m); haptic(); }}
             whileTap={{ scale: 0.85 }}
@@ -473,17 +474,16 @@ export default function CreatePage() {
         )}
       </AnimatePresence>
 
-      {/* ── RECORDING INDICATOR ────────────────────────────────────────────── */}
+      {/* ── RECORDING INDICATOR — minimal dot + timer at top ──────────────── */}
       {isRecording && (
-        <div className="absolute top-16 left-0 right-0 flex justify-center z-20">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ background: 'rgba(0,0,0,0.6)' }}>
-            <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
-            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>
-              {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
-              {duration > 0 && ` / ${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`}
-            </span>
-            {speedLabel && <span style={{ color: '#1877F2', fontSize: 11, fontWeight: 800 }}>{speedLabel}</span>}
-          </div>
+        <div className="absolute z-20 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+          style={{ top: 'max(env(safe-area-inset-top), 14px)', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.45)' }}>
+          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+          <span style={{ color: '#fff', fontSize: 12, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+            {String(Math.floor(elapsed / 60)).padStart(2, '0')}:{String(elapsed % 60).padStart(2, '0')}
+            {duration > 0 && `/${String(Math.floor(duration / 60)).padStart(2, '0')}:${String(duration % 60).padStart(2, '0')}`}
+          </span>
+          {speedLabel && <span style={{ color: '#60A5FA', fontSize: 10, fontWeight: 800 }}>{speedLabel}</span>}
         </div>
       )}
 

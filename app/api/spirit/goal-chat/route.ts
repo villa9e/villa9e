@@ -6,6 +6,7 @@ import { fetchSpiritContext } from '@/lib/claude/spirit';
 export const maxDuration = 45;
 
 export async function POST(req: NextRequest) {
+  try {
   const supabase = createServerClient();
   let { data: { user } } = await supabase.auth.getUser();
   if (!user) {
@@ -79,17 +80,30 @@ Return ONLY valid JSON after [GPS_READY: — no extra text after the closing ]
 ${spiritCtx.archetype ? `This person's archetype is ${spiritCtx.archetype} — speak accordingly.` : ''}
 ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritCtx.communicationStyle}` : ''}`;
 
-  // Claude API requires messages[0].role === 'user'
-  // The Spirit greeting is an assistant message — skip it, reconstruct from user messages onward
-  const apiMessages = messages
-    .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }))
-    .filter((m, i) => {
-      // Drop leading assistant messages
-      if (i === 0 && m.role === 'assistant') return false;
-      return true;
-    });
+  // Build valid alternating messages for Claude API
+  // Drop any leading assistant messages, then ensure strict user/assistant alternation
+  const rawMapped = messages.map(m => ({
+    role:    m.role as 'user' | 'assistant',
+    content: m.content,
+  }));
 
-  // Ensure we always have at least one user message (safety)
+  // Drop leading assistant messages (Spirit greeting)
+  let start = 0;
+  while (start < rawMapped.length && rawMapped[start].role === 'assistant') start++;
+  const trimmed = rawMapped.slice(start);
+
+  // Deduplicate consecutive same-role messages (take last of each run)
+  const apiMessages: { role: 'user' | 'assistant'; content: string }[] = [];
+  for (const m of trimmed) {
+    const last = apiMessages[apiMessages.length - 1];
+    if (last && last.role === m.role) {
+      apiMessages[apiMessages.length - 1] = m; // replace with newer
+    } else {
+      apiMessages.push(m);
+    }
+  }
+
+  // Ensure we always have at least one user message starting first
   if (apiMessages.length === 0 || apiMessages[0].role !== 'user') {
     return NextResponse.json({ message: 'What goal are we building today?', phase: 'discovery', gpsReady: false });
   }
@@ -103,14 +117,22 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
       messages:   apiMessages,
     });
   } catch (err: any) {
+    console.error('[Spirit goal-chat] Claude API error:', {
+      status:  err?.status,
+      message: err?.message,
+      type:    err?.error?.type,
+    });
     const isOverload = err?.status === 529 || err?.message?.includes('overload');
+    const isAuth = err?.status === 401;
     return NextResponse.json({
       message: isOverload
         ? 'Spirit is in high demand right now — try again in a moment.'
+        : isAuth
+        ? 'Spirit needs to reconnect. Give it a second and try again.'
         : 'Spirit ran into a snag. Try sending that again.',
       phase: 'discovery',
       gpsReady: false,
-    }, { status: 200 }); // 200 so client renders it as a Spirit message, not a fetch error
+    }, { status: 200 });
   }
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '';
@@ -144,4 +166,12 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
     gpsData,
     msgCount,
   });
+  } catch (err: any) {
+    console.error('[Spirit goal-chat] Unhandled error:', err?.message, err?.stack?.slice(0, 200));
+    return NextResponse.json({
+      message: 'Spirit ran into an unexpected snag. Try again.',
+      phase: 'discovery',
+      gpsReady: false,
+    }, { status: 200 });
+  }
 }
