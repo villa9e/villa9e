@@ -24,22 +24,21 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Update mission_score on dream_line_posts using engagement as a signal
-  // Blend existing mission_score with engagement (60/40 split)
-  const { data: existing } = await (admin as any)
+  // Try dream_line_posts first, then studio_posts
+  const { data: dlPost } = await (admin as any)
     .from('dream_line_posts')
     .select('mission_score')
     .eq('id', post_id)
     .single();
 
-  if (existing) {
-    const currentMission = existing.mission_score ?? 50;
-    const blendedScore = Math.round(currentMission * 0.6 + engagementScore * 0.4);
-
+  if (dlPost) {
+    const blendedScore = Math.round((dlPost.mission_score ?? 50) * 0.6 + engagementScore * 0.4);
     await (admin as any)
       .from('dream_line_posts')
       .update({ mission_score: blendedScore })
       .eq('id', post_id);
+  } else {
+    // Studio post — update oowop_count is handled separately; just log the signal
   }
 
   // Log raw engagement signal for algorithm training

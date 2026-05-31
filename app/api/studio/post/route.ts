@@ -98,9 +98,11 @@ export async function POST(req: NextRequest) {
 
   // Award VLG for posting
   await admin.rpc('award_village_score', {
-    target_user_id: user.id,
-    points: is_workshop_content ? 20 : 10,
-    reason: `Posted ${post_label ?? 'content'}`,
+    p_user_id:      user.id,
+    p_points:       is_workshop_content ? 20 : 10,
+    p_vlg:          is_workshop_content ? 5 : 2,
+    p_reason:       `Posted ${post_label ?? 'content'}`,
+    p_reference_id: post.id,
   }).catch(() => {});
 
   // Notify tribe if tribe visibility
@@ -116,4 +118,22 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({ postId: post.id, success: true });
+}
+
+export async function DELETE(req: NextRequest) {
+  const supabase = createServerClient() as any;
+  const admin    = createAdminClient() as any;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { post_id } = await req.json();
+  if (!post_id) return NextResponse.json({ error: 'post_id required' }, { status: 400 });
+
+  // Verify ownership before deleting
+  const { data: post } = await admin.from('studio_posts').select('user_id').eq('id', post_id).single();
+  if (!post || post.user_id !== user.id) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  await admin.from('studio_posts').delete().eq('id', post_id);
+
+  return NextResponse.json({ success: true });
 }

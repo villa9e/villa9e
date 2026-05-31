@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   // Load goal + user profile in parallel
   const [goalRes, profileRes, skillsRes, plaidRes] = await Promise.allSettled([
     admin.from('goals').select('*').eq('id', goal_id).single(),
-    admin.from('profiles').select('username, display_name, archetype, weekly_hours_available').eq('id', user.id).single(),
+    admin.from('profiles').select('username, display_name, personality_type, weekly_hours_available').eq('id', user.id).single(),
     admin.from('user_skills').select('skill_name, rating').eq('user_id', user.id),
     admin.from('plaid_connections').select('id').eq('user_id', user.id).limit(1),
   ]);
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   const userProfile: UserGPSProfile = {
     id:           user.id,
     displayName:  profile?.display_name ?? profile?.username ?? 'Villager',
-    archetype:    profile?.archetype,
+    archetype:    profile?.personality_type,
     skills:       skills ?? [],
     weeklyAvailableHours: goal.weekly_hours_available ?? profile?.weekly_hours_available ?? 10,
     financialProfile: {

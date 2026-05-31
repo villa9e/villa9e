@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
   fetch(`${baseUrl}/api/studio/moderate`, {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ post_id: comment.id, text: content, user_id: user.id }),
+    body:    JSON.stringify({ post_id, text: content, user_id: user.id }),
   }).catch(() => {});
 
   return NextResponse.json({ commentId: comment.id, success: true });
