@@ -159,9 +159,10 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
         week_number:   step.week || Math.ceil((idx + 1) / 2),
         estimated_days: step.estimatedDays || 7,
         milestone_type: step.milestoneType || 'action',
-        status:        'pending',
-        youtube_videos: videos,
-        app_videos:     appVideos ?? [],
+        status:            'pending',
+        resource_category: step.resourceCategory || 'general',
+        youtube_videos:    videos,
+        app_videos:        appVideos ?? [],
       };
     })
   );

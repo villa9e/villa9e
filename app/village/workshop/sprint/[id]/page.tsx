@@ -25,8 +25,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
   useEffect(() => { load(); }, [params.id]);
 
   async function load() {
-    const all = await fetch('/api/sprints').then(r => r.json()).catch(() => []);
-    const found = Array.isArray(all) ? all.find((s: any) => s.id === params.id) : null;
+    const found = await fetch(`/api/sprints?sprint_id=${params.id}`).then(r => r.json()).catch(() => null);
     if (found) {
       setSprint(found);
       setActions(found.sprint_actions?.sort((a: any, b: any) => a.order_index - b.order_index) ?? []);

@@ -543,6 +543,8 @@ export default function DreamLinePage() {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id).gte('created_at', today.toISOString());
       setPostCount(count ?? 0);
+      const { data: favs } = await (supabase as any).from('post_favorites').select('post_id').eq('user_id', user.id);
+      if (favs) setFavorites(new Set(favs.map((f: any) => f.post_id)));
       loadDiscoverSteps(user.id);
     }
     // Load story users (recent posters in last 24h)

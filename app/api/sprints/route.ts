@@ -11,18 +11,21 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const goalId = req.nextUrl.searchParams.get('goal_id');
+  const goalId   = req.nextUrl.searchParams.get('goal_id');
+  const sprintId = req.nextUrl.searchParams.get('sprint_id');
   let query = supabase
     .from('sprints')
     .select('*, sprint_actions(*)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
-  if (goalId) query = query.eq('goal_id', goalId).eq('status', 'active').limit(1);
+  if (sprintId) query = query.eq('id', sprintId).limit(1);
+  else if (goalId) query = query.eq('goal_id', goalId).eq('status', 'active').limit(1);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(goalId ? (data?.[0] ?? null) : (data ?? []));
+  if (sprintId || goalId) return NextResponse.json(data?.[0] ?? null);
+  return NextResponse.json(data ?? []);
 }
 
 // POST /api/sprints — create a sprint

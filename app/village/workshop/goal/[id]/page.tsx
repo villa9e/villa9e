@@ -873,6 +873,31 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                           </p>
                         )}
 
+                        {/* Video Resources from GPS */}
+                        {(currentStep?.youtube_videos?.length > 0 || currentStep?.app_videos?.length > 0) && (
+                          <div className="mt-4 pt-4 border-t" style={{ borderColor: border }}>
+                            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: muted }}>Video Resources</p>
+                            <div className="space-y-2">
+                              {(currentStep.app_videos ?? []).map((v: any, i: number) => (
+                                <a key={`app-${i}`} href={v.video_url ?? '#'} target="_blank" rel="noreferrer"
+                                  className="flex items-center gap-3 p-2.5 rounded-2xl"
+                                  style={{ background: isNight ? '#1E2240' : '#F3F4F6', textDecoration: 'none' }}>
+                                  {v.thumbnail_url && <img src={v.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                                  <span className="text-xs font-semibold leading-snug" style={{ color: text }}>{v.title}</span>
+                                </a>
+                              ))}
+                              {(currentStep.youtube_videos ?? []).map((v: any, i: number) => (
+                                <a key={`yt-${i}`} href={`https://www.youtube.com/watch?v=${v.videoId ?? v.id}`} target="_blank" rel="noreferrer"
+                                  className="flex items-center gap-3 p-2.5 rounded-2xl"
+                                  style={{ background: isNight ? '#1E2240' : '#F3F4F6', textDecoration: 'none' }}>
+                                  {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
+                                  <span className="text-xs font-semibold leading-snug" style={{ color: text }}>{v.title}</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {/* Resources */}
                         {instructions?.resourcesNeeded?.length > 0 && (
                           <div className="mt-4 pt-4 border-t" style={{ borderColor: border }}>

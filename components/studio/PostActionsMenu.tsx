@@ -68,11 +68,12 @@ export function PostActionsMenu({ postId, isOwner, onClose, onDeleted }: PostAct
 
   async function handleDelete() {
     if (!confirm('Delete this post? This cannot be undone.')) return;
-    await fetch('/api/studio/post', {
+    const res = await fetch('/api/studio/post', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ post_id: postId }),
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!res?.ok) { alert('Failed to delete post. Please try again.'); return; }
     onDeleted?.();
     onClose();
   }
