@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { WeatherProvider, useWeatherAmbient } from '@/components/village/WeatherProvider';
 import { PushPermissionPrompt } from '@/components/village/PushPermissionPrompt';
 import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryModeOverlay';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
   loading: () => (
@@ -18,6 +19,15 @@ const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), 
         </motion.div>
         <p className="text-white/50 text-sm mt-3 font-medium animate-pulse">Entering the village…</p>
       </div>
+    </div>
+  ),
+});
+
+const VillageIllustration = dynamic(() => import('@/components/map/VillageIllustration'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex-1 flex items-center justify-center" style={{ background: '#FFF8EE' }}>
+      <p className="text-sm" style={{ color: '#8B6F47' }}>Loading village…</p>
     </div>
   ),
 });
@@ -75,6 +85,7 @@ function VillageMapPageInner() {
   const [showConfetti, setShowConfetti] = useState(false);
   const searchParams = useSearchParams();
   const supabase     = createClient();
+  const villageView  = useVillageTheme(s => s.villageView);
 
   useEffect(() => {
     const isWelcome = searchParams.get('welcome') === '1';
@@ -188,10 +199,10 @@ function VillageMapPageInner() {
         )}
       </AnimatePresence>
 
-      {/* 3D world — VillageWorld3D contains its own top bar + carousel nav */}
+      {/* Village view — controlled by member preference */}
       <div className="flex-1 relative" style={{ minHeight: 0 }}>
         <div className="absolute inset-0 overflow-hidden">
-          <VillageWorld3D />
+          {villageView === 'illustrated' ? <VillageIllustration /> : <VillageWorld3D />}
         </div>
       </div>
 
