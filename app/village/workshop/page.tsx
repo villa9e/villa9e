@@ -29,7 +29,6 @@ const HeartSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="
 const OoWopSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>;
 const ShareSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>;
 const PlaySvg     = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>;
-const PlusSvg     = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>;
 
 // ── Card components ───────────────────────────────────────────────────────────
 function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
@@ -450,16 +449,9 @@ export default function WorkshopPage() {
       </AnimatePresence>
 
       {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-30 px-5 pt-12 pb-3 flex items-center justify-between"
+      <div className="absolute top-0 left-0 right-0 z-30 px-5 pt-12 pb-3"
         style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }}>
         <span className="text-base font-black text-white">Workshop</span>
-        <div className="flex gap-3">
-          <Link href="/village/workshop/chat"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold text-white"
-            style={{ background: '#E8770A' }}>
-            <PlusSvg /> New Goal
-          </Link>
-        </div>
       </div>
 
       {/* Progress dots */}
