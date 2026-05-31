@@ -286,17 +286,30 @@ export default function GoalChatPage() {
         }),
       });
 
-      const data = await res.json();
       setTyping(false);
 
+      if (!res.ok) {
+        const status = res.status;
+        const fallback = status === 401
+          ? 'Reconnecting you to Spirit — please try again.'
+          : status >= 500
+          ? 'Spirit is thinking hard on this one. Give it a second and try again.'
+          : 'Something went wrong. Try sending that again.';
+        setMessages(prev => [...prev, { id: spiritId(), role: 'spirit', content: fallback, timestamp: new Date() }]);
+        return;
+      }
+
+      const data = await res.json();
+      const message = data.message ?? 'Spirit is here. Keep going.';
+
       const spiritMsg: ChatMessage = {
-        id: spiritId(), role: 'spirit', content: data.message, timestamp: new Date(),
+        id: spiritId(), role: 'spirit', content: message, timestamp: new Date(),
       };
       setMessages(prev => [...prev, spiritMsg]);
-      setPhase(data.phase as Phase);
+      if (data.phase) setPhase(data.phase as Phase);
 
       // Speak the response (first sentence only for length)
-      const firstSentence = data.message.split(/[.!?]/)[0];
+      const firstSentence = message.split(/[.!?]/)[0];
       if (firstSentence.length > 5) speak(firstSentence, 'casual');
 
       // GPS is ready — generate the full plan
@@ -305,13 +318,12 @@ export default function GoalChatPage() {
         setPhase('ready');
         generateGPS(data.gpsData, newMessages.map(m => m.content).join(' '));
       }
-    } catch {
+    } catch (err) {
       setTyping(false);
-      setMessages(prev => [...prev, {
-        id: spiritId(), role: 'spirit',
-        content: 'I lost connection for a second. Can you say that again?',
-        timestamp: new Date(),
-      }]);
+      const msg = err instanceof TypeError && String(err).includes('fetch')
+        ? 'No connection — check your internet and try again.'
+        : 'Spirit hit a snag. Send that again and we will keep going.';
+      setMessages(prev => [...prev, { id: spiritId(), role: 'spirit', content: msg, timestamp: new Date() }]);
     }
   }, [input, messages, typing, generating, gpsData]);
 

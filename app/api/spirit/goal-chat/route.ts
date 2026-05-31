@@ -94,12 +94,24 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
     return NextResponse.json({ message: 'What goal are we building today?', phase: 'discovery', gpsReady: false });
   }
 
-  const response = await claude.messages.create({
-    model:      CLAUDE_MODEL,
-    max_tokens: 600,
-    system:     systemPrompt,
-    messages:   apiMessages,
-  });
+  let response;
+  try {
+    response = await claude.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 600,
+      system:     systemPrompt,
+      messages:   apiMessages,
+    });
+  } catch (err: any) {
+    const isOverload = err?.status === 529 || err?.message?.includes('overload');
+    return NextResponse.json({
+      message: isOverload
+        ? 'Spirit is in high demand right now — try again in a moment.'
+        : 'Spirit ran into a snag. Try sending that again.',
+      phase: 'discovery',
+      gpsReady: false,
+    }, { status: 200 }); // 200 so client renders it as a Spirit message, not a fetch error
+  }
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '';
 
