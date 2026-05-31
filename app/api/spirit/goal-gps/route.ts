@@ -51,12 +51,14 @@ export async function POST(req: NextRequest) {
   };
 
   // ── 1. Generate detailed steps + sprints via Claude ───────────────────────
-  const planResponse = await claude.messages.create({
-    model:      CLAUDE_MODEL,
-    max_tokens: 2000,
-    messages: [{
-      role:    'user',
-      content: `Create a detailed goal action plan as JSON for this goal:
+  let plan: any = { steps: [], sprints: [], keyMilestones: [], tribeRequirements: [], mentorProfile: '', affiliateSearchTerms: [] };
+  try {
+    const planResponse = await claude.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 2000,
+      messages: [{
+        role:    'user',
+        content: `Create a detailed goal action plan as JSON for this goal:
 
 Title: ${gpsData.goalTitle}
 Category: ${gpsData.category}
@@ -95,14 +97,11 @@ Return ONLY valid JSON:
 }
 
 Generate 5-12 concrete steps. Be specific and actionable.`,
-    }],
-  });
-
-  let plan: any = { steps: [], sprints: [], keyMilestones: [], tribeRequirements: [], mentorProfile: '', affiliateSearchTerms: [] };
-  try {
+      }],
+    });
     const txt = planResponse.content[0].type === 'text' ? planResponse.content[0].text : '{}';
     plan = JSON.parse(txt.match(/\{[\s\S]+\}/)?.[0] ?? '{}');
-  } catch { /* use defaults */ }
+  } catch { /* use fallback empty plan */ }
 
   // ── 2. Save goal to database ──────────────────────────────────────────────
   const { data: goal, error: goalErr } = await supabase.from('goals').insert({

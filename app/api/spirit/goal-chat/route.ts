@@ -31,6 +31,14 @@ export async function POST(req: NextRequest) {
 
 You guide the conversation through these phases naturally — don't announce phases, just flow through them:
 
+COMPOUND GOAL DETECTION (handle this FIRST):
+If someone states a goal that contains multiple distinct outcomes (e.g., "build an app AND make it go viral", "lose weight AND start a business", "launch a podcast AND write a book"), you MUST address this immediately:
+1. Acknowledge the full ambition warmly — they're thinking big.
+2. Explain that each outcome deserves its own GPS so it gets done right.
+3. Ask which one they want to build FIRST — be specific about the options you heard.
+4. Focus the rest of the conversation on that single goal only.
+Example: "Love the vision — building the app AND making it blow up are both real goals. The GPS works best when we go one at a time so it's actually actionable. Which do you want to build first — the app itself, or the launch/growth strategy?"
+
 PHASE 1 — GOAL DISCOVERY
 Understand exactly what the goal is. Ask clarifying questions until you're crystal clear on:
 - What specifically they want to achieve
@@ -109,27 +117,40 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
   }
 
   let response;
-  try {
-    response = await claude.messages.create({
-      model:      CLAUDE_MODEL,
-      max_tokens: 600,
-      system:     systemPrompt,
-      messages:   apiMessages,
-    });
-  } catch (err: any) {
-    console.error('[Spirit goal-chat] Claude API error:', {
-      status:  err?.status,
-      message: err?.message,
-      type:    err?.error?.type,
-    });
-    const isOverload = err?.status === 529 || err?.message?.includes('overload');
-    const isAuth = err?.status === 401;
+  let lastErr: any;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      response = await claude.messages.create({
+        model:      CLAUDE_MODEL,
+        max_tokens: 600,
+        system:     systemPrompt,
+        messages:   apiMessages,
+      });
+      break;
+    } catch (err: any) {
+      lastErr = err;
+      const status = err?.status ?? 0;
+      // Don't retry on auth or content policy errors
+      if (status === 401 || status === 400) break;
+      // Brief pause before retry
+      if (attempt === 0) await new Promise(r => setTimeout(r, 800));
+    }
+  }
+
+  if (!response) {
+    const status  = lastErr?.status ?? 0;
+    const isOverload  = status === 529 || lastErr?.message?.includes('overload');
+    const isRateLimit = status === 429;
+    const isAuth      = status === 401;
+    console.error('[Spirit goal-chat] Claude API error:', { status, message: lastErr?.message, type: lastErr?.error?.type });
     return NextResponse.json({
       message: isOverload
         ? 'Spirit is in high demand right now — try again in a moment.'
+        : isRateLimit
+        ? 'Spirit is getting a lot of love right now. Give it 10 seconds and try again.'
         : isAuth
-        ? 'Spirit needs to reconnect. Give it a second and try again.'
-        : 'Spirit ran into a snag. Try sending that again.',
+        ? 'Spirit needs to reconnect. Refresh the page and try again.'
+        : 'Spirit had a moment. Send that again and we will keep going.',
       phase: 'discovery',
       gpsReady: false,
     }, { status: 200 });
