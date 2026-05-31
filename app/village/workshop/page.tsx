@@ -8,7 +8,7 @@ import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 
 // ── Card types ────────────────────────────────────────────────────────────────
-type CardType = 'template' | 'video' | 'sprint' | 'achievement' | 'goal';
+type CardType = 'template' | 'video' | 'sprint' | 'achievement' | 'goal' | 'guide';
 
 interface FeedCard {
   id:       string;
@@ -187,6 +187,54 @@ function AuthorBar({ card }: { card: FeedCard }) {
   );
 }
 
+// ── Guide card — shown when user has no goals ─────────────────────────────────
+function GuideCard() {
+  const STEPS = [
+    { n: 1, icon: '🌀', title: 'Open Spirit', desc: 'Tap "New Goal" above. Spirit will ask you questions to understand your goal.' },
+    { n: 2, icon: '🗺️', title: 'Build Your GPS', desc: 'Spirit creates your full GPS plan — sprint by sprint, action by action.' },
+    { n: 3, icon: '🔍', title: 'Assess & Activate', desc: 'Spirit scores your probability of success and activates your sprint schedule.' },
+    { n: 4, icon: '📈', title: 'Execute Daily', desc: 'Open Instructions each day for step-by-step guidance on your current action.' },
+    { n: 5, icon: '✊', title: 'Get OoWops', desc: 'Share progress to the Dreamline. Your village validates your wins with OoWops.' },
+  ];
+
+  return (
+    <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, #06080E 60%)' }}>
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 40%)' }} />
+
+      <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28 pt-20">
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block" style={{ background: 'rgba(124,58,237,0.25)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.5)' }}>
+          🚀 Getting Started
+        </span>
+        <h2 className="text-2xl font-black text-white leading-tight mb-1">How to use the Workshop</h2>
+        <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          It takes a village — but it starts with your Goal GPS.
+        </p>
+
+        <div className="space-y-3">
+          {STEPS.map(s => (
+            <div key={s.n} className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
+                style={{ background: 'rgba(124,58,237,0.35)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.5)' }}>
+                {s.n}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">{s.icon} {s.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <Link href="/village/workshop/chat"
+          className="mt-6 block w-full py-4 rounded-2xl text-sm font-black text-white text-center"
+          style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '0 4px 20px rgba(124,58,237,0.5)' }}>
+          Create My First Goal GPS →
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Workshop Page ─────────────────────────────────────────────────────────
 export default function WorkshopPage() {
   const router   = useRouter();
@@ -293,13 +341,16 @@ export default function WorkshopPage() {
       });
     });
 
-    // Shuffle: interleave goal + templates + videos
-    const shuffled = feed.length > 0 ? feed : [{
-      id: 'empty', type: 'template' as CardType, title: 'Start Your First Goal',
-      subtitle: 'Talk to Spirit and build your GPS',
-      content: '', author: { username: 'Spirit' },
-      color: '#7C3AED', accent: '#7C3AED', data: { steps: [] }, oowops: 0,
-    }];
+    // If no goals, prepend the guide card so it shows first
+    const guideCard: FeedCard = {
+      id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
+      subtitle: 'Start with your Goal GPS', content: '',
+      author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
+    };
+
+    const shuffled: FeedCard[] = !hasGoals
+      ? [guideCard, ...feed]
+      : feed.length > 0 ? feed : [guideCard];
 
     setCards(shuffled);
     if (shuffled[0]) speak(shuffled[0].title, 'casual');
@@ -367,10 +418,11 @@ export default function WorkshopPage() {
           {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
           {card?.type === 'goal'        && <GoalCard card={card} />}
           {card?.type === 'achievement' && <GoalCard card={card} />}
+          {card?.type === 'guide'       && <GuideCard />}
 
           {/* Author + actions */}
-          {card && <AuthorBar card={card} />}
-          {card && card.type !== 'goal' && (
+          {card && card.type !== 'guide' && <AuthorBar card={card} />}
+          {card && card.type !== 'goal' && card.type !== 'guide' && (
             <SideActions card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)} />
           )}
         </motion.div>

@@ -383,6 +383,14 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     setVideoOoWops(prev => ({ ...prev, [vid.id]: (prev[vid.id] ?? 0) + 1 }));
     setShowOoWopAnim(true);
     setTimeout(() => setShowOoWopAnim(false), 900);
+    // Call studio OoWop API for studio posts (not YouTube)
+    if (vid.source !== 'youtube') {
+      fetch('/api/studio/oowop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: vid.id }),
+      }).catch(() => {});
+    }
   }
 
   function toggleFavorite() {
@@ -393,6 +401,14 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
       if (next.has(vid.id)) next.delete(vid.id); else next.add(vid.id);
       return next;
     });
+    // Call studio favorite API for studio posts
+    if (vid.source !== 'youtube') {
+      fetch('/api/studio/favorite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: vid.id }),
+      }).catch(() => {});
+    }
   }
 
   function handleShareVideo() {
@@ -933,14 +949,92 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                   </AnimatePresence>
                 </motion.div>
               ) : (
-                <div className="mx-4 mt-8 text-center">
+                <div className="mx-4 mt-6 pb-24">
                   {isComplete ? (
-                    <div className="rounded-3xl p-8" style={{ background: 'linear-gradient(135deg,#FFF7ED,#FEF3C7)', border: '1px solid #FDE68A' }}>
+                    <div className="rounded-3xl p-8 text-center" style={{ background: 'linear-gradient(135deg,#FFF7ED,#FEF3C7)', border: '1px solid #FDE68A' }}>
                       <p className="text-5xl mb-3">🏆</p>
                       <p className="font-black text-xl text-amber-700">Goal Complete!</p>
                     </div>
                   ) : (
-                    <p style={{ color: muted }}>No actions yet — activate your GPS sprints.</p>
+                    /* GPS Activation Guide — shown when no sprint steps exist yet */
+                    <div className="space-y-4">
+                      <div className="rounded-2xl p-4" style={{ background: isNight ? 'rgba(24,119,242,0.08)' : '#EEF2FF', border: `1px solid ${isNight ? 'rgba(24,119,242,0.2)' : '#C7D2FE'}` }}>
+                        <p className="font-black text-sm mb-1" style={{ color: accent }}>Your GPS isn't active yet</p>
+                        <p className="text-xs" style={{ color: muted }}>Follow these steps to unlock your full action plan.</p>
+                      </div>
+
+                      {[
+                        {
+                          step: 1,
+                          icon: '🌀',
+                          title: 'Talk to Spirit',
+                          desc: 'Open the Spirit tab and share your goal context — what you have, what you need, and what\'s holding you back.',
+                          action: () => setActiveTab('spirit'),
+                          actionLabel: 'Open Spirit',
+                          done: gpsStage !== 'intake' || spiritMessages.length > 0,
+                        },
+                        {
+                          step: 2,
+                          icon: '🔍',
+                          title: 'Assess Your Circumstances',
+                          desc: 'Spirit will analyze your gaps, resources, and probability of success. Tap ▼ on your goal title, then "Assess Goal Circumstances".',
+                          action: assessGoal,
+                          actionLabel: assessing ? 'Assessing…' : 'Run Assessment',
+                          done: gpsStage !== 'intake',
+                          hidden: gpsStage === 'active',
+                        },
+                        {
+                          step: 3,
+                          icon: '⚡',
+                          title: 'Activate GPS Sprints',
+                          desc: 'Once assessed, activate your sprints to get a week-by-week action plan with instructions for every step.',
+                          action: activateSprints,
+                          actionLabel: activating ? 'Activating…' : 'Activate Sprints',
+                          done: gpsStage === 'active',
+                          disabled: gpsStage !== 'ready',
+                        },
+                      ].map(item => !item.hidden && (
+                        <div key={item.step} className="rounded-2xl overflow-hidden"
+                          style={{ background: cardBg, border: `1px solid ${item.done ? '#22C55E40' : border}` }}>
+                          <div className="px-4 py-4 flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0"
+                              style={{ background: item.done ? '#22C55E' : `${accent}18`, color: item.done ? '#fff' : accent }}>
+                              {item.done ? '✓' : item.step}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-black text-sm mb-0.5" style={{ color: text }}>{item.icon} {item.title}</p>
+                              <p className="text-xs leading-relaxed" style={{ color: muted }}>{item.desc}</p>
+                              {!item.done && isOwner && (
+                                <button
+                                  onClick={item.action}
+                                  disabled={item.disabled || assessing || activating}
+                                  className="mt-3 px-4 py-2 rounded-xl text-xs font-black text-white disabled:opacity-40"
+                                  style={{ background: `linear-gradient(135deg,${accent},#7C3AED)`, border: 'none', cursor: 'pointer' }}>
+                                  {item.actionLabel}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                      {/* GPS probability preview if assessed */}
+                      {probScore > 0 && gpsStage !== 'intake' && (
+                        <div className="rounded-2xl px-4 py-3 flex items-center justify-between"
+                          style={{ background: cardBg, border: `1px solid ${border}` }}>
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: muted }}>GPS Probability</p>
+                            <p className="font-black text-2xl" style={{ color: probScore >= 80 ? '#10B981' : probScore >= 60 ? '#F59E0B' : '#EF4444' }}>
+                              {probScore}%
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: muted }}>Stage</p>
+                            <p className="font-bold text-sm capitalize" style={{ color: accent }}>{gpsStage}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               )}

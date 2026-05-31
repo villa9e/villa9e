@@ -1,4 +1,4 @@
-// Studio — create, read, delete post comments
+// Studio — create, read, delete studio post comments (stored in studio_comments)
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
@@ -19,24 +19,14 @@ export async function GET(req: NextRequest) {
 
   const admin = createAdminClient() as any;
   let query = admin
-    .from('post_comments')
-    .select(`
-      id, content, created_at, parent_id, oowop_count,
-      user:user_id (
-        id,
-        username:username,
-        display_name,
-        avatar_url
-      )
-    `)
+    .from('studio_comments')
+    .select('id, content, created_at, parent_id, oowop_count, user_id, profiles(username, display_name, avatar_url)')
     .eq('post_id', post_id)
     .is('parent_id', null)
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (cursor) {
-    query = query.lt('created_at', cursor);
-  }
+  if (cursor) query = query.lt('created_at', cursor);
 
   const { data: comments, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -58,7 +48,7 @@ export async function POST(req: NextRequest) {
   const { post_id, content, parent_id } = await req.json();
   if (!post_id || !content?.trim()) return NextResponse.json({ error: 'post_id and content required' }, { status: 400 });
 
-  const { data: comment, error } = await admin.from('post_comments').insert({
+  const { data: comment, error } = await admin.from('studio_comments').insert({
     post_id,
     user_id:   user.id,
     content:   content.trim().slice(0, 1000),
@@ -84,7 +74,7 @@ export async function POST(req: NextRequest) {
     }).catch(() => {});
   }
 
-  // Run moderation async
+  // Run moderation async (non-blocking)
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://villa9e.app';
   fetch(`${baseUrl}/api/studio/moderate`, {
     method:  'POST',
@@ -105,13 +95,11 @@ export async function DELETE(req: NextRequest) {
   const { comment_id } = await req.json();
   if (!comment_id) return NextResponse.json({ error: 'comment_id required' }, { status: 400 });
 
-  // Only allow deleting own comments
-  const { data: comment } = await admin.from('post_comments').select('post_id').eq('id', comment_id).eq('user_id', user.id).single();
+  const { data: comment } = await admin.from('studio_comments').select('post_id').eq('id', comment_id).eq('user_id', user.id).single();
   if (!comment) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await admin.from('post_comments').delete().eq('id', comment_id);
+  await admin.from('studio_comments').delete().eq('id', comment_id);
 
-  // Decrement comment count
   const { data: post } = await admin.from('studio_posts').select('comment_count').eq('id', comment.post_id).single();
   await admin.from('studio_posts').update({ comment_count: Math.max(0, (post?.comment_count ?? 1) - 1) }).eq('id', comment.post_id);
 

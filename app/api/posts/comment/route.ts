@@ -30,8 +30,9 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: 'Failed to post comment' }, { status: 500 });
 
   // Increment comment count on post
+  const { data: currentPost } = await admin.from('dream_line_posts').select('comment_count').eq('id', post_id).single();
   await admin.from('dream_line_posts').update({
-    comment_count: admin.rpc('comment_count_increment' as any),
+    comment_count: (currentPost?.comment_count ?? 0) + 1,
   }).eq('id', post_id);
 
   // Award VLG for high quality comments

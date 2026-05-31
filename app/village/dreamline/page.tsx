@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
+import { PostActionsMenu } from '@/components/studio/PostActionsMenu';
 import { awardScore } from '@/lib/village/score';
-import { useVillageTheme, useThemeTokens } from '@/lib/theme/useVillageTheme';
+import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
 
 const PAGE_SIZE = 20;
@@ -70,10 +71,12 @@ function StoryRing({ username, tier, hasNew, onClick }: {
 
 // ── Post card ─────────────────────────────────────────────────────────────────
 function PostCard({
-  post, isNight, currentUserId, givenOoWops, onOoWop,
+  post, isNight, currentUserId, givenOoWops, onOoWop, onOpenActions, favorites, onToggleFavorite,
 }: {
   post: any; isNight: boolean; currentUserId: string | null;
   givenOoWops: Set<string>; onOoWop: (post: any) => void;
+  onOpenActions: (post: any) => void;
+  favorites: Set<string>; onToggleFavorite: (post: any) => void;
 }) {
   const [showReactions, setShowReactions] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
@@ -129,7 +132,8 @@ function PostCard({
           </span>
         </div>
         {/* More */}
-        <button style={{ background: 'none', border: 'none', color: muted, fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>···</button>
+        <button onClick={() => onOpenActions(post)}
+          style={{ background: 'none', border: 'none', color: muted, fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>···</button>
       </div>
 
       {/* Text content */}
@@ -302,6 +306,15 @@ function PostCard({
           <span>{post.comment_count || 0}</span>
         </Link>
 
+        {/* Favorite */}
+        <button
+          onClick={() => onToggleFavorite(post)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '6px 8px', borderRadius: 20, display: 'flex', alignItems: 'center', gap: 5, color: favorites.has(post.id) ? '#F59E0B' : muted }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill={favorites.has(post.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+          </svg>
+        </button>
+
         {/* Share */}
         <button style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', padding: '6px 8px', borderRadius: 20, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -451,6 +464,8 @@ export default function DreamLinePage() {
   const [storyUsers, setStoryUsers]   = useState<any[]>([]);
   const [discoverSteps, setDiscoverSteps] = useState<any[]>([]);
   const [givenDiscoverOoWops, setGivenDiscoverOoWops] = useState<Set<string>>(new Set());
+  const [actionsPost, setActionsPost] = useState<any | null>(null);
+  const [favorites, setFavorites]     = useState<Set<string>>(new Set());
   const bottomRef    = useRef<HTMLDivElement>(null);
   const motionRef    = useRef({ events: 0 });
   const viewTimers   = useRef<Record<string, { start: number; sent: boolean }>>({});
@@ -617,6 +632,18 @@ export default function DreamLinePage() {
     }
   }
 
+  async function handleToggleFavorite(post: any) {
+    const isStudio = !!post._source;
+    if (!isStudio) return; // only studio posts have favorites API
+    const isFav = favorites.has(post.id);
+    setFavorites(prev => { const n = new Set(prev); isFav ? n.delete(post.id) : n.add(post.id); return n; });
+    await fetch('/api/studio/favorite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: post.id }),
+    }).catch(() => {});
+  }
+
   async function giveDiscoverOoWop(step: any) {
     if (!currentUserId || givenDiscoverOoWops.has(step.id)) return;
     setGivenDiscoverOoWops(prev => new Set([...prev, step.id]));
@@ -629,6 +656,22 @@ export default function DreamLinePage() {
     <div style={{ minHeight: '100vh', background: pageBg }}>
       <AnimatePresence>
         {celebration && <OoWopValidationCelebration onDismiss={() => setCelebration(null)} />}
+      </AnimatePresence>
+
+      {/* Post actions sheet */}
+      <AnimatePresence>
+        {actionsPost && (
+          <PostActionsMenu
+            key={actionsPost.id}
+            postId={actionsPost.id}
+            isOwner={actionsPost.user_id === currentUserId}
+            onClose={() => setActionsPost(null)}
+            onDeleted={() => {
+              setPosts(prev => prev.filter(p => p.id !== actionsPost.id));
+              setActionsPost(null);
+            }}
+          />
+        )}
       </AnimatePresence>
 
       {/* ── Stories row ─────────────────────────────────────────────── */}
@@ -736,6 +779,9 @@ export default function DreamLinePage() {
               currentUserId={currentUserId}
               givenOoWops={givenOoWops}
               onOoWop={handleOoWop}
+              onOpenActions={setActionsPost}
+              favorites={favorites}
+              onToggleFavorite={handleToggleFavorite}
             />
           </div>
         ))}
