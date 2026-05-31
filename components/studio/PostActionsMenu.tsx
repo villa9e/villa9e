@@ -159,7 +159,7 @@ export function PostActionsMenu({ postId, isOwner, onClose, onDeleted }: PostAct
 
           {actions.map(a => (
             <ActionRow key={a.label} icon={a.icon} label={a.label} onClick={a.action}
-              danger={'danger' in a && a.danger} />
+              danger={('danger' in a ? Boolean(a.danger) : false)} />
           ))}
 
           {/* Cancel */}
