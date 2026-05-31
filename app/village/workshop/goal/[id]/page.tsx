@@ -321,9 +321,13 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         body: JSON.stringify({ goal_id: params.id }),
       });
       const data = await res.json();
-      if (data.activated) {
+      if (data.blocked) {
+        alert(`GPS activation requires 95% probability. You're at ${probScore}%. Complete the Assess step and talk to Spirit to improve your score.`);
+      } else if (data.activated) {
         setGoal((g: any) => g ? { ...g, gps_stage: 'active', estimated_weeks: data.totalWeeks } : g);
         loadGoal();
+      } else if (data.error) {
+        alert(`Activation failed: ${data.error}`);
       }
     } catch { /* silent */ }
     setActivating(false);

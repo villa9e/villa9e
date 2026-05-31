@@ -108,11 +108,11 @@ export default function GoalDNAPage() {
 
     if (goal && template.steps_preview) {
       const steps = (template.steps_preview || template.steps || []).map((s: string, i: number) => ({
-        goal_id: goal.id,
-        user_id: user.id,
-        title: s,
-        order_index: i,
-        status: 'pending',
+        goal_id:     goal.id,
+        user_id:     user.id,
+        title:       s,
+        step_number: i + 1,
+        status:      'pending',
       }));
       if (steps.length) await supabase.from('goal_steps').insert(steps);
     }

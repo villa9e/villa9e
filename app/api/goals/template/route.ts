@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   // Load the goal and its steps
   const [{ data: goal }, { data: steps }, { data: sprints }] = await Promise.all([
     supabase.from('goals').select('title, description, category, estimated_weeks, ai_analysis').eq('id', goalId).eq('user_id', user.id).single(),
-    supabase.from('goal_steps').select('title, description, order_index, week_number, estimated_days, milestone_type').eq('goal_id', goalId).order('order_index'),
+    supabase.from('goal_steps').select('title, description, step_number, week_number, estimated_days, milestone_type').eq('goal_id', goalId).order('step_number'),
     supabase.from('sprints').select('title, focus_intention, week_start, week_end, spirit_note').eq('goal_id', goalId),
   ]);
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     steps:           (steps ?? []).map((s: any) => ({
       title:          s.title,
       description:    s.description,
-      order_index:    s.order_index,
+      step_number:    s.step_number,
       week_number:    s.week_number,
       estimated_days: s.estimated_days,
       milestone_type: s.milestone_type,
