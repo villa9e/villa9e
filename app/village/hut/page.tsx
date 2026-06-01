@@ -20,31 +20,37 @@ function IconBtn({ children, onPress }: { children: React.ReactNode; onPress?: (
   );
 }
 
-function CountPill({ icon, count, label, color, onTap }: { icon: string; count: number; label: string; color: string; onTap?: () => void }) {
+function CountPill({ icon, count, label, color, onTap }: { icon: React.ReactNode; count: number; label: string; color: string; onTap?: () => void }) {
   return (
-    <button onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-      <span style={{ fontSize: 12 }}>{icon}</span>
+    <button onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
+      <span style={{ color, display: 'flex', alignItems: 'center' }}>{icon}</span>
       <span style={{ fontSize: 12, fontWeight: 800, color }}>{fmt(count)}</span>
       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{label}</span>
     </button>
   );
 }
 
-function Stat({ n, label }: { n: number; label: string }) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+function Stat({ n, label, href }: { n: number; label: string; href?: string }) {
+  const content = (
+    <>
       <span style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>{fmt(n)}</span>
       <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)' }}>{label}</span>
-    </div>
+    </>
   );
+  if (href) return (
+    <Link href={href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, textDecoration: 'none' }}>
+      {content}
+    </Link>
+  );
+  return <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>{content}</div>;
 }
 
 function MoreMenu({ onClose }: { onClose: () => void }) {
   const items = [
-    { icon: '🔗', label: 'Share Profile' },
-    { icon: '📱', label: 'Scan QR Code' },
-    { icon: '🚫', label: 'Block' },
-    { icon: '🚩', label: 'Report' },
+    { icon: <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>, label: 'Share Profile' },
+    { icon: <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M7 7h3v3H7zm0 7h3v3H7zm7-7h3v3h-3z"/></svg>, label: 'Scan QR Code' },
+    { icon: <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>, label: 'Block' },
+    { icon: <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>, label: 'Report' },
   ];
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -52,11 +58,11 @@ function MoreMenu({ onClose }: { onClose: () => void }) {
       onClick={onClose}>
       <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
         onClick={e => e.stopPropagation()}
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#12152A', borderRadius: '24px 24px 0 0', padding: '12px 0 40px' }}>
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#1F2937', borderRadius: '24px 24px 0 0', padding: '12px 0 40px' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
         {items.map(it => (
-          <button key={it.label} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: '14px 24px', fontSize: 15, color: '#fff', fontWeight: 600, background: 'transparent', border: 'none' }}>
-            <span style={{ fontSize: 20 }}>{it.icon}</span> {it.label}
+          <button key={it.label} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: '14px 24px', fontSize: 15, color: '#fff', fontWeight: 600, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+            {it.icon} {it.label}
           </button>
         ))}
       </motion.div>
@@ -86,7 +92,7 @@ function AddHighlightModal({ userId, onClose, onSaved }: { userId: string; onClo
       onClick={onClose}>
       <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }}
         onClick={e => e.stopPropagation()}
-        style={{ width: '100%', background: '#12152A', borderRadius: '24px 24px 0 0', padding: '20px 20px 40px' }}>
+        style={{ width: '100%', background: '#1F2937', borderRadius: '24px 24px 0 0', padding: '20px 20px 40px' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
         <p style={{ color: '#fff', fontSize: 16, fontWeight: 900, marginBottom: 16 }}>New Highlight</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -150,10 +156,21 @@ export default function HutPage() {
   const [showMore, setShowMore] = useState(false);
   const [showAddHighlight, setShowAddHighlight] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [pillModal, setPillModal] = useState<{ type: string; url?: string } | null>(null);
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => { loadAll(); }, []);
+
+  // Desktop keyboard navigation
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'ArrowLeft') router.push('/village/hospital');
+      if (e.key === 'ArrowRight') router.push('/village/spaces');
+    }
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
 
   async function loadAll() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -241,11 +258,11 @@ export default function HutPage() {
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-      style={{ background: '#0A0B12', minHeight: '100vh', color: '#fff', overflowX: 'hidden', paddingBottom: 40 }}>
-      <BackButton />
+      style={{ background: '#111827', minHeight: '100vh', color: '#fff', overflowX: 'hidden', paddingBottom: 40 }}>
+      <BackButton to="/village/workshop" />
 
       {/* ── Header ───────────────────────────────────────────── */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '12px 12px 12px 56px', background: 'rgba(10,11,18,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '12px 12px 12px 56px', background: 'rgba(17,24,39,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.01em' }}>@{profile?.username ?? '…'}</p>
         </div>
@@ -279,7 +296,7 @@ export default function HutPage() {
       <div style={{ padding: '20px 16px 12px', display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{ flexShrink: 0 }}>
           <div style={{ width: 88, height: 88, borderRadius: 44, padding: 3, background: 'linear-gradient(135deg,#22C55E,#16A34A)', position: 'relative' }}>
-            <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid #0A0B12', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid #111827', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
                 src={profile?.avatar_url || '/default-avatar.png'}
                 alt=""
@@ -287,7 +304,7 @@ export default function HutPage() {
               />
             </div>
             {profile?.is_verified && (
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid #0A0B12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid #111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
             )}
@@ -297,8 +314,8 @@ export default function HutPage() {
           </Link>
         </div>
         <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around' }}>
-          <Stat n={stats.following} label="Following" />
-          <Stat n={stats.tribe} label="Tribe" />
+          <Stat n={stats.following} label="Following" href="/village/discover" />
+          <Stat n={stats.tribe} label="Tribe" href="/village/tribes" />
           <Stat n={stats.oowops} label="OoWops" />
         </div>
       </div>
@@ -310,25 +327,44 @@ export default function HutPage() {
           {profile?.pronouns && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{profile.pronouns}</span>}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-          <CountPill icon="✅" count={stats.verifications} label="Verified" color="#60A5FA" />
-          <CountPill icon="🏆" count={stats.successes} label="Successes" color="#34D399" />
-          <CountPill icon="⭐" count={stats.testimonials} label="Testimonials" color="#FBBF24" onTap={() => router.push('/village/hut/testimonials')} />
-          <CountPill icon="🤝" count={stats.deals} label="Deals" color="#C084FC" onTap={() => router.push('/village/trading-post')} />
+          <CountPill
+            icon={<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+            count={stats.verifications} label="Verified" color="#60A5FA"
+            onTap={() => setPillModal({ type: 'verified' })}
+          />
+          <CountPill
+            icon={<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>}
+            count={stats.successes} label="Successes" color="#34D399"
+            onTap={() => setPillModal({ type: 'successes' })}
+          />
+          <CountPill
+            icon={<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>}
+            count={stats.testimonials} label="Testimonials" color="#FBBF24"
+            onTap={() => setPillModal({ type: 'testimonials', url: '/village/hut/testimonials' })}
+          />
+          <CountPill
+            icon={<svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>}
+            count={stats.deals} label="Deals" color="#C084FC"
+            onTap={() => setPillModal({ type: 'deals', url: '/village/trading-post' })}
+          />
         </div>
         {profile?.bio && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, marginBottom: 8 }}>{profile.bio}</p>}
         {hasStore ? (
           <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#C084FC', marginBottom: 4, fontWeight: 700, textDecoration: 'none' }}>
-            🏪 Trading Post
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            Trading Post
           </Link>
         ) : (
           <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.28)', marginBottom: 4, textDecoration: 'none' }}>
-            🏪 Set up your storefront
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            Set up your storefront
           </Link>
         )}
         {profile?.link_in_bio && (
           <a href={profile.link_in_bio} target="_blank" rel="noopener noreferrer"
             style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#60A5FA', fontWeight: 700, textDecoration: 'none' }}>
-            🔗 <span style={{ textDecoration: 'underline' }}>{(profile.link_in_bio as string).replace(/^https?:\/\//, '')}</span>
+            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            <span style={{ textDecoration: 'underline' }}>{(profile.link_in_bio as string).replace(/^https?:\/\//, '')}</span>
           </a>
         )}
       </div>
@@ -390,7 +426,7 @@ export default function HutPage() {
           {/* Drafts folder — grid tab only */}
           {tab === 'grid' && (
             <Link href="/village/studio" style={{ aspectRatio: '9/16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.1)', textDecoration: 'none' }}>
-              <span style={{ fontSize: 24 }}>📁</span>
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
               <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.4)' }}>Drafts</span>
             </Link>
           )}
@@ -414,7 +450,19 @@ export default function HutPage() {
         </div>
       )}
 
-      {/* Swipe hints */}
+      {/* Desktop navigation arrows */}
+      <button onClick={() => router.push('/village/hospital')}
+        className="hidden sm:flex"
+        style={{ position: 'fixed', left: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <button onClick={() => router.push('/village/spaces')}
+        className="hidden sm:flex"
+        style={{ position: 'fixed', right: 16, top: '50%', transform: 'translateY(-50%)', zIndex: 10, width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', backdropFilter: 'blur(8px)' }}>
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+
+      {/* Swipe hints (mobile only) */}
       <div style={{ position: 'fixed', bottom: 110, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none', zIndex: 10 }}>
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontWeight: 700 }}>← Wellness</span>
         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontWeight: 700 }}>Spaces →</span>
@@ -428,6 +476,43 @@ export default function HutPage() {
             onClose={() => setShowAddHighlight(false)}
             onSaved={loadAll}
           />
+        )}
+        {pillModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.75)', display: 'flex', flexDirection: 'column' }}
+            onClick={() => setPillModal(null)}>
+            <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
+              onClick={e => e.stopPropagation()}
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 80, background: '#1F2937', borderRadius: '24px 24px 0 0', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                <p style={{ fontWeight: 900, fontSize: 16, color: '#fff' }}>
+                  {pillModal.type === 'verified' ? 'Verifications' : pillModal.type === 'successes' ? 'Successes' : pillModal.type === 'testimonials' ? 'Testimonials' : 'Deals'}
+                </p>
+                <button onClick={() => setPillModal(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+              </div>
+              {pillModal.url ? (
+                <iframe src={pillModal.url} style={{ flex: 1, border: 'none', width: '100%' }} />
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center' }}>
+                  {pillModal.type === 'verified' && (
+                    <>
+                      <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="#60A5FA" strokeWidth="1.5" strokeLinecap="round" style={{ marginBottom: 16 }}><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      <p style={{ color: '#fff', fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Village Verification</p>
+                      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>Complete goals, earn OoWops from the village, and top performers receive verification badges. Keep building.</p>
+                    </>
+                  )}
+                  {pillModal.type === 'successes' && (
+                    <>
+                      <svg width={48} height={48} viewBox="0 0 24 24" fill="none" stroke="#34D399" strokeWidth="1.5" strokeLinecap="round" style={{ marginBottom: 16 }}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      <p style={{ color: '#fff', fontWeight: 800, fontSize: 18, marginBottom: 8 }}>Your Successes</p>
+                      <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>Every completed goal step is a Success. Start a goal, follow the GPS, and complete actions to earn them.</p>
+                      <Link href="/village/workshop" onClick={() => setPillModal(null)} style={{ padding: '12px 28px', borderRadius: 24, background: '#1877F2', color: '#fff', fontWeight: 800, textDecoration: 'none', fontSize: 14 }}>Go to Workshop</Link>
+                    </>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

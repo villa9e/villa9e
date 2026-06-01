@@ -34,7 +34,7 @@ const PlaySvg     = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="
 function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
   const steps = card.data?.steps ?? [];
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, #06080E 60%)` }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, #111827 60%)` }}>
       {/* Gradient overlay */}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)' }} />
 
@@ -80,7 +80,7 @@ function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => 
   const thumb = card.media?.thumbnail || `https://img.youtube.com/vi/${card.media?.videoId}/maxresdefault.jpg`;
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: '#000' }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: '#111827' }}>
       {/* Video / thumbnail */}
       <div className="flex-1 relative">
         {playing && card.media?.videoId ? (
@@ -120,7 +120,7 @@ function GoalCard({ card }: { card: FeedCard }) {
   const progress = card.data?.progress ?? 0;
   const probability = card.data?.probability ?? 0;
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, #06080E 70%)` }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, #111827 70%)` }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
 
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
@@ -197,7 +197,7 @@ function GuideCard() {
   ];
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, #06080E 60%)' }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, #111827 60%)' }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 40%)' }} />
 
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28 pt-20">
@@ -251,6 +251,9 @@ export default function WorkshopPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY  = useRef(0);
   const touchStartX  = useRef(0);
+  const mouseStartY  = useRef(0);
+  const mouseStartX  = useRef(0);
+  const isDragging   = useRef(false);
   const hasGoals     = activeGoals.length > 0;
 
   useEffect(() => { loadFeed(); }, []);
@@ -277,7 +280,7 @@ export default function WorkshopPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const [templatesRes, goalsRes, videosRes] = await Promise.all([
+      const [templatesRes, goalsRes, videosRes, ytRes] = await Promise.all([
         (supabase as any).from('goal_templates')
           .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
           .eq('is_public', true).order('clone_count', { ascending: false }).limit(10)
@@ -292,6 +295,11 @@ export default function WorkshopPage() {
           .select('id, title, description, category, video_url, thumbnail_url, profiles!creator_id(username)')
           .eq('is_published', true).order('watch_count', { ascending: false }).limit(10)
           .then((r: any) => r).catch(() => ({ data: [] })),
+        fetch('/api/gps/action-content', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
       ]);
 
       const templates: any[] = templatesRes.data ?? [];
@@ -339,6 +347,19 @@ export default function WorkshopPage() {
           author: { username: v.profiles?.username ?? 'creator' },
           media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
           color: '#FF6B2B', accent: '#FF6B2B',
+        });
+      });
+
+      // YouTube videos from action-content API
+      const ytVideos: any[] = ytRes?.feed ?? [];
+      ytVideos.slice(0, 6).forEach((v: any) => {
+        if (!v.id) return;
+        feed.push({
+          id: `yt-${v.id}`, type: 'video' as CardType, title: v.title,
+          subtitle: v.channel ?? 'YouTube', content: '',
+          author: { username: v.channel ?? 'YouTube' },
+          media: { videoId: v.id, thumbnail: v.thumbnail },
+          color: '#FF0000', accent: '#FF6B2B',
         });
       });
 
@@ -398,6 +419,34 @@ export default function WorkshopPage() {
     if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
   }
 
+  function onMouseDown(e: React.MouseEvent) {
+    mouseStartY.current = e.clientY;
+    mouseStartX.current = e.clientX;
+    isDragging.current = true;
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (isDragging.current) e.preventDefault();
+  }
+  function onMouseUp(e: React.MouseEvent) {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    const dy = mouseStartY.current - e.clientY;
+    const dx = e.clientX - mouseStartX.current;
+    if (dx > 80 && Math.abs(dy) < 60) { router.push('/village/workshop/chat'); return; }
+    if (Math.abs(dy) > 60) {
+      if (dy > 0 && current < cards.length - 1) {
+        const next = current + 1;
+        setCurrent(next);
+        if (cards[next]) speak(cards[next].title, 'casual');
+      }
+      if (dy < 0 && current > 0) {
+        const prev = current - 1;
+        setCurrent(prev);
+        if (cards[prev]) speak(cards[prev].title, 'casual');
+      }
+    }
+  }
+
   async function handleOoWop(cardId: string) {
     if (owopped.has(cardId)) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -419,7 +468,7 @@ export default function WorkshopPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ background: '#06080E' }}>
+      <div className="flex h-screen items-center justify-center" style={{ background: '#111827' }}>
         <div className="space-y-3 text-center">
           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
             className="text-3xl font-black" style={{ color: '#E8770A', fontFamily: 'monospace' }}>
@@ -436,10 +485,10 @@ export default function WorkshopPage() {
   const CARD_H = 'calc(100dvh - 80px)';
 
   return (
-    <div style={{ background: '#000', minHeight: '100dvh' }}>
+    <div style={{ background: '#111827', minHeight: '100dvh' }}>
       {/* Top bar */}
       <div className="sticky top-0 z-30 px-5 pt-12 pb-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 70%, transparent 100%)' }}>
+        style={{ background: 'linear-gradient(to bottom, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.6) 70%, transparent 100%)' }}>
         <span className="text-base font-black text-white">Workshop</span>
       </div>
 
@@ -447,10 +496,14 @@ export default function WorkshopPage() {
       <div
         ref={containerRef}
         className="relative overflow-hidden select-none"
-        style={{ height: CARD_H, marginTop: '-60px', touchAction: 'pan-y' }}
+        style={{ height: CARD_H, marginTop: '-60px', touchAction: 'pan-y', cursor: isDragging.current ? 'grabbing' : 'grab' }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={() => { isDragging.current = false; }}
       >
         {/* Current card */}
         <AnimatePresence mode="wait">

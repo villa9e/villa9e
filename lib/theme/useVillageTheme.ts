@@ -6,18 +6,21 @@ type VillageTheme = 'day' | 'night';
 type OverlayTheme = 'white' | 'black';
 
 interface ThemeStore {
-  theme:        VillageTheme;
-  overlayTheme: OverlayTheme;
-  setTheme:        (t: VillageTheme) => void;
-  toggle:          () => void;
-  toggleOverlay:   () => void;
+  theme:            VillageTheme;
+  overlayTheme:     OverlayTheme;
+  virtualVillage:   boolean;
+  setTheme:              (t: VillageTheme) => void;
+  toggle:                () => void;
+  toggleOverlay:         () => void;
+  toggleVirtualVillage:  () => void;
 }
 
 export const useVillageTheme = create<ThemeStore>()(
   persist(
     (set, get) => ({
-      theme:        'day',
-      overlayTheme: 'white',
+      theme:          'day',
+      overlayTheme:   'white',
+      virtualVillage: false,
       setTheme: (theme) => {
         set({ theme });
         if (typeof document !== 'undefined') {
@@ -33,6 +36,9 @@ export const useVillageTheme = create<ThemeStore>()(
       },
       toggleOverlay: () => {
         set(s => ({ overlayTheme: s.overlayTheme === 'white' ? 'black' : 'white' }));
+      },
+      toggleVirtualVillage: () => {
+        set(s => ({ virtualVillage: !s.virtualVillage }));
       },
     }),
     {
@@ -68,10 +74,10 @@ export const DAY = {
 } as const;
 
 export const NIGHT = {
-  bg:           'bg-[#0A0B12]',
-  surface:      'bg-[#0E1020]',
-  card:         'bg-[#12152A] border-[#1E2240]',
-  cardHover:    'hover:bg-[#161A30]',
+  bg:           'bg-[#111827]',
+  surface:      'bg-[#1F2937]',
+  card:         'bg-[#1F2937] border-[#374151]',
+  cardHover:    'hover:bg-[#253047]',
   text:         'text-[#F0EBE0]',
   textMuted:    'text-[#7A7FA8]',
   textSubtle:   'text-[#4A4F72]',

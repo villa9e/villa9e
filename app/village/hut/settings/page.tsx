@@ -11,6 +11,15 @@ const LANGUAGES = [
   { code: 'zh', label: '中文' },
 ];
 
+function GearIcon() {
+  return (
+    <svg width={20} height={20} viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" stroke="currentColor">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+    </svg>
+  );
+}
+
 export default function SettingsPage() {
   const [profile, setProfile] = useState<any>(null);
   const [form, setForm] = useState({
@@ -24,15 +33,15 @@ export default function SettingsPage() {
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const supabase = createClient();
-  const { theme, toggle, overlayTheme, toggleOverlay } = useVillageTheme();
+  const { theme, toggle, virtualVillage, toggleVirtualVillage } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg     = isNight ? '#0A0B12' : '#F8F9FF';
-  const card   = isNight ? '#0D1020' : '#FFFFFF';
-  const border = isNight ? '#1A1F3A' : '#E0E7FF';
-  const text   = isNight ? '#F0EBE0' : '#1E1B4B';
-  const muted  = isNight ? '#4A4F72' : '#6B7280';
-  const inputBg = isNight ? '#12152A' : '#F0F4FF';
+  const bg      = isNight ? '#111827' : '#F8F9FF';
+  const card    = isNight ? '#1F2937' : '#FFFFFF';
+  const border  = isNight ? '#374151' : '#E0E7FF';
+  const text    = isNight ? '#F0EBE0' : '#1E1B4B';
+  const muted   = isNight ? '#9CA3AF' : '#6B7280';
+  const inputBg = isNight ? '#111827' : '#F0F4FF';
 
   useEffect(() => {
     async function load() {
@@ -122,29 +131,63 @@ export default function SettingsPage() {
     </div>
   );
 
+  const villageLinks = [
+    {
+      href: '/village/hut/data-locker',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+      ),
+      label: 'Data Locker', desc: 'Control your data & earnings',
+    },
+    {
+      href: '/village/personality-maze',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      ),
+      label: 'Personality Maze', desc: 'Discover your archetype',
+    },
+    {
+      href: '/village/discover',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      ),
+      label: 'Discover Villagers', desc: 'Find your matches',
+    },
+    {
+      href: '/leaderboard',
+      icon: (
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      ),
+      label: 'Leaderboard', desc: 'Top villagers this season',
+    },
+  ];
+
   return (
     <div className="min-h-screen pb-28" style={{ background: bg }}>
       <BackButton to="/village/hut" />
       {/* Header */}
-      <div className="sticky top-0 z-20 px-4 py-3.5 flex items-center gap-3"
-        style={{ background: isNight ? 'rgba(10,11,18,0.92)' : 'rgba(248,249,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
-        <span className="text-2xl">⚙️</span>
+      <div className="sticky top-0 z-20 pl-14 pr-4 py-3.5 flex items-center gap-3"
+        style={{ background: isNight ? 'rgba(17,24,39,0.92)' : 'rgba(248,249,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
+        <span style={{ color: text }}><GearIcon /></span>
         <h1 className="text-lg font-black flex-1" style={{ color: text }}>Settings</h1>
-        {/* Day/Night toggle */}
         <button onClick={toggle}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
           style={{ background: isNight ? 'rgba(255,107,43,0.15)' : 'rgba(24,119,242,0.1)', color: isNight ? '#FF8C4A' : '#1877F2', border: `1px solid ${isNight ? 'rgba(255,107,43,0.3)' : 'rgba(24,119,242,0.2)'}` }}>
-          {isNight ? '☀️ Day' : '🌙 Night'}
+          {isNight ? (
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          ) : (
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+          )}
+          {isNight ? ' Day' : ' Night'}
         </button>
       </div>
 
       <div className="max-w-2xl mx-auto p-4 space-y-3">
         <Section title="Profile">
-          {/* Avatar upload */}
           <div className="flex items-center gap-4">
             <label className="cursor-pointer relative group flex-shrink-0">
               <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center"
-                style={{ background: isNight ? '#1E2240' : '#E8EDFF' }}>
+                style={{ background: isNight ? '#374151' : '#E8EDFF' }}>
                 <img src={avatarPreview || profile?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="Avatar" />
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity">
                   <span className="text-white text-xs font-bold">{uploading ? '…' : 'Edit'}</span>
@@ -220,21 +263,14 @@ export default function SettingsPage() {
 
         <Section title="Your Village">
           <div className="space-y-0.5">
-            {[
-              { href: '/village/hut/data-locker',  icon: '🔐', label: 'Data Locker',       desc: 'Control your data & earnings' },
-              { href: '/village/personality-maze', icon: '🏰', label: 'Personality Maze',   desc: 'Discover your archetype' },
-              { href: '/village/discover',          icon: '🔍', label: 'Discover Villagers', desc: 'Find your matches' },
-              { href: '/messages',                  icon: '💬', label: 'Messages',           desc: 'Direct messages' },
-              { href: '/notifications',             icon: '🔔', label: 'Notifications',      desc: 'Your activity feed' },
-              { href: '/leaderboard',               icon: '🏆', label: 'Leaderboard',        desc: 'Top villagers this season' },
-            ].map(item => (
+            {villageLinks.map(item => (
               <Link key={item.href} href={item.href}
                 className="flex items-center gap-3 p-3 rounded-xl transition-colors"
                 style={{ color: text }}
                 onMouseEnter={e => (e.currentTarget.style.background = isNight ? 'rgba(255,255,255,0.04)' : 'rgba(24,119,242,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <span className="text-xl">{item.icon}</span>
+                <span style={{ color: '#1877F2' }}>{item.icon}</span>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">{item.label}</p>
                   <p className="text-xs" style={{ color: muted }}>{item.desc}</p>
@@ -246,37 +282,24 @@ export default function SettingsPage() {
         </Section>
 
         <Section title="Display">
-          {/* Map building overlay color */}
           <div className="flex items-center justify-between p-3 rounded-xl"
             style={{ background: isNight ? 'rgba(255,255,255,0.03)' : 'rgba(24,119,242,0.03)', border: `1px solid ${border}` }}>
             <div>
-              <p className="font-semibold text-sm" style={{ color: text }}>Building Overlay</p>
-              <p className="text-xs" style={{ color: muted }}>Background when entering a building in the village</p>
+              <p className="font-semibold text-sm" style={{ color: text }}>Virtual Village</p>
+              <p className="text-xs" style={{ color: muted }}>Show the 3D world on the map instead of the default view</p>
             </div>
-            <button onClick={toggleOverlay}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-              style={{
-                background: overlayTheme === 'white' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
-                color:      overlayTheme === 'white' ? '#1E1B4B' : '#F0EBE0',
-                border:     `1px solid ${border}`,
-              }}>
-              {overlayTheme === 'white' ? '⬜ White' : '⬛ Black'}
+            <button onClick={toggleVirtualVillage}
+              className="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
+              style={{ background: virtualVillage ? '#1877F2' : border }}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${virtualVillage ? 'translate-x-6' : ''}`} />
             </button>
-          </div>
-        </Section>
-
-        <Section title="About">
-          <div className="text-center space-y-1.5">
-            <p className="font-black text-xl" style={{ color: '#1877F2' }}>villa9e</p>
-            <p className="text-xs" style={{ color: muted }}>Version 1.0.0 · Phase 1 MVP</p>
-            <p className="text-xs" style={{ color: muted }}>© 2026 Legaci Jackson. A Legaci Jackson product.</p>
           </div>
         </Section>
 
         <button onClick={save} disabled={saving}
           className="w-full py-4 rounded-2xl font-black text-base text-white transition-all disabled:opacity-50"
           style={{ background: saved ? '#22C55E' : '#1877F2' }}>
-          {saving ? 'Saving…' : saved ? '✅ Saved!' : 'Save Settings'}
+          {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Settings'}
         </button>
 
         <button onClick={signOut}
