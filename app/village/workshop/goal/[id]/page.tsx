@@ -85,8 +85,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
   // ─── Colors ───────────────────────────────────────────────────────────────
   const accent  = '#1877F2';
-  const bg      = isNight ? '#0A0B12' : '#FFF8EE';
-  const cardBg  = isNight ? '#12152A' : '#FFFFFF';
+  const bg      = isNight ? '#111827' : '#FFF8EE';
+  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
   const border  = isNight ? '#1E2240' : '#E8E8F0';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#4A4F72' : '#6B7280';
@@ -711,7 +711,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       style={{
                         background: msg.role === 'user'
                           ? 'linear-gradient(135deg,#1877F2,#7C3AED)'
-                          : (isNight ? '#12152A' : '#F3F4F6'),
+                          : (isNight ? '#1F2937' : '#F3F4F6'),
                         color: msg.role === 'user' ? '#fff' : text,
                       }}>
                       {msg.role === 'assistant' && <p className="text-xs font-bold mb-1" style={{ color: '#8B5CF6' }}>🌀 Spirit</p>}
@@ -721,7 +721,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 ))}
                 {sendingSpirit && (
                   <div className="flex justify-start">
-                    <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background: isNight ? '#12152A' : '#F3F4F6' }}>
+                    <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background: isNight ? '#1F2937' : '#F3F4F6' }}>
                       {[0, 1, 2].map(i => (
                         <div key={i} className="w-2 h-2 rounded-full animate-bounce" style={{ background: '#8B5CF6', animationDelay: `${i * 0.15}s` }} />
                       ))}
@@ -966,7 +966,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                                 <textarea value={verifyNotes} onChange={e => setVerifyNotes(e.target.value)}
                                   placeholder="Tell Spirit what you did — even a sentence or two."
                                   rows={3} className="w-full text-sm rounded-2xl px-4 py-3 resize-none focus:outline-none"
-                                  style={{ background: isNight ? '#0A0B12' : '#FFF8EE', border: `1px solid ${border}`, color: text, fontFamily: 'inherit' }} />
+                                  style={{ background: isNight ? '#111827' : '#FFF8EE', border: `1px solid ${border}`, color: text, fontFamily: 'inherit' }} />
                                 <div className="flex gap-2">
                                   <button onClick={() => { setShowVerifyInput(false); setVerifyNotes(''); }}
                                     className="text-sm px-4 py-2.5 rounded-2xl font-bold"
@@ -1345,7 +1345,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 {showCommentDrawer && (
                   <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28 }}
                     className="absolute bottom-0 left-0 right-0 rounded-t-3xl overflow-hidden"
-                    style={{ background: isNight ? '#12152A' : '#fff', zIndex: 30, maxHeight: '65%' }}
+                    style={{ background: isNight ? '#1F2937' : '#fff', zIndex: 30, maxHeight: '65%' }}
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: border }}>
                       <p className="font-black text-sm" style={{ color: text }}>Comments</p>
@@ -1433,7 +1433,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                   <button key={level} onClick={() => changePace(level)} disabled={savingPace}
                     className="w-full text-left rounded-2xl p-4 transition-all"
                     style={{
-                      background: isSelected ? `${p.color}12` : (isNight ? '#0D0F1E' : '#F9FAFB'),
+                      background: isSelected ? `${p.color}12` : (isNight ? '#1F2937' : '#F9FAFB'),
                       border: `${isSelected ? 2 : 1}px solid ${isSelected ? p.color : border}`,
                       cursor: 'pointer',
                     }}>

@@ -23,7 +23,7 @@ export default function DiscoverEventsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg     = isNight ? '#060810' : '#F5F3FF';
+  const bg     = isNight ? '#111827' : '#F5F3FF';
   const card   = isNight ? '#0D1020' : '#FFFFFF';
   const border = isNight ? '#1A1F3A' : '#DDD6FE';
   const text   = isNight ? '#F0EBE0' : '#1E1B4B';

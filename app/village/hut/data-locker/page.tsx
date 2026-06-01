@@ -30,8 +30,8 @@ export default function DataLockerPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#F0FDF4';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#F0FDF4';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166534';
@@ -77,7 +77,7 @@ export default function DataLockerPage() {
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? '#1F2937' : '#fff', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: textMute }}>←</Link>
         <span className="text-2xl">🔐</span>
         <div className="flex-1">

@@ -34,7 +34,7 @@ const TYPE_COLORS: Record<string, string> = {
 function ShowCard({ show, isNight, onEnter }: { show: Show; isNight: boolean; onEnter: (s: Show) => void }) {
   const isLive = show.status === 'live';
   const isFree = show.ticket_price === 0;
-  const bg     = isNight ? '#0F1124' : '#FFFFFF';
+  const bg     = isNight ? '#1a2332' : '#FFFFFF';
   const border = isNight ? '#1E2240' : '#EDE9FE';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
@@ -175,7 +175,7 @@ function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => 
               />
             </div>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0D0D1A' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1F2937' }}>
               <span style={{ fontSize: 64, marginBottom: 16 }}>{TYPE_ICONS[show.type]}</span>
               <p style={{ color: '#fff', fontWeight: 900, fontSize: 18, marginBottom: 8 }}>{show.title}</p>
               <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', maxWidth: 320, padding: '0 24px' }}>
@@ -348,7 +348,7 @@ export default function PavilionPage() {
   const { theme } = useVillageTheme();
   const isNight  = theme === 'night';
 
-  const bg     = isNight ? '#07080F' : '#F0F4FF';
+  const bg     = isNight ? '#111827' : '#F0F4FF';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
   const accent = '#6366F1';

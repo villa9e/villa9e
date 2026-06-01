@@ -28,7 +28,7 @@ export default function BlockchainPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg     = isNight ? '#060810' : '#F8FAFF';
+  const bg     = isNight ? '#111827' : '#F8FAFF';
   const cardBg = isNight ? '#0D1020' : '#FFFFFF';
   const border = isNight ? '#1A1F3A' : '#E0E7FF';
   const text   = isNight ? '#F0EBE0' : '#1E1B4B';
@@ -87,7 +87,7 @@ export default function BlockchainPage() {
     <div className="min-h-screen pb-24" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#060810' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? '#111827' : '#fff', borderColor: border }}>
         <Link href="/village/hut/vlg-wallet" className="text-xl" style={{ color: muted }}>←</Link>
         <div className="flex-1">
           <h1 className="font-black text-base" style={{ color: text }}>Village Blockchain</h1>
@@ -159,7 +159,7 @@ export default function BlockchainPage() {
               <input value={walletInput} onChange={e => setWalletInput(e.target.value)}
                 placeholder="0x... (Polygon/Ethereum address)"
                 className="flex-1 rounded-xl px-3 py-2.5 text-xs font-mono focus:outline-none"
-                style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${border}`, color: text }} />
+                style={{ background: isNight ? '#111827' : '#F8FAFF', border: `1px solid ${border}`, color: text }} />
               <button onClick={linkWallet} disabled={linking || linked}
                 className="px-4 rounded-xl text-xs font-bold text-white disabled:opacity-50"
                 style={{ background: '#1877F2' }}>

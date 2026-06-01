@@ -40,8 +40,8 @@ export default function BankPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#FFFBF0';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#FFFBF0';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#FDE68A';
   const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
   const textMute = isNight ? '#4A4F72' : '#8B6F47';
@@ -245,13 +245,13 @@ export default function BankPage() {
                 <Link href="/village/hut/data-locker" className="text-xs font-bold" style={{ color: '#1877F2' }}>Manage →</Link>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#0A0B12' : '#FFF8EE' }}>
+                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#111827' : '#FFF8EE' }}>
                   <p className="text-xs" style={{ color: textMute }}>This Month</p>
                   <p className="font-black text-lg" style={{ color: accent }}>
                     ${parseFloat(dataLocker?.monthly_earnings ?? 0).toFixed(2)}
                   </p>
                 </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#0A0B12' : '#FFF8EE' }}>
+                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#111827' : '#FFF8EE' }}>
                   <p className="text-xs" style={{ color: textMute }}>Total Earned</p>
                   <p className="font-black text-lg" style={{ color: accent }}>
                     ${parseFloat(dataLocker?.total_earnings ?? 0).toFixed(2)}

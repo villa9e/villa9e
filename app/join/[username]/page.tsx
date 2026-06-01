@@ -41,7 +41,7 @@ export default function ReferralPage({ params }: { params: { username: string } 
   };
 
   return (
-    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg,#060810 0%,#0E1428 50%,#0A0B18 100%)' }}>
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg,#111827 0%,#0E1428 50%,#0A0B18 100%)' }}>
       {/* Hero */}
       <div className="pt-12 pb-8 px-6 text-center">
         <motion.div

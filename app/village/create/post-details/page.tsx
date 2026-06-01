@@ -197,7 +197,7 @@ export default function PostDetailsPage() {
   const isWorkshopLabel = selectedLabel?.workshop ?? false;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0A0B12' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#111827' }}>
 
       {/* Header */}
       <div className="sticky top-0 z-30 flex items-center justify-between px-4 py-3"
@@ -217,7 +217,7 @@ export default function PostDetailsPage() {
         <div className="flex gap-4 px-4 py-4">
           {/* Cover */}
           <div className="flex-shrink-0 relative cursor-pointer" onClick={() => fileRef.current?.click()}
-            style={{ width: 72, height: 96, borderRadius: 12, overflow: 'hidden', background: '#12152A', border: '1px solid rgba(255,255,255,0.1)' }}>
+            style={{ width: 72, height: 96, borderRadius: 12, overflow: 'hidden', background: '#1F2937', border: '1px solid rgba(255,255,255,0.1)' }}>
             {coverURL ? (
               <img src={coverURL} alt="cover" className="w-full h-full object-cover" />
             ) : (
@@ -414,7 +414,7 @@ export default function PostDetailsPage() {
                 style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}
               >
                 {VIDEO_LANGUAGES.map(lang => (
-                  <option key={lang} value={lang} style={{ background: '#0A0B12' }}>{lang}</option>
+                  <option key={lang} value={lang} style={{ background: '#111827' }}>{lang}</option>
                 ))}
               </select>
               <svg className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2"><path d="M6 9l6 6 6-6"/></svg>

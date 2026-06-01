@@ -33,8 +33,8 @@ export default function TribesPage() {
   // ── theme ─────────────────────────────────────────────────────────────────
   const { theme, toggle } = useVillageTheme();
   const isNight  = theme === 'night';
-  const bg       = isNight ? '#0A0B12' : '#FFF0F8';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#FFF0F8';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#FBCFE8';
   const textMain = isNight ? '#F0EBE0' : '#2D0D1F';
   const textMute = isNight ? '#4A4F72' : '#9D174D';
@@ -182,7 +182,7 @@ export default function TribesPage() {
       {/* ── top bar ─────────────────────────────────────────────────────── */}
       <div
         className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#12152A' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}
+        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}
       >
         <a href="/village/map" className="text-xl" style={{ color: isNight ? '#F0EBE0' : '#fff' }}>←</a>
         <span className="text-2xl">👥</span>
@@ -212,7 +212,7 @@ export default function TribesPage() {
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-0">
         <div
           className="flex rounded-2xl overflow-hidden border"
-          style={{ borderColor: border, background: isNight ? '#12152A' : '#FCE7F3' }}
+          style={{ borderColor: border, background: isNight ? '#1F2937' : '#FCE7F3' }}
         >
           {(['my', 'discover'] as Tab[]).map(t => (
             <button
@@ -251,7 +251,7 @@ export default function TribesPage() {
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder="Tribe name (e.g. 'The EP Squad')"
                 className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: isNight ? '#0A0B12' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
+                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
               />
 
               <textarea
@@ -260,13 +260,13 @@ export default function TribesPage() {
                 placeholder="What is this tribe working toward?"
                 rows={3}
                 className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-                style={{ background: isNight ? '#0A0B12' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
+                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
               />
 
               {/* is_public toggle */}
               <div
                 className="flex items-center justify-between rounded-xl px-4 py-3"
-                style={{ background: isNight ? '#0A0B12' : '#FFF0F8', border: `1px solid ${border}` }}
+                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}` }}
               >
                 <div>
                   <p className="text-sm font-semibold" style={{ color: textMain }}>Make tribe public</p>
@@ -357,7 +357,7 @@ export default function TribesPage() {
                         <span
                           key={pill.label}
                           className="flex-1 text-center rounded-full py-2 text-xs font-bold"
-                          style={{ background: isNight ? '#0A0B12' : '#FDF2F8', color: pill.color }}
+                          style={{ background: isNight ? '#111827' : '#FDF2F8', color: pill.color }}
                         >
                           {pill.label}
                         </span>

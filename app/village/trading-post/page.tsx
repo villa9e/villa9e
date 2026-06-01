@@ -77,8 +77,8 @@ export default function TradingPostPage() {
 
   const { theme } = useVillageTheme();
   const isNight  = theme === 'night';
-  const bg       = isNight ? '#0A0B12' : '#F0FDF4';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#F0FDF4';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166534';
@@ -92,7 +92,7 @@ export default function TradingPostPage() {
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
         <Link href="/village/map" className="text-xl" style={{ color: '#fff' }}>←</Link>
         <span className="text-2xl">🏪</span>
         <div className="flex-1">

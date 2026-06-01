@@ -47,7 +47,7 @@ export default function SpiritHubPage() {
   const { voiceEnabled, voiceGender, speaking, toggleVoice, setGender, speak } = useSpiritVoice();
   const [showPermissions, setShowPermissions] = useState(false);
 
-  const bg       = isNight ? '#060810' : '#F0F4FF';
+  const bg       = isNight ? '#111827' : '#F0F4FF';
   const cardBg   = isNight ? '#0D1020' : '#FFFFFF';
   const border   = isNight ? '#1A1F3A' : '#E0E7FF';
   const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
@@ -207,7 +207,7 @@ export default function SpiritHubPage() {
 
         {profile?.personality_type && (
           <div className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full"
-            style={{ background: isNight ? '#12152A' : '#EEF2FF', color: textMute }}>
+            style={{ background: isNight ? '#1F2937' : '#EEF2FF', color: textMute }}>
             <span>{ARCHETYPE_EMOJI[profile.personality_type] ?? '✨'}</span>
             <span className="capitalize hidden sm:inline">{profile.personality_type}</span>
           </div>
@@ -215,7 +215,7 @@ export default function SpiritHubPage() {
 
         {/* Gender toggle */}
         <div className="flex rounded-full overflow-hidden"
-          style={{ border: `1px solid ${border}`, background: isNight ? '#12152A' : '#EEF2FF' }}>
+          style={{ border: `1px solid ${border}`, background: isNight ? '#1F2937' : '#EEF2FF' }}>
           {(['female','male'] as const).map(g => (
             <button key={g} onClick={() => setGender(g)}
               className="w-8 h-8 flex items-center justify-center text-sm transition-all"
@@ -241,7 +241,7 @@ export default function SpiritHubPage() {
             }
           }}
           className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-all relative"
-          style={{ background: voiceEnabled ? accent : (isNight ? '#12152A' : '#EEF2FF'), color: voiceEnabled ? '#fff' : textMute }}
+          style={{ background: voiceEnabled ? accent : (isNight ? '#1F2937' : '#EEF2FF'), color: voiceEnabled ? '#fff' : textMute }}
           title={voiceEnabled ? 'Mute Spirit' : 'Unmute Spirit'}>
           {speaking
             ? <motion.span animate={{ scale: [1,1.3,1] }} transition={{ duration: 0.5, repeat: Infinity }}>🔊</motion.span>
@@ -251,7 +251,7 @@ export default function SpiritHubPage() {
 
         <Link href="/village/spirit/memories"
           className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-colors"
-          style={{ background: isNight ? '#12152A' : '#EEF2FF', color: textMute }}
+          style={{ background: isNight ? '#1F2937' : '#EEF2FF', color: textMute }}
           title="Spirit's memory">
           🧠
         </Link>
@@ -366,7 +366,7 @@ export default function SpiritHubPage() {
             rows={1}
             className="flex-1 resize-none rounded-2xl px-4 py-3 text-sm focus:outline-none"
             style={{
-              background: isNight ? '#12152A' : '#F8FAFF',
+              background: isNight ? '#1F2937' : '#F8FAFF',
               border:     `1px solid ${border}`,
               color:      textMain,
               maxHeight:  '120px',

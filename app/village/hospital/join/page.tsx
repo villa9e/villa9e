@@ -86,8 +86,8 @@ export default function JoinAsProviderPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#F0FDF4';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#F0FDF4';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166534';
@@ -120,7 +120,7 @@ export default function JoinAsProviderPage() {
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
         <Link href="/village/hospital" className="text-xl text-white">←</Link>
         <div className="flex-1">
           <h1 className="font-black text-white text-base">Join as a Professional</h1>
@@ -213,12 +213,12 @@ export default function JoinAsProviderPage() {
                       <textarea value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                         placeholder={ph} rows={3}
                         className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
-                        style={{ background: isNight ? '#0A0B12' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                        style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                     ) : (
                       <input type="text" value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                         placeholder={ph}
                         className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                        style={{ background: isNight ? '#0A0B12' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                        style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                     )}
                   </div>
                 ))}
@@ -252,7 +252,7 @@ export default function JoinAsProviderPage() {
                 <input type="url" value={docUrl} onChange={e => setDocUrl(e.target.value)}
                   placeholder="Or paste a Cloudinary/URL to your document"
                   className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none text-center"
-                  style={{ background: isNight ? '#0A0B12' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                  style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
               </div>
 
               <div className="rounded-2xl p-4 mb-4" style={{ background: isNight ? '#0D1820' : '#ECFDF5', border: `1px solid ${border}` }}>

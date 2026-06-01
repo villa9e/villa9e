@@ -154,7 +154,7 @@ function CountdownOverlay({ onComplete }: { onComplete: () => void }) {
 
   return (
     <motion.div className="fixed inset-0 z-[100] flex items-center justify-center"
-      style={{ background: 'radial-gradient(ellipse at center, #1A0A2E 0%, #060810 100%)' }}>
+      style={{ background: 'radial-gradient(ellipse at center, #1A0A2E 0%, #111827 100%)' }}>
       <div className="text-center">
         <AnimatePresence mode="wait">
           {count > 0 ? (
@@ -195,7 +195,7 @@ export default function GoalChatPage() {
   const { speak } = useSpiritVoice();
   const isNight   = theme === 'night';
 
-  const bg     = isNight ? '#06080E' : '#F8F5FF';
+  const bg     = isNight ? '#111827' : '#F8F5FF';
   const card   = isNight ? '#0D1020' : '#FFFFFF';
   const border = isNight ? '#1A1F3A' : '#E8E3FF';
   const text   = isNight ? '#F0EBE0' : '#1E1B4B';

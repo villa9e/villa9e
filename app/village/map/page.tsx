@@ -11,7 +11,7 @@ import { StoryModeOverlay, StoryModeTrigger } from '@/components/village/StoryMo
 const VillageWorld3D = dynamic(() => import('@/components/map/VillageWorld3D'), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#06080E] to-[#08101E]">
+    <div className="flex-1 flex items-center justify-center bg-gradient-to-b from-[#111827] to-[#08101E]">
       <div className="text-center">
         <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
           <span className="text-6xl">🌀</span>

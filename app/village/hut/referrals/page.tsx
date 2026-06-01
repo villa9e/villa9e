@@ -14,8 +14,8 @@ export default function ReferralsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#0A0B12' : '#FFFBF0';
-  const cardBg  = isNight ? '#12152A' : '#FFFFFF';
+  const bg      = isNight ? '#111827' : '#FFFBF0';
+  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
   const border  = isNight ? '#1E2240' : '#FED7AA';
   const text    = isNight ? '#F0EBE0' : '#1A0A00';
   const muted   = isNight ? '#4A4F72' : '#78350F';
@@ -62,7 +62,7 @@ export default function ReferralsPage() {
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0A0B12' : '#D97706', borderColor: border }}>
+        style={{ background: isNight ? '#111827' : '#D97706', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: isNight ? muted : 'rgba(255,255,255,0.8)' }}>←</Link>
         <span className="text-2xl">👥</span>
         <div className="flex-1">

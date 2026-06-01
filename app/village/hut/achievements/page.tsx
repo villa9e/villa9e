@@ -21,8 +21,8 @@ export default function AchievementsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#0A0B12' : '#F8FAFF';
-  const cardBg  = isNight ? '#12152A' : '#FFFFFF';
+  const bg      = isNight ? '#111827' : '#F8FAFF';
+  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
   const border  = isNight ? '#1E2240' : '#E0E7FF';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#4A4F72' : '#6B7280';
@@ -68,7 +68,7 @@ export default function AchievementsPage() {
     <div className="min-h-screen pb-24" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0A0B12' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? '#111827' : '#fff', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: muted }}>←</Link>
         <div className="flex-1">
           <h1 className="font-black text-base" style={{ color: text }}>Achievements</h1>
@@ -117,7 +117,7 @@ export default function AchievementsPage() {
               transition={{ delay: i * 0.04 }}
               className="rounded-2xl p-4 space-y-2 relative"
               style={{
-                background:  ach.earned ? cardBg : (isNight ? '#080912' : '#F3F4F6'),
+                background:  ach.earned ? cardBg : (isNight ? '#111827' : '#F3F4F6'),
                 border:      `1px solid ${ach.earned ? r.color + '40' : border}`,
                 boxShadow:   ach.earned ? `0 0 16px ${r.glow}` : 'none',
                 opacity:     ach.earned ? 1 : 0.5,

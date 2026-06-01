@@ -26,8 +26,8 @@ export default function NotificationsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#F5F5FF';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#F5F5FF';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#E8EAFF';
   const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
   const textMute = isNight ? '#4A4F72' : '#6D28D9';
@@ -95,7 +95,7 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? '#1F2937' : '#fff', borderColor: border }}>
         <Link href="/village/map" className="text-xl" style={{ color: textMute }}>←</Link>
         <div className="flex-1">
           <h1 className="font-black text-base" style={{ color: textMain }}>Notifications</h1>
@@ -131,7 +131,7 @@ export default function NotificationsPage() {
                       initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
                       className="flex items-start gap-3 rounded-2xl p-4 transition-all"
                       style={{
-                        background: !n.is_read ? (isNight ? '#12152A' : '#F0F0FF') : cardBg,
+                        background: !n.is_read ? (isNight ? '#1F2937' : '#F0F0FF') : cardBg,
                         border: `1px solid ${!n.is_read ? cfg.color + '35' : border}`,
                         marginBottom: '8px',
                         cursor: isConnReq ? 'default' : 'pointer',

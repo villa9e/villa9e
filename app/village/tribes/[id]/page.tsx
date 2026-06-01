@@ -42,7 +42,7 @@ function TribeDealCreator({ tribeId, userId, isNight, cardBg, border, textMain, 
   }
 
   const inputStyle: React.CSSProperties = {
-    background: isNight ? '#0A0B12' : '#FFF0F8',
+    background: isNight ? '#111827' : '#FFF0F8',
     border: `1px solid ${border}`,
     color: textMain,
     width: '100%',
@@ -120,8 +120,8 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#FFF0F8';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#FFF0F8';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#FBCFE8';
   const textMain = isNight ? '#F0EBE0' : '#2D0D1F';
   const textMute = isNight ? '#4A4F72' : '#9D174D';
@@ -265,7 +265,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
     <div className="min-h-screen flex flex-col" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 px-4 py-3 flex items-center gap-2 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
         <Link href="/village/tribes" className="text-xl text-white">←</Link>
         <div className="flex-1 min-w-0">
           <h1 className="font-black text-white text-base truncate">{tribe.name}</h1>
@@ -284,13 +284,13 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
       <AnimatePresence>
         {showInvite && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden" style={{ background: isNight ? '#12152A' : '#FDF2F8', borderBottom: `1px solid ${border}` }}>
+            className="overflow-hidden" style={{ background: isNight ? '#1F2937' : '#FDF2F8', borderBottom: `1px solid ${border}` }}>
             <div className="flex gap-2 px-4 py-3 max-w-2xl mx-auto">
               <input value={inviteUser} onChange={e => setInviteUser(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && inviteMember()}
                 placeholder="Enter @username to invite…"
                 className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                style={{ background: isNight ? '#0A0B12' : '#fff', border: `1px solid ${border}`, color: textMain }} />
+                style={{ background: isNight ? '#111827' : '#fff', border: `1px solid ${border}`, color: textMain }} />
               <button onClick={inviteMember} disabled={inviting || !inviteUser.trim()}
                 className="rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: accent }}>
@@ -359,7 +359,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                 placeholder="Message the tribe…"
                 className="flex-1 rounded-2xl px-4 py-2.5 text-sm focus:outline-none"
-                style={{ background: isNight ? '#0A0B12' : '#FDF2F8', border: `1px solid ${border}`, color: textMain }} />
+                style={{ background: isNight ? '#111827' : '#FDF2F8', border: `1px solid ${border}`, color: textMain }} />
               <button onClick={sendMessage} disabled={!newMsg.trim() || sending}
                 className="rounded-2xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
                 style={{ background: accent }}>
@@ -435,7 +435,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
               onKeyDown={e => e.key === 'Enter' && addTask()}
               placeholder="Add a tribe task and press Enter…"
               className="flex-1 rounded-xl px-4 py-2.5 text-sm focus:outline-none"
-              style={{ background: isNight ? '#0A0B12' : '#FDF2F8', border: `1px solid ${border}`, color: textMain }} />
+              style={{ background: isNight ? '#111827' : '#FDF2F8', border: `1px solid ${border}`, color: textMain }} />
             <button onClick={addTask} disabled={!newTask.trim()}
               className="rounded-xl px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50"
               style={{ background: accent }}>Add</button>
@@ -681,7 +681,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
             suppressContentEditableWarning
             className="flex-1 overflow-y-auto p-6 outline-none focus:outline-none"
             style={{
-              background: isNight ? '#0D0F1A' : '#FAFAF8',
+              background: isNight ? '#1F2937' : '#FAFAF8',
               color: textMain,
               fontSize: 15, lineHeight: 1.7,
               maxWidth: 860, margin: '0 auto', width: '100%',
@@ -717,7 +717,7 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
 
       {/* ── VIDEO: Tribe video conference ── */}
       {activeTab === 'video' && (
-        <div className="flex-1 flex flex-col" style={{ background: isNight ? '#07080F' : '#F0F4FF' }}>
+        <div className="flex-1 flex flex-col" style={{ background: isNight ? '#111827' : '#F0F4FF' }}>
           {/* Video header */}
           <div className="flex items-center justify-between px-4 py-2.5 flex-shrink-0"
             style={{ background: cardBg, borderBottom: `1px solid ${border}` }}>

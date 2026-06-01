@@ -83,7 +83,7 @@ function PostCard({
   const [carouselIdx, setCarouselIdx] = useState(0);
   const type = detectPostType(post);
 
-  const bg     = isNight ? '#0F1124' : '#FFFFFF';
+  const bg     = isNight ? '#1a2332' : '#FFFFFF';
   const border = isNight ? '1px solid #1E2240' : '1px solid #EDE9FE';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.38)';
@@ -366,7 +366,7 @@ function PostComposer({
   const [content, setContent]       = useState('');
   const [posting, setPosting]       = useState(false);
 
-  const bg     = isNight ? '#0F1124' : '#FFFFFF';
+  const bg     = isNight ? '#1a2332' : '#FFFFFF';
   const border = isNight ? '1px solid #1E2240' : '1px solid #EDE9FE';
   const muted  = isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
@@ -484,7 +484,7 @@ export default function DreamLinePage() {
   const isNight = theme === 'night';
 
   const accent = '#7C3AED';
-  const pageBg = isNight ? '#07080F' : '#F3EFFF';
+  const pageBg = isNight ? '#111827' : '#F3EFFF';
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('DeviceMotionEvent' in window)) return;
@@ -746,7 +746,7 @@ export default function DreamLinePage() {
                     animate={{ opacity: 1, scale: 1 }}
                     style={{
                       flexShrink: 0, borderRadius: 18, padding: '14px 16px',
-                      background: isNight ? '#0F1124' : '#FFFFFF',
+                      background: isNight ? '#1a2332' : '#FFFFFF',
                       border: isNight ? '1px solid #1E2240' : '1px solid #EDE9FE',
                       width: 220, display: 'flex', flexDirection: 'column', gap: 12,
                     }}

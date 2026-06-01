@@ -17,12 +17,12 @@ export default function MessagesPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg     = isNight ? '#060810' : '#F8F9FF';
+  const bg     = isNight ? '#111827' : '#F8F9FF';
   const sidebar = isNight ? '#0D1020' : '#FFFFFF';
   const border = isNight ? '#1A1F3A' : '#E0E7FF';
   const text   = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted  = isNight ? '#4A4F72' : '#6D28D9';
-  const inputBg = isNight ? '#12152A' : '#F0F4FF';
+  const inputBg = isNight ? '#1F2937' : '#F0F4FF';
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -148,7 +148,7 @@ export default function MessagesPage() {
 
         {/* Message thread */}
         {active ? (
-          <div className="flex-1 flex flex-col" style={{ background: isNight ? '#0A0B12' : '#FAFBFF' }}>
+          <div className="flex-1 flex flex-col" style={{ background: isNight ? '#111827' : '#FAFBFF' }}>
             <div className="px-4 py-3 border-b flex items-center gap-3"
               style={{ borderColor: border, background: sidebar }}>
               <button onClick={() => setActive(null)} className="sm:hidden text-xl" style={{ color: muted }}>←</button>
@@ -163,7 +163,7 @@ export default function MessagesPage() {
                     <div className="max-w-xs px-4 py-2.5 rounded-2xl text-sm leading-relaxed"
                       style={isMe
                         ? { background: '#1877F2', color: '#fff', borderBottomRightRadius: '6px' }
-                        : { background: isNight ? '#12152A' : '#E8EDFF', color: text, border: `1px solid ${border}`, borderBottomLeftRadius: '6px' }
+                        : { background: isNight ? '#1F2937' : '#E8EDFF', color: text, border: `1px solid ${border}`, borderBottomLeftRadius: '6px' }
                       }>
                       {msg.content}
                     </div>

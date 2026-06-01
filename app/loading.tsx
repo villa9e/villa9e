@@ -10,7 +10,7 @@ export default function Loading() {
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#060810',
+        background: '#111827',
       }}
     >
       <div style={{ textAlign: 'center' }}>

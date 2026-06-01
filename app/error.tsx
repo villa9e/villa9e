@@ -10,7 +10,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6"
-      style={{ background: 'radial-gradient(ellipse at 50% 30%, #0D1428 0%, #060810 100%)' }}>
+      style={{ background: 'radial-gradient(ellipse at 50% 30%, #0D1428 0%, #111827 100%)' }}>
       <div className="text-center max-w-md space-y-5">
         <div className="flex justify-center" style={{ filter: 'drop-shadow(0 0 24px rgba(24,119,242,0.4))' }}>
           <VillageLogo size={72} variant="circle" />

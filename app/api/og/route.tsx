@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
           height: '630px',
           display: 'flex',
           flexDirection: 'column',
-          background: 'linear-gradient(160deg, #06080E 0%, #08101E 60%, #060810 100%)',
+          background: 'linear-gradient(160deg, #111827 0%, #08101E 60%, #111827 100%)',
           fontFamily: '"Inter", system-ui, sans-serif',
           position: 'relative',
           overflow: 'hidden',

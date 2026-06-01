@@ -315,7 +315,7 @@ function SignupPageInner() {
 export default function SignupPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#060810] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111827] flex items-center justify-center">
         <div style={{ fontSize: 36, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', animation: 'pulse 2s infinite' }}>villa9e</div>
       </div>
     }>

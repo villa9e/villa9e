@@ -208,13 +208,13 @@ function RedeemVLGCard({ totalVlg, isNight }: { totalVlg: number; isNight: boole
         <input type="number" min={MIN} max={Math.floor(totalVlg)} value={amount}
           onChange={e => setAmount(Math.min(Math.floor(totalVlg), Math.max(MIN, parseInt(e.target.value) || MIN)))}
           className="flex-1 rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-          style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
+          style={{ background: isNight ? '#111827' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
         <span className="font-black text-lg" style={{ color: '#1877F2' }}>= ${usd}</span>
       </div>
       <input type="email" placeholder="PayPal or Stripe email for payout" value={email}
         onChange={e => setEmail(e.target.value)}
         className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-        style={{ background: isNight ? '#0A0B12' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
+        style={{ background: isNight ? '#111827' : '#F8FAFF', border: `1px solid ${isNight ? '#1E2240' : '#E0E7FF'}`, color: isNight ? '#F0EBE0' : '#1E1B4B' }} />
       <button onClick={submit} disabled={submitting || amount < MIN || !email.trim()}
         className="w-full py-3 rounded-2xl font-bold text-white text-sm disabled:opacity-50"
         style={{ background: '#1877F2' }}>

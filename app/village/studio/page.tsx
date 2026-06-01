@@ -29,7 +29,7 @@ const CANVAS_DIMS: Record<AR, { w: number; h: number }> = {
 };
 
 const BG_PRESETS = [
-  '#0A0B12',
+  '#111827',
   'linear-gradient(135deg,#4C1D95,#7C3AED)',
   'linear-gradient(135deg,#1E3A5F,#1877F2)',
   'linear-gradient(135deg,#052E16,#059669)',
@@ -241,7 +241,7 @@ function TextPanel({
   onAdd: () => void;
 }) {
   return (
-    <div style={{ padding: '12px 16px', background: '#0E1020', borderTop: '1px solid #1E2240' }}>
+    <div style={{ padding: '12px 16px', background: '#1F2937', borderTop: '1px solid #1E2240' }}>
       {layer ? (
         <>
           {/* Inline text editor */}
@@ -254,7 +254,7 @@ function TextPanel({
               rows={2}
               style={{
                 width: '100%', boxSizing: 'border-box',
-                background: '#12152A', border: '1px solid #2D2F4A', borderRadius: 10,
+                background: '#1F2937', border: '1px solid #2D2F4A', borderRadius: 10,
                 padding: '9px 12px', color: '#F0EBE0', fontSize: 14,
                 resize: 'none', outline: 'none', lineHeight: 1.5,
               }}
@@ -348,7 +348,7 @@ function AudioPanel({
   const [cat, setCat] = useState('Hype');
 
   return (
-    <div style={{ padding: '12px 16px', background: '#0E1020', borderTop: '1px solid #1E2240', maxHeight: 240, overflowY: 'auto' }}>
+    <div style={{ padding: '12px 16px', background: '#1F2937', borderTop: '1px solid #1E2240', maxHeight: 240, overflowY: 'auto' }}>
       {/* Category tabs */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 10, overflowX: 'auto' }}>
         {Object.keys(AUDIO_LIBRARY).map(c => (
@@ -380,7 +380,7 @@ function AudioPanel({
             style={{
               width: '100%', display: 'flex', alignItems: 'center', gap: 10,
               padding: '8px 12px', borderRadius: 12, marginBottom: 6, border: 'none', cursor: 'pointer',
-              background: active ? `${ACCENT}22` : '#12152A',
+              background: active ? `${ACCENT}22` : '#1F2937',
               outline: active ? `1px solid ${ACCENT}` : 'none',
             }}>
             <div style={{
@@ -415,7 +415,7 @@ function AudioPanel({
 // ─── Captions panel ───────────────────────────────────────────────────────────
 function CaptionsPanel({ captions, onChange }: { captions: string; onChange: (v: string) => void }) {
   return (
-    <div style={{ padding: '12px 16px', background: '#0E1020', borderTop: '1px solid #1E2240' }}>
+    <div style={{ padding: '12px 16px', background: '#1F2937', borderTop: '1px solid #1E2240' }}>
       <p style={{ color: '#6D6E8A', fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
         CAPTIONS — one line = one caption card shown at bottom of video
       </p>
@@ -426,7 +426,7 @@ function CaptionsPanel({ captions, onChange }: { captions: string; onChange: (v:
         rows={5}
         style={{
           width: '100%', boxSizing: 'border-box',
-          background: '#12152A', border: '1px solid #2D2F4A', borderRadius: 10,
+          background: '#1F2937', border: '1px solid #2D2F4A', borderRadius: 10,
           padding: '10px 12px', color: '#F0EBE0', fontSize: 13, lineHeight: 1.7,
           resize: 'none', outline: 'none',
         }}
@@ -453,13 +453,13 @@ function TrimPanel({
   );
 
   return (
-    <div style={{ padding: '12px 16px', background: '#0E1020', borderTop: '1px solid #1E2240' }}>
+    <div style={{ padding: '12px 16px', background: '#1F2937', borderTop: '1px solid #1E2240' }}>
       <p style={{ color: '#6D6E8A', fontSize: 10, fontWeight: 700, marginBottom: 10 }}>
         TRIM — set start and end of your clip
       </p>
 
       {/* Waveform timeline */}
-      <div style={{ position: 'relative', height: 48, background: '#12152A', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
+      <div style={{ position: 'relative', height: 48, background: '#1F2937', borderRadius: 10, overflow: 'hidden', marginBottom: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', height: '100%', gap: 1.5, padding: '4px 6px' }}>
           {bars.map((h, i) => {
             const pct = i / bars.length;
@@ -635,13 +635,13 @@ export default function CreatorStudioPage() {
   ];
 
   return (
-    <div style={{ minHeight: '100vh', background: '#060810', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top,0px)' }}>
+    <div style={{ minHeight: '100vh', background: '#111827', display: 'flex', flexDirection: 'column', paddingTop: 'env(safe-area-inset-top,0px)' }}>
       <BackButton />
 
       {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px',
-        background: '#0E1020', borderBottom: '1px solid #1E2240',
+        background: '#1F2937', borderBottom: '1px solid #1E2240',
       }}>
         <div style={{ width: 44, flexShrink: 0 }} />
         <span style={{ fontSize: 20 }}>🎬</span>
@@ -652,7 +652,7 @@ export default function CreatorStudioPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', background: '#0E1020', borderBottom: '1px solid #1E2240' }}>
+      <div style={{ display: 'flex', background: '#1F2937', borderBottom: '1px solid #1E2240' }}>
         {TABS.map(([id, icon, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{
@@ -673,7 +673,7 @@ export default function CreatorStudioPage() {
           {/* Top toolbar: ratio + bg + add text */}
           <div style={{
             display: 'flex', alignItems: 'center', gap: 7, padding: '8px 12px',
-            background: '#0E1020', borderBottom: '1px solid #1E2240', overflowX: 'auto',
+            background: '#1F2937', borderBottom: '1px solid #1E2240', overflowX: 'auto',
           }}>
             {(['9:16', '1:1', '16:9'] as AR[]).map(r => (
               <button key={r} onClick={() => setRatio(r)}
@@ -706,7 +706,7 @@ export default function CreatorStudioPage() {
           </div>
 
           {/* Canvas */}
-          <div style={{ flex: 1, overflowY: 'auto', background: '#060810', minHeight: 0 }}
+          <div style={{ flex: 1, overflowY: 'auto', background: '#111827', minHeight: 0 }}
             onClick={e => { if (e.target === e.currentTarget) { setSelectedId(null); } }}>
             <EditorCanvas
               ratio={ratio} bg={bg} layers={layers}
@@ -751,7 +751,7 @@ export default function CreatorStudioPage() {
           </AnimatePresence>
 
           {/* Editor toolbar */}
-          <div style={{ display: 'flex', background: '#0E1020', borderTop: '1px solid #1E2240', flexShrink: 0 }}>
+          <div style={{ display: 'flex', background: '#1F2937', borderTop: '1px solid #1E2240', flexShrink: 0 }}>
             {TOOLS.map(tool => (
               <button key={tool.id}
                 onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
@@ -797,7 +797,7 @@ export default function CreatorStudioPage() {
       {tab === 'tips' && (
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
           <div style={{
-            background: '#0E1020', border: '1px solid #1E2240', borderRadius: 16, padding: 14, marginBottom: 12,
+            background: '#1F2937', border: '1px solid #1E2240', borderRadius: 16, padding: 14, marginBottom: 12,
           }}>
             <p style={{ color: '#F0EBE0', fontSize: 13, fontWeight: 800, margin: '0 0 8px' }}>Your Engagement Stats</p>
             {engagementData ? (
@@ -807,7 +807,7 @@ export default function CreatorStudioPage() {
                   { label: 'Avg OoWops', value: engagementData.avg_oowops },
                   { label: 'Avg Comments', value: engagementData.avg_comments },
                 ].map(s => (
-                  <div key={s.label} style={{ textAlign: 'center', background: '#12152A', borderRadius: 10, padding: '10px 0' }}>
+                  <div key={s.label} style={{ textAlign: 'center', background: '#1F2937', borderRadius: 10, padding: '10px 0' }}>
                     <p style={{ color: ACCENT, fontSize: 18, fontWeight: 900, margin: 0 }}>{s.value}</p>
                     <p style={{ color: '#6D6E8A', fontSize: 10, margin: 0 }}>{s.label}</p>
                   </div>
@@ -826,7 +826,7 @@ export default function CreatorStudioPage() {
           ) : tips ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {(tips.tips ?? [tips]).map((tip: any, i: number) => (
-                <div key={i} style={{ background: '#0E1020', border: '1px solid #1E2240', borderRadius: 14, padding: 14 }}>
+                <div key={i} style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 14, padding: 14 }}>
                   <p style={{ color: ACCENT, fontSize: 13, fontWeight: 700, margin: '0 0 4px' }}>{tip.title ?? `Tip ${i + 1}`}</p>
                   <p style={{ color: '#C8C3B8', fontSize: 12, lineHeight: 1.6, margin: 0 }}>{tip.body ?? tip}</p>
                 </div>
@@ -847,7 +847,7 @@ export default function CreatorStudioPage() {
       {/* ── AFFILIATES TAB ─────────────────────────────────── */}
       {tab === 'affiliates' && (
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-          <div style={{ background: '#0E1020', border: '1px solid #1E2240', borderRadius: 16, padding: 14, marginBottom: 12 }}>
+          <div style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 16, padding: 14, marginBottom: 12 }}>
             <p style={{ color: '#F0EBE0', fontSize: 13, fontWeight: 800, margin: '0 0 6px' }}>Content + Service Recommendations</p>
             <p style={{ color: '#6D6E8A', fontSize: 12, lineHeight: 1.6, margin: 0 }}>
               Based on your goals and engagement, these verified providers can accelerate your journey. Feature them and earn affiliate credits.
@@ -861,7 +861,7 @@ export default function CreatorStudioPage() {
           ) : affiliates.map((prov, i) => (
             <motion.div key={prov.id}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-              style={{ background: '#0E1020', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
+              style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 10, background: '#1E2240', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>
                   🩺
@@ -892,7 +892,7 @@ export default function CreatorStudioPage() {
               <p style={{ fontSize: 12 }}>No content yet. Create something and post it.</p>
             </div>
           ) : myContent.map((post: any) => (
-            <div key={post.id} style={{ background: '#0E1020', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
+            <div key={post.id} style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
               <p style={{ color: '#F0EBE0', fontSize: 13, lineHeight: 1.5, margin: '0 0 8px', WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical' }}>
                 {post.content}
               </p>

@@ -272,7 +272,7 @@ export default function CreatePage() {
       {/* ── TEXT MODE ──────────────────────────────────────────────────────── */}
       {mode === 'text' && !capturedURL && (
         <div className="absolute inset-0 flex flex-col items-center justify-center px-8"
-          style={{ background: '#0A0B12' }}>
+          style={{ background: '#111827' }}>
           {/* Style selector */}
           <div className="flex gap-3 mb-6 flex-wrap justify-center">
             {TEXT_STYLES.map(s => (
@@ -600,7 +600,7 @@ export default function CreatePage() {
             <motion.div className="absolute inset-0 z-40" style={{ background: 'rgba(0,0,0,0.6)' }}
               onClick={() => setShowMusicPicker(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
             <motion.div className="absolute bottom-0 left-0 right-0 rounded-t-3xl z-50 overflow-hidden"
-              style={{ background: '#12152A', maxHeight: '70%' }}
+              style={{ background: '#1F2937', maxHeight: '70%' }}
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28 }}>
               <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: '#1E2240' }}>
                 <p className="font-black text-white text-sm">Add Sound</p>

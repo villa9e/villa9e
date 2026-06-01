@@ -58,7 +58,7 @@ export default function OnboardingWelcomePage() {
   return (
     <div
       className="min-h-screen overflow-hidden flex flex-col items-center justify-center"
-      style={{ background: 'radial-gradient(ellipse at 50% 30%, #0D1428 0%, #060810 100%)' }}
+      style={{ background: 'radial-gradient(ellipse at 50% 30%, #0D1428 0%, #111827 100%)' }}
     >
       {/* Ambient glow */}
       <div className="fixed inset-0 pointer-events-none">

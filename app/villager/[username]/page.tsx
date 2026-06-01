@@ -35,8 +35,8 @@ export default function VillagerProfilePage({ params }: { params: { username: st
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#F8F9FF';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
+  const bg       = isNight ? '#111827' : '#F8F9FF';
+  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
   const border   = isNight ? '#1E2240' : '#E8EAFF';
   const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
   const textMute = isNight ? '#4A4F72' : '#6D28D9';
@@ -149,7 +149,7 @@ export default function VillagerProfilePage({ params }: { params: { username: st
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Hero header */}
-      <div style={{ background: isNight ? 'linear-gradient(160deg, #0E1020 0%, #12152A 100%)' : 'linear-gradient(160deg, #1877F2 0%, #4F46E5 100%)' }}>
+      <div style={{ background: isNight ? 'linear-gradient(160deg, #1F2937 0%, #1F2937 100%)' : 'linear-gradient(160deg, #1877F2 0%, #4F46E5 100%)' }}>
         <div className="px-4 pt-10 pb-20 max-w-2xl mx-auto">
           <Link href="/village/discover" className="text-white/60 text-sm block mb-5">← Discover</Link>
           <div className="flex items-end gap-4">
@@ -200,7 +200,7 @@ export default function VillagerProfilePage({ params }: { params: { username: st
               { label: 'OoWops',    value: profile.oowop_count ?? 0 },
             ].map(stat => (
               <div key={stat.label} className="text-center rounded-xl py-2"
-                style={{ background: isNight ? '#0A0B12' : '#F8F9FF' }}>
+                style={{ background: isNight ? '#111827' : '#F8F9FF' }}>
                 <p className="font-black text-lg" style={{ color: textMain }}>{stat.value}</p>
                 <p className="text-xs" style={{ color: textMute }}>{stat.label}</p>
               </div>

@@ -35,7 +35,7 @@ export default function SpiritCheckinPage() {
   const { speak } = useSpiritVoice();
   const isNight  = theme === 'night';
 
-  const bg      = isNight ? '#060810' : '#F0F4FF';
+  const bg      = isNight ? '#111827' : '#F0F4FF';
   const cardBg  = isNight ? '#0D1020' : '#FFFFFF';
   const border  = isNight ? '#1A1F3A' : '#E0E7FF';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
