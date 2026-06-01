@@ -153,18 +153,12 @@ function BottomNavInner() {
                 boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
               }}
             >
-              {avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <div style={{
-                  width: '100%', height: '100%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#fff', fontWeight: 900, fontSize: 14,
-                }}>
-                  {initials || '?'}
-                </div>
-              )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={avatarUrl || '/default-avatar.png'}
+                alt="Profile"
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             </Link>
           </motion.div>
         )}
@@ -273,7 +267,7 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 380, damping: 24 }}
           >
             <Image
-              src="/village-icon-white.png"
+              src="/menu-logo.png"
               width={36}
               height={36}
               alt="villa9e"

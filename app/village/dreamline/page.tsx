@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
 import { PostActionsMenu } from '@/components/studio/PostActionsMenu';
@@ -56,10 +57,10 @@ function StoryRing({ username, tier, hasNew, onClick }: {
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
           background: 'linear-gradient(135deg, #2D1B4E, #1A0A30)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 22, fontWeight: 900, color: '#C4B5FD',
+          overflow: 'hidden',
         }}>
-          {username[0]?.toUpperCase() || '?'}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/default-avatar.png" alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
       </div>
       <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -101,11 +102,14 @@ function PostCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 10px' }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-          background: `linear-gradient(135deg, ${accent}, #4C1D95)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 16, fontWeight: 900, color: '#fff',
+          overflow: 'hidden',
         }}>
-          {post.profiles?.username?.[0]?.toUpperCase() || '?'}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={post.profiles?.avatar_url || '/default-avatar.png'}
+            alt=""
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -458,6 +462,7 @@ function PostComposer({
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function DreamLinePage() {
+  const router = useRouter();
   const [posts, setPosts]             = useState<any[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [givenOoWops, setGivenOoWops] = useState<Set<string>>(new Set());
@@ -692,6 +697,7 @@ export default function DreamLinePage() {
             {/* "Your story" button */}
             <motion.button
               whileTap={{ scale: 0.93 }}
+              onClick={() => router.push('/village/create')}
               className="flex flex-col items-center gap-1.5 flex-shrink-0"
               style={{ width: 68, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
             >
@@ -713,7 +719,7 @@ export default function DreamLinePage() {
                 username={u.username || '?'}
                 tier={u.score_tier}
                 hasNew={i < 5}
-                onClick={() => {}}
+                onClick={() => router.push(`/villager/${u.username}`)}
               />
             ))}
           </div>

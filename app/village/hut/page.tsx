@@ -280,10 +280,11 @@ export default function HutPage() {
         <div style={{ flexShrink: 0 }}>
           <div style={{ width: 88, height: 88, borderRadius: 44, padding: 3, background: 'linear-gradient(135deg,#22C55E,#16A34A)', position: 'relative' }}>
             <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid #0A0B12', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {profile?.avatar_url
-                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 32, fontWeight: 900 }}>{(profile?.display_name || profile?.username || '?')[0]?.toUpperCase()}</span>
-              }
+              <img
+                src={profile?.avatar_url || '/default-avatar.png'}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             </div>
             {profile?.is_verified && (
               <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid #0A0B12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

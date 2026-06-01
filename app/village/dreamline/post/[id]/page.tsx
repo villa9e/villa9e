@@ -101,10 +101,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           {/* Author */}
           <div className="flex items-center gap-3 mb-4">
             <Link href={`/villager/${post.profiles?.username}`}>
-              <div className="w-12 h-12 rounded-2xl bg-purple-100 flex items-center justify-center text-xl font-bold text-purple-600 flex-shrink-0">
-                {post.profiles?.avatar_url
-                  ? <img src={post.profiles.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" />
-                  : (post.profiles?.username?.[0] ?? '?').toUpperCase()}
+              <div className="w-12 h-12 rounded-2xl flex-shrink-0 overflow-hidden">
+                <img src={post.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
               </div>
             </Link>
             <div>
@@ -180,8 +178,8 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
           {/* Comment thread */}
           {comments.map(c => (
             <div key={c.id} className="flex gap-3">
-              <div className="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-xs font-bold text-purple-600 flex-shrink-0">
-                {(c.profiles?.username?.[0] ?? '?').toUpperCase()}
+              <div className="w-8 h-8 rounded-xl flex-shrink-0 overflow-hidden">
+                <img src={c.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
               </div>
               <div className="flex-1 bg-gray-50 rounded-2xl px-3 py-2">
                 <div className="flex items-center gap-2 mb-0.5">

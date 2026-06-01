@@ -220,7 +220,7 @@ export default function TradingPostPage() {
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
                 style={{ background: isNight ? '#1E2240' : '#DCFCE7' }}>
-                {l.profiles?.avatar_url ? <img src={l.profiles.avatar_url} className="w-full h-full rounded-2xl object-cover" alt="" /> : '👤'}
+                <img src={l.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full rounded-2xl object-cover" alt="" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">

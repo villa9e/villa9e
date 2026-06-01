@@ -16,7 +16,7 @@ interface FeedCard {
   title:    string;
   subtitle: string;
   content:  string;
-  author:   { username: string; avatar?: string; score_tier?: string };
+  author:   { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
   media?:   { videoId?: string; thumbnail?: string; url?: string };
   color:    string;
   accent:   string;
@@ -172,9 +172,9 @@ function SideActions({ card, onOoWop, owopped, oowopCount }: {
 function AuthorBar({ card }: { card: FeedCard }) {
   return (
     <div className="absolute bottom-20 left-5 right-20 z-20 flex items-center gap-2.5">
-      <div className="w-10 h-10 rounded-full flex items-center justify-center text-base font-black flex-shrink-0"
-        style={{ background: card.color, border: '2px solid white' }}>
-        {card.author.username?.[0]?.toUpperCase() || '?'}
+      <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden" style={{ border: '2px solid white' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={card.author.avatar_url || '/default-avatar.png'} alt="" className="w-full h-full object-cover" />
       </div>
       <div>
         <p className="text-sm font-bold text-white">@{card.author.username}</p>

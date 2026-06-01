@@ -176,11 +176,12 @@ export default function ZenSpacePage() {
                 <p className="font-bold mb-3" style={{ color: textMain }}>What would you like to do?</p>
                 <div className="grid grid-cols-2 gap-3">
                   {ZEN_ACTIVITIES.map(act => {
-                    const href = act.label === 'Journal' ? '/village/zen/journal'
+                    const href = act.label === 'Meditate' ? '/village/zen/meditate'
+                      : act.label === 'Journal' ? '/village/zen/journal'
                       : act.label === 'Breathwork' ? '/village/zen/breathwork'
                       : act.label === 'Affirmation' ? '/village/zen/affirmation'
                       : act.label === 'Zen Music' ? '/village/zen/music'
-                      : act.label === 'Telehealth' ? '/village/hospital/providers'
+                      : act.label === 'Telehealth' ? '/village/hospital'
                       : null;
                     const inner = (
                       <div className="rounded-2xl p-4 text-left transition-all" style={{ background: cardBg, border: `1px solid ${border}` }}>

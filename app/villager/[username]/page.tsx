@@ -156,9 +156,7 @@ export default function VillagerProfilePage({ params }: { params: { username: st
             {/* Avatar */}
             <div className="w-20 h-20 rounded-3xl flex items-center justify-center text-3xl font-black flex-shrink-0"
               style={{ background: 'rgba(255,255,255,0.15)', border: '2px solid rgba(255,255,255,0.3)' }}>
-              {profile.avatar_url
-                ? <img src={profile.avatar_url} className="w-full h-full rounded-3xl object-cover" alt="" />
-                : <span className="text-white">{profile.username?.[0]?.toUpperCase()}</span>}
+              <img src={profile.avatar_url || '/default-avatar.png'} className="w-full h-full rounded-3xl object-cover" alt="" />
             </div>
             <div className="flex-1 text-white">
               <div className="flex items-center gap-2 flex-wrap">

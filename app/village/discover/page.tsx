@@ -106,9 +106,9 @@ export default function DiscoverPage() {
       style={{ background: card, border: `1px solid ${border}` }}>
       <div className="flex items-start gap-3">
         <Link href={`/villager/${v.username}`}>
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
-            {v.username?.[0]?.toUpperCase() ?? '?'}
+          <div className="w-12 h-12 rounded-2xl flex-shrink-0 overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={v.avatar_url || '/default-avatar.png'} alt="" className="w-full h-full object-cover" />
           </div>
         </Link>
         <div className="flex-1 min-w-0">

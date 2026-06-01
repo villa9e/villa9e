@@ -185,9 +185,8 @@ export default function ProviderPortalPage() {
                 <p className="text-sm text-center py-4" style={{ color: textMute }}>No sessions yet. Share your storefront to get bookings.</p>
               ) : sessions.slice(0, 5).map(s => (
                 <div key={s.id} className="flex items-center gap-3 py-2 border-b last:border-0" style={{ borderColor: border }}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
-                    style={{ background: isNight ? '#1E2240' : '#ECFDF5', color: accent }}>
-                    {s.profiles?.username?.[0]?.toUpperCase() ?? '?'}
+                  <div className="w-8 h-8 rounded-xl flex-shrink-0 overflow-hidden">
+                    <img src={s.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
                   </div>
                   <div className="flex-1">
                     <p className="font-bold text-sm" style={{ color: textMain }}>@{s.profiles?.username}</p>

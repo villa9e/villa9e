@@ -325,9 +325,8 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
               return (
                 <motion.div key={msg.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
                   className={`flex gap-2 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black flex-shrink-0 mt-1"
-                    style={{ background: isNight ? '#1E2240' : '#FCE7F3', color: accent }}>
-                    {(msg.profiles?.username?.[0] ?? '?').toUpperCase()}
+                  <div className="w-8 h-8 rounded-xl flex-shrink-0 overflow-hidden mt-1">
+                    <img src={msg.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
                   </div>
                   <div className={`max-w-[72%] flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                     {!isMe && <p className="text-xs mb-0.5" style={{ color: textMute }}>@{msg.profiles?.username}</p>}
@@ -524,9 +523,8 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
             <Link key={m.user_id} href={`/villager/${m.profiles?.username}`}>
               <div className="flex items-center gap-3 rounded-2xl p-4 transition-all"
                 style={{ background: cardBg, border: `1px solid ${border}` }}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
-                  style={{ background: isNight ? '#1E2240' : '#FCE7F3', color: accent }}>
-                  {(m.profiles?.username?.[0] ?? '?').toUpperCase()}
+                <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden">
+                  <img src={m.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-sm" style={{ color: textMain }}>@{m.profiles?.username}</p>
@@ -576,9 +574,8 @@ export default function TribeDetailPage({ params }: { params: { id: string } }) 
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                          style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
-                          {deal.profiles?.username?.[0]?.toUpperCase() ?? '?'}
+                        <div className="w-7 h-7 rounded-full flex-shrink-0 overflow-hidden">
+                          <img src={deal.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="" />
                         </div>
                         <div>
                           <p className="font-black text-sm" style={{ color: textMain }}>{deal.title}</p>

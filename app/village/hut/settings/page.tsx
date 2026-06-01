@@ -145,11 +145,7 @@ export default function SettingsPage() {
             <label className="cursor-pointer relative group flex-shrink-0">
               <div className="w-16 h-16 rounded-2xl overflow-hidden flex items-center justify-center"
                 style={{ background: isNight ? '#1E2240' : '#E8EDFF' }}>
-                {(avatarPreview || profile?.avatar_url) ? (
-                  <img src={avatarPreview || profile.avatar_url} className="w-full h-full object-cover" alt="Avatar" />
-                ) : (
-                  <span className="text-3xl">👤</span>
-                )}
+                <img src={avatarPreview || profile?.avatar_url || '/default-avatar.png'} className="w-full h-full object-cover" alt="Avatar" />
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity">
                   <span className="text-white text-xs font-bold">{uploading ? '…' : 'Edit'}</span>
                 </div>
