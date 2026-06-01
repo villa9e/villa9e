@@ -19,21 +19,21 @@ const HIDE_PREFIXES = [
 ];
 
 // Arc radius (px from logo center to icon center)
-const RADIUS = 92;
+const RADIUS = 126;
 
 // angleDeg: degrees clockwise from straight-up (0 = up, -90 = left, +90 = right)
 const ITEMS = [
   {
     href:     '/village/workshop',
     label:    'Workshop',
-    angleDeg: -60,
+    angleDeg: -72,
     // Brain — two lobes
     path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3zM12 7v10M9 9v6M15 9v6',
   },
   {
     href:     '/village/workshop',
     label:    'Goal',
-    angleDeg: -30,
+    angleDeg: -36,
     // Target / bullseye — three concentric circles + center dot
     path: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-4a6 6 0 100-12 6 6 0 000 12zm0-4a2 2 0 100-4 2 2 0 000 4z',
   },
@@ -47,14 +47,14 @@ const ITEMS = [
   {
     href:     '/village/dreamline',
     label:    'DreamLine',
-    angleDeg: 30,
+    angleDeg: 36,
     // 5-pointed star
     path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
   },
   {
     href:     '/village/trading-post',
     label:    'Trading Post',
-    angleDeg: 60,
+    angleDeg: 72,
     // Market stall / price tag
     path: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
   },

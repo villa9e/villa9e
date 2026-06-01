@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { BottomNav } from '@/components/village/BottomNav';
+import { NavSpacer } from '@/components/village/NavSpacer';
 import { ThemeSync } from '@/components/village/ThemeSync';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { SpiritVoiceProvider } from '@/components/village/SpiritVoiceProvider';
@@ -62,6 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SpiritVoiceProvider>
             <ThemeSync />
             {children}
+            <NavSpacer />
             <BottomNav />
           </SpiritVoiceProvider>
         </PostHogProvider>
