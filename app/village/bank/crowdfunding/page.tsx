@@ -6,21 +6,21 @@ import { createClient } from '@/lib/supabase/client';
 
 const MOCK_CAMPAIGNS = [
   {
-    id: '1', title: 'Launch My Music Studio', goal_amount: 5000, raised_amount: 3200, backer_count: 47,
+    id: '1', title: 'Launch My Music Studio', target_amount: 5000, raised_amount: 3200, backer_count: 47,
     days_left: 12, creator: 'Deon M.', creator_score: 1240, category: 'Creative',
     description: 'Turning my bedroom setup into a professional recording space to produce music for local artists.',
     probability_score: 81, goal_title: 'Build Professional Music Studio',
     perks: [{ amount: 25, label: 'Early Access', desc: 'First listen to 3 tracks' }, { amount: 100, label: 'Studio Session', desc: '1-hour recording session when we open' }],
   },
   {
-    id: '2', title: 'Food Truck Launch Fund', goal_amount: 15000, raised_amount: 11400, backer_count: 203,
+    id: '2', title: 'Food Truck Launch Fund', target_amount: 15000, raised_amount: 11400, backer_count: 203,
     days_left: 5, creator: 'Priya K.', creator_score: 2100, category: 'Business',
     description: 'My jerk chicken food truck needs a final push to cover licensing, equipment, and first month\'s location fees.',
     probability_score: 88, goal_title: 'Launch Jerk Chicken Food Truck',
     perks: [{ amount: 10, label: 'Supporter', desc: 'Name on the thank you board' }, { amount: 50, label: 'VIP', desc: '5 free meals when we launch' }],
   },
   {
-    id: '3', title: 'Tech Bootcamp Tuition', goal_amount: 3000, raised_amount: 850, backer_count: 18,
+    id: '3', title: 'Tech Bootcamp Tuition', target_amount: 3000, raised_amount: 850, backer_count: 18,
     days_left: 30, creator: 'Jaylen T.', creator_score: 340, category: 'Education',
     description: 'I got accepted to a 12-week full stack coding bootcamp but need help covering the tuition. All completed goals shared publicly.',
     probability_score: 74, goal_title: 'Complete Full Stack Bootcamp',
@@ -35,17 +35,17 @@ export default function CrowdfundingPage() {
   const [contributing, setContributing] = useState<any>(null);
   const [amount, setAmount] = useState('');
   const [contributed, setContributed] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', goal_amount: '', category: 'Business', days: '30' });
+  const [form, setForm] = useState({ title: '', description: '', target_amount: '', category: 'Business', days: '30' });
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(false);
   const supabase = createClient();
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from('crowdfunding_campaigns')
         .select('*, profiles(username, village_score), goals(title, probability_score)')
-        .eq('status', 'active')
+        .eq('is_active', true)
         .order('raised_amount', { ascending: false })
         .limit(20);
       if (data && data.length > 0) setCampaigns(data);
@@ -54,7 +54,7 @@ export default function CrowdfundingPage() {
     load();
   }, []);
 
-  const pct = (c: any) => Math.min(100, Math.round(((c.raised_amount ?? 0) / (c.goal_amount ?? 1)) * 100));
+  const pct = (c: any) => Math.min(100, Math.round(((c.raised_amount ?? 0) / (c.target_amount ?? 1)) * 100));
 
   async function contribute() {
     if (!contributing || !amount) return;
@@ -96,17 +96,17 @@ export default function CrowdfundingPage() {
       user_id: user.id,
       title: form.title,
       description: form.description,
-      goal_amount: parseFloat(form.goal_amount),
+      target_amount: parseFloat(form.target_amount),
       raised_amount: 0,
       backer_count: 0,
-      status: 'active',
+      is_active: true,
       deadline: deadline.toISOString(),
       currency: 'USD',
     });
 
     setCreating(false);
     setCreated(true);
-    setTimeout(() => { setShowCreate(false); setCreated(false); setForm({ title: '', description: '', goal_amount: '', category: 'Business', days: '30' }); }, 2000);
+    setTimeout(() => { setShowCreate(false); setCreated(false); setForm({ title: '', description: '', target_amount: '', category: 'Business', days: '30' }); }, 2000);
   }
 
   return (
@@ -194,7 +194,7 @@ export default function CrowdfundingPage() {
                   </div>
                   {[
                     { label: 'Campaign Title', key: 'title', placeholder: 'e.g. Help me launch my food truck' },
-                    { label: 'Funding Goal ($)', key: 'goal_amount', placeholder: 'e.g. 5000' },
+                    { label: 'Funding Goal ($)', key: 'target_amount', placeholder: 'e.g. 5000' },
                   ].map(f => (
                     <div key={f.key}>
                       <label className="text-xs font-medium text-gray-500">{f.label}</label>
@@ -223,7 +223,7 @@ export default function CrowdfundingPage() {
                       placeholder="Why does this matter? What will you do with the funds?" rows={4}
                       className="mt-1 w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none" />
                   </div>
-                  <button onClick={createCampaign} disabled={creating || !form.title || !form.goal_amount || !form.description}
+                  <button onClick={createCampaign} disabled={creating || !form.title || !form.target_amount || !form.description}
                     className="w-full bg-blue-600 text-white rounded-full py-3 font-bold disabled:opacity-50 hover:bg-blue-700">
                     {creating ? 'Launching…' : '🚀 Launch Campaign'}
                   </button>
@@ -260,7 +260,7 @@ export default function CrowdfundingPage() {
             <div className="mt-3">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span className="font-bold text-blue-600">${(c.raised_amount ?? 0).toLocaleString()} raised</span>
-                <span>of ${(c.goal_amount ?? 0).toLocaleString()}</span>
+                <span>of ${(c.target_amount ?? 0).toLocaleString()}</span>
               </div>
               <div className="w-full bg-gray-100 rounded-full h-2">
                 <div className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all"
