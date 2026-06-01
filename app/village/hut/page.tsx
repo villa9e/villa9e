@@ -1,397 +1,335 @@
 'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useState, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import { getScoreTier } from '@/lib/village/score';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { VillageSound } from '@/lib/sounds/village';
 import { BackButton } from '@/components/village/BackButton';
 
-const ARCHETYPE_EMOJI: Record<string, string> = {
-  architect:'🏗️', spark:'⚡', anchor:'⚓', compass:'🧭',
-  pioneer:'🏔️', sage:'📚', weaver:'🕸️', flame:'🔥',
-};
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
 
-const LEVEL_NAMES: Record<number, string> = {
-  1:'Seedling', 2:'Sprout', 3:'Grower', 4:'Builder', 5:'Maker',
-  6:'Achiever', 7:'Champion', 8:'Elder', 9:'Legend', 10:'Godlike',
-};
+// ── Sub-components ────────────────────────────────────────────────────────────
+function Stat({ n, label, onTap }: { n: number; label: string; onTap?: () => void }) {
+  return (
+    <button onClick={onTap} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 60 }}>
+      <span style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>{fmt(n)}</span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.02em' }}>{label}</span>
+    </button>
+  );
+}
 
-const HUT_LINKS = [
-  { href: '/village/hut/avatar',      emoji: '🎭', label: 'Build Avatar',      desc: 'Customize your village character' },
-  { href: '/village/hut/settings',    emoji: '⚙️', label: 'Settings',           desc: 'Profile, Spirit, language' },
-  { href: '/village/hut/vlg-wallet',  emoji: '🪙', label: '$VLG Wallet',        desc: 'Balance, transactions, earning' },
-  { href: '/village/blockchain',      emoji: '⛓️', label: 'Blockchain',          desc: 'Village ledger · $VLG token' },
-  { href: '/village/hut/data-locker', emoji: '🔒', label: 'Data Locker',        desc: 'Control your data & earnings' },
-  { href: '/village/hut/referrals',   emoji: '🤝', label: 'Referrals',          desc: 'Invite villagers, earn VLG' },
-  { href: '/village/hospital/join',   emoji: '✅', label: 'Get Verified',        desc: 'Open your professional storefront' },
-  { href: '/village/hut/achievements', emoji: '🏆', label: 'Achievements',       desc: 'Medals, milestones, badges' },
-];
+function IconBtn({ children, onPress, badge }: { children: React.ReactNode; onPress?: () => void; badge?: number }) {
+  return (
+    <button onClick={onPress} style={{ position: 'relative', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 18, background: 'rgba(255,255,255,0.07)' }}>
+      {children}
+      {(badge ?? 0) > 0 && (
+        <span style={{ position: 'absolute', top: 0, right: 0, minWidth: 14, height: 14, borderRadius: 7, background: '#EF4444', color: '#fff', fontSize: 8, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 2px' }}>
+          {(badge ?? 0) > 9 ? '9+' : badge}
+        </span>
+      )}
+    </button>
+  );
+}
 
+function CountPill({ icon, count, label, color, onTap }: { icon: string; count: number; label: string; color: string; onTap?: () => void }) {
+  return (
+    <button onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+      <span style={{ fontSize: 12 }}>{icon}</span>
+      <span style={{ fontSize: 12, fontWeight: 800, color }}>{fmt(count)}</span>
+      <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{label}</span>
+    </button>
+  );
+}
+
+// ── More options dropdown ─────────────────────────────────────────────────────
+function MoreMenu({ onClose }: { onClose: () => void }) {
+  const items = [
+    { icon: '🔗', label: 'Share Profile' },
+    { icon: '📱', label: 'Scan QR Code' },
+    { icon: '🚫', label: 'Block' },
+    { icon: '🚩', label: 'Report' },
+  ];
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}>
+      <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+        onClick={e => e.stopPropagation()}
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#12152A', borderRadius: '24px 24px 0 0', padding: '12px 0 32px' }}>
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
+        {items.map(it => (
+          <button key={it.label} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: '14px 24px', fontSize: 15, color: '#fff', fontWeight: 600 }}>
+            <span style={{ fontSize: 20 }}>{it.icon}</span> {it.label}
+          </button>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── Highlights ────────────────────────────────────────────────────────────────
+const PLAYLIST_ICONS: Record<string, string> = { Goals: '🎯', Wins: '🏆', Village: '🏡', Life: '🌿', Work: '💼', Travel: '✈️' };
+
+// ── Video thumbnail placeholder ───────────────────────────────────────────────
+function VideoThumb({ idx, pinned, views }: { idx: number; pinned?: boolean; views: number }) {
+  const hues = [220, 260, 200, 290, 180, 240, 210, 270];
+  const h = hues[idx % hues.length];
+  return (
+    <div style={{ aspectRatio: '9/16', position: 'relative', overflow: 'hidden', background: `hsl(${h},40%,18%)` }}>
+      {pinned && (
+        <div style={{ position: 'absolute', top: 4, left: 4, background: '#1877F2', borderRadius: 4, padding: '1px 5px', fontSize: 8, fontWeight: 900, color: '#fff' }}>PIN</div>
+      )}
+      <div style={{ position: 'absolute', bottom: 4, left: 4, display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.85)' }}>▶ {fmt(views)}</span>
+      </div>
+    </div>
+  );
+}
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function HutPage() {
-  const [profile, setProfile]       = useState<any>(null);
-  const [xp, setXp]                 = useState<any>(null);
-  const [skills, setSkills]         = useState<any[]>([]);
-  const [goals, setGoals]           = useState<any[]>([]);
-  const [wallet, setWallet]         = useState<any>(null);
-  const [provider, setProvider]     = useState<any>(null);
-  const [loading, setLoading]       = useState(true);
-  const [badges, setBadges]         = useState<any[]>([]);
-  const [completedSprints, setCompletedSprints] = useState<any[]>([]);
+  const router = useRouter();
   const supabase = createClient();
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
 
-  const bg       = isNight ? '#0A0B12' : '#FFF8EE';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#FED7AA';
-  const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
-  const textMute = isNight ? '#4A4F72' : '#8B6F47';
-  const accent   = isNight ? '#FFB84D' : '#D97706';
+  const [profile, setProfile]   = useState<any>(null);
+  const [stats, setStats]       = useState({ following: 0, tribes: 0, oowops: 0, verifications: 0, successes: 0, testimonials: 0, deals: 0 });
+  const [hasStore, setHasStore] = useState(false);
+  const [tab, setTab]           = useState<'grid' | 'repost' | 'oowop'>('grid');
+  const [showMore, setShowMore] = useState(false);
+  const [loading, setLoading]   = useState(true);
+
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) { router.push('/login'); return; }
 
-      const [
-        { data: p }, { data: s }, { data: g },
-        { data: w }, { data: xpData }, { data: prov },
-      ] = await Promise.all([
+      const [profRes, connFollowRes, connTribeRes, oowopRes, sprintRes, storeRes] = await Promise.allSettled([
         (supabase as any).from('profiles').select('*').eq('id', user.id).single(),
-        (supabase as any).from('user_skills').select('*').eq('user_id', user.id).order('rating', { ascending: false }).limit(6),
-        (supabase as any).from('goals').select('id,title,probability_score,status,progress_percentage,goal_steps(status)').eq('user_id', user.id).eq('status', 'active').limit(4),
-        (supabase as any).from('village_wallets').select('vlg_balance,total_earned_vlg,total_data_earnings').eq('user_id', user.id).single(),
-        (supabase as any).from('user_xp').select('*').eq('user_id', user.id).single(),
-        (supabase as any).from('provider_profiles').select('verification_status,specialty,credential_type').eq('user_id', user.id).single(),
+        (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted'),
+        (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'accepted'),
+        (supabase as any).from('oowops').select('id', { count: 'exact', head: true }).eq('receiver_id', user.id),
+        (supabase as any).from('goals').select('id, goal_steps(id,status)').eq('user_id', user.id),
+        (supabase as any).from('trading_post_listings').select('id').eq('user_id', user.id).eq('is_active', true).limit(1),
       ]);
 
-      setProfile(p); setSkills(s ?? []); setGoals(g ?? []);
-      setWallet(w); setXp(xpData); setProvider(prov);
+      if (profRes.status === 'fulfilled') setProfile(profRes.value.data);
 
-      // Load earned badges
-      const { data: earned } = await (supabase as any)
-        .from('user_achievements')
-        .select('achievement_id, earned_at, achievements(id, title, icon, rarity, points, description)')
-        .eq('user_id', user.id)
-        .order('earned_at', { ascending: false });
-      setBadges(earned ?? []);
+      const following = connFollowRes.status === 'fulfilled' ? (connFollowRes.value.count ?? 0) : 0;
+      const tribes    = connTribeRes.status  === 'fulfilled' ? (connTribeRes.value.count  ?? 0) : 0;
+      const oowops    = oowopRes.status      === 'fulfilled' ? (oowopRes.value.count       ?? 0) : 0;
 
-      // Load completed sprints (verified accomplishments)
-      const { data: sprints } = await (supabase as any)
-        .from('sprints')
-        .select('id, title, goal_id, week_start, week_end, focus_intention, goals(title, category)')
-        .eq('user_id', user.id)
-        .eq('status', 'completed')
-        .order('week_end', { ascending: false })
-        .limit(10);
-      setCompletedSprints(sprints ?? []);
+      let successes = 0;
+      if (sprintRes.status === 'fulfilled') {
+        (sprintRes.value.data ?? []).forEach((g: any) => {
+          successes += (g.goal_steps ?? []).filter((s: any) => s.status === 'completed').length;
+        });
+      }
 
+      setStats({ following, tribes, oowops, verifications: 0, successes, testimonials: 0, deals: 0 });
+      if (storeRes.status === 'fulfilled') setHasStore((storeRes.value.data ?? []).length > 0);
       setLoading(false);
     }
     load();
   }, []);
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+  function onTouchStart(e: React.TouchEvent) {
+    touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!touchRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchRef.current.x;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchRef.current.y);
+    if (Math.abs(dx) > 60 && dy < 50) {
+      if (dx > 0) router.push('/village/spaces');
+      else router.push('/village/hospital');
+    }
+    touchRef.current = null;
   }
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: bg }}>
-      <motion.div animate={{ y: [0,-8,0] }} transition={{ duration: 2, repeat: Infinity }}>
-        <span className="text-5xl">🏠</span>
-      </motion.div>
-    </div>
-  );
-
-  const tier       = getScoreTier(profile?.village_score ?? 0);
-  const score      = profile?.village_score ?? 0;
-  const xpLevel    = xp?.current_level ?? 1;
-  const xpTotal    = xp?.total_xp ?? 0;
-  const xpToNext   = xp?.xp_to_next_level ?? 100;
-  const xpThisLevel = xpTotal % xpToNext;
-  const xpPct      = Math.round((xpThisLevel / xpToNext) * 100);
-  const levelName  = LEVEL_NAMES[xpLevel] ?? 'Villager';
-  const archEmoji  = ARCHETYPE_EMOJI[profile?.personality_type ?? ''] ?? '🏕️';
-  const vlg        = parseFloat(wallet?.vlg_balance ?? 0);
-  const vlgDisplay = vlg >= 1000 ? `${(vlg/1000).toFixed(1)}K` : vlg.toFixed(0);
-
-  const avatarCfg  = profile?.avatar_config;
-  const skinColors: Record<string, string> = { s1:'#FDDBB4', s2:'#F0C27F', s3:'#C68642', s4:'#8D5524', s5:'#5C2A0E', s6:'#3B1506' };
-  const skinColor  = skinColors[avatarCfg?.skin_id ?? 's4'] ?? '#8D5524';
+  const name     = profile?.display_name || `@${profile?.username || ''}`;
+  const playlists = ['Goals', 'Wins', 'Village'];
 
   return (
-    <div className="min-h-screen" style={{ background: bg }}>
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+      style={{ background: '#0A0B12', minHeight: '100vh', color: '#fff', overflowX: 'hidden', paddingBottom: 120 }}>
       <BackButton />
-      {/* Header */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <span className="text-2xl">🏠</span>
-        <div className="flex-1">
-          <h1 className="font-black text-white text-base">The Hut</h1>
-          <p className="text-white/60 text-xs">@{profile?.username}</p>
+
+      {/* ── Header ─────────────────────────────────────────────────────── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '12px 12px 12px 56px', background: 'rgba(10,11,18,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 16, fontWeight: 900, letterSpacing: '-0.01em' }}>
+            @{profile?.username ?? '…'}
+          </p>
         </div>
-        <button onClick={signOut} className="text-xs text-white/50 hover:text-white/80 transition-colors">Sign out</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <IconBtn>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
+            </svg>
+          </IconBtn>
+          <IconBtn onPress={() => router.push('/village/hospital')}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="#22C55E" stroke="#22C55E" strokeWidth="0">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              <text x="12" y="13" textAnchor="middle" fill="white" fontSize="8" fontWeight="900" stroke="none">+</text>
+            </svg>
+          </IconBtn>
+          <IconBtn onPress={() => router.push('/village/spaces')}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </IconBtn>
+          <IconBtn onPress={() => setShowMore(true)}>
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="white">
+              <circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" />
+            </svg>
+          </IconBtn>
+        </div>
       </div>
 
-      <div className="max-w-lg mx-auto p-4 space-y-3">
-
-        {/* Profile hero card */}
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-5 relative overflow-hidden"
-          style={{ background: isNight ? 'linear-gradient(135deg,#1A1200,#2D1F00)' : 'linear-gradient(135deg,#F59E0B,#FCD34D)', }}>
-          <div className="flex items-start gap-4">
-            {/* Avatar preview */}
-            <Link href="/village/hut/avatar">
-              <div className="w-18 h-18 rounded-2xl flex items-center justify-center flex-shrink-0 relative"
-                style={{ background: 'rgba(0,0,0,0.2)', width: 72, height: 72 }}>
-                {/* Simple avatar preview — circle face */}
-                <svg width="48" height="60" viewBox="0 0 48 60">
-                  <circle cx="24" cy="18" r="14" fill={skinColor} />
-                  <rect x="12" y="28" width="24" height="20" rx="8" fill={isNight ? '#1877F2' : '#E8770A'} />
-                  <circle cx="18" cy="16" r="3" fill="#fff" opacity="0.8" />
-                  <circle cx="30" cy="16" r="3" fill="#fff" opacity="0.8" />
-                  <circle cx="19" cy="17" r="1.5" fill="#111" />
-                  <circle cx="31" cy="17" r="1.5" fill="#111" />
-                  <path d="M18,24 Q24,28 30,24" stroke="#111" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                </svg>
-                <div className="absolute -bottom-1 -right-1 text-lg">{archEmoji}</div>
+      {/* ── Avatar + Stats ──────────────────────────────────────────────── */}
+      <div style={{ padding: '20px 16px 12px', display: 'flex', alignItems: 'center', gap: 20 }}>
+        <div style={{ flexShrink: 0 }}>
+          {/* Green story ring */}
+          <div style={{ width: 88, height: 88, borderRadius: 44, padding: 3, background: 'linear-gradient(135deg,#22C55E,#16A34A)', position: 'relative' }}>
+            <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid #0A0B12', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {profile?.avatar_url
+                ? <img src={profile.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : <span style={{ fontSize: 32, fontWeight: 900 }}>{(profile?.display_name || profile?.username || '?')[0]?.toUpperCase()}</span>
+              }
+            </div>
+            {/* Verified badge */}
+            {profile?.is_verified && (
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid #0A0B12', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <svg width={12} height={12} viewBox="0 0 24 24" fill="white"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="white" fill="none" strokeWidth="2.5" strokeLinecap="round" /></svg>
               </div>
-            </Link>
-
-            <div className="flex-1 text-white">
-              <p className="font-black text-lg">{profile?.display_name || `@${profile?.username}`}</p>
-              <p className="text-white/70 text-sm">{profile?.occupation || 'Villager'}</p>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                <span className="text-xs font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.2)' }}>
-                  {tier.label}
-                </span>
-                <span className="text-xs font-bold" style={{ color: 'rgba(255,255,255,0.8)' }}>{score} pts</span>
-                {profile?.is_founding_villager && (
-                  <span className="text-xs font-bold" style={{ color: '#FFD700' }}>👑 Founder #{profile.founding_villager_number}</span>
-                )}
-              </div>
-            </div>
-
-            {/* VLG balance */}
-            <div className="text-right">
-              <p className="font-black text-2xl" style={{ color: isNight ? '#FFB84D' : '#fff' }}>{vlgDisplay}</p>
-              <p className="text-xs text-white/60">$VLG</p>
-            </div>
+            )}
           </div>
+          <Link href="/village/hut/avatar" style={{ display: 'block', marginTop: 6, textAlign: 'center', background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '3px 8px', fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.65)' }}>
+            + Avatar
+          </Link>
+        </div>
+        {/* Stats */}
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'space-around' }}>
+          <Stat n={stats.following} label="Following" />
+          <Stat n={stats.tribes} label="Tribe" />
+          <Stat n={stats.oowops} label="OoWops" />
+        </div>
+      </div>
 
-          {/* XP Bar */}
-          <div className="mt-4">
-            <div className="flex justify-between text-xs mb-1">
-              <span className="text-white/70">Lv {xpLevel} · {levelName}</span>
-              <span className="text-white/50">{xpToNext - xpThisLevel} XP to {LEVEL_NAMES[xpLevel + 1] ?? 'Max'}</span>
-            </div>
-            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.2)' }}>
-              <motion.div className="h-full rounded-full"
-                initial={{ width: 0 }} animate={{ width: `${xpPct}%` }} transition={{ duration: 1.2, ease: 'easeOut' }}
-                style={{ background: 'linear-gradient(90deg,#FFFFFF,#FFD700)' }} />
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Active goals */}
-        {goals.length > 0 && (
-          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-black text-sm" style={{ color: textMain }}>Active GPS Goals</p>
-              <Link href="/village/workshop" className="text-xs font-bold" style={{ color: accent }}>View all →</Link>
-            </div>
-            <div className="space-y-2.5">
-              {goals.map(goal => {
-                const done  = goal.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
-                const total = goal.goal_steps?.length ?? 0;
-                const pct   = total ? Math.round((done / total) * 100) : goal.progress_percentage ?? 0;
-                return (
-                  <Link key={goal.id} href={`/village/workshop/goal/${goal.id}`}>
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate" style={{ color: textMain }}>{goal.title}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-1.5 rounded-full" style={{ background: isNight ? '#1E2240' : '#FED7AA' }}>
-                            <div className="h-1.5 rounded-full" style={{ width: `${pct}%`, background: accent }} />
-                          </div>
-                          <span className="text-xs flex-shrink-0" style={{ color: textMute }}>{done}/{total}</span>
-                        </div>
-                      </div>
-                      <span className="font-black text-sm flex-shrink-0" style={{ color: '#1877F2' }}>{goal.probability_score ?? 0}%</span>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Skills */}
-        {skills.length > 0 && (
-          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <p className="font-black text-sm mb-2" style={{ color: textMain }}>Your Skills</p>
-            <div className="flex flex-wrap gap-2">
-              {skills.slice(0, 6).map(s => (
-                <span key={s.id} className="text-xs px-3 py-1.5 rounded-full font-medium"
-                  style={{
-                    background: s.rating >= 7 ? (isNight ? '#0D2D1A' : '#DCFCE7') : (isNight ? '#1E2240' : '#EDE9FE'),
-                    color:      s.rating >= 7 ? '#16A34A' : (isNight ? '#7A7FA8' : '#6D28D9'),
-                  }}>
-                  {s.skill_name} {s.rating >= 7 ? '✓' : ''}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── Streak ────────────────────────────────────────────── */}
-        {(profile?.checkin_streak ?? 0) > 0 && (
-          <div className="rounded-2xl p-4 flex items-center gap-4"
-            style={{ background: isNight ? 'rgba(255,107,43,0.08)' : '#FFF7ED', border: `1px solid ${isNight ? 'rgba(255,107,43,0.2)' : '#FED7AA'}` }}>
-            <span className="text-3xl">🔥</span>
-            <div className="flex-1">
-              <p className="font-black text-lg" style={{ color: isNight ? '#FB923C' : '#EA580C' }}>
-                {profile.checkin_streak}-Day Streak
-              </p>
-              <p className="text-xs" style={{ color: textMute }}>
-                Longest: {profile.longest_streak ?? profile.checkin_streak} days · Keep checking in daily
-              </p>
-            </div>
-            <Link href="/village/spirit/checkin"
-              className="text-xs font-bold px-3 py-2 rounded-xl"
-              style={{ background: isNight ? 'rgba(255,107,43,0.15)' : '#FED7AA', color: isNight ? '#FB923C' : '#9A3412' }}>
-              Check In →
-            </Link>
-          </div>
-        )}
-
-        {/* ── Achievement badges ─────────────────────────────────── */}
-        {badges.length > 0 && (
-          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-black text-sm" style={{ color: textMain }}>Achievements</p>
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA' }}>
-                {badges.length} earned
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {badges.map((b: any) => {
-                const ach = b.achievements;
-                const rarityColor: Record<string, string> = {
-                  legendary: '#F59E0B',
-                  epic:      '#8B5CF6',
-                  rare:      '#3B82F6',
-                  common:    isNight ? '#4A4F72' : '#6B7280',
-                };
-                const color = rarityColor[ach?.rarity ?? 'common'];
-                return (
-                  <div key={b.achievement_id} title={`${ach?.title}: ${ach?.description}`}
-                    className="flex flex-col items-center gap-1 rounded-2xl px-3 py-2 text-center"
-                    style={{ background: isNight ? '#0D1020' : '#F8FAFF', border: `1px solid ${color}30`, minWidth: '60px' }}>
-                    <span className="text-2xl">{ach?.icon}</span>
-                    <span className="text-[10px] font-bold leading-tight" style={{ color }}>{ach?.title}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ── Verified Wins (completed sprints) ────────────────── */}
-        {completedSprints.length > 0 && (
-          <div className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">⚡</span>
-                <p className="font-black text-sm" style={{ color: textMain }}>Verified Wins</p>
-              </div>
-              <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                style={{ background: isNight ? '#0D2D1A' : '#DCFCE7', color: '#16A34A' }}>
-                {completedSprints.length} sprints
-              </span>
-            </div>
-            <div className="space-y-2.5">
-              {completedSprints.map((sp: any) => {
-                const goal = sp.goals;
-                const endDate = new Date(sp.week_end);
-                return (
-                  <Link key={sp.id} href={`/village/workshop/sprint/${sp.id}`}>
-                    <div className="flex items-start gap-3 rounded-2xl px-3 py-2.5"
-                      style={{ background: isNight ? 'rgba(34,197,94,0.06)' : '#F0FDF4', border: `1px solid ${isNight ? 'rgba(34,197,94,0.15)' : '#BBF7D0'}` }}>
-                      <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
-                        style={{ background: 'rgba(34,197,94,0.15)' }}>
-                        <span className="text-xs">✓</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold leading-tight" style={{ color: textMain }}>{sp.title}</p>
-                        {goal?.title && (
-                          <p className="text-xs mt-0.5" style={{ color: textMute }}>
-                            {goal.category} · {goal.title}
-                          </p>
-                        )}
-                        <p className="text-xs mt-0.5" style={{ color: '#16A34A' }}>
-                          Completed {endDate.toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </p>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-            <p className="text-xs mt-3 text-center" style={{ color: textMute }}>
-              These accomplishments are visible on your public profile and can be used when applying for opportunities or monetizing your experience.
-            </p>
-          </div>
-        )}
-
-        {/* Provider status */}
-        {provider && (
-          <div className="rounded-2xl p-4 flex items-center gap-3"
-            style={{ background: provider.verification_status === 'auto_verified' || provider.verification_status === 'approved'
-              ? (isNight ? '#0D2D1A' : '#ECFDF5')
-              : cardBg,
-              border: `1px solid ${provider.verification_status === 'auto_verified' || provider.verification_status === 'approved' ? '#16A34A40' : border}` }}>
-            <span className="text-2xl">{provider.verification_status === 'auto_verified' || provider.verification_status === 'approved' ? '✅' : '⏳'}</span>
-            <div className="flex-1">
-              <p className="font-bold text-sm" style={{ color: textMain }}>
-                {provider.verification_status === 'auto_verified' || provider.verification_status === 'approved'
-                  ? 'Verified Professional' : 'Verification Pending'}
-              </p>
-              <p className="text-xs" style={{ color: textMute }}>{provider.specialty ?? provider.credential_type}</p>
-            </div>
-            <Link href="/village/trading-post" className="text-xs font-bold" style={{ color: '#1877F2' }}>Storefront →</Link>
-          </div>
-        )}
-
-        {/* Quick links grid */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wider mb-2 px-1" style={{ color: textMute }}>Your Hut</p>
-          <div className="grid grid-cols-2 gap-2.5">
-            {HUT_LINKS.map(link => (
-              <Link key={link.href + link.label} href={link.href}>
-                <motion.div whileTap={{ scale: 0.97 }}
-                  className="rounded-2xl p-4 flex flex-col gap-1 transition-all"
-                  style={{ background: cardBg, border: `1px solid ${border}` }}>
-                  <span className="text-2xl">{link.emoji}</span>
-                  <p className="font-bold text-sm" style={{ color: textMain }}>{link.label}</p>
-                  <p className="text-xs" style={{ color: textMute }}>{link.desc}</p>
-                </motion.div>
-              </Link>
-            ))}
-          </div>
+      {/* ── Bio ─────────────────────────────────────────────────────────── */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+          <span style={{ fontSize: 15, fontWeight: 900 }}>{name}</span>
+          {profile?.pronouns && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.35)' }}>{profile.pronouns}</span>}
         </div>
 
-        {/* Sign out */}
-        <button onClick={signOut}
-          className="w-full py-3 rounded-2xl text-sm font-semibold transition-colors mt-2"
-          style={{ background: isNight ? '#1E2240' : '#FFF8EE', color: textMute, border: `1px solid ${border}` }}>
-          Sign Out
-        </button>
+        {/* Count pills */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          <CountPill icon="✅" count={stats.verifications} label="Verified" color="#60A5FA" />
+          <CountPill icon="🏆" count={stats.successes} label="Successes" color="#34D399" />
+          <CountPill icon="⭐" count={stats.testimonials} label="Testimonials" color="#FBBF24" />
+          <CountPill icon="🤝" count={stats.deals} label="Deals" color="#C084FC" />
+        </div>
+
+        {profile?.bio && (
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, marginBottom: 8 }}>{profile.bio}</p>
+        )}
+
+        {hasStore ? (
+          <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#C084FC', marginBottom: 4, fontWeight: 700 }}>
+            🏪 Trading Post
+          </Link>
+        ) : (
+          <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'rgba(255,255,255,0.28)', marginBottom: 4 }}>
+            🏪 Set up your storefront
+          </Link>
+        )}
+
+        {profile?.link_in_bio && (
+          <a href={profile.link_in_bio} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#60A5FA', fontWeight: 700 }}>
+            🔗 <span style={{ textDecoration: 'underline' }}>{(profile.link_in_bio as string).replace(/^https?:\/\//, '')}</span>
+          </a>
+        )}
+      </div>
+
+      {/* ── Edit Profile (own profile) ──────────────────────────────────── */}
+      <div style={{ padding: '0 16px 16px' }}>
+        <Link href="/village/hut/settings" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '9px 0', borderRadius: 10, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', fontSize: 14, fontWeight: 800, color: '#fff' }}>
+          Edit Profile
+        </Link>
+      </div>
+
+      {/* ── Highlights / Playlists ──────────────────────────────────────── */}
+      <div style={{ paddingLeft: 16, paddingBottom: 16, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+        <div style={{ display: 'flex', gap: 16, paddingRight: 16 }}>
+          <button style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 32, border: '1.5px dashed rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 22, color: 'rgba(255,255,255,0.4)' }}>+</span>
+            </div>
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', fontWeight: 700 }}>New</span>
+          </button>
+          {playlists.map(pl => (
+            <button key={pl} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 64, height: 64, borderRadius: 32, background: 'rgba(255,255,255,0.07)', border: '1.5px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontSize: 26 }}>{PLAYLIST_ICONS[pl] ?? '📁'}</span>
+              </div>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)', fontWeight: 700 }}>{pl}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Content Tab Bar ─────────────────────────────────────────────── */}
+      <div style={{ display: 'flex', borderTop: '1px solid rgba(255,255,255,0.07)', borderBottom: '1px solid rgba(255,255,255,0.07)', marginBottom: 2 }}>
+        {[
+          { id: 'grid' as const, icon: (
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          )},
+          { id: 'repost' as const, icon: (
+            <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>
+          )},
+          { id: 'oowop' as const, icon: <span style={{ fontSize: 18 }}>✊</span> },
+        ].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)} style={{ flex: 1, padding: '11px 0', display: 'flex', justifyContent: 'center', borderBottom: tab === t.id ? '2px solid #fff' : '2px solid transparent', color: tab === t.id ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent' }}>
+            {t.icon}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Video Grid ──────────────────────────────────────────────────── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+        {/* Drafts folder */}
+        {tab === 'grid' && (
+          <Link href="/village/studio" style={{ aspectRatio: '9/16', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6, background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.1)' }}>
+            <span style={{ fontSize: 24 }}>📁</span>
+            <span style={{ fontSize: 10, fontWeight: 800, color: 'rgba(255,255,255,0.4)' }}>Drafts</span>
+          </Link>
+        )}
+        {/* Pinned videos (top 3 for grid) */}
+        {tab === 'grid' && [0, 1, 2].map(i => <VideoThumb key={`pin-${i}`} idx={i} pinned views={(i + 1) * 340000} />)}
+        {/* Regular grid */}
+        {Array.from({ length: tab === 'grid' ? 6 : 9 }, (_, i) => (
+          <VideoThumb key={i} idx={i + 3} views={(i + 1) * 127000 + 8000} />
+        ))}
+      </div>
+
+      {/* ── More dropdown ───────────────────────────────────────────────── */}
+      <AnimatePresence>
+        {showMore && <MoreMenu onClose={() => setShowMore(false)} />}
+      </AnimatePresence>
+
+      {/* Swipe hint */}
+      <div style={{ position: 'fixed', bottom: 90, left: 0, right: 0, display: 'flex', justifyContent: 'space-between', padding: '0 16px', pointerEvents: 'none', zIndex: 10 }}>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontWeight: 700 }}>← Wellness</span>
+        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.15)', fontWeight: 700 }}>Spaces →</span>
       </div>
     </div>
   );

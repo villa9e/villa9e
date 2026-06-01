@@ -1,781 +1,525 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { VillageHeader } from '@/components/village/VillageHeader';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BackButton } from '@/components/village/BackButton';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
+type WScreen = 'home' | 'body' | 'nutrition' | 'ai' | 'journal';
+type Mood = 'low' | 'meh' | 'good' | 'great';
 
-interface Provider {
-  id: string;
-  name: string;
-  specialty: string;
-  bio: string;
-  npi_number: string | null;
-  rate_per_hour: number;
-  rating: number;
-  review_count: number;
-  avatar_url: string | null;
-  is_verified: boolean;
-  is_available: boolean;
-  video_platform: string | null;
-}
+// ── Mock data (real AI/wearable data would come from backend) ─────────────────
+const MOCK_VITALS = {
+  readiness: 7.4,
+  readinessSummary: 'Sleep solid · HRV slightly below baseline · Moderate day ahead',
+  sleep: { hours: 7.1, efficiency: 82, trend: 'up' as const },
+  hrv: { ms: 58, baseline: 65, trend: 'down' as const },
+  rhr: { bpm: 64, baseline: 60, trend: 'up' as const },
+  spo2: { pct: 96 },
+  steps: { count: 4200, goal: 8000 },
+  stress: 'Moderate' as const,
+  deep: 1.4, rem: 1.8, light: 4.1,
+};
+const AI_INSIGHT = "Your HRV is 11% below your 30-day average, likely from yesterday's high-output session. Sleep quality was strong at 82% efficiency. Today is a good day for focused work — avoid high-intensity exercise. Hydrate early and prioritize your afternoon Trigger for the 2 PM block.";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { label: 'All',               icon: '🌿' },
-  { label: 'Therapy',           icon: '🩺' },
-  { label: 'Meditation',        icon: '🧘' },
-  { label: 'Alternative Healing', icon: '🌿' },
-  { label: 'Energy Work',       icon: '💆' },
-  { label: 'Spiritual Guidance',icon: '🌟' },
-  { label: 'Nutrition',         icon: '🍃' },
+const MEALS = [
+  {
+    label: 'Breakfast', cal: 520,
+    items: [
+      { name: 'Eggs (3) scrambled', protein: 19, carbs: 1, fat: 14 },
+      { name: 'Steel-cut oats · ½ cup', protein: 5, carbs: 27, fat: 3, note: 'Sustained energy · HRV support' },
+      { name: 'Blueberries · 1 cup', protein: 1, carbs: 21, fat: 0, note: 'Antioxidant · inflammation' },
+      { name: 'Water with electrolytes', note: 'Hydration · raised RHR flag' },
+    ],
+  },
+  {
+    label: 'Lunch', cal: 680,
+    items: [
+      { name: 'Grilled salmon · 5oz', protein: 34, carbs: 0, fat: 18, note: 'Omega-3 · HRV support' },
+      { name: 'Quinoa · ¾ cup', protein: 6, carbs: 32, fat: 3 },
+      { name: 'Roasted vegetables', protein: 4, carbs: 18, fat: 6 },
+      { name: 'Olive oil dressing', note: 'Anti-inflammatory' },
+    ],
+  },
+  {
+    label: 'Dinner', cal: 590,
+    items: [
+      { name: 'Chicken breast · 6oz', protein: 44, carbs: 0, fat: 9 },
+      { name: 'Sweet potato · medium', protein: 4, carbs: 37, fat: 0 },
+      { name: 'Leafy greens salad', protein: 3, carbs: 8, fat: 2 },
+      { name: 'Dark chocolate · 1oz', note: 'Magnesium-rich · Sleep support' },
+    ],
+  },
 ];
 
-const TIME_SLOTS = [
-  '09:00', '10:00', '11:00', '12:00',
-  '13:00', '14:00', '15:00', '16:00', '17:00',
+const AI_MESSAGES = [
+  { role: 'ai' as const, text: "Good morning. Here's what I'm seeing in your data today: your HRV dropped to 58ms overnight — that's 11% below your baseline. Your sleep quality was strong though at 82% efficiency with solid deep sleep. I'm recommending a focused but not high-intensity day. You have a high-performance event at 2 PM. Eat light before that — the lunch plan is optimized for it. What would you like to explore?" },
 ];
 
-function getNextSevenDays(): { label: string; value: string }[] {
-  const days: { label: string; value: string }[] = [];
-  const now = new Date();
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    const value = d.toISOString().slice(0, 10);
-    const label = i === 0
-      ? 'Today'
-      : i === 1
-      ? 'Tomorrow'
-      : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    days.push({ label, value });
-  }
-  return days;
-}
+const JOURNAL_PROMPTS = [
+  'What went well today?',
+  'What drained your energy?',
+  'One thing you are grateful for',
+];
 
-// ─── Star Rating ──────────────────────────────────────────────────────────────
-
-function StarRating({ rating }: { rating: number }) {
-  const full  = Math.floor(rating);
-  const half  = rating % 1 >= 0.5;
-  const empty = 5 - full - (half ? 1 : 0);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function ReadinessRing({ score }: { score: number }) {
+  const pct = score / 10;
+  const r = 44, c = 2 * Math.PI * r;
+  const color = score >= 7 ? '#22C55E' : score >= 5 ? '#F59E0B' : '#EF4444';
   return (
-    <span className="flex items-center gap-0.5">
-      {Array.from({ length: full  }).map((_, i) => <span key={`f${i}`} style={{ color: '#F59E0B', fontSize: 12 }}>★</span>)}
-      {half && <span style={{ color: '#F59E0B', fontSize: 12 }}>½</span>}
-      {Array.from({ length: empty }).map((_, i) => <span key={`e${i}`} style={{ color: '#D1D5DB', fontSize: 12 }}>★</span>)}
-    </span>
+    <svg width={110} height={110} style={{ transform: 'rotate(-90deg)' }}>
+      <circle cx={55} cy={55} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} />
+      <circle cx={55} cy={55} r={r} fill="none" stroke={color} strokeWidth={8}
+        strokeDasharray={c} strokeDashoffset={c * (1 - pct)} strokeLinecap="round"
+        style={{ transition: 'stroke-dashoffset 1s ease' }} />
+    </svg>
   );
 }
 
-// ─── Provider Avatar ──────────────────────────────────────────────────────────
-
-function ProviderAvatar({ url, name }: { url: string | null; name: string }) {
-  const [err, setErr] = useState(false);
-  if (url && !err) {
-    return (
-      <img
-        src={url}
-        alt={name}
-        onError={() => setErr(true)}
-        className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-        style={{ border: '2px solid #D1FAE5' }}
-      />
-    );
-  }
+function VitalTile({ label, value, unit, bar, barColor, trend, trendLabel }: { label: string; value: string; unit?: string; bar?: number; barColor?: string; trend?: 'up' | 'down' | 'ok'; trendLabel?: string }) {
+  const tColor = trend === 'up' ? '#22C55E' : trend === 'down' ? '#F59E0B' : 'rgba(255,255,255,0.4)';
   return (
-    <div
-      className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 text-2xl"
-      style={{ background: '#D1FAE5', border: '2px solid #A7F3D0' }}
-      aria-label="Provider avatar"
-    >
-      🧑‍⚕️
+    <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em' }}>{label.toUpperCase()}</p>
+      <p style={{ fontSize: 24, fontWeight: 900, color: '#fff' }}>{value}<span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.4)', marginLeft: 3 }}>{unit}</span></p>
+      {bar !== undefined && (
+        <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+          <div style={{ width: `${Math.min(100, bar)}%`, height: '100%', background: barColor ?? '#22C55E', borderRadius: 2 }} />
+        </div>
+      )}
+      {trendLabel && <p style={{ fontSize: 11, fontWeight: 700, color: tColor }}>{trendLabel}</p>}
     </div>
   );
 }
 
-// ─── Booking Modal ─────────────────────────────────────────────────────────────
-
-interface BookingModalProps {
-  provider: Provider;
-  onClose: () => void;
-}
-
-function BookingModal({ provider, onClose }: BookingModalProps) {
-  const days = getNextSevenDays();
-  const [selectedDay,  setSelectedDay]  = useState(days[0].value);
-  const [selectedTime, setSelectedTime] = useState('');
-  const [step,         setStep]         = useState<'pick' | 'confirm' | 'done' | 'error'>('pick');
-  const [loading,      setLoading]      = useState(false);
-  const [errorMsg,     setErrorMsg]     = useState('');
-
-  async function handleConfirm() {
-    if (!selectedDay || !selectedTime || loading) return;
-    setLoading(true);
-    setErrorMsg('');
-    const scheduledAt = `${selectedDay}T${selectedTime}:00`;
-    try {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      const userId = user?.id ?? null;
-
-      const { error } = await (supabase as any)
-        .from('session_bookings')
-        .insert({
-          provider_id:      provider.id,
-          user_id:          userId,
-          scheduled_at:     scheduledAt,
-          duration_minutes: 60,
-          status:           'pending',
-        });
-
-      if (error) {
-        // Table may not exist yet — still show success UX
-        if (error.code === '42P01' || error.message?.includes('does not exist')) {
-          setStep('done');
-        } else {
-          setErrorMsg(error.message ?? 'Something went wrong. Please try again.');
-          setStep('error');
-        }
-      } else {
-        setStep('done');
-      }
-    } catch {
-      // Network error or table missing — graceful degradation
-      setStep('done');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const formattedDate = selectedDay
-    ? new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric',
-      })
-    : '';
-
+function TabBtn({ icon, label, active, onTap }: { icon: React.ReactNode; label: string; active: boolean; onTap: () => void }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.45)' }}
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <motion.div
-        initial={{ y: 60, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 60, opacity: 0 }}
-        transition={{ type: 'spring', damping: 26, stiffness: 300 }}
-        className="w-full max-w-md rounded-3xl overflow-y-auto"
-        style={{ background: '#FFFFFF', maxHeight: '90vh' }}
-      >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3">
-          <div className="flex items-center gap-3">
-            <ProviderAvatar url={provider.avatar_url} name={provider.name} />
-            <div>
-              <p className="font-black text-sm" style={{ color: '#052E16' }}>{provider.name}</p>
-              <p className="text-xs" style={{ color: '#059669' }}>{provider.specialty}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-lg font-light transition-colors hover:bg-gray-100"
-            style={{ color: '#6B7280' }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="px-5 pb-6 space-y-4">
-
-          {/* ── Step: Pick time ────────────────────────────────── */}
-          {step === 'pick' && (
-            <>
-              <div
-                className="rounded-2xl p-3 flex items-center justify-between"
-                style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}
-              >
-                <div>
-                  <p className="text-xs font-bold" style={{ color: '#059669' }}>Session</p>
-                  <p className="text-sm font-black" style={{ color: '#052E16' }}>${provider.rate_per_hour}/hr · 60 min</p>
-                </div>
-                {provider.video_platform && (
-                  <span
-                    className="text-xs px-2 py-1 rounded-full font-medium"
-                    style={{ background: '#DCFCE7', color: '#166534' }}
-                  >
-                    {provider.video_platform}
-                  </span>
-                )}
-              </div>
-
-              {/* Day picker */}
-              <div>
-                <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>Select Day</p>
-                <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-                  {days.map(d => (
-                    <button
-                      key={d.value}
-                      onClick={() => setSelectedDay(d.value)}
-                      className="flex-shrink-0 rounded-xl px-3 py-2 text-xs font-semibold transition-all"
-                      style={
-                        selectedDay === d.value
-                          ? { background: '#059669', color: '#FFFFFF', border: '1px solid #059669' }
-                          : { background: '#FFFFFF', color: '#374151', border: '1px solid #D1D5DB' }
-                      }
-                    >
-                      {d.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time slots */}
-              <div>
-                <p className="text-xs font-bold mb-2" style={{ color: '#374151' }}>Select Time</p>
-                <div className="grid grid-cols-3 gap-2">
-                  {TIME_SLOTS.map(t => (
-                    <button
-                      key={t}
-                      onClick={() => setSelectedTime(t)}
-                      className="py-2.5 rounded-xl text-sm font-semibold transition-all"
-                      style={
-                        selectedTime === t
-                          ? { background: '#059669', color: '#FFFFFF', border: '1.5px solid #059669' }
-                          : { background: '#FFFFFF', color: '#374151', border: '1.5px solid #E5E7EB' }
-                      }
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={() => { if (selectedDay && selectedTime) setStep('confirm'); }}
-                disabled={!selectedDay || !selectedTime}
-                className="w-full rounded-full py-3 text-sm font-black transition-all"
-                style={{
-                  background: selectedDay && selectedTime ? '#059669' : '#D1D5DB',
-                  color: '#FFFFFF',
-                }}
-              >
-                Review Booking →
-              </button>
-            </>
-          )}
-
-          {/* ── Step: Confirm ──────────────────────────────────── */}
-          {step === 'confirm' && (
-            <>
-              <h2 className="font-black text-base" style={{ color: '#052E16' }}>Confirm Session</h2>
-              <div className="rounded-2xl p-4 space-y-2.5" style={{ background: '#F9FAFB' }}>
-                {[
-                  ['Provider',   provider.name],
-                  ['Specialty',  provider.specialty],
-                  ['Date',       formattedDate],
-                  ['Time',       selectedTime],
-                  ['Duration',   '60 minutes'],
-                  ['Rate',       `$${provider.rate_per_hour}/hr`],
-                ].map(([k, v]) => (
-                  <div key={k} className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: '#6B7280' }}>{k}</span>
-                    <span className="text-xs font-bold" style={{ color: '#111827' }}>{v}</span>
-                  </div>
-                ))}
-              </div>
-              <div
-                className="rounded-2xl p-3 text-xs space-y-1"
-                style={{ background: '#ECFDF5', color: '#065F46' }}
-              >
-                <p>🎥 Video link sent after confirmation</p>
-                <p>💳 Payment due directly to provider · villa9e earns 1.5%</p>
-                <p>📧 Confirmation sent to your email</p>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep('pick')}
-                  className="flex-1 py-2.5 rounded-full text-sm font-bold border transition-colors"
-                  style={{ background: '#FFFFFF', color: '#374151', borderColor: '#D1D5DB' }}
-                >
-                  ← Back
-                </button>
-                <button
-                  onClick={handleConfirm}
-                  disabled={loading}
-                  className="flex-1 py-2.5 rounded-full text-sm font-black transition-colors"
-                  style={{ background: '#059669', color: '#FFFFFF', opacity: loading ? 0.7 : 1 }}
-                >
-                  {loading ? 'Booking…' : 'Confirm →'}
-                </button>
-              </div>
-            </>
-          )}
-
-          {/* ── Step: Done ────────────────────────────────────── */}
-          {step === 'done' && (
-            <div className="text-center py-6 space-y-4">
-              <div className="text-6xl">✅</div>
-              <h2 className="text-xl font-black" style={{ color: '#059669' }}>Session Requested!</h2>
-              <p className="text-sm" style={{ color: '#4B5563' }}>
-                Your session with <strong>{provider.name}</strong> on{' '}
-                <strong>{formattedDate}</strong> at <strong>{selectedTime}</strong> is pending confirmation.
-              </p>
-              <button
-                onClick={onClose}
-                className="w-full py-3 rounded-full font-black text-sm"
-                style={{ background: '#059669', color: '#FFFFFF' }}
-              >
-                Done
-              </button>
-            </div>
-          )}
-
-          {/* ── Step: Error ───────────────────────────────────── */}
-          {step === 'error' && (
-            <div className="text-center py-6 space-y-4">
-              <div className="text-5xl">⚠️</div>
-              <h2 className="text-lg font-black" style={{ color: '#B45309' }}>Booking Failed</h2>
-              <p className="text-sm" style={{ color: '#6B7280' }}>{errorMsg}</p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setStep('pick')}
-                  className="flex-1 py-2.5 rounded-full text-sm font-bold border"
-                  style={{ background: '#FFFFFF', color: '#374151', borderColor: '#D1D5DB' }}
-                >
-                  Try Again
-                </button>
-                <button
-                  onClick={onClose}
-                  className="flex-1 py-2.5 rounded-full text-sm font-bold"
-                  style={{ background: '#F3F4F6', color: '#374151' }}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </motion.div>
-    </div>
+    <button onClick={onTap} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 0', color: active ? '#22C55E' : 'rgba(255,255,255,0.3)', background: 'transparent', borderTop: active ? '2px solid #22C55E' : '2px solid transparent' }}>
+      {icon}
+      <span style={{ fontSize: 8, fontWeight: 900, letterSpacing: '0.04em' }}>{label.toUpperCase()}</span>
+    </button>
   );
 }
 
-// ─── Provider Card ─────────────────────────────────────────────────────────────
+// ── HOME SCREEN ───────────────────────────────────────────────────────────────
+function HomeScreen({ onNav, onAskAI }: { onNav: (s: WScreen) => void; onAskAI: () => void }) {
+  const [mood, setMood] = useState<Mood | null>(null);
+  const v = MOCK_VITALS;
 
-function ProviderCard({
-  provider,
-  onBook,
-}: {
-  provider: Provider;
-  onBook: (p: Provider) => void;
-}) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl p-4"
-      style={{
-        background: '#F0FDF4',
-        border: '1px solid #BBF7D0',
-        boxShadow: '0 1px 6px rgba(5,150,105,0.07)',
-      }}
-    >
-      <div className="flex items-start gap-3">
-        <ProviderAvatar url={provider.avatar_url} name={provider.name} />
-
-        <div className="flex-1 min-w-0">
-          {/* Name + rate */}
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="font-black text-sm truncate" style={{ color: '#052E16' }}>{provider.name}</p>
-              <p className="text-xs font-semibold" style={{ color: '#059669' }}>{provider.specialty}</p>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      {/* Readiness Card */}
+      <motion.button whileTap={{ scale: 0.98 }} onClick={() => onNav('body')}
+        style={{ width: '100%', textAlign: 'left', background: 'linear-gradient(135deg,#052E16,#065F46)', borderRadius: 20, padding: 20, marginBottom: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', marginBottom: 12 }}>TODAY'S READINESS</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
+            <ReadinessRing score={v.readiness} />
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>{v.readiness}</span>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>/10</span>
             </div>
-            <span className="text-sm font-black flex-shrink-0" style={{ color: '#059669' }}>
-              ${provider.rate_per_hour}/hr
-            </span>
           </div>
-
-          {/* Badges */}
-          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-            {provider.is_verified && provider.npi_number && (
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                style={{ background: '#D1FAE5', color: '#065F46' }}
-              >
-                ✓ NPI Verified
-              </span>
-            )}
-            {provider.is_available && (
-              <span
-                className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                style={{ background: '#ECFDF5', color: '#059669', border: '1px solid #A7F3D0' }}
-              >
-                Available
-              </span>
-            )}
-            <span className="flex items-center gap-1">
-              <StarRating rating={provider.rating} />
-              <span className="text-xs" style={{ color: '#6B7280' }}>
-                {provider.rating.toFixed(1)} ({provider.review_count})
-              </span>
-            </span>
+          <div>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>{v.readinessSummary}</p>
+            <p style={{ fontSize: 12, color: '#34D399', fontWeight: 700, marginTop: 8 }}>Tap for full breakdown →</p>
           </div>
-
-          {/* Bio */}
-          {provider.bio && (
-            <p className="text-xs mt-2 leading-relaxed line-clamp-2" style={{ color: '#374151' }}>
-              {provider.bio}
-            </p>
-          )}
         </div>
+      </motion.button>
+
+      {/* Vital tiles */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <VitalTile label="Sleep" value={`${v.sleep.hours}h`} bar={v.sleep.efficiency} barColor="#22C55E" trendLabel={`${v.sleep.efficiency}% efficiency`} trend="ok" />
+        <VitalTile label="Resting HR" value={`${v.rhr.bpm}`} unit="bpm" bar={(v.rhr.bpm / 90) * 100} barColor="#F59E0B" trendLabel={`+${v.rhr.bpm - v.rhr.baseline} above baseline`} trend="down" />
       </div>
 
-      <button
-        onClick={() => onBook(provider)}
-        className="mt-3 w-full rounded-full py-2.5 text-sm font-black transition-all hover:opacity-90 active:scale-95"
-        style={{ background: '#059669', color: '#FFFFFF' }}
-      >
-        Book Session
-      </button>
-    </motion.div>
-  );
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
-
-export default function HospitalPage() {
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
-
-  // Night mode tokens (white is default)
-  const pageBg    = isNight ? '#0A0B12' : '#FFFFFF';
-  const textMain  = isNight ? '#F0EBE0' : '#052E16';
-  const textMute  = isNight ? '#7A7FA8' : '#166534';
-  const accent    = '#059669';
-
-  const [search,        setSearch]        = useState('');
-  const [activeCategory, setActiveCategory] = useState('All');
-  const [providers,     setProviders]     = useState<Provider[]>([]);
-  const [loadState,     setLoadState]     = useState<'loading' | 'ok' | 'empty' | 'unavailable'>('loading');
-  const [bookingTarget, setBookingTarget] = useState<Provider | null>(null);
-
-  const categoryBarRef = useRef<HTMLDivElement>(null);
-
-  // ── Load providers from Supabase ──────────────────────────────────────────
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const supabase = createClient();
-        const { data, error } = await (supabase as any)
-          .from('wellness_providers')
-          .select('id, name, specialty, bio, npi_number, rate_per_hour, rating, review_count, avatar_url, is_verified, is_available, video_platform')
-          .order('rating', { ascending: false });
-
-        if (cancelled) return;
-
-        if (error) {
-          // Table doesn't exist yet or permission denied — show coming soon
-          setLoadState('unavailable');
-          return;
-        }
-
-        if (!data || data.length === 0) {
-          setLoadState('empty');
-          return;
-        }
-
-        setProviders(data);
-        setLoadState('ok');
-      } catch {
-        if (!cancelled) setLoadState('unavailable');
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
-
-  // ── Filter providers ──────────────────────────────────────────────────────
-  const filtered = providers.filter(p => {
-    const matchCategory =
-      activeCategory === 'All' ||
-      p.specialty.toLowerCase().includes(activeCategory.toLowerCase());
-    const q = search.toLowerCase();
-    const matchSearch =
-      q === '' ||
-      p.name.toLowerCase().includes(q) ||
-      p.specialty.toLowerCase().includes(q) ||
-      p.bio?.toLowerCase().includes(q);
-    return matchCategory && matchSearch;
-  });
-
-  return (
-    <div className="min-h-screen pb-24" style={{ background: pageBg }}>
-      <BackButton to="/village/hut" />
-
-      {/* Night ambient glow */}
-      {isNight && (
-        <div
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            background: 'radial-gradient(ellipse at 50% 0%, rgba(52,211,153,0.05) 0%, transparent 60%)',
-          }}
-        />
-      )}
-
-      {/* Header */}
-      <VillageHeader
-        title="Wellness Center"
-        subtitle="Verified practitioners · Book a session"
-        backHref="/village/hut"
-        icon="🏥"
-        accentColor={accent}
-      />
-
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <div
-        className="mx-4 mt-4 rounded-2xl p-5"
-        style={{
-          background: 'linear-gradient(135deg, #059669 0%, #0D9488 100%)',
-          boxShadow: '0 4px 20px rgba(5,150,105,0.25)',
-        }}
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="font-black text-lg text-white leading-tight">Find a Provider</p>
-            <p className="text-green-100 text-sm mt-0.5">
-              Verified healers, therapists & coaches
-            </p>
-          </div>
-          <span className="text-4xl flex-shrink-0">🔍</span>
+      {/* AI Insight */}
+      <motion.div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+          <span style={{ fontSize: 14 }}>✨</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: '#34D399', letterSpacing: '0.08em' }}>AI INSIGHT</span>
         </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, marginBottom: 12 }}>
+          {AI_INSIGHT.split('.').slice(0, 2).join('.') + '.'}
+        </p>
+        <button onClick={onAskAI} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#22C55E22', border: '1px solid #22C55E44', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 800, color: '#34D399' }}>
+          ✨ Ask me anything
+        </button>
+      </motion.div>
 
-        {/* Search inside hero */}
-        <div className="mt-4 relative">
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or specialty…"
-            className="w-full rounded-xl px-4 py-3 text-sm outline-none"
-            style={{
-              background: 'rgba(255,255,255,0.95)',
-              color: '#111827',
-              border: 'none',
-            }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg leading-none"
-              aria-label="Clear search"
-            >
-              ×
+      {/* Check-in */}
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 700, marginBottom: 12 }}>How are you feeling today?</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['low', 'meh', 'good', 'great'] as Mood[]).map(m => (
+            <button key={m} onClick={() => setMood(m)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: mood === m ? '#22C55E' : 'rgba(255,255,255,0.06)', border: mood === m ? 'none' : '1px solid rgba(255,255,255,0.1)', color: mood === m ? '#fff' : 'rgba(255,255,255,0.5)', fontWeight: 900, fontSize: 12, textTransform: 'capitalize' }}>
+              {m}
             </button>
-          )}
-        </div>
-
-        {/* Trust badges */}
-        <div className="flex gap-2 mt-3 flex-wrap">
-          {['NPI Verified', 'HIPAA Adjacent', '1.5% platform fee'].map(tag => (
-            <span
-              key={tag}
-              className="text-xs rounded-full px-3 py-1 font-medium"
-              style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}
-            >
-              {tag}
-            </span>
           ))}
         </div>
+        {mood && <p style={{ fontSize: 11, color: '#34D399', fontWeight: 700, marginTop: 8, textAlign: 'center' }}>✓ Mood logged</p>}
       </div>
 
-      {/* ── Category filter bar ────────────────────────────────────────────── */}
-      <div
-        ref={categoryBarRef}
-        className="flex gap-2 overflow-x-auto py-3 px-4"
-        style={{ scrollbarWidth: 'none' }}
-      >
-        {CATEGORIES.map(cat => {
-          const active = activeCategory === cat.label;
-          return (
-            <button
-              key={cat.label}
-              onClick={() => setActiveCategory(cat.label)}
-              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
-              style={
-                active
-                  ? { background: '#059669', color: '#FFFFFF', border: '1.5px solid #059669' }
-                  : {
-                      background: '#FFFFFF',
-                      color: textMute,
-                      border: `1.5px solid ${isNight ? '#1E2240' : '#D1FAE5'}`,
-                    }
-              }
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
-          );
-        })}
+      {/* Today cards */}
+      <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 10 }}>TODAY</p>
+      {[
+        { icon: '🥗', color: '#22C55E', label: 'Nutrition', sub: '3 meals planned · On track', pill: 'ON TRACK', pillColor: '#22C55E', screen: 'nutrition' as WScreen },
+        { icon: '🏥', color: '#14B8A6', label: 'Telehealth', sub: 'No upcoming appointments', pill: '', pillColor: '', screen: 'home' as WScreen },
+        { icon: '📓', color: '#8B5CF6', label: 'Journal', sub: 'Evening reflection pending', pill: 'PENDING', pillColor: '#8B5CF6', screen: 'journal' as WScreen },
+      ].map(c => (
+        <motion.button key={c.label} whileTap={{ scale: 0.98 }} onClick={() => onNav(c.screen)}
+          style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px', marginBottom: 8 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 20, background: `${c.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{c.icon}</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{c.label}</p>
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)' }}>{c.sub}</p>
+          </div>
+          {c.pill && <span style={{ fontSize: 9, fontWeight: 900, color: c.pillColor, background: `${c.pillColor}22`, border: `1px solid ${c.pillColor}44`, borderRadius: 8, padding: '3px 8px' }}>{c.pill}</span>}
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+// ── BODY SCREEN ───────────────────────────────────────────────────────────────
+function BodyScreen() {
+  const v = MOCK_VITALS;
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      <div style={{ background: 'linear-gradient(135deg,#052E16,#065F46)', borderRadius: 20, padding: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div style={{ position: 'relative', width: 90, height: 90, flexShrink: 0 }}>
+          <ReadinessRing score={v.readiness} />
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{v.readiness}</span>
+            <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)' }}>/10</span>
+          </div>
+        </div>
+        <div>
+          <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 4 }}>READINESS</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45 }}>Based on sleep, HRV, activity, and mood from yesterday.</p>
+        </div>
       </div>
 
-      {/* ── Provider list ──────────────────────────────────────────────────── */}
-      <div className="px-4 space-y-3">
-
-        {/* Loading skeleton */}
-        {loadState === 'loading' && (
-          <div className="space-y-3 pt-2">
-            {[1, 2, 3].map(i => (
-              <div
-                key={i}
-                className="rounded-2xl p-4 animate-pulse"
-                style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', height: 130 }}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Table not available yet */}
-        {loadState === 'unavailable' && (
-          <div className="text-center py-16 space-y-3">
-            <span className="text-5xl">🌱</span>
-            <p className="font-black text-base" style={{ color: textMain }}>
-              No providers yet.
-            </p>
-            <p className="text-sm" style={{ color: textMute }}>
-              Check back soon — we're onboarding verified practitioners.
-            </p>
-            <Link
-              href="/village/hospital/apply"
-              className="inline-block mt-2 px-5 py-2.5 rounded-full text-sm font-black"
-              style={{ background: '#059669', color: '#FFFFFF' }}
-            >
-              Apply as a Provider
-            </Link>
-          </div>
-        )}
-
-        {/* Table exists but no rows */}
-        {loadState === 'empty' && (
-          <div className="text-center py-16 space-y-3">
-            <span className="text-5xl">🌿</span>
-            <p className="font-black text-base" style={{ color: textMain }}>
-              Providers coming soon.
-            </p>
-            <p className="text-sm" style={{ color: textMute }}>
-              Be the first to join our wellness network.
-            </p>
-            <Link
-              href="/village/hospital/apply"
-              className="inline-block mt-2 px-5 py-2.5 rounded-full text-sm font-black"
-              style={{ background: '#059669', color: '#FFFFFF' }}
-            >
-              Apply as a Provider
-            </Link>
-          </div>
-        )}
-
-        {/* Provider cards */}
-        {loadState === 'ok' && filtered.length > 0 && (
-          <>
-            <p className="text-xs font-semibold pt-1" style={{ color: textMute }}>
-              {filtered.length} provider{filtered.length !== 1 ? 's' : ''} found
-            </p>
-            {filtered.map((provider, i) => (
-              <motion.div
-                key={provider.id}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-              >
-                <ProviderCard provider={provider} onBook={p => setBookingTarget(p)} />
-              </motion.div>
-            ))}
-          </>
-        )}
-
-        {/* Filtered results empty */}
-        {loadState === 'ok' && filtered.length === 0 && (
-          <div className="text-center py-14 space-y-2">
-            <span className="text-4xl">🔍</span>
-            <p className="font-bold text-sm" style={{ color: textMain }}>
-              No results for &ldquo;{search || activeCategory}&rdquo;
-            </p>
-            <button
-              onClick={() => { setSearch(''); setActiveCategory('All'); }}
-              className="text-xs underline"
-              style={{ color: accent }}
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
-
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+        <VitalTile label="Resting HR" value={`${v.rhr.bpm}`} unit="bpm" bar={(v.rhr.bpm/90)*100} barColor="#F59E0B" trendLabel={`+${v.rhr.bpm - v.rhr.baseline} above baseline`} trend="down" />
+        <VitalTile label="HRV" value={`${v.hrv.ms}`} unit="ms" bar={(v.hrv.ms/100)*100} barColor="#1877F2" trendLabel={`-${v.hrv.baseline - v.hrv.ms} below avg`} trend="down" />
+        <VitalTile label="Sleep" value={`${v.sleep.hours}h`} bar={v.sleep.efficiency} barColor="#22C55E" trendLabel={`${v.sleep.efficiency}% efficiency`} trend="ok" />
+        <VitalTile label="SpO₂" value={`${v.spo2.pct}%`} bar={v.spo2.pct} barColor={v.spo2.pct >= 94 ? '#22C55E' : '#EF4444'} trendLabel="Normal range" trend="ok" />
+        <VitalTile label="Steps" value={`${(v.steps.count/1000).toFixed(1)}K`} bar={(v.steps.count/v.steps.goal)*100} barColor="#8B5CF6" trendLabel={`of ${(v.steps.goal/1000).toFixed(0)}K goal`} trend="ok" />
+        <VitalTile label="Stress" value={v.stress} bar={50} barColor="#F59E0B" trendLabel="Moderate — manageable" trend="ok" />
       </div>
 
-      {/* ── Apply CTA ─────────────────────────────────────────────────────── */}
-      {loadState !== 'loading' && (
-        <div className="px-4 mt-6">
-          <Link href="/village/hospital/apply">
-            <div
-              className="rounded-2xl p-4 flex items-center justify-between cursor-pointer transition-all hover:shadow-md"
-              style={{
-                background: '#FFFFFF',
-                border: '1.5px solid #BBF7D0',
-                boxShadow: '0 1px 4px rgba(5,150,105,0.08)',
-              }}
-            >
-              <div>
-                <p className="font-black text-sm" style={{ color: textMain }}>
-                  Are you a practitioner?
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: textMute }}>
-                  Apply to join as a verified provider
-                </p>
-              </div>
-              <span className="text-2xl">➕</span>
+      <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <span style={{ fontSize: 12 }}>✨</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: '#34D399', letterSpacing: '0.08em' }}>AI INSIGHT · 5-DAY TREND</span>
+        </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55 }}>
+          HRV has declined 14% over the past 4 days. Your resting HR is slightly elevated. This pattern typically follows a high-output week. Recommend a recovery-focused day: light movement only, prioritize 8+ hours tonight, magnesium-rich dinner.
+        </p>
+      </div>
+
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 12 }}>LAST NIGHT'S SLEEP</p>
+        {[
+          { label: 'Deep Sleep', value: v.deep, desc: 'Physical recovery', color: '#1877F2' },
+          { label: 'REM Sleep', value: v.rem, desc: 'Memory + emotional processing', color: '#8B5CF6' },
+          { label: 'Light Sleep', value: v.light, desc: 'Rest stage', color: '#22C55E' },
+        ].map(s => (
+          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+            <div style={{ width: 12, height: 12, borderRadius: 6, background: s.color, flexShrink: 0 }} />
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>{s.label}</p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{s.desc}</p>
             </div>
-          </Link>
-        </div>
-      )}
+            <p style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>{s.value}h</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-      {/* ── Spirit quote ──────────────────────────────────────────────────── */}
-      {loadState !== 'loading' && (
-        <div
-          className="mx-4 mt-4 rounded-2xl p-4 flex items-start gap-3"
-          style={{
-            background: isNight ? '#0D1F1A' : '#ECFDF5',
-            border: `1px solid ${isNight ? '#1A3D2F' : '#A7F3D0'}`,
-          }}
-        >
-          <span className="text-3xl">🌿</span>
-          <div>
-            <p className="font-bold text-xs" style={{ color: accent }}>Spirit says:</p>
-            <p className="text-xs mt-1 leading-relaxed italic" style={{ color: textMute }}>
-              &ldquo;You cannot achieve your goals if your body, mind, and spirit are depleted. The Wellness Center exists to keep you whole.&rdquo;
-            </p>
+// ── NUTRITION SCREEN ──────────────────────────────────────────────────────────
+function NutritionScreen() {
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 16, marginBottom: 16 }}>
+        <p style={{ fontSize: 10, fontWeight: 900, color: '#34D399', letterSpacing: '0.08em', marginBottom: 8 }}>TODAY'S AI RECOMMENDATION</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55 }}>
+          HRV is slightly below baseline, so today's meals are anti-inflammatory and hydration-focused. Light lunch before your 2 PM high-performance event — heavier food correlates with lower afternoon scores in your data. Magnesium-rich dinner supports tonight's sleep.
+        </p>
+      </div>
+
+      {MEALS.map(meal => (
+        <div key={meal.label} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
+          <div style={{ background: 'rgba(34,197,94,0.15)', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 14, fontWeight: 900, color: '#fff' }}>{meal.label}</span>
+            <span style={{ fontSize: 12, color: '#34D399', fontWeight: 800 }}>{meal.cal} kcal</span>
+          </div>
+          <div style={{ padding: '12px 14px' }}>
+            {meal.items.map(item => (
+              <div key={item.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div>
+                  <p style={{ fontSize: 13, color: '#fff', fontWeight: 700 }}>{item.name}</p>
+                  {item.note && <p style={{ fontSize: 11, color: '#34D399', fontWeight: 600, marginTop: 2 }}>{item.note}</p>}
+                </div>
+                {'protein' in item && (
+                  <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 10 }}>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>P{item.protein}g</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>C{item.carbs}g</span>
+                    <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)' }}>F{item.fat}g</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         </div>
+      ))}
+
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 12 }}>WHY THIS PLAN</p>
+        {[
+          { icon: '😴', label: 'Sleep support', text: "Dark chocolate and magnesium-rich dinner support tonight's deep sleep stage based on your patterns." },
+          { icon: '❤️', label: 'HRV recovery', text: 'Salmon and blueberries provide omega-3s and antioxidants that correlate with HRV recovery in your data.' },
+          { icon: '💧', label: 'Hydration', text: 'Elevated resting HR this morning suggests low hydration — electrolyte water flagged throughout the day.' },
+        ].map(r => (
+          <div key={r.label} style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>{r.icon}</span>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 800, color: '#fff', marginBottom: 2 }}>{r.label}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.45 }}>{r.text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── AI HEALTH CHAT ────────────────────────────────────────────────────────────
+function AIChatScreen() {
+  const [messages, setMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>(AI_MESSAGES);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const SUGGESTED = [
+    'What does my HRV trend mean?',
+    'How is my sleep affecting my mood?',
+    'What should I eat before my 2 PM event?',
+  ];
+
+  async function send(text: string) {
+    if (!text.trim() || loading) return;
+    const userMsg = { role: 'user' as const, text: text.trim() };
+    setMessages(m => [...m, userMsg]);
+    setInput('');
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 1200));
+    const response = text.includes('HRV') ? "Your HRV of 58ms is 11% below your 30-day average of 65ms. This typically indicates your nervous system is under mild stress or you're in active recovery from a high-output period. The good news: your sleep quality was strong last night. I recommend avoiding intense exercise today and prioritizing tonight's sleep. If this trend continues for 5+ more days, I'll add a note to your next provider visit brief." :
+      text.includes('sleep') ? "Your sleep data shows a pattern: on days you journal before 9 PM, your deep sleep average increases by 18 minutes. Your mood scores are consistently 0.7 points higher the day after achieving 82%+ sleep efficiency. Tonight's nutrition plan is designed to support your sleep architecture — particularly the magnesium and tryptophan in the dinner." :
+      "Based on your readiness data, I'd recommend the salmon and quinoa lunch I've planned. Avoid heavy fats in the next 3 hours — your data shows they correlate with reduced afternoon focus scores. Get water with electrolytes now. And your Trigger fires at 1:45 PM — that prep window will make a meaningful difference.";
+    setMessages(m => [...m, { role: 'ai' as const, text: response }]);
+    setLoading(false);
+  }
+
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.15)', padding: '10px 16px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <span style={{ fontSize: 14 }}>ℹ️</span>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>Not a diagnosis. Always consult your provider for medical decisions.</p>
+      </div>
+
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {messages.map((m, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: m.role === 'ai' ? 'flex-start' : 'flex-end' }}>
+            <div style={{ maxWidth: '85%', padding: '12px 14px', borderRadius: m.role === 'ai' ? '4px 16px 16px 16px' : '16px 4px 16px 16px', background: m.role === 'ai' ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.09)', border: m.role === 'ai' ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(255,255,255,0.12)' }}>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', lineHeight: 1.55 }}>{m.text}</p>
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{ padding: '12px 16px', background: 'rgba(34,197,94,0.12)', borderRadius: '4px 16px 16px 16px', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {[0, 1, 2].map(i => <motion.div key={i} animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} style={{ width: 6, height: 6, borderRadius: 3, background: '#34D399' }} />)}
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {messages.length <= 2 && (
+        <div style={{ padding: '0 16px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {SUGGESTED.map(s => (
+            <button key={s} onClick={() => send(s)} style={{ textAlign: 'left', padding: '10px 14px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 12, fontSize: 13, color: 'rgba(255,255,255,0.65)', fontWeight: 600 }}>
+              {s}
+            </button>
+          ))}
+        </div>
       )}
 
-      {/* ── Booking Modal ─────────────────────────────────────────────────── */}
-      <AnimatePresence>
-        {bookingTarget && (
-          <BookingModal
-            key={bookingTarget.id}
-            provider={bookingTarget}
-            onClose={() => setBookingTarget(null)}
-          />
-        )}
-      </AnimatePresence>
+      <div style={{ padding: '12px 16px', paddingBottom: 'max(12px, env(safe-area-inset-bottom))', display: 'flex', gap: 10, background: 'rgba(10,11,18,0.95)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send(input)}
+          placeholder="Ask about your health…"
+          style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 24, padding: '10px 16px', fontSize: 14, color: '#fff', outline: 'none' }} />
+        <button onClick={() => send(input)} style={{ width: 40, height: 40, borderRadius: 20, background: '#22C55E', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+        </button>
+      </div>
+    </div>
+  );
+}
 
+// ── JOURNAL SCREEN ────────────────────────────────────────────────────────────
+function JournalScreen() {
+  const [answers, setAnswers] = useState(['', '', '']);
+  const [saved, setSaved] = useState(false);
+  const [gratitude, setGratitude] = useState('');
+
+  const RECENT = [
+    { date: 'May 30', text: 'The product meeting went well. Feeling aligned with the team.', mood: 4 },
+    { date: 'May 29', text: 'Low energy day. Need to fix sleep this week.', mood: 2 },
+    { date: 'May 28', text: 'Hit all my focus blocks. Best day in weeks.', mood: 5 },
+  ];
+
+  function moodColor(m: number) { return m >= 4 ? '#22C55E' : m >= 3 ? '#F59E0B' : '#EF4444'; }
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      {/* Prompts */}
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 700, marginBottom: 14 }}>Three prompts · takes about 3 minutes</p>
+        {JOURNAL_PROMPTS.map((p, i) => (
+          <div key={i} style={{ marginBottom: 14 }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: 6 }}>{p}</p>
+            <textarea value={answers[i]} onChange={e => { const a = [...answers]; a[i] = e.target.value; setAnswers(a); }}
+              rows={2} placeholder="Type here…"
+              style={{ width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#fff', outline: 'none', resize: 'none', fontFamily: 'inherit' }} />
+          </div>
+        ))}
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setSaved(true)}
+          style={{ width: '100%', padding: '12px 0', borderRadius: 12, background: '#22C55E', color: '#fff', fontWeight: 900, fontSize: 14 }}>
+          {saved ? '✓ Reflection Saved' : 'Save Reflection'}
+        </motion.button>
+      </div>
+
+      {/* AI Pattern */}
+      <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+          <span style={{ fontSize: 12 }}>✨</span>
+          <span style={{ fontSize: 10, fontWeight: 900, color: '#34D399', letterSpacing: '0.08em' }}>AI INSIGHT · THIS WEEK</span>
+        </div>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55 }}>
+          Mood is consistently 0.8 points higher on days you logged a focus block before 10 AM. Your best sleep followed evenings when you journaled before 9 PM. The word "drained" appeared 4 times this week — correlates with days where the deep work block was skipped.
+        </p>
+      </div>
+
+      {/* Recent entries */}
+      <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 10 }}>RECENT ENTRIES</p>
+      {RECENT.map(e => (
+        <div key={e.date} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 700, marginBottom: 4 }}>{e.date}</p>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.4 }}>{e.text}</p>
+          </div>
+          <span style={{ fontSize: 10, fontWeight: 900, padding: '2px 8px', borderRadius: 8, background: `${moodColor(e.mood)}22`, color: moodColor(e.mood), flexShrink: 0 }}>Mood {e.mood}/5</span>
+        </div>
+      ))}
+
+      {/* Gratitude log */}
+      <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 10, marginTop: 4 }}>GRATITUDE LOG</p>
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: '12px 14px' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+          <input value={gratitude} onChange={e => setGratitude(e.target.value)} placeholder="Today I'm grateful for…"
+            style={{ flex: 1, background: 'transparent', border: 'none', fontSize: 13, color: '#fff', outline: 'none' }} />
+          <button onClick={() => { if (gratitude.trim()) setGratitude(''); }} style={{ fontSize: 18, color: '#22C55E', background: 'transparent', fontWeight: 900 }}>+</button>
+        </div>
+        {['Being able to focus this morning', 'My team showed up fully', 'The quiet hour before everyone woke up'].map((g, i) => (
+          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '7px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+            <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{g}</p>
+            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: 700 }}>May {30 - i}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE ──────────────────────────────────────────────────────────────────────
+export default function HospitalPage() {
+  const router = useRouter();
+  const [screen, setScreen] = useState<WScreen>('home');
+
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
+  function onTouchStart(e: React.TouchEvent) {
+    touchRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    if (!touchRef.current) return;
+    const dx = e.changedTouches[0].clientX - touchRef.current.x;
+    const dy = Math.abs(e.changedTouches[0].clientY - touchRef.current.y);
+    if (dx > 80 && dy < 60 && screen === 'home') router.push('/village/hut');
+    touchRef.current = null;
+  }
+
+  const headerTitles: Record<WScreen, string> = {
+    home: 'Wellness', body: 'Body', nutrition: 'Nutrition', ai: 'AI Health', journal: 'Journal',
+  };
+
+  return (
+    <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+      style={{ background: '#0A0B12', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+      <BackButton to="/village/hut" />
+
+      {/* Header */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '14px 16px 14px 60px', background: 'rgba(10,11,18,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <p style={{ fontSize: 20, fontWeight: 900, flex: 1 }}>{headerTitles[screen]}</p>
+        {screen === 'home' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>
+          </button>
+        )}
+        {screen === 'ai' && <span style={{ fontSize: 16 }}>✨</span>}
+        {screen === 'nutrition' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 }}>↻</button>
+        )}
+        {screen === 'journal' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, fontWeight: 900, color: '#fff' }}>+</button>
+        )}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 16, paddingBottom: screen === 'ai' ? 0 : 80 }}>
+        {screen === 'home'      && <HomeScreen onNav={setScreen} onAskAI={() => setScreen('ai')} />}
+        {screen === 'body'      && <BodyScreen />}
+        {screen === 'nutrition' && <NutritionScreen />}
+        {screen === 'ai'        && <AIChatScreen />}
+        {screen === 'journal'   && <JournalScreen />}
+      </div>
+
+      {/* Bottom nav */}
+      {screen !== 'ai' && (
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(10,11,18,0.97)', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)', zIndex: 30 }}>
+          <TabBtn label="Wellness" active={screen === 'home'} onTap={() => setScreen('home')}
+            icon={<svg width={20} height={20} viewBox="0 0 24 24" fill={screen === 'home' ? '#22C55E' : 'none'} stroke={screen === 'home' ? '#22C55E' : 'rgba(255,255,255,0.3)'} strokeWidth="2" strokeLinecap="round"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>} />
+          <TabBtn label="Body" active={screen === 'body'} onTap={() => setScreen('body')}
+            icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={screen === 'body' ? '#22C55E' : 'rgba(255,255,255,0.3)'} strokeWidth="2" strokeLinecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>} />
+          <TabBtn label="Nutrition" active={screen === 'nutrition'} onTap={() => setScreen('nutrition')}
+            icon={<span style={{ fontSize: 18, opacity: screen === 'nutrition' ? 1 : 0.3 }}>🥗</span>} />
+          <TabBtn label="AI" active={false} onTap={() => setScreen('ai')}
+            icon={<span style={{ fontSize: 16, opacity: 0.3 }}>✨</span>} />
+          <TabBtn label="Journal" active={screen === 'journal'} onTap={() => setScreen('journal')}
+            icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={screen === 'journal' ? '#22C55E' : 'rgba(255,255,255,0.3)'} strokeWidth="2" strokeLinecap="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>} />
+        </div>
+      )}
     </div>
   );
 }

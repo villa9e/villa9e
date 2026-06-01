@@ -1,488 +1,468 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Link from 'next/link';
-import { createClient } from '@/lib/supabase/client';
-import { VillageHeader } from '@/components/village/VillageHeader';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { useRouter } from 'next/navigation';
 import { BackButton } from '@/components/village/BackButton';
 
-const TYPE_COLORS: Record<string, string> = {
-  goal_step: 'bg-orange-100 text-orange-700',
-  tribe_meeting: 'bg-pink-100 text-pink-700',
-  personal: 'bg-blue-100 text-blue-700',
-  public: 'bg-green-100 text-green-700',
+// ── Types ─────────────────────────────────────────────────────────────────────
+type EnergyType = 'high' | 'focused' | 'creative' | 'energize' | 'calm';
+type Screen = 'home' | 'calendar' | 'tasks' | 'settings' | 'trigger' | 'event';
+
+interface Event {
+  id: string;
+  title: string;
+  time: string;
+  endTime: string;
+  location?: string;
+  energy: EnergyType;
+  triggerMin: number;
+  hasTrigger: boolean;
+  affirmation?: string;
+  playlist?: string;
+}
+
+interface Task {
+  id: string;
+  text: string;
+  done: boolean;
+  due?: string;
+  project?: string;
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const ENERGY_COLORS: Record<EnergyType, string> = {
+  high: '#EF4444', focused: '#1877F2', creative: '#8B5CF6', energize: '#F59E0B', calm: '#10B981',
+};
+const ENERGY_LABELS: Record<EnergyType, string> = {
+  high: 'High Performance', focused: 'Focused', creative: 'Creative', energize: 'Energize', calm: 'Calm',
 };
 
-export default function SpacesPage() {
-  const [events, setEvents] = useState<any[]>([]);
-  const [showCreate, setShowCreate] = useState(false);
-  const [selected, setSelected] = useState<any>(null);
-  const [form, setForm] = useState({ title: '', description: '', location: '', start_time: '', end_time: '', event_type: 'personal' });
-  const [saving, setSaving] = useState(false);
-  const [weather, setWeather] = useState<any>(null);
-  const [spiritPrep, setSpiritPrep] = useState('');
-  const [prepLoading, setPrepLoading] = useState(false);
-  const [agenda, setAgenda] = useState('');
-  const [agendaLoading, setAgendaLoading] = useState(false);
-  const [gcalSyncing, setGcalSyncing] = useState(false);
-  const [gcalSynced, setGcalSynced] = useState(false);
-  const [myRsvps, setMyRsvps] = useState<Record<string, string>>({});  // event_id → status
-  const [rsvpCounts, setRsvpCounts] = useState<Record<string, number>>({});
-  const supabase = createClient();
+// Mock data
+const TODAY_EVENTS: Event[] = [
+  { id: '1', title: 'Deep Work Block', time: '9:00 AM', endTime: '11:00 AM', energy: 'focused', triggerMin: 10, hasTrigger: true, affirmation: 'I am fully present and productive.', playlist: 'Deep Focus' },
+  { id: '2', title: 'Investor Pitch Prep', time: '2:00 PM', endTime: '3:00 PM', energy: 'high', triggerMin: 15, hasTrigger: true, affirmation: 'I speak with clarity and conviction.', playlist: 'Power Up' },
+  { id: '3', title: 'Team Sync', time: '4:30 PM', endTime: '5:00 PM', energy: 'creative', triggerMin: 5, hasTrigger: false },
+];
+const TOMORROW_EVENTS: Event[] = [
+  { id: '4', title: 'Morning Run', time: '7:00 AM', endTime: '7:45 AM', energy: 'energize', triggerMin: 10, hasTrigger: true, affirmation: "My body is strong. Let's go.", playlist: 'Power Up' },
+  { id: '5', title: 'Therapy Session', time: '11:00 AM', endTime: '12:00 PM', energy: 'calm', triggerMin: 10, hasTrigger: true, affirmation: 'I am open and ready to heal.', playlist: 'Calm Space' },
+];
+const TASKS: Task[] = [
+  { id: 't1', text: 'Review pitch deck slides', done: false, due: 'Today' },
+  { id: 't2', text: 'Complete morning check-in', done: true, due: 'Today' },
+  { id: 't3', text: 'Confirm meeting with advisor', done: false, due: 'Tomorrow' },
+  { id: 't4', text: 'Submit weekly goal update', done: false, due: 'This week' },
+  { id: 't5', text: 'Review sprint completions', done: false, due: 'This week', project: 'App Launch' },
+];
 
-  useEffect(() => { loadEvents(); loadWeather(); }, []);
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function EnergyPill({ type }: { type: EnergyType }) {
+  return (
+    <span style={{ fontSize: 9, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: `${ENERGY_COLORS[type]}22`, color: ENERGY_COLORS[type], border: `1px solid ${ENERGY_COLORS[type]}44`, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+      {ENERGY_LABELS[type].toUpperCase()}
+    </span>
+  );
+}
 
-  async function loadRsvps(eventIds: string[], userId: string) {
-    if (!eventIds.length) return;
-    const { data: mine } = await (supabase as any)
-      .from('event_rsvps').select('event_id, status').eq('user_id', userId).in('event_id', eventIds);
-    const myMap: Record<string, string> = {};
-    (mine ?? []).forEach((r: any) => { myMap[r.event_id] = r.status; });
-    setMyRsvps(myMap);
-    // Count "going" RSVPs per event
-    const counts: Record<string, number> = {};
-    await Promise.all(eventIds.map(async id => {
-      const { count } = await (supabase as any)
-        .from('event_rsvps').select('id', { count: 'exact', head: true })
-        .eq('event_id', id).eq('status', 'going');
-      counts[id] = count ?? 0;
-    }));
-    setRsvpCounts(counts);
-  }
+function TabIcon({ icon, label, active, onTap }: { icon: React.ReactNode; label: string; active: boolean; onTap: () => void }) {
+  return (
+    <button onClick={onTap} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 0', color: active ? '#8B5CF6' : 'rgba(255,255,255,0.35)', background: 'transparent', borderTop: active ? '2px solid #8B5CF6' : '2px solid transparent' }}>
+      {icon}
+      <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: '0.03em' }}>{label.toUpperCase()}</span>
+    </button>
+  );
+}
 
-  async function rsvp(eventId: string, status: 'going'|'maybe'|'not_going') {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const current = myRsvps[eventId];
-    if (current === status) {
-      // Undo RSVP
-      await (supabase as any).from('event_rsvps').delete().eq('event_id', eventId).eq('user_id', user.id);
-      setMyRsvps(prev => { const n = { ...prev }; delete n[eventId]; return n; });
-      if (status === 'going') setRsvpCounts(prev => ({ ...prev, [eventId]: Math.max(0, (prev[eventId] ?? 1) - 1) }));
-    } else {
-      await (supabase as any).from('event_rsvps').upsert(
-        { event_id: eventId, user_id: user.id, status },
-        { onConflict: 'event_id,user_id' }
-      );
-      const waGoing = current === 'going';
-      const nowGoing = status === 'going';
-      setMyRsvps(prev => ({ ...prev, [eventId]: status }));
-      setRsvpCounts(prev => ({
-        ...prev,
-        [eventId]: (prev[eventId] ?? 0) + (nowGoing ? 1 : 0) - (waGoing ? 1 : 0),
-      }));
-    }
-  }
+// ── Event Card ────────────────────────────────────────────────────────────────
+function EventCard({ event, onOpen }: { event: Event; onOpen: (e: Event) => void }) {
+  return (
+    <motion.button whileTap={{ scale: 0.98 }} onClick={() => onOpen(event)}
+      style={{ width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '12px 14px', marginBottom: 8, borderLeft: `3px solid ${ENERGY_COLORS[event.energy]}`, display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{event.time} – {event.endTime}</span>
+          {event.location && <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>📍 {event.location}</span>}
+        </div>
+        <div style={{ marginTop: 6 }}>
+          <EnergyPill type={event.energy} />
+        </div>
+      </div>
+      {event.hasTrigger && (
+        <div style={{ flexShrink: 0, background: '#8B5CF622', border: '1px solid #8B5CF644', borderRadius: 8, padding: '3px 8px' }}>
+          <span style={{ fontSize: 9, fontWeight: 900, color: '#8B5CF6' }}>TRIGGER</span>
+        </div>
+      )}
+    </motion.button>
+  );
+}
 
-  async function loadEvents() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const now = new Date().toISOString();
-    const { data } = await (supabase as any)
-      .from('calendar_events')
-      .select('*')
-      .eq('creator_id', user.id)
-      .gte('end_time', now)
-      .order('start_time')
-      .limit(30);
-    const evs = data ?? [];
-    setEvents(evs);
-    if (evs.length > 0) {
-      loadRsvps(evs.map((e: any) => e.id), user.id);
-    }
-  }
-
-  async function loadWeather() {
-    try {
-      const res = await fetch('/api/spaces/weather');
-      if (res.ok) setWeather(await res.json());
-    } catch { /* silent — weather is a bonus */ }
-  }
-
-  async function createEvent() {
-    if (!form.title.trim() || !form.start_time) return;
-    setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const endTime = form.end_time
-        ? new Date(form.end_time).toISOString()
-        : new Date(new Date(form.start_time).getTime() + 3600000).toISOString();
-
-      await supabase.from('calendar_events').insert({
-        creator_id:  user.id,
-        title:       form.title,
-        description: form.description,
-        location:    form.location,
-        start_time:  new Date(form.start_time).toISOString(),
-        end_time:    endTime,
-        event_type:  form.event_type,
-      });
-      loadEvents();
-      setShowCreate(false);
-      setForm({ title: '', description: '', location: '', start_time: '', end_time: '', event_type: 'personal' });
-    }
-    setSaving(false);
-  }
-
-  async function getSpiritPrep(event: any) {
-    setSelected(event);
-    setSpiritPrep('');
-    setPrepLoading(true);
-    try {
-      const res = await fetch('/api/spaces/spirit-prep', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_title: event.title, event_type: event.event_type, start_time: event.start_time }),
-      });
-      const data = await res.json();
-      setSpiritPrep(data.message ?? '');
-    } catch { setSpiritPrep('Focus on your intention for this event. Show up present and prepared.'); }
-    setPrepLoading(false);
-  }
-
-  async function generateAgenda(event: any) {
-    setAgendaLoading(true);
-    setAgenda('');
-    try {
-      const res = await fetch('/api/spaces/agenda', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event }),
-      });
-      const data = await res.json();
-      setAgenda(data.agenda ?? '');
-    } catch { setAgenda('Unable to generate agenda. Add your own notes below.'); }
-    setAgendaLoading(false);
-  }
-
-  async function syncToGoogleCalendar(event: any) {
-    setGcalSyncing(true);
-
-    // Try real OAuth sync first
-    try {
-      const res = await fetch('/api/integrations/google-calendar/sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ event_id: event.id }),
-      });
-      const data = await res.json();
-
-      if (data.ok) {
-        setGcalSynced(true);
-        setGcalSyncing(false);
-        setTimeout(() => setGcalSynced(false), 4000);
-        return;
-      }
-
-      if (data.error === 'not_connected') {
-        // Redirect to OAuth flow
-        window.location.href = `/api/integrations/google-calendar/auth?return_to=/village/spaces`;
-        return;
-      }
-    } catch { /* fall through to URL approach */ }
-
-    // Fallback: open Google Calendar URL for manual add
-    const start = new Date(event.start_time);
-    const end = new Date(event.end_time ?? new Date(start.getTime() + 3600000));
-    const fmt = (d: Date) => d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
-    const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(event.title)}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(event.description ?? '')}&location=${encodeURIComponent(event.location ?? '')}`;
-    window.open(gcalUrl, '_blank');
-    setGcalSynced(true);
-    setGcalSyncing(false);
-    setTimeout(() => setGcalSynced(false), 3000);
-  }
-
-  const upcomingToday = events.filter(e => {
-    const d = new Date(e.start_time);
-    const now = new Date();
-    return d.toDateString() === now.toDateString();
-  });
-
-  const { theme } = useVillageTheme();
-  const isNight  = theme === 'night';
-  const bg       = isNight ? '#0A0B12' : '#F5F3FF';
-  const cardBg   = isNight ? '#12152A' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#DDD6FE';
-  const textMain = isNight ? '#F0EBE0' : '#1E1B4B';
-  const textMute = isNight ? '#4A4F72' : '#6D28D9';
-  const accent   = isNight ? '#818CF8' : '#4F46E5';
+// ── HOME SCREEN ───────────────────────────────────────────────────────────────
+function HomeScreen({ onOpenEvent, onOpenTrigger }: { onOpenEvent: (e: Event) => void; onOpenTrigger: (e: Event) => void }) {
+  const next = TODAY_EVENTS[1]; // The 2PM pitch as "next up"
+  const now = new Date();
 
   return (
-    <div className="min-h-screen" style={{ background: bg }}>
-      <BackButton to="/village/hut" />
-      <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <span className="text-2xl">📅</span>
-        <div className="flex-1">
-          <h1 className="text-lg font-black text-white">Spaces</h1>
-          <p className="text-xs text-white/60">Every event is a full experience</p>
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      {/* Next Up Card */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        style={{ background: 'linear-gradient(135deg,#4C1D95,#7C3AED)', borderRadius: 20, padding: 20, marginBottom: 12 }}>
+        <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.08em', marginBottom: 8 }}>NEXT UP</p>
+        <p style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{next.title}</p>
+        <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginBottom: 12 }}>{next.time} · Trigger in {next.triggerMin} min</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => onOpenEvent(next)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'rgba(255,255,255,0.15)', color: '#fff', fontWeight: 800, fontSize: 13 }}>View Details</button>
+          {next.hasTrigger && <button onClick={() => onOpenTrigger(next)} style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: '#fff', color: '#7C3AED', fontWeight: 900, fontSize: 13 }}>Start Trigger</button>}
         </div>
-        <Link href="/village/spaces/discover" className="text-white/70 text-sm mr-1">🌍</Link>
-        <button onClick={() => setShowCreate(true)}
-          className="rounded-full px-3 py-1.5 text-sm font-bold"
-          style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
-          + Event
-        </button>
+      </motion.div>
+
+      {/* Trigger Status Bar */}
+      {next.hasTrigger && (
+        <motion.button whileTap={{ scale: 0.98 }} onClick={() => onOpenTrigger(next)}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, background: '#8B5CF611', border: '1px solid #8B5CF633', borderRadius: 12, padding: '10px 14px', marginBottom: 20 }}>
+          <div style={{ width: 8, height: 8, borderRadius: 4, background: '#8B5CF6', boxShadow: '0 0 8px #8B5CF6', animation: 'pulse 2s infinite' }} />
+          <div style={{ flex: 1, textAlign: 'left' }}>
+            <p style={{ fontSize: 12, fontWeight: 800, color: '#C4B5FD' }}>Trigger armed · fires at 1:45 PM</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Tap to launch now</p>
+          </div>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+        </motion.button>
+      )}
+
+      {/* Today */}
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 10 }}>TODAY</p>
+      {TODAY_EVENTS.map(e => <EventCard key={e.id} event={e} onOpen={onOpenEvent} />)}
+
+      {/* Tomorrow */}
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginTop: 4, marginBottom: 10 }}>TOMORROW</p>
+      {TOMORROW_EVENTS.map(e => <EventCard key={e.id} event={e} onOpen={onOpenEvent} />)}
+    </div>
+  );
+}
+
+// ── CALENDAR SCREEN ───────────────────────────────────────────────────────────
+function CalendarScreen({ onOpenEvent }: { onOpenEvent: (e: Event) => void }) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const [selDay, setSelDay] = useState(3); // Thursday
+  const eventsForDay = selDay === 3 ? TODAY_EVENTS : selDay === 4 ? TOMORROW_EVENTS : [];
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      {/* Week strip */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+        {days.map((d, i) => (
+          <button key={d} onClick={() => setSelDay(i)} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: '8px 0', borderRadius: 12, background: selDay === i ? '#8B5CF6' : 'transparent' }}>
+            <span style={{ fontSize: 10, fontWeight: 700, color: selDay === i ? '#fff' : 'rgba(255,255,255,0.4)' }}>{d}</span>
+            <span style={{ fontSize: 16, fontWeight: 900, color: selDay === i ? '#fff' : 'rgba(255,255,255,0.6)' }}>{15 + i}</span>
+            {[1, 3, 4].includes(i) && <div style={{ width: 5, height: 5, borderRadius: 3, background: selDay === i ? '#fff' : '#8B5CF6' }} />}
+          </button>
+        ))}
       </div>
 
-      {/* Event detail drawer */}
-      <AnimatePresence>
-        {selected && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
-              className="rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-              style={{ background: cardBg, border: `1px solid ${border}` }}>
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h2 className="font-bold text-xl" style={{ color: textMain }}>{selected.title}</h2>
-                  <p className="text-sm mt-0.5" style={{ color: textMute }}>
-                    {new Date(selected.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-                    {' · '}
-                    {new Date(selected.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-                <button onClick={() => { setSelected(null); setSpiritPrep(''); setAgenda(''); }} className="text-2xl leading-none" style={{ color: textMute }}>×</button>
-              </div>
-
-              {selected.location && (
-                <div className="flex items-center gap-2 text-sm" style={{ color: textMute }}>
-                  <span>📍</span> {selected.location}
-                </div>
-              )}
-
-              {/* Spirit prep */}
-              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span>🌿</span>
-                  <p className="font-bold text-sm text-indigo-700">Spirit Pre-Event Prep</p>
-                </div>
-                {spiritPrep ? (
-                  <p className="text-sm leading-relaxed" style={{ color: textMain }}>{spiritPrep}</p>
-                ) : prepLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-indigo-400">
-                    <span className="animate-spin">⟳</span> Spirit is preparing your mindset…
-                  </div>
-                ) : (
-                  <button onClick={() => getSpiritPrep(selected)} className="text-sm text-indigo-600 font-medium hover:text-indigo-800">
-                    Tap to get Spirit's prep for this event →
-                  </button>
-                )}
-              </div>
-
-              {/* AI Agenda */}
-              <div className="rounded-2xl p-4" style={{ background: isNight ? '#0A0B12' : '#F9FAFB', border: `1px solid ${border}` }}>
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span>📋</span>
-                    <p className="font-bold text-sm">AI Agenda</p>
-                  </div>
-                  {!agenda && !agendaLoading && (
-                    <button onClick={() => generateAgenda(selected)} className="text-xs text-indigo-600 font-medium">Generate →</button>
-                  )}
-                </div>
-                {agenda ? (
-                  <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: textMain }}>{agenda}</pre>
-                ) : agendaLoading ? (
-                  <p className="text-xs" style={{ color: textMute }}>Building agenda…</p>
-                ) : (
-                  <p className="text-xs" style={{ color: textMute }}>Click "Generate" to get an AI-crafted agenda for this event.</p>
-                )}
-              </div>
-
-              {/* ── Join Live Room ── */}
-              {(() => {
-                const now = Date.now();
-                const start = new Date(selected.start_time).getTime();
-                const end   = selected.end_time ? new Date(selected.end_time).getTime() : start + 3600_000;
-                const isLive   = now >= start - 10 * 60_000 && now <= end + 10 * 60_000; // 10min buffer
-                const isUpcoming = now < start;
-                const roomId = Buffer.from(`villa9e-space-${selected.id}`).toString('base64').slice(0, 20).replace(/[+/=]/g, '');
-                const jitsiUrl = selected.location?.startsWith('http') ? selected.location : `https://meet.jit.si/villa9e-${roomId}`;
-                return (
-                  <a
-                    href={jitsiUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-bold transition-all"
-                    style={{
-                      background: isLive ? 'linear-gradient(135deg,#22C55E,#16A34A)' : isUpcoming ? 'linear-gradient(135deg,#1877F2,#7C3AED)' : 'rgba(255,255,255,0.05)',
-                      color: '#fff',
-                      textDecoration: 'none',
-                      opacity: !isLive && !isUpcoming ? 0.5 : 1,
-                      pointerEvents: !isLive && !isUpcoming ? 'none' : 'auto',
-                    }}
-                  >
-                    {isLive ? '🔴 Join Live Room Now →' : isUpcoming ? '🎥 Preview Video Room →' : '⏹ Session Ended'}
-                  </a>
-                );
-              })()}
-
-              {/* Google Calendar sync */}
-              <button onClick={() => syncToGoogleCalendar(selected)} disabled={gcalSyncing}
-                className="w-full flex items-center justify-center gap-2 border border-gray-200 rounded-2xl py-3 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-50">
-                <span className="text-lg">📆</span>
-                {gcalSynced ? '✓ Added to Google Calendar' : gcalSyncing ? 'Opening…' : 'Add to Google Calendar'}
-              </button>
-
-              {selected.description && (
-                <div className="text-sm border-t pt-3" style={{ color: textMute, borderColor: border }}>
-                  {selected.description}
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Create event modal */}
-      <AnimatePresence>
-        {showCreate && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
-              className="rounded-3xl w-full max-w-md p-6 space-y-4 max-h-[90vh] overflow-y-auto"
-              style={{ background: cardBg, border: `1px solid ${border}` }}>
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold" style={{ color: textMain }}>Create Event</h2>
-                <button onClick={() => setShowCreate(false)} className="text-2xl" style={{ color: textMute }}>×</button>
-              </div>
-              {[
-                { key: 'title', placeholder: 'Event title', type: 'text' },
-                { key: 'location', placeholder: 'Location or video link', type: 'text' },
-              ].map(f => (
-                <input key={f.key} value={(form as any)[f.key]}
-                  onChange={e => setForm(prev => ({ ...prev, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder} type={f.type}
-                  className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                  style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
-              ))}
-              <div className="grid grid-cols-2 gap-3">
-                {[['Start', 'start_time'], ['End', 'end_time']].map(([label, key]) => (
-                  <div key={key}>
-                    <label className="text-xs" style={{ color: textMute }}>{label}</label>
-                    <input type="datetime-local" value={(form as any)[key]}
-                      onChange={e => setForm(prev => ({ ...prev, [key]: e.target.value }))}
-                      className="mt-1 w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
-                      style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
-                  </div>
-                ))}
-              </div>
-              <select value={form.event_type} onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }}>
-                <option value="personal">Personal</option>
-                <option value="goal_step">Goal Step</option>
-                <option value="tribe_meeting">Tribe Meeting</option>
-                <option value="public">Public Event</option>
-              </select>
-              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Description, agenda, notes…" rows={3}
-                className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-                style={{ background: isNight ? '#0A0B12' : '#F5F3FF', border: `1px solid ${border}`, color: textMain }} />
-              <button onClick={createEvent} disabled={saving || !form.title.trim() || !form.start_time}
-                className="w-full bg-indigo-600 text-white rounded-full py-3 font-bold hover:bg-indigo-700 disabled:opacity-50">
-                {saving ? 'Creating…' : '📅 Create Event'}
-              </button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        {/* Weather card */}
-        {weather && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="village-card bg-gradient-to-r from-blue-50 to-indigo-50 flex items-center gap-4">
-            <span className="text-4xl">{weather.icon}</span>
-            <div>
-              <p className="font-bold">{weather.temp}° · {weather.condition}</p>
-              <p className="text-xs" style={{ color: textMute }}>{weather.city} · {weather.humidity}% humidity · {weather.wind} mph wind</p>
+      {eventsForDay.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)' }}>
+          <p style={{ fontSize: 24, marginBottom: 8 }}>📅</p>
+          <p style={{ fontSize: 14, fontWeight: 700 }}>No events</p>
+        </div>
+      ) : (
+        eventsForDay.map(e => (
+          <motion.button key={e.id} whileTap={{ scale: 0.98 }} onClick={() => onOpenEvent(e)}
+            style={{ width: '100%', textAlign: 'left', display: 'flex', gap: 12, marginBottom: 10, padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', borderLeft: `3px solid ${ENERGY_COLORS[e.energy]}` }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 14, fontWeight: 800, color: '#fff', marginBottom: 3 }}>{e.title}</p>
+              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)' }}>{e.time} – {e.endTime}</p>
             </div>
-          </motion.div>
-        )}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <EnergyPill type={e.energy} />
+              {e.hasTrigger && <span style={{ fontSize: 9, fontWeight: 800, color: '#8B5CF6', background: '#8B5CF611', padding: '2px 6px', borderRadius: 8 }}>TRIGGER</span>}
+            </div>
+          </motion.button>
+        ))
+      )}
+    </div>
+  );
+}
 
-        {/* Today's events highlight */}
-        {upcomingToday.length > 0 && (
-          <div>
-            <h2 className="font-bold text-xs uppercase tracking-widest mb-2" style={{ color: textMute }}>TODAY</h2>
-            {upcomingToday.map((ev, i) => (
-              <motion.div key={ev.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-                onClick={() => getSpiritPrep(ev)}
-                className="village-card mb-3 cursor-pointer hover:shadow-md transition-shadow border border-indigo-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {new Date(ev.start_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-sm">{ev.title}</p>
-                    {ev.location && <p className="text-xs" style={{ color: textMute }}>📍 {ev.location}</p>}
-                  </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${TYPE_COLORS[ev.event_type] || TYPE_COLORS.personal}`}>
-                    {ev.event_type.replace('_', ' ')}
-                  </span>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
+// ── TASKS SCREEN ──────────────────────────────────────────────────────────────
+function TasksScreen() {
+  const [tasks, setTasks] = useState(TASKS);
+  const todayTasks = tasks.filter(t => t.due === 'Today');
+  const upcomingTasks = tasks.filter(t => t.due !== 'Today');
 
-        {/* All upcoming */}
-        {events.filter(e => !upcomingToday.includes(e)).length > 0 && (
-          <div>
-            <h2 className="font-bold text-xs uppercase tracking-widest mb-2" style={{ color: textMute }}>UPCOMING</h2>
-            {events.filter(e => !upcomingToday.includes(e)).map((ev, i) => {
-              const start = new Date(ev.start_time);
-              return (
-                <motion.div key={ev.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-                  onClick={() => getSpiritPrep(ev)}
-                  className="village-card mb-3 hover:shadow-md transition-shadow cursor-pointer">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0 text-center bg-indigo-50 rounded-2xl p-2 min-w-[52px]">
-                      <p className="text-xs text-indigo-400 font-medium">{start.toLocaleString('en-US', { month: 'short' }).toUpperCase()}</p>
-                      <p className="text-2xl font-bold text-indigo-600 leading-none">{start.getDate()}</p>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="font-bold">{ev.title}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${TYPE_COLORS[ev.event_type] || TYPE_COLORS.personal}`}>
-                          {ev.event_type.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <p className="text-xs mt-0.5" style={{ color: textMute }}>
-                        {start.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        {ev.location && ` · ${ev.location}`}
-                      </p>
-                      {ev.description && <p className="text-xs mt-1 line-clamp-1" style={{ color: textMute }}>{ev.description}</p>}
-                      {/* RSVP buttons for public/tribe events */}
-                      {ev.event_type !== 'personal' && (
-                        <div className="flex gap-1.5 mt-2" onClick={e => e.stopPropagation()}>
-                          {(['going', 'maybe', 'not_going'] as const).map(s => (
-                            <button key={s} onClick={() => rsvp(ev.id, s)}
-                              className="text-xs px-2.5 py-1 rounded-full font-medium transition-all"
-                              style={{
-                                background: myRsvps[ev.id] === s ? (s === 'going' ? '#059669' : s === 'maybe' ? '#D97706' : '#DC2626') : (isNight ? '#1E2240' : '#F3F4F6'),
-                                color:      myRsvps[ev.id] === s ? '#fff' : textMute,
-                              }}>
-                              {s === 'going' ? `✓ Going${rsvpCounts[ev.id] ? ` (${rsvpCounts[ev.id]})` : ''}` : s === 'maybe' ? '? Maybe' : '✕ No'}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+  function toggle(id: string) {
+    setTasks(ts => ts.map(t => t.id === id ? { ...t, done: !t.done } : t));
+  }
 
-        {events.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-3">📅</p>
-            <p className="mb-2" style={{ color: textMute }}>No upcoming events.</p>
-            <p className="text-sm mb-6" style={{ color: textMute }}>Spaces treats every event as a full experience — Spirit mindset prep, AI agenda, Google Calendar sync.</p>
-            <button onClick={() => setShowCreate(true)} className="village-btn-primary">+ Create First Event</button>
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 10 }}>TODAY</p>
+      {todayTasks.map(t => (
+        <motion.button key={t.id} whileTap={{ scale: 0.98 }} onClick={() => toggle(t.id)}
+          style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }}>
+          <div style={{ width: 20, height: 20, borderRadius: 10, border: t.done ? 'none' : '2px solid rgba(255,255,255,0.3)', background: t.done ? '#22C55E' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {t.done && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>}
           </div>
+          <span style={{ fontSize: 14, fontWeight: 700, color: t.done ? 'rgba(255,255,255,0.35)' : '#fff', textDecoration: t.done ? 'line-through' : 'none' }}>{t.text}</span>
+        </motion.button>
+      ))}
+
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginTop: 16, marginBottom: 10 }}>UPCOMING</p>
+      {upcomingTasks.map(t => (
+        <motion.button key={t.id} whileTap={{ scale: 0.98 }} onClick={() => toggle(t.id)}
+          style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }}>
+          <div style={{ width: 20, height: 20, borderRadius: 10, border: t.done ? 'none' : '2px solid rgba(255,255,255,0.3)', background: t.done ? '#22C55E' : 'transparent', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {t.done && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>}
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: t.done ? 'rgba(255,255,255,0.35)' : '#fff', textDecoration: t.done ? 'line-through' : 'none' }}>{t.text}</p>
+            {t.project && <p style={{ fontSize: 11, color: '#8B5CF6', fontWeight: 700, marginTop: 2 }}>📁 {t.project}</p>}
+          </div>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: 700 }}>{t.due}</span>
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+// ── SETTINGS SCREEN ───────────────────────────────────────────────────────────
+function SettingsScreen() {
+  const [defaultTrigger, setDefaultTrigger] = useState<5 | 10 | 15>(10);
+  const profiles: { name: string; icon: string; energy: EnergyType }[] = [
+    { name: 'High Performance', icon: '⚡', energy: 'high' },
+    { name: 'Focused', icon: '🎯', energy: 'focused' },
+    { name: 'Creative', icon: '✨', energy: 'creative' },
+    { name: 'Energize', icon: '🔥', energy: 'energize' },
+    { name: 'Calm', icon: '🌿', energy: 'calm' },
+  ];
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 12 }}>TRIGGER DEFAULTS</p>
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px', marginBottom: 24 }}>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: 12 }}>Default prep window</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {([5, 10, 15] as const).map(m => (
+            <button key={m} onClick={() => setDefaultTrigger(m)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: defaultTrigger === m ? '#8B5CF6' : 'rgba(255,255,255,0.06)', color: defaultTrigger === m ? '#fff' : 'rgba(255,255,255,0.5)', fontWeight: 900, fontSize: 15 }}>
+              {m} min
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p style={{ fontSize: 13, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 12 }}>TRIGGER PROFILES</p>
+      {profiles.map(p => (
+        <button key={p.name} style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 12, padding: '14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', marginBottom: 8 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 20, background: `${ENERGY_COLORS[p.energy]}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>{p.icon}</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{p.name}</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>Tap to edit profile</p>
+          </div>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" strokeLinecap="round"><path d="M9 18l6-6-6-6" /></svg>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// ── EVENT DETAIL SCREEN ───────────────────────────────────────────────────────
+function EventDetail({ event, onBack, onTrigger }: { event: Event; onBack: () => void; onTrigger: () => void }) {
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8B5CF6', fontWeight: 800, fontSize: 14, marginBottom: 16, background: 'transparent' }}>
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg> Back
+      </button>
+
+      <div style={{ background: `${ENERGY_COLORS[event.energy]}18`, borderRadius: 20, padding: 20, marginBottom: 16, borderLeft: `4px solid ${ENERGY_COLORS[event.energy]}` }}>
+        <EnergyPill type={event.energy} />
+        <p style={{ fontSize: 24, fontWeight: 900, color: '#fff', margin: '10px 0 4px' }}>{event.title}</p>
+        <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.6)' }}>{event.time} – {event.endTime}</p>
+      </div>
+
+      {event.hasTrigger && (
+        <div style={{ background: '#8B5CF611', border: '1px solid #8B5CF633', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: '#8B5CF6', letterSpacing: '0.06em', marginBottom: 6 }}>TRIGGER DETAILS</p>
+          <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.7)', marginBottom: 4 }}>Fires {event.triggerMin} min before · {event.playlist}</p>
+          {event.affirmation && (
+            <p style={{ fontSize: 13, color: '#C4B5FD', fontStyle: 'italic', marginTop: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 10 }}>"{event.affirmation}"</p>
+          )}
+        </div>
+      )}
+
+      <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, marginBottom: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 8 }}>LINKED FILES</p>
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>No files attached</p>
+      </div>
+
+      {event.hasTrigger && (
+        <motion.button whileTap={{ scale: 0.97 }} onClick={onTrigger}
+          style={{ width: '100%', padding: '16px 0', borderRadius: 16, background: '#8B5CF6', color: '#fff', fontWeight: 900, fontSize: 16 }}>
+          Start Trigger Now
+        </motion.button>
+      )}
+    </div>
+  );
+}
+
+// ── TRIGGER SCREEN ────────────────────────────────────────────────────────────
+function TriggerScreen({ event, onDone }: { event: Event; onDone: () => void }) {
+  const [seconds, setSeconds] = useState(event.triggerMin * 60);
+  const [checklist, setChecklist] = useState([
+    { id: 'body', category: 'BODY', text: 'Shake out tension · roll your shoulders · stand up', done: false },
+    { id: 'breath', category: 'MIND', text: '4-4-4 breathing: inhale 4s, hold 4s, exhale 4s', done: false },
+    { id: 'space', category: 'SPACE', text: 'Clear your desk · silence your phone · get water', done: false },
+    { id: 'focus', category: 'SPACE', text: 'Close all other tabs · put on your headphones', done: false },
+  ]);
+
+  useEffect(() => {
+    const t = setInterval(() => setSeconds(s => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  const done = checklist.filter(c => c.done).length;
+
+  function toggle(id: string) {
+    setChecklist(cl => cl.map(c => c.id === id ? { ...c, done: !c.done } : c));
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0A0B12', display: 'flex', flexDirection: 'column' }}>
+      {/* Dark header */}
+      <div style={{ background: 'linear-gradient(180deg,#1E0A3C 0%,#150828 100%)', padding: '20px 16px 32px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
+          <button onClick={onDone} style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.08)', padding: '6px 14px', borderRadius: 20 }}>Done</button>
+        </div>
+        <div style={{ textAlign: 'center', marginBottom: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.12em', marginBottom: 12 }}>PREPARING FOR</p>
+          <div style={{ fontSize: 72, fontWeight: 900, color: '#fff', fontVariantNumeric: 'tabular-nums', lineHeight: 1, marginBottom: 8 }}>
+            {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 800, color: 'rgba(255,255,255,0.8)', marginBottom: 16 }}>{event.title}</p>
+          {event.affirmation && (
+            <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: '12px 16px', borderLeft: '3px solid #8B5CF6' }}>
+              <p style={{ fontSize: 14, color: '#C4B5FD', fontStyle: 'italic', lineHeight: 1.5 }}>"{event.affirmation}"</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Music card */}
+      {event.playlist && (
+        <div style={{ margin: '16px 16px 0', background: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ width: 40, height: 40, borderRadius: 8, background: `${ENERGY_COLORS[event.energy]}33`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🎵</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 800, color: '#fff' }}>{event.playlist}</p>
+            <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}><EnergyPill type={event.energy} /></p>
+          </div>
+          <div style={{ width: 10, height: 10, borderRadius: 5, background: '#22C55E', boxShadow: '0 0 8px #22C55E' }} />
+        </div>
+      )}
+
+      {/* Checklist */}
+      <div style={{ padding: '16px 16px 0', flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em' }}>PREP CHECKLIST</p>
+          <p style={{ fontSize: 12, color: '#22C55E', fontWeight: 800 }}>{done}/{checklist.length} done</p>
+        </div>
+        {checklist.map(c => (
+          <motion.button key={c.id} whileTap={{ scale: 0.98 }} onClick={() => toggle(c.id)}
+            style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 14px', borderRadius: 12, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }}>
+            <div style={{ width: 20, height: 20, borderRadius: 10, flexShrink: 0, border: c.done ? 'none' : '2px solid rgba(255,255,255,0.25)', background: c.done ? '#22C55E' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+              {c.done && <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>}
+            </div>
+            <div style={{ flex: 1 }}>
+              <span style={{ fontSize: 9, fontWeight: 900, color: '#8B5CF6', letterSpacing: '0.08em' }}>{c.category} · </span>
+              <span style={{ fontSize: 13, color: c.done ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.85)', fontWeight: 600, textDecoration: c.done ? 'line-through' : 'none' }}>{c.text}</span>
+            </div>
+          </motion.button>
+        ))}
+      </div>
+
+      {/* Focus sentence */}
+      <div style={{ padding: '16px', marginBottom: 24 }}>
+        <div style={{ background: 'rgba(139,92,246,0.12)', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 14, padding: '14px 16px' }}>
+          <p style={{ fontSize: 10, fontWeight: 900, color: '#8B5CF6', letterSpacing: '0.1em', marginBottom: 6 }}>FOCUS</p>
+          <p style={{ fontSize: 15, fontWeight: 900, color: '#fff', lineHeight: 1.4 }}>
+            {event.energy === 'high' ? 'Walk in ready. Speak with authority. This is your moment.' :
+             event.energy === 'focused' ? 'One task. Full attention. Create something real.' :
+             event.energy === 'creative' ? 'Open your mind. Play with ideas. Nothing is wrong yet.' :
+             event.energy === 'energize' ? 'Move with intention. Push past comfort. Get stronger.' :
+             'Be present. Be open. Show up as you are.'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PAGE ──────────────────────────────────────────────────────────────────────
+export default function SpacesPage() {
+  const router = useRouter();
+  const [screen, setScreen]       = useState<Screen>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'calendar' | 'tasks' | 'settings'>('home');
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  function openEvent(e: Event) { setSelectedEvent(e); setScreen('event'); }
+  function openTrigger(e: Event) { setSelectedEvent(e); setScreen('trigger'); }
+  function goBack() { setScreen(activeTab); }
+
+  const headerTitle: Record<Screen, string> = {
+    home: 'Spaces', calendar: 'Calendar', tasks: 'Tasks', settings: 'Settings',
+    trigger: '', event: 'Event',
+  };
+
+  if (screen === 'trigger' && selectedEvent) {
+    return <TriggerScreen event={selectedEvent} onDone={() => { setScreen('event'); }} />;
+  }
+
+  return (
+    <div style={{ background: '#0A0B12', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+      <BackButton to="/village/hut" />
+
+      {/* Header */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '14px 16px 14px 60px', background: 'rgba(10,11,18,0.95)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        {screen !== activeTab ? (
+          <button onClick={goBack} style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#8B5CF6', fontWeight: 800, fontSize: 14, background: 'transparent', marginRight: 12 }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+          </button>
+        ) : null}
+        <p style={{ fontSize: 20, fontWeight: 900, flex: 1 }}>{headerTitle[screen]}</p>
+        {screen === 'home' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /></svg>
+          </button>
         )}
+        {screen === 'calendar' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 14 }}>+</span>
+          </button>
+        )}
+        {screen === 'tasks' && (
+          <button style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 18, fontWeight: 900 }}>+</span>
+          </button>
+        )}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', paddingTop: 16, paddingBottom: 80 }}>
+        {screen === 'home'     && <HomeScreen onOpenEvent={openEvent} onOpenTrigger={openTrigger} />}
+        {screen === 'calendar' && <CalendarScreen onOpenEvent={openEvent} />}
+        {screen === 'tasks'    && <TasksScreen />}
+        {screen === 'settings' && <SettingsScreen />}
+        {screen === 'event' && selectedEvent && <EventDetail event={selectedEvent} onBack={goBack} onTrigger={() => openTrigger(selectedEvent)} />}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'rgba(10,11,18,0.97)', borderTop: '1px solid rgba(255,255,255,0.07)', display: 'flex', paddingBottom: 'env(safe-area-inset-bottom, 0px)', zIndex: 30 }}>
+        <TabIcon label="Spaces" active={activeTab === 'home' && screen === 'home'} onTap={() => { setActiveTab('home'); setScreen('home'); }}
+          icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>} />
+        <TabIcon label="Calendar" active={activeTab === 'calendar' && screen === 'calendar'} onTap={() => { setActiveTab('calendar'); setScreen('calendar'); }}
+          icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>} />
+        <TabIcon label="Tasks" active={activeTab === 'tasks' && screen === 'tasks'} onTap={() => { setActiveTab('tasks'); setScreen('tasks'); }}
+          icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>} />
+        <TabIcon label="Settings" active={activeTab === 'settings' && screen === 'settings'} onTap={() => { setActiveTab('settings'); setScreen('settings'); }}
+          icon={<svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>} />
       </div>
     </div>
   );
