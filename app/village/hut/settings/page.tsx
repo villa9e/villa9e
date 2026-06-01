@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BackButton } from '@/components/village/BackButton';
+import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const supabase = createClient();
   const { theme, toggle, virtualVillage, toggleVirtualVillage } = useVillageTheme();
+  const { voiceGender, setGender, voiceEnabled, toggleVoice } = useSpiritVoice();
   const isNight = theme === 'night';
 
   const bg      = isNight ? '#111827' : '#F8F9FF';
@@ -248,6 +250,40 @@ export default function SettingsPage() {
                 style={inputCls} />
             </Field>
           </div>
+
+          {/* Spirit Voice */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-sm" style={{ color: text }}>Spirit Voice</p>
+              <p className="text-xs mt-0.5" style={{ color: muted }}>Choose how Spirit sounds to you</p>
+            </div>
+            <div className="flex rounded-xl overflow-hidden" style={{ border: `1px solid ${border}` }}>
+              {(['female', 'male'] as const).map(g => (
+                <button key={g} onClick={() => setGender(g)}
+                  className="px-4 py-1.5 text-xs font-bold capitalize transition-colors"
+                  style={{
+                    background: voiceGender === g ? '#1A2DBF' : 'transparent',
+                    color: voiceGender === g ? 'white' : muted,
+                  }}>
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Voice On/Off */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-semibold text-sm" style={{ color: text }}>Voice Enabled</p>
+              <p className="text-xs mt-0.5" style={{ color: muted }}>Spirit speaks aloud during check-ins</p>
+            </div>
+            <button onClick={toggleVoice}
+              className="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
+              style={{ background: voiceEnabled ? '#1A2DBF' : border }}>
+              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${voiceEnabled ? 'translate-x-6' : ''}`} />
+            </button>
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <p className="font-semibold text-sm" style={{ color: text }}>Do Not Disturb</p>
@@ -255,7 +291,7 @@ export default function SettingsPage() {
             </div>
             <button onClick={() => setForm(f => ({ ...f, do_not_disturb: !f.do_not_disturb }))}
               className="relative w-12 h-6 rounded-full transition-colors flex-shrink-0"
-              style={{ background: form.do_not_disturb ? '#1877F2' : border }}>
+              style={{ background: form.do_not_disturb ? '#1A2DBF' : border }}>
               <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.do_not_disturb ? 'translate-x-6' : ''}`} />
             </button>
           </div>
