@@ -266,7 +266,7 @@ export function TribeMemberMenu({ member, currentUserId, isNight, webrtc, onClos
                 className="w-full flex items-center gap-3 p-4 rounded-2xl text-left transition-all active:scale-98"
                 style={{ background: 'rgba(217,119,6,0.12)', border: '1px solid rgba(217,119,6,0.25)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#D97706">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={isNight ? 'white' : '#1A2DBF'}>
                   <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
                 </svg>
                 <div>
@@ -282,7 +282,7 @@ export function TribeMemberMenu({ member, currentUserId, isNight, webrtc, onClos
                 className="w-full flex items-center gap-3 p-4 rounded-2xl text-left transition-all active:scale-98"
                 style={{ background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.25)' }}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="#DC2626">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill={isNight ? 'white' : '#1A2DBF'}>
                   <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.68L5.68 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.68L18.32 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/>
                 </svg>
                 <div>

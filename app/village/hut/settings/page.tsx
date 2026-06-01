@@ -270,7 +270,7 @@ export default function SettingsPage() {
                 onMouseEnter={e => (e.currentTarget.style.background = isNight ? 'rgba(255,255,255,0.04)' : 'rgba(24,119,242,0.04)')}
                 onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
               >
-                <span style={{ color: '#1877F2' }}>{item.icon}</span>
+                <span style={{ color: isNight ? 'white' : '#1A2DBF' }}>{item.icon}</span>
                 <div className="flex-1">
                   <p className="font-semibold text-sm">{item.label}</p>
                   <p className="text-xs" style={{ color: muted }}>{item.desc}</p>

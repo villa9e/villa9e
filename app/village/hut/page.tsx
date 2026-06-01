@@ -20,11 +20,11 @@ function IconBtn({ children, onPress }: { children: React.ReactNode; onPress?: (
   );
 }
 
-function CountPill({ icon, count, label, color, onTap }: { icon: React.ReactNode; count: number; label: string; color: string; onTap?: () => void }) {
+function CountPill({ icon, count, label, onTap }: { icon: React.ReactNode; count: number; label: string; color?: string; onTap?: () => void }) {
   return (
     <button onClick={onTap} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderRadius: 20, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', cursor: 'pointer' }}>
-      <span style={{ color, display: 'flex', alignItems: 'center' }}>{icon}</span>
-      <span style={{ fontSize: 12, fontWeight: 800, color }}>{fmt(count)}</span>
+      <span style={{ color: 'white', display: 'flex', alignItems: 'center' }}>{icon}</span>
+      <span style={{ fontSize: 12, fontWeight: 800, color: 'white' }}>{fmt(count)}</span>
       <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>{label}</span>
     </button>
   );
@@ -275,7 +275,7 @@ export default function HutPage() {
           </IconBtn>
           {/* Health shortcut */}
           <IconBtn onPress={() => router.push('/village/hospital')}>
-            <svg width={18} height={18} viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="#22C55E" /></svg>
+            <svg width={18} height={18} viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="white" /></svg>
           </IconBtn>
           {/* Spaces shortcut */}
           <IconBtn onPress={() => router.push('/village/spaces')}>
@@ -350,7 +350,7 @@ export default function HutPage() {
         </div>
         {profile?.bio && <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45, marginBottom: 8 }}>{profile.bio}</p>}
         {hasStore ? (
-          <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#C084FC', marginBottom: 4, fontWeight: 700, textDecoration: 'none' }}>
+          <Link href="/village/trading-post" style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'white', marginBottom: 4, fontWeight: 700, textDecoration: 'none' }}>
             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
             Trading Post
           </Link>
@@ -362,7 +362,7 @@ export default function HutPage() {
         )}
         {profile?.link_in_bio && (
           <a href={profile.link_in_bio} target="_blank" rel="noopener noreferrer"
-            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#60A5FA', fontWeight: 700, textDecoration: 'none' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: 'white', fontWeight: 700, textDecoration: 'none' }}>
             <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
             <span style={{ textDecoration: 'underline' }}>{(profile.link_in_bio as string).replace(/^https?:\/\//, '')}</span>
           </a>

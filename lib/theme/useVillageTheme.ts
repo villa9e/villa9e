@@ -52,6 +52,17 @@ export const useVillageTheme = create<ThemeStore>()(
   )
 );
 
+// villa9e brand colors (from official logo assets)
+export const BRAND = {
+  navy:  '#1A2DBF',  // Navy Blue  — use for icons on white/light backgrounds
+  royal: '#2D63F5',  // Royal Blue — use for primary CTAs and accents
+} as const;
+
+// Helper: returns white on dark bg, navy on light bg
+export function iconColor(isNight: boolean) {
+  return isNight ? '#FFFFFF' : BRAND.navy;
+}
+
 // Theme token maps — use these in components
 export const DAY = {
   bg:           'bg-[#FFF8EE]',
