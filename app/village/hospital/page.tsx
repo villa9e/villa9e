@@ -26,20 +26,25 @@ interface GratitudeEntry {
   created_at: string;
 }
 
-// ── Mock vitals (wearable integration would replace this) ─────────────────────
-const MOCK_VITALS = {
-  readiness: 7.4,
-  readinessSummary: 'Sleep solid · HRV slightly below baseline · Moderate day ahead',
-  sleep: { hours: 7.1, efficiency: 82 },
-  hrv: { ms: 58, baseline: 65 },
-  rhr: { bpm: 64, baseline: 60 },
-  spo2: { pct: 96 },
-  steps: { count: 4200, goal: 8000 },
-  stress: 'Moderate',
-  deep: 1.4, rem: 1.8, light: 4.1,
+// ── Wearable placeholder defaults (replaced by real data from wellness_logs + future wearable API) ──
+const DEFAULT_VITALS = {
+  sleep: { hours: 0, efficiency: 0 },
+  hrv: { ms: 0, baseline: 0 },
+  rhr: { bpm: 0, baseline: 0 },
+  spo2: { pct: 0 },
+  steps: { count: 0, goal: 8000 },
+  deep: 0, rem: 0, light: 0,
 };
 
-const AI_INSIGHT = "Your HRV is 11% below your 30-day average, likely from yesterday's high-output session. Sleep quality was strong at 82% efficiency. Today is a good day for focused work — avoid high-intensity exercise. Hydrate early and prioritize your afternoon Trigger for the 2 PM block.";
+interface LiveVitals {
+  readiness: number;
+  readinessSummary: string;
+  mood: string | null;
+  energy: number | null;
+  stress: number | null;
+  focus: number | null;
+  aiInsight: string | null;
+}
 
 const MEALS = [
   {
@@ -71,9 +76,7 @@ const MEALS = [
   },
 ];
 
-const AI_MESSAGES = [
-  { role: 'ai' as const, text: "Good morning. Here's what I'm seeing in your data today: your HRV dropped to 58ms overnight — that's 11% below your baseline. Your sleep quality was strong though at 82% efficiency with solid deep sleep. I'm recommending a focused but not high-intensity day. You have a high-performance event at 2 PM. Eat light before that — the lunch plan is optimized for it. What would you like to explore?" },
-];
+const INITIAL_AI_MESSAGE = "Hello! I'm your wellness advisor. Log your mood, energy, and stress daily to get personalized insights. Ask me anything about your wellbeing, nutrition, or recovery — I'm here to help you optimize.";
 
 const JOURNAL_PROMPTS = [
   'What went well today?',
@@ -121,18 +124,14 @@ function TabBtn({ icon, label, active, onTap }: { icon: React.ReactNode; label: 
 }
 
 // ── HOME SCREEN ───────────────────────────────────────────────────────────────
-function HomeScreen({ userId, onNav, onAskAI }: { userId: string; onNav: (s: WScreen) => void; onAskAI: () => void }) {
+function HomeScreen({ userId, onNav, onAskAI, vitals }: { userId: string; onNav: (s: WScreen) => void; onAskAI: () => void; vitals: LiveVitals }) {
   const supabase = createClient();
-  const [mood, setMood] = useState<Mood | null>(null);
+  const [mood, setMood] = useState<Mood | null>(vitals.mood as Mood | null);
   const [saving, setSaving] = useState(false);
-  const v = MOCK_VITALS;
 
   useEffect(() => {
-    if (!userId) return;
-    const today = new Date().toISOString().split('T')[0];
-    (supabase as any).from('wellness_logs').select('mood').eq('user_id', userId).eq('log_date', today).single()
-      .then(({ data }: any) => { if (data?.mood) setMood(data.mood as Mood); });
-  }, [userId]);
+    if (vitals.mood) setMood(vitals.mood as Mood);
+  }, [vitals.mood]);
 
   async function saveMood(m: Mood) {
     setMood(m);
@@ -151,23 +150,23 @@ function HomeScreen({ userId, onNav, onAskAI }: { userId: string; onNav: (s: WSc
         <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', marginBottom: 12 }}>TODAY'S READINESS</p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
-            <ReadinessRing score={v.readiness} />
+            <ReadinessRing score={vitals.readiness} />
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>{v.readiness}</span>
+              <span style={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>{vitals.readiness > 0 ? vitals.readiness : '—'}</span>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)' }}>/10</span>
             </div>
           </div>
           <div>
-            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>{v.readinessSummary}</p>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>{vitals.readinessSummary}</p>
             <p style={{ fontSize: 12, color: '#34D399', fontWeight: 700, marginTop: 8 }}>Tap for full breakdown →</p>
           </div>
         </div>
       </motion.button>
 
-      {/* Vital tiles */}
+      {/* Vital tiles from logged data */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <VitalTile label="Sleep" value={`${v.sleep.hours}h`} bar={v.sleep.efficiency} barColor="#22C55E" trendLabel={`${v.sleep.efficiency}% efficiency`} />
-        <VitalTile label="Resting HR" value={`${v.rhr.bpm}`} unit="bpm" bar={(v.rhr.bpm / 90) * 100} barColor="#F59E0B" trendLabel={`+${v.rhr.bpm - v.rhr.baseline} above baseline`} />
+        <VitalTile label="Energy" value={vitals.energy ? `${vitals.energy}/5` : '—'} bar={vitals.energy ? (vitals.energy / 5) * 100 : 0} barColor="#22C55E" trendLabel="Logged today" />
+        <VitalTile label="Stress" value={vitals.stress ? `${vitals.stress}/5` : '—'} unit="" bar={vitals.stress ? (vitals.stress / 5) * 100 : 0} barColor="#F59E0B" trendLabel="Logged today" />
       </div>
 
       {/* AI Insight */}
@@ -177,7 +176,9 @@ function HomeScreen({ userId, onNav, onAskAI }: { userId: string; onNav: (s: WSc
           <span style={{ fontSize: 10, fontWeight: 900, color: '#34D399', letterSpacing: '0.08em' }}>AI INSIGHT</span>
         </div>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.55, marginBottom: 12 }}>
-          {AI_INSIGHT.split('.').slice(0, 2).join('.') + '.'}
+          {vitals.aiInsight
+            ? vitals.aiInsight.split('.').slice(0, 2).join('.') + '.'
+            : 'Log your mood and energy to get personalized AI insights about your wellness patterns.'}
         </p>
         <button onClick={onAskAI} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#22C55E22', border: '1px solid #22C55E44', borderRadius: 20, padding: '7px 14px', fontSize: 13, fontWeight: 800, color: '#34D399', cursor: 'pointer' }}>
           ✨ Ask me anything
@@ -219,31 +220,31 @@ function HomeScreen({ userId, onNav, onAskAI }: { userId: string; onNav: (s: WSc
 }
 
 // ── BODY SCREEN ───────────────────────────────────────────────────────────────
-function BodyScreen() {
-  const v = MOCK_VITALS;
+function BodyScreen({ vitals }: { vitals: LiveVitals }) {
+  const v = DEFAULT_VITALS;
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
       <div style={{ background: 'linear-gradient(135deg,#052E16,#065F46)', borderRadius: 20, padding: 20, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
         <div style={{ position: 'relative', width: 90, height: 90, flexShrink: 0 }}>
-          <ReadinessRing score={v.readiness} />
+          <ReadinessRing score={vitals.readiness} />
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{v.readiness}</span>
+            <span style={{ fontSize: 22, fontWeight: 900, color: '#fff' }}>{vitals.readiness > 0 ? vitals.readiness : '—'}</span>
             <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.45)' }}>/10</span>
           </div>
         </div>
         <div>
           <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', marginBottom: 4 }}>READINESS</p>
-          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45 }}>Based on sleep, HRV, activity, and mood from yesterday.</p>
+          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.45 }}>Based on logged mood, energy, and stress. Connect a wearable for HRV + sleep data.</p>
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
-        <VitalTile label="Resting HR" value={`${v.rhr.bpm}`} unit="bpm" bar={(v.rhr.bpm/90)*100} barColor="#F59E0B" trendLabel={`+${v.rhr.bpm - v.rhr.baseline} above baseline`} />
-        <VitalTile label="HRV" value={`${v.hrv.ms}`} unit="ms" bar={(v.hrv.ms/100)*100} barColor="#1877F2" trendLabel={`-${v.hrv.baseline - v.hrv.ms} below avg`} />
-        <VitalTile label="Sleep" value={`${v.sleep.hours}h`} bar={v.sleep.efficiency} barColor="#22C55E" trendLabel={`${v.sleep.efficiency}% efficiency`} />
-        <VitalTile label="SpO₂" value={`${v.spo2.pct}%`} bar={v.spo2.pct} barColor={v.spo2.pct >= 94 ? '#22C55E' : '#EF4444'} trendLabel="Normal range" />
-        <VitalTile label="Steps" value={`${(v.steps.count/1000).toFixed(1)}K`} bar={(v.steps.count/v.steps.goal)*100} barColor="#8B5CF6" trendLabel={`of ${(v.steps.goal/1000).toFixed(0)}K goal`} />
-        <VitalTile label="Stress" value={v.stress} bar={50} barColor="#F59E0B" trendLabel="Moderate — manageable" />
+        <VitalTile label="Mood" value={vitals.mood ?? '—'} barColor="#22C55E" trendLabel="Logged today" />
+        <VitalTile label="Energy" value={vitals.energy ? `${vitals.energy}/5` : '—'} bar={vitals.energy ? (vitals.energy / 5) * 100 : 0} barColor="#22C55E" trendLabel="Logged today" />
+        <VitalTile label="Stress" value={vitals.stress ? `${vitals.stress}/5` : '—'} bar={vitals.stress ? (vitals.stress / 5) * 100 : 0} barColor="#F59E0B" trendLabel="Logged today" />
+        <VitalTile label="Focus" value={vitals.focus ? `${vitals.focus}/5` : '—'} bar={vitals.focus ? (vitals.focus / 5) * 100 : 0} barColor="#1877F2" trendLabel="Logged today" />
+        <VitalTile label="HRV" value="—" unit="ms" barColor="#8B5CF6" trendLabel="Connect wearable" />
+        <VitalTile label="Sleep" value="—" barColor="#22C55E" trendLabel="Connect wearable" />
       </div>
 
       <div style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
@@ -318,8 +319,10 @@ function NutritionScreen() {
 }
 
 // ── AI HEALTH CHAT ────────────────────────────────────────────────────────────
-function AIChatScreen() {
-  const [messages, setMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>(AI_MESSAGES);
+function AIChatScreen({ vitals }: { vitals: LiveVitals }) {
+  const [messages, setMessages] = useState<{ role: 'ai' | 'user'; text: string }[]>([
+    { role: 'ai', text: vitals.aiInsight ?? INITIAL_AI_MESSAGE },
+  ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -339,7 +342,7 @@ function AIChatScreen() {
       const res = await fetch('/api/wellness/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, context: { hrv: 58, sleep: 7.1, readiness: 7.4 } }),
+        body: JSON.stringify({ message: text, context: { readiness: vitals.readiness, mood: vitals.mood, energy: vitals.energy, stress: vitals.stress } }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -572,7 +575,7 @@ function TelehealthScreen() {
           <span style={{ fontSize: 11, fontWeight: 900, color: '#34D399', letterSpacing: '0.06em' }}>AI RECOMMENDATION</span>
         </div>
         <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
-          Based on your HRV trend and sleep data this week, a mental health check-in or sleep specialist consultation may be valuable. Would you like me to find available times?
+          Log your wellness data daily and chat with the AI advisor to get personalized provider recommendations based on your patterns.
         </p>
       </div>
     </div>
@@ -585,12 +588,40 @@ export default function HospitalPage() {
   const supabase = createClient();
   const [screen, setScreen] = useState<WScreen>('home');
   const [userId, setUserId] = useState('');
+  const [vitals, setVitals] = useState<LiveVitals>({
+    readiness: 0, readinessSummary: 'Log your mood and energy to see your readiness score.',
+    mood: null, energy: null, stress: null, focus: null, aiInsight: null,
+  });
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setUserId(user.id);
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      setUserId(user.id);
+      const today = new Date().toISOString().split('T')[0];
+      const { data: log } = await (supabase as any)
+        .from('wellness_logs')
+        .select('readiness,mood,energy,stress,focus,ai_insight')
+        .eq('user_id', user.id).eq('log_date', today).single();
+      if (log) {
+        const r = parseFloat(log.readiness ?? 0);
+        const e = log.energy ?? null;
+        const s = log.stress ?? null;
+        const summary = r >= 7 ? 'High readiness · Great day for focused work'
+          : r >= 5 ? 'Moderate readiness · Balanced effort recommended'
+          : r > 0 ? 'Lower readiness · Prioritize recovery today'
+          : 'Log your mood and energy to see your readiness score.';
+        setVitals({
+          readiness: r,
+          readinessSummary: summary,
+          mood: log.mood ?? null,
+          energy: e,
+          stress: s,
+          focus: log.focus ?? null,
+          aiInsight: log.ai_insight ?? null,
+        });
+      }
     });
   }, []);
 
@@ -630,10 +661,10 @@ export default function HospitalPage() {
 
       {/* Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, paddingTop: 16, paddingBottom: screen === 'ai' ? 0 : 80 }}>
-        {screen === 'home'       && <HomeScreen userId={userId} onNav={setScreen} onAskAI={() => setScreen('ai')} />}
-        {screen === 'body'       && <BodyScreen />}
+        {screen === 'home'       && <HomeScreen userId={userId} onNav={setScreen} onAskAI={() => setScreen('ai')} vitals={vitals} />}
+        {screen === 'body'       && <BodyScreen vitals={vitals} />}
         {screen === 'nutrition'  && <NutritionScreen />}
-        {screen === 'ai'         && <AIChatScreen />}
+        {screen === 'ai'         && <AIChatScreen vitals={vitals} />}
         {screen === 'journal'    && <JournalScreen userId={userId} />}
         {screen === 'telehealth' && <TelehealthScreen />}
       </div>
