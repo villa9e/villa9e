@@ -8,6 +8,14 @@ export const maxDuration = 30;
 
 const YT_KEY = process.env.YOUTUBE_API_KEY;
 
+const FALLBACK_CONTENT = [
+  { id: 'fb1', title: 'How to Set and Achieve Big Goals', channel: 'The Village', thumbnail: null, source: 'youtube', format: 'long' },
+  { id: 'fb2', title: 'Building Momentum: Small Steps, Big Results', channel: 'The Village', thumbnail: null, source: 'youtube', format: 'short' },
+  { id: 'fb3', title: 'The Science of Habit Formation', channel: 'The Village', thumbnail: null, source: 'youtube', format: 'long' },
+  { id: 'fb4', title: 'Overcoming Obstacles on the Road to Success', channel: 'The Village', thumbnail: null, source: 'youtube', format: 'long' },
+  { id: 'fb5', title: 'Daily Routines of High Achievers', channel: 'The Village', thumbnail: null, source: 'youtube', format: 'short' },
+];
+
 async function searchYouTube(query: string, maxResults = 6, preferShort = false) {
   if (!YT_KEY) return [];
   try {
@@ -58,7 +66,8 @@ export async function POST(req: NextRequest) {
       searchYouTube('wellness wellbeing mental health growth', 4, true),
     ]);
     const seen = new Set<string>();
-    const feed = [...yt1, ...yt2].filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true; });
+    const ytFeed = [...yt1, ...yt2].filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true; });
+    const feed = ytFeed.length > 0 ? ytFeed : FALLBACK_CONTENT;
     return NextResponse.json({ feed, preferredFormat: 'long', actionTitle: null, totalResults: feed.length, isGeneral: true });
   }
 
@@ -108,8 +117,9 @@ export async function POST(req: NextRequest) {
     likes:     v.likes,
   }));
 
-  // Interleave: studio first (own content = higher relevance), then YouTube
-  const feed = [...studio, ...ytVideos];
+  // Interleave: studio first (own content = higher relevance), then YouTube (fallback if no results)
+  const ytOrFallback = ytVideos.length > 0 ? ytVideos : FALLBACK_CONTENT;
+  const feed = [...studio, ...ytOrFallback];
 
   return NextResponse.json({
     feed,

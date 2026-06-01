@@ -530,11 +530,15 @@ export default function CreatorStudioPage() {
   const [posting, setPosting]         = useState(false);
   const [posted, setPosted]           = useState(false);
   const [myContent, setMyContent]     = useState<any[]>([]);
+  const [myVideos, setMyVideos]       = useState<any[]>([]);
   const [tips, setTips]               = useState<any>(null);
   const [tipsLoading, setTipsLoading] = useState(false);
   const [affiliates, setAffiliates]   = useState<any[]>([]);
   const [engagementData, setEngagementData] = useState<any>(null);
   const [profile, setProfile]         = useState<any>(null);
+  const [uploading, setUploading]     = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = createClient();
   const selectedLayer = layers.find(l => l.id === selectedId) ?? null;
@@ -549,12 +553,14 @@ export default function CreatorStudioPage() {
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [{ data: p }, { data: posts }] = await Promise.all([
+    const [{ data: p }, { data: posts }, { data: videos }] = await Promise.all([
       (supabase as any).from('profiles').select('username,personality_type,village_score').eq('id', user.id).single(),
       (supabase as any).from('dream_line_posts').select('oowop_count,comment_count,created_at,content').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
+      (supabase as any).from('studio_videos').select('id,title,video_url,thumbnail_url,duration_seconds,watch_count,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
     ]);
     setProfile(p);
     setMyContent(posts ?? []);
+    setMyVideos(videos ?? []);
     if (posts?.length) {
       setEngagementData({
         posts: posts.length,
@@ -562,6 +568,41 @@ export default function CreatorStudioPage() {
         avg_comments: (posts.reduce((a: number, p: any) => a + (p.comment_count || 0), 0) / posts.length).toFixed(1),
       });
     }
+  }
+
+  async function uploadVideo(file: File) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || !file) return;
+    setUploading(true);
+    setUploadProgress(10);
+    try {
+      const ext = file.name.split('.').pop() ?? 'mp4';
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      setUploadProgress(30);
+      const { data: uploadData, error } = await (supabase as any).storage
+        .from('studio-videos')
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (error) throw error;
+      setUploadProgress(75);
+      const { data: { publicUrl } } = (supabase as any).storage.from('studio-videos').getPublicUrl(path);
+      const title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+      await (supabase as any).from('studio_videos').insert({
+        user_id: user.id,
+        title,
+        video_url: publicUrl,
+        thumbnail_url: null,
+        duration_seconds: 0,
+        watch_count: 0,
+        likes: 0,
+        is_affiliate: false,
+      });
+      setUploadProgress(100);
+      await loadData();
+    } catch (e) {
+      console.error('Upload failed', e);
+    }
+    setUploading(false);
+    setUploadProgress(0);
   }
 
   async function loadTips() {
@@ -886,29 +927,84 @@ export default function CreatorStudioPage() {
       {/* ── MY CONTENT TAB ─────────────────────────────────── */}
       {tab === 'my-content' && (
         <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-          {myContent.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: '#6D6E8A' }}>
-              <p style={{ fontSize: 32, marginBottom: 8 }}>📊</p>
-              <p style={{ fontSize: 12 }}>No content yet. Create something and post it.</p>
-            </div>
-          ) : myContent.map((post: any) => (
-            <div key={post.id} style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
-              <p style={{ color: '#F0EBE0', fontSize: 13, lineHeight: 1.5, margin: '0 0 8px', WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical' }}>
-                {post.content}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#6D6E8A', fontSize: 11 }}>
-                <span>✊ {post.oowop_count || 0}</span>
-                <span>💬 {post.comment_count || 0}</span>
-                <span style={{ marginLeft: 'auto' }}>{new Date(post.created_at).toLocaleDateString()}</span>
+          {/* Video library */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <p style={{ color: '#6D6E8A', fontSize: 11, fontWeight: 900, letterSpacing: '0.06em' }}>VIDEO LIBRARY</p>
+            <button
+              onClick={() => videoInputRef.current?.click()}
+              disabled={uploading}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, background: ACCENT, color: '#fff', border: 'none', borderRadius: 20, padding: '7px 14px', fontSize: 12, fontWeight: 900, cursor: uploading ? 'not-allowed' : 'pointer', opacity: uploading ? 0.7 : 1 }}>
+              {uploading ? `Uploading ${uploadProgress}%` : '+ Upload Video'}
+            </button>
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/*"
+              style={{ display: 'none' }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadVideo(f); e.target.value = ''; }}
+            />
+          </div>
+
+          {uploading && (
+            <div style={{ background: '#1F2937', borderRadius: 10, padding: '10px 14px', marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, color: '#F0EBE0' }}>Uploading video…</span>
+                <span style={{ fontSize: 12, color: ACCENT }}>{uploadProgress}%</span>
               </div>
-              <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: '#1E2240', overflow: 'hidden' }}>
-                <div style={{
-                  height: '100%', borderRadius: 2, background: ACCENT,
-                  width: `${Math.min(100, ((post.oowop_count || 0) / 10) * 100)}%`,
-                }} />
+              <div style={{ height: 4, background: '#1E2240', borderRadius: 2, overflow: 'hidden' }}>
+                <div style={{ width: `${uploadProgress}%`, height: '100%', background: ACCENT, borderRadius: 2, transition: 'width 0.3s' }} />
+              </div>
+            </div>
+          )}
+
+          {myVideos.length === 0 && !uploading ? (
+            <div style={{ textAlign: 'center', padding: '24px 0 32px', color: '#6D6E8A', marginBottom: 16 }}>
+              <p style={{ fontSize: 28, marginBottom: 8 }}>🎬</p>
+              <p style={{ fontSize: 12 }}>No videos yet. Upload your first.</p>
+            </div>
+          ) : myVideos.map((v: any) => (
+            <div key={v.id} style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 12, padding: 12, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 60, height: 60, borderRadius: 8, background: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, overflow: 'hidden' }}>
+                {v.thumbnail_url ? <img src={v.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '🎬'}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ color: '#F0EBE0', fontSize: 13, fontWeight: 700, marginBottom: 3, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{v.title}</p>
+                <div style={{ display: 'flex', gap: 10, color: '#6D6E8A', fontSize: 11 }}>
+                  <span>{v.watch_count || 0} views</span>
+                  {v.duration_seconds > 0 && <span>{Math.floor(v.duration_seconds / 60)}:{String(v.duration_seconds % 60).padStart(2, '0')}</span>}
+                  <span style={{ marginLeft: 'auto' }}>{new Date(v.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
           ))}
+
+          {/* Dream Line posts */}
+          {myContent.length > 0 && (
+            <>
+              <p style={{ color: '#6D6E8A', fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', marginBottom: 12, marginTop: 4 }}>DREAM LINE POSTS</p>
+              {myContent.map((post: any, i: number) => (
+                <div key={i} style={{ background: '#1F2937', border: '1px solid #1E2240', borderRadius: 14, padding: 14, marginBottom: 10 }}>
+                  <p style={{ color: '#F0EBE0', fontSize: 13, lineHeight: 1.5, margin: '0 0 8px', WebkitLineClamp: 2, overflow: 'hidden', display: '-webkit-box', WebkitBoxOrient: 'vertical' }}>
+                    {post.content}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, color: '#6D6E8A', fontSize: 11 }}>
+                    <span>✊ {post.oowop_count || 0}</span>
+                    <span>💬 {post.comment_count || 0}</span>
+                    <span style={{ marginLeft: 'auto' }}>{new Date(post.created_at).toLocaleDateString()}</span>
+                  </div>
+                  <div style={{ marginTop: 8, height: 3, borderRadius: 2, background: '#1E2240', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: ACCENT, width: `${Math.min(100, ((post.oowop_count || 0) / 10) * 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {myContent.length === 0 && myVideos.length === 0 && !uploading && (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: '#6D6E8A' }}>
+              <p style={{ fontSize: 12 }}>No posts yet. Create something and post it.</p>
+            </div>
+          )}
         </div>
       )}
     </div>

@@ -24,16 +24,16 @@ export async function POST(req: NextRequest) {
 
   if (!goal) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
 
-  // Hard gate: if probability < 95, block sprint generation
-  if ((goal.probability_score ?? 0) < 95) {
+  // Hard gate: if probability < 70, block sprint generation
+  if ((goal.probability_score ?? 0) < 70) {
     const { data: gapAnalysis } = await admin.from('goal_gap_analysis').select('*').eq('goal_id', goal_id).single();
     return NextResponse.json({
       blocked: true,
       currentProbability: goal.probability_score ?? 0,
-      threshold: 95,
-      pathTo95: (goal.gps_plan as any)?.probability?.pathTo95 ?? 'Fill the identified gaps to reach the 95% threshold.',
+      threshold: 70,
+      pathTo95: (goal.gps_plan as any)?.probability?.pathTo95 ?? 'Fill the identified gaps to reach the 70% threshold.',
       gapAnalysis: gapAnalysis ?? null,
-      message: 'Sprint activation requires 95% probability. Complete gap-filling steps first.',
+      message: 'Sprint activation requires 70% probability. Complete gap-filling steps first.',
     }, { status: 200 });
   }
 

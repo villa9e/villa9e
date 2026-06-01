@@ -171,6 +171,7 @@ export default function AvatarBuilderPage() {
 
           <OrbitControls
             enablePan={false}
+            target={[0, 0.4, 0]}
             minPolarAngle={Math.PI * 0.1}
             maxPolarAngle={Math.PI * 0.85}
             minDistance={1.5}

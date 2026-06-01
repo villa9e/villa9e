@@ -45,7 +45,7 @@ export default function CrowdfundingPage() {
       const { data } = await (supabase as any)
         .from('crowdfunding_campaigns')
         .select('*, profiles(username, village_score), goals(title, probability_score)')
-        .eq('is_active', true)
+        .eq('status', 'active')
         .order('raised_amount', { ascending: false })
         .limit(20);
       if (data && data.length > 0) setCampaigns(data);
@@ -99,7 +99,7 @@ export default function CrowdfundingPage() {
       target_amount: parseFloat(form.target_amount),
       raised_amount: 0,
       backer_count: 0,
-      is_active: true,
+      status: 'active',
       deadline: deadline.toISOString(),
       currency: 'USD',
     });

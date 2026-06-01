@@ -535,6 +535,10 @@ function JournalScreen({ userId }: { userId: string }) {
 
 // ── TELEHEALTH SCREEN ─────────────────────────────────────────────────────────
 function TelehealthScreen() {
+  const [booking, setBooking] = useState<{ label: string; color: string; icon: string } | null>(null);
+  const [booked, setBooked] = useState(false);
+  const [selectedTime, setSelectedTime] = useState('');
+
   const specialties = [
     { icon: '🧠', label: 'Mental Health', sub: 'Therapy · Psychiatry · Coaching', color: '#8B5CF6' },
     { icon: '❤️', label: 'Primary Care', sub: 'General health · Checkups · Labs', color: '#EF4444' },
@@ -544,8 +548,61 @@ function TelehealthScreen() {
     { icon: '🧘', label: 'Wellness Coach', sub: 'Holistic · Mindfulness · Lifestyle', color: '#14B8A6' },
   ];
 
+  const TIMES = ['9:00 AM', '10:30 AM', '1:00 PM', '2:30 PM', '4:00 PM', '5:30 PM'];
+
+  function confirmBooking() {
+    if (!selectedTime) return;
+    setBooked(true);
+    setTimeout(() => { setBooking(null); setBooked(false); setSelectedTime(''); }, 2800);
+  }
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '0 16px 20px' }}>
+      {/* Booking modal */}
+      <AnimatePresence>
+        {booking && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 50, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: 16 }}>
+            <motion.div initial={{ y: 60, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
+              style={{ background: '#1A1F2E', borderRadius: 24, width: '100%', maxWidth: 420, padding: 24, paddingBottom: 32 }}>
+              {booked ? (
+                <div style={{ textAlign: 'center', padding: '24px 0' }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
+                  <p style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 6 }}>Appointment Booked</p>
+                  <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.55)' }}>{booking.label} · {selectedTime}</p>
+                  <p style={{ fontSize: 12, color: '#34D399', marginTop: 8 }}>Check your email for confirmation.</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 24 }}>{booking.icon}</span>
+                      <div>
+                        <p style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>{booking.label}</p>
+                        <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)' }}>Virtual visit · 45 min</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setBooking(null)} style={{ color: 'rgba(255,255,255,0.4)', background: 'transparent', border: 'none', fontSize: 22, cursor: 'pointer', lineHeight: 1 }}>×</button>
+                  </div>
+                  <p style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 12 }}>SELECT A TIME</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 20 }}>
+                    {TIMES.map(t => (
+                      <button key={t} onClick={() => setSelectedTime(t)}
+                        style={{ padding: '10px 0', borderRadius: 10, border: `1px solid ${selectedTime === t ? booking.color : 'rgba(255,255,255,0.1)'}`, background: selectedTime === t ? `${booking.color}22` : 'transparent', color: selectedTime === t ? '#fff' : 'rgba(255,255,255,0.55)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={confirmBooking} disabled={!selectedTime}
+                    style={{ width: '100%', padding: '14px 0', borderRadius: 14, background: selectedTime ? booking.color : 'rgba(255,255,255,0.08)', color: '#fff', fontWeight: 900, fontSize: 15, border: 'none', cursor: selectedTime ? 'pointer' : 'not-allowed', opacity: selectedTime ? 1 : 0.5 }}>
+                    Confirm Booking
+                  </button>
+                </>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div style={{ background: 'linear-gradient(135deg,#0D3D3D,#065F46)', borderRadius: 20, padding: 20, marginBottom: 16 }}>
         <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.1em', marginBottom: 8 }}>TELEHEALTH</p>
         <p style={{ fontSize: 20, fontWeight: 900, color: '#fff', marginBottom: 6 }}>Connect with a provider</p>
@@ -557,6 +614,7 @@ function TelehealthScreen() {
       <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', marginBottom: 12 }}>SPECIALTIES</p>
       {specialties.map(s => (
         <motion.button key={s.label} whileTap={{ scale: 0.98 }}
+          onClick={() => setBooking(s)}
           style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: '14px', marginBottom: 8, border: 'none', cursor: 'pointer' }}>
           <div style={{ width: 46, height: 46, borderRadius: 23, background: `${s.color}22`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>{s.icon}</div>
           <div style={{ flex: 1 }}>
