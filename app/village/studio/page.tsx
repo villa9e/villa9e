@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
 import { VIDEO_TEMPLATES, type TemplateId } from '@/lib/studio/videoTemplates';
+import { BackButton } from '@/components/village/BackButton';
 
 type StudioTab = 'create' | 'tips' | 'affiliates' | 'my-content';
 
@@ -242,10 +243,10 @@ export default function CreatorStudioPage() {
 
   return (
     <div className="min-h-screen" style={{ background: bg }}>
+      <BackButton />
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
         style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <Link href="/village/workshop" className="text-xl text-white">←</Link>
         <span className="text-2xl">🎬</span>
         <div className="flex-1">
           <h1 className="font-black text-white text-base">Creator Studio</h1>

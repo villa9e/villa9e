@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   metadataBase: new URL('https://villa9e.app'),
   icons: {
-    icon: '/logo.svg',
-    apple: '/logo.svg',
+    icon: '/favicon.png',
+    apple: '/favicon.png',
   },
   openGraph: {
     title: 'villa9e — It takes a village.',

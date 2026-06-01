@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getScoreTier } from '@/lib/village/score';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
+import { BackButton } from '@/components/village/BackButton';
 
 const ARCHETYPE_EMOJI: Record<string, string> = {
   architect:'🏗️', spark:'⚡', anchor:'⚓', compass:'🧭',
@@ -123,10 +124,10 @@ export default function HutPage() {
 
   return (
     <div className="min-h-screen" style={{ background: bg }}>
+      <BackButton />
       {/* Header */}
       <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
         style={{ background: isNight ? '#0E1020' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <Link href="/village/map" className="text-xl text-white">←</Link>
         <span className="text-2xl">🏠</span>
         <div className="flex-1">
           <h1 className="font-black text-white text-base">The Hut</h1>

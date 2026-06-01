@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { AuthBackground, GoogleIcon } from '@/components/auth/AuthBackground';
+import { VillageLogo } from '@/components/brand/VillageLogo';
 
 const FIELD = "w-full rounded-2xl px-4 py-3.5 text-sm focus:outline-none transition-all text-white placeholder:text-white/25 font-medium";
 const FIELD_STYLE: React.CSSProperties = { background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)' };
@@ -177,14 +178,13 @@ function SignupPageInner() {
           <div className="text-center mb-6">
             <div className="relative inline-flex mb-4">
               <motion.div
-                animate={{ scale: [1, 1.12, 1] }}
+                animate={{ opacity: [0.3, 0.7, 0.3] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
                 className="absolute inset-0 rounded-full"
-                style={{ background: 'rgba(24,119,242,0.25)', filter: 'blur(16px)' }}
+                style={{ background: 'rgba(24,119,242,0.35)', filter: 'blur(20px)' }}
               />
-              <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center"
-                style={{ background: 'linear-gradient(135deg, rgba(24,119,242,0.3), rgba(124,58,237,0.2))', border: '1px solid rgba(24,119,242,0.3)' }}>
-                <span style={{ fontSize: 28, fontWeight: 900, color: '#1877F2', fontFamily: 'monospace', letterSpacing: '-0.05em' }}>v9</span>
+              <div className="relative">
+                <VillageLogo size={56} variant="circle" />
               </div>
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">Join villa9e</h1>

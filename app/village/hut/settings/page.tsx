@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { BackButton } from '@/components/village/BackButton';
 
 const LANGUAGES = [
   { code: 'en', label: 'English' },
@@ -123,10 +124,10 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen pb-28" style={{ background: bg }}>
+      <BackButton to="/village/hut" />
       {/* Header */}
       <div className="sticky top-0 z-20 px-4 py-3.5 flex items-center gap-3"
         style={{ background: isNight ? 'rgba(10,11,18,0.92)' : 'rgba(248,249,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
-        <Link href="/village/hut" className="text-xl" style={{ color: muted }}>←</Link>
         <span className="text-2xl">⚙️</span>
         <h1 className="text-lg font-black flex-1" style={{ color: text }}>Settings</h1>
         {/* Day/Night toggle */}

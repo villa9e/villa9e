@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { VillageHeader } from '@/components/village/VillageHeader';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { BackButton } from '@/components/village/BackButton';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -518,6 +519,7 @@ export default function HospitalPage() {
 
   return (
     <div className="min-h-screen pb-24" style={{ background: pageBg }}>
+      <BackButton to="/village/hut" />
 
       {/* Night ambient glow */}
       {isNight && (
@@ -533,6 +535,7 @@ export default function HospitalPage() {
       <VillageHeader
         title="Wellness Center"
         subtitle="Verified practitioners · Book a session"
+        backHref="/village/hut"
         icon="🏥"
         accentColor={accent}
       />

@@ -13,7 +13,7 @@ interface VillageHeaderProps {
   actions?: React.ReactNode;
 }
 
-export function VillageHeader({ title, subtitle, icon, backHref = '/village/map', actions }: VillageHeaderProps) {
+export function VillageHeader({ title, subtitle, icon, backHref = '/village/workshop', actions }: VillageHeaderProps) {
   const [unread, setUnread] = useState(0);
   const supabase = createClient();
 

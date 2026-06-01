@@ -7,6 +7,7 @@ import { SpiritVoice } from '@/components/village/SpiritVoice';
 import { awardScore } from '@/lib/village/score';
 import { VillageHeader } from '@/components/village/VillageHeader';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { BackButton } from '@/components/village/BackButton';
 
 const MOODS = [
   { value: 'great',    emoji: '🌟', label: 'Great',  score: 9, color: 'border-yellow-300 bg-yellow-50' },
@@ -86,12 +87,13 @@ export default function ZenSpacePage() {
 
   return (
     <div className="min-h-screen" style={{ background: bg }}>
+      <BackButton to="/village/hospital" />
       {isNight && (
         <div className="fixed inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse at 50% 30%, rgba(52,211,153,0.05) 0%, transparent 60%)' }} />
       )}
       <VillageHeader title="Zen Space" subtitle="Your sanctuary — no ads, no noise" icon="🧘"
-        accentColor={isNight ? '#065F46' : '#059669'} />
+        accentColor={isNight ? '#065F46' : '#059669'} backHref="/village/hospital" />
 
       <div className="max-w-lg mx-auto p-4 space-y-4">
         {/* Mindful Moment check-in */}
