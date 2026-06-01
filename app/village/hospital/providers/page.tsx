@@ -7,19 +7,21 @@ import { createClient } from '@/lib/supabase/client';
 
 const SPECIALTIES = ['All','Therapy & Counseling','Meditation','Energy Healing','Nutrition','Physical Therapy','Spiritual Guidance','Alternative Medicine','Life Coaching'];
 
-// Mock providers until real ones join
-const MOCK_PROVIDERS = [
-  { id: '1', name: 'Dr. Amara Williams', specialty: 'Therapy & Counseling', verified: true, npi_verified: true, rate: 120, rating: 4.9, reviews: 47, bio: 'Licensed therapist specializing in goal anxiety, burnout, and life transitions.', availability: 'Mon–Fri', accepts_insurance: false },
-  { id: '2', name: 'Marcus Chen', specialty: 'Meditation', verified: true, npi_verified: false, rate: 60, rating: 4.8, reviews: 31, bio: 'Certified mindfulness instructor. 10 years of practice, 5 years of teaching.', availability: 'Weekends', accepts_insurance: false },
-  { id: '3', name: 'Zara Okafor', specialty: 'Energy Healing', verified: true, npi_verified: false, rate: 85, rating: 4.7, reviews: 22, bio: 'Reiki master and somatic practitioner. Lineage-verified, community-reviewed.', availability: 'Tue, Thu, Sat', accepts_insurance: false },
-  { id: '4', name: 'Dr. James Rivera', specialty: 'Nutrition', verified: true, npi_verified: true, rate: 95, rating: 4.9, reviews: 63, bio: 'Registered dietitian. Holistic approach to nutrition for high-achievers.', availability: 'Mon, Wed, Fri', accepts_insurance: true },
+const SEED_PROVIDERS = [
+  { id: 'seed-1', name: 'Dr. Amara Williams', specialty: 'Therapy & Counseling', verified: true, npi_verified: true, rate: 120, rating: 4.9, reviews: 47, bio: 'Licensed therapist specializing in goal anxiety, burnout, and life transitions.', availability: 'Mon–Fri', accepts_insurance: false },
+  { id: 'seed-2', name: 'Marcus Chen', specialty: 'Meditation', verified: true, npi_verified: false, rate: 60, rating: 4.8, reviews: 31, bio: 'Certified mindfulness instructor. 10 years of practice, 5 years of teaching.', availability: 'Weekends', accepts_insurance: false },
+  { id: 'seed-3', name: 'Zara Okafor', specialty: 'Energy Healing', verified: true, npi_verified: false, rate: 85, rating: 4.7, reviews: 22, bio: 'Reiki master and somatic practitioner. Lineage-verified, community-reviewed.', availability: 'Tue, Thu, Sat', accepts_insurance: false },
+  { id: 'seed-4', name: 'Dr. James Rivera', specialty: 'Nutrition', verified: true, npi_verified: true, rate: 95, rating: 4.9, reviews: 63, bio: 'Registered dietitian. Holistic approach to nutrition for high-achievers.', availability: 'Mon, Wed, Fri', accepts_insurance: true },
 ];
 
 function HospitalProvidersPageInner() {
+  const supabase = createClient();
   const searchParams = useSearchParams();
   const initialSpecialty = searchParams.get('specialty') ?? 'All';
   const [specialty, setSpecialty] = useState(initialSpecialty);
   const [search, setSearch] = useState('');
+  const [providers, setProviders] = useState<any[]>([]);
+  const [usingSeeds, setUsingSeeds] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [bookingStep, setBookingStep] = useState<'select' | 'slots' | 'confirm' | 'done'>('select');
   const [bookingDate, setBookingDate] = useState('');
@@ -28,9 +30,41 @@ function HospitalProvidersPageInner() {
   const [passcode, setPasscode]       = useState('');
   const [booking, setBooking]         = useState(false);
 
-  const filtered = MOCK_PROVIDERS.filter(p =>
+  useEffect(() => {
+    async function loadProviders() {
+      const { data } = await (supabase as any)
+        .from('provider_profiles')
+        .select('id, display_name, specialty, verification_status, rate, bio, availability, npi_verified, accepts_insurance, avatar_url')
+        .in('verification_status', ['auto_verified', 'approved'])
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (data && data.length > 0) {
+        setProviders(data.map((p: any) => ({
+          id:               p.id,
+          name:             p.display_name,
+          specialty:        p.specialty,
+          verified:         true,
+          npi_verified:     p.npi_verified ?? false,
+          rate:             p.rate ?? 0,
+          rating:           null,
+          reviews:          null,
+          bio:              p.bio ?? '',
+          availability:     p.availability ?? 'By appointment',
+          accepts_insurance: p.accepts_insurance ?? false,
+          avatar_url:       p.avatar_url,
+        })));
+      } else {
+        setProviders(SEED_PROVIDERS);
+        setUsingSeeds(true);
+      }
+    }
+    loadProviders();
+  }, []);
+
+  const filtered = providers.filter(p =>
     (specialty === 'All' || p.specialty === specialty) &&
-    (search === '' || p.name.toLowerCase().includes(search.toLowerCase()) || p.specialty.toLowerCase().includes(search.toLowerCase()))
+    (search === '' || p.name?.toLowerCase().includes(search.toLowerCase()) || p.specialty?.toLowerCase().includes(search.toLowerCase()))
   );
 
   function book(provider: any) { setSelected(provider); setBookingStep('slots'); }

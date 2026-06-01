@@ -398,8 +398,23 @@ export default function WorkshopPage() {
     if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
   }
 
-  function handleOoWop(cardId: string) {
-    setOwopped(prev => { const n = new Set(prev); n.has(cardId) ? n.delete(cardId) : n.add(cardId); return n; });
+  async function handleOoWop(cardId: string) {
+    if (owopped.has(cardId)) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    setOwopped(prev => { const n = new Set(prev); n.add(cardId); return n; });
+    setCards(prev => prev.map(c => c.id === cardId ? { ...c, oowops: (c.oowops ?? 0) + 1 } : c));
+    const card = cards.find(c => c.id === cardId);
+    if (!card) return;
+    if (card.type === 'template') {
+      (supabase as any).from('goal_templates')
+        .update({ oowop_count: (card.oowops ?? 0) + 1 })
+        .eq('id', cardId).then(() => {}).catch(() => {});
+    } else if (card.type === 'video') {
+      (supabase as any).from('studio_videos')
+        .update({ oowop_count: (card.oowops ?? 0) + 1 })
+        .eq('id', cardId).then(() => {}).catch(() => {});
+    }
   }
 
   if (loading) {
