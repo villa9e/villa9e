@@ -234,6 +234,10 @@ function GuideCard() {
   );
 }
 
+// ── Tab bar ────────────────────────────────────────────────────────────────────
+const TABS = ['Goals', 'Workshop', 'GPS'] as const;
+type Tab = typeof TABS[number];
+
 // ── Main Workshop Page ─────────────────────────────────────────────────────────
 export default function WorkshopPage() {
   const router   = useRouter();
@@ -242,11 +246,13 @@ export default function WorkshopPage() {
   const { speak } = useSpiritVoice();
   const isNight = theme === 'night';
 
+  const [tab,          setTab]          = useState<Tab>('Workshop');
   const [cards,        setCards]        = useState<FeedCard[]>([]);
   const [current,      setCurrent]      = useState(0);
   const [owopped,      setOwopped]      = useState<Set<string>>(new Set());
   const [loading,      setLoading]      = useState(true);
   const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
+  const [activeSprints,setActiveSprints]= useState<any[]>([]);
   const [showNudge,    setShowNudge]    = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY  = useRef(0);
@@ -306,7 +312,13 @@ export default function WorkshopPage() {
       const goals:     any[] = goalsRes.data     ?? [];
       const videos:    any[] = videosRes.data    ?? [];
 
-      if (user && goals.length) setActiveGoals(goals);
+      if (user && goals.length) {
+        setActiveGoals(goals);
+        // Load active sprints for GPS tab
+        fetch('/api/sprints').then(r => r.ok ? r.json() : []).then(data => {
+          if (Array.isArray(data)) setActiveSprints(data.filter((s:any) => s.status === 'active'));
+        }).catch(() => {});
+      }
 
       const hasGoals = goals.length > 0;
 
@@ -396,12 +408,21 @@ export default function WorkshopPage() {
     const dy = touchStartY.current - e.changedTouches[0].clientY;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
 
-    // Swipe right (dx > 80 and not primarily vertical) → go create goal
-    if (dx > 80 && Math.abs(dy) < 60) {
-      router.push('/village/workshop/chat');
+    if (Math.abs(dx) > 80 && Math.abs(dy) < 60) {
+      if (dx > 0) {
+        // Swipe right: Goals ← Workshop → (nothing) / Workshop ← GPS → (nothing)
+        if (tab === 'Workshop') router.push('/village/workshop/chat');
+        if (tab === 'GPS') setTab('Workshop');
+        if (tab === 'Goals') setTab('Workshop');
+      } else {
+        // Swipe left: Goals → Workshop → GPS
+        if (tab === 'Goals') setTab('Workshop');
+        else if (tab === 'Workshop') setTab('GPS');
+      }
       return;
     }
 
+    if (tab !== 'Workshop') return;
     if (dy > 60 && current < cards.length - 1) {
       const next = current + 1;
       setCurrent(next);
@@ -432,18 +453,20 @@ export default function WorkshopPage() {
     isDragging.current = false;
     const dy = mouseStartY.current - e.clientY;
     const dx = e.clientX - mouseStartX.current;
-    if (dx > 80 && Math.abs(dy) < 60) { router.push('/village/workshop/chat'); return; }
+    if (Math.abs(dx) > 80 && Math.abs(dy) < 60) {
+      if (dx > 0) {
+        if (tab === 'Workshop') router.push('/village/workshop/chat');
+        else setTab('Workshop');
+      } else {
+        if (tab === 'Goals') setTab('Workshop');
+        else if (tab === 'Workshop') setTab('GPS');
+      }
+      return;
+    }
+    if (tab !== 'Workshop') return;
     if (Math.abs(dy) > 60) {
-      if (dy > 0 && current < cards.length - 1) {
-        const next = current + 1;
-        setCurrent(next);
-        if (cards[next]) speak(cards[next].title, 'casual');
-      }
-      if (dy < 0 && current > 0) {
-        const prev = current - 1;
-        setCurrent(prev);
-        if (cards[prev]) speak(cards[prev].title, 'casual');
-      }
+      if (dy > 0 && current < cards.length - 1) { const next = current + 1; setCurrent(next); if (cards[next]) speak(cards[next].title, 'casual'); }
+      if (dy < 0 && current > 0) { const prev = current - 1; setCurrent(prev); if (cards[prev]) speak(cards[prev].title, 'casual'); }
     }
   }
 
@@ -481,18 +504,143 @@ export default function WorkshopPage() {
   }
 
   const card = cards[current];
-  // Nav height: 80px + safe area. Content fills viewport minus nav.
   const CARD_H = 'calc(100dvh - 80px)';
 
   return (
     <div style={{ background: '#080E24', minHeight: '100dvh' }}>
-      {/* Top bar */}
-      <div className="sticky top-0 z-30 px-5 pt-12 pb-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(8,14,36,0.95) 0%, rgba(8,14,36,0.6) 70%, transparent 100%)' }}>
-        <span className="text-base font-black text-white">Workshop</span>
+      {/* Top bar + tab bar */}
+      <div className="sticky top-0 z-30"
+        style={{ background: 'rgba(8,14,36,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="flex items-center justify-between px-5 pt-12 pb-1">
+          <span className="text-base font-black text-white">Workshop</span>
+          <Link href="/village/workshop/chat"
+            style={{ background: '#4D72FF', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, textDecoration: 'none' }}>
+            + New Goal
+          </Link>
+        </div>
+        {/* Tab bar */}
+        <div style={{ display: 'flex', padding: '0 16px 0' }}>
+          {TABS.map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{ flex: 1, padding: '10px 0', fontSize: 13, fontWeight: tab === t ? 900 : 600, color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4D72FF' : '2px solid transparent', transition: 'all 0.15s' }}>
+              {t}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Full-screen card area — fills remaining height above nav */}
+      {/* ── GOALS TAB ──────────────────────────────────────────────────────────── */}
+      {tab === 'Goals' && (
+        <div style={{ padding: '16px', overflowY: 'auto', paddingBottom: 100 }}>
+          {activeGoals.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>🎯</p>
+              <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 8 }}>No active goals yet</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 1.6 }}>
+                Talk to Spirit to create your first goal and GPS plan.
+              </p>
+              <Link href="/village/workshop/chat"
+                style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
+                Create My First Goal →
+              </Link>
+            </div>
+          ) : (
+            <>
+              <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 12 }}>ACTIVE GOALS</p>
+              {activeGoals.map((g: any, i: number) => {
+                const COLORS = ['#4D72FF','#1D9E75','#D4A030','#D4537E','#7C3AED'];
+                const color = COLORS[i % COLORS.length];
+                const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
+                const total = g.goal_steps?.length ?? 0;
+                const pct   = total ? Math.round((done / total) * 100) : g.progress_percentage ?? 0;
+                const prob  = g.probability_score ?? 0;
+                return (
+                  <Link key={g.id || i} href={g.id ? `/village/workshop/goal/${g.id}` : '/village/workshop'}
+                    style={{ display: 'block', textDecoration: 'none', background: '#0E1630', border: `1px solid ${color}33`, borderRadius: 16, padding: 16, marginBottom: 10 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <p style={{ fontSize: 15, fontWeight: 900, color: '#fff', flex: 1, marginRight: 10, lineHeight: 1.3 }}>{g.title}</p>
+                      <span style={{ background: prob >= 70 ? 'rgba(29,158,117,0.2)' : 'rgba(77,114,255,0.2)', color: prob >= 70 ? '#1D9E75' : '#4D72FF', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0 }}>
+                        {prob}%
+                      </span>
+                    </div>
+                    <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.5s' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
+                      <span>{pct}% complete</span>
+                      <span>{g.category ?? 'Personal'} · {g.estimated_weeks ?? '?'}w plan</span>
+                    </div>
+                  </Link>
+                );
+              })}
+              <Link href="/village/workshop/templates"
+                style={{ display: 'block', textDecoration: 'none', background: 'rgba(77,114,255,0.08)', border: '1px dashed rgba(77,114,255,0.3)', borderRadius: 16, padding: 16, textAlign: 'center', marginTop: 8 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#4D72FF' }}>Browse Goal DNA Templates →</p>
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── GPS TAB ─────────────────────────────────────────────────────────────── */}
+      {tab === 'GPS' && (
+        <div style={{ padding: '16px', overflowY: 'auto', paddingBottom: 100 }}>
+          {activeSprints.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <p style={{ fontSize: 40, marginBottom: 12 }}>🗺️</p>
+              <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 8 }}>No active sprint</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
+                {hasGoals ? 'Activate your GPS to generate a sprint plan.' : 'Create a goal first, then activate your GPS.'}
+              </p>
+              {hasGoals ? (
+                <Link href={`/village/workshop/goal/${activeGoals[0]?.id}`}
+                  style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
+                  View GPS →
+                </Link>
+              ) : (
+                <Link href="/village/workshop/chat"
+                  style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
+                  Create a Goal →
+                </Link>
+              )}
+            </div>
+          ) : (
+            <>
+              <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 12 }}>ACTIVE SPRINT</p>
+              {activeSprints.slice(0, 1).map((sprint: any) => (
+                <div key={sprint.id} style={{ background: '#0E1630', border: '1px solid rgba(77,114,255,0.3)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
+                  <div style={{ background: 'linear-gradient(135deg,#0033CC,#4D72FF)', padding: '16px' }}>
+                    <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', marginBottom: 4 }}>CURRENT SPRINT</p>
+                    <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{sprint.title}</p>
+                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{sprint.week_start} → {sprint.week_end}</p>
+                  </div>
+                  <div style={{ padding: '14px' }}>
+                    {(sprint.sprint_actions ?? []).slice(0, 5).map((action: any, ai: number) => (
+                      <div key={action.id || ai} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: ai < (sprint.sprint_actions?.length ?? 0) - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
+                        <div style={{ width: 20, height: 20, borderRadius: 10, border: `2px solid ${action.completed ? '#1D9E75' : 'rgba(255,255,255,0.2)'}`, background: action.completed ? '#1D9E75' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {action.completed && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <p style={{ fontSize: 13, color: action.completed ? 'rgba(255,255,255,0.4)' : '#fff', textDecoration: action.completed ? 'line-through' : 'none', flex: 1 }}>{action.title}</p>
+                      </div>
+                    ))}
+                    <Link href={`/village/workshop/sprint/${sprint.id}`}
+                      style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#4D72FF', color: '#fff', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
+                      Open Full Sprint →
+                    </Link>
+                  </div>
+                </div>
+              ))}
+              <Link href="/village/workshop/skill-stream"
+                style={{ display: 'block', textDecoration: 'none', background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.2)', borderRadius: 16, padding: 14, textAlign: 'center' }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>Skill Stream — Learn what your goals require →</p>
+              </Link>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── WORKSHOP TAB (swipe feed) ─────────────────────────────────────────── */}
+      {tab === 'Workshop' && (
       <div
         ref={containerRef}
         className="relative overflow-hidden select-none"
@@ -546,9 +694,9 @@ export default function WorkshopPage() {
           </motion.div>
         )}
 
-        {/* Swipe-right nudge */}
+        {/* Swipe-right nudge — only on Workshop tab */}
         <AnimatePresence>
-          {showNudge && !hasGoals && (
+          {showNudge && !hasGoals && tab === 'Workshop' && (
             <motion.div
               initial={{ x: -120, opacity: 0 }}
               animate={{ x: [0, 14, 0, 14, 0], opacity: 1 }}
@@ -573,6 +721,7 @@ export default function WorkshopPage() {
           )}
         </AnimatePresence>
       </div>
+      )}
     </div>
   );
 }
