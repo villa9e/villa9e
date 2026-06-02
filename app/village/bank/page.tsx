@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
@@ -58,11 +58,11 @@ export function BankBottomNav({ active }: { active: string }) {
   const { theme } = useVillageTheme();
   const c = theme === 'night' ? B.night : B.day;
   const tabs = [
-    { href:'/village/bank',              label:'Home',   d:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
-    { href:'/village/bank/move',         label:'Move',   d:'M5 12h14M12 5l7 7-7 7' },
-    { href:'/village/bank/invest',       label:'Invest', d:'M23 6l-9.5 9.5-5-5L1 18' },
-    { href:'/village/bank/village-fund', label:'Fund',   d:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
-    { href:'/village/bank/budget',       label:'More',   d:'M4 6h16M4 12h16M4 18h16' },
+    { href:'/village/bank',              label:'Home',    d:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
+    { href:'/village/bank/move',         label:'Move',    d:'M5 12h14M12 5l7 7-7 7' },
+    { href:'/village/bank/invest',       label:'Invest',  d:'M23 6l-9.5 9.5-5-5L1 18' },
+    { href:'/village/bank/village-fund', label:'Fund',    d:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
+    { href:'/village/bank/advisor',      label:'Advisor', d:'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z' },
   ];
   return (
     <nav style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:c.card, borderTop:`1px solid ${c.border}`, display:'flex', zIndex:50 }}>
@@ -85,6 +85,28 @@ export default function BankHome() {
   const c = isNight ? B.night : B.day;
   const [showNW, setShowNW] = useState(false);
   const total = ACCOUNTS.reduce((s, a) => s + a.amount, 0);
+
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/bank/advisor/opening');
+        if (cancelled) return;
+        if (res.ok) {
+          const data = await res.json();
+          setAiInsight(data.message ?? null);
+        }
+      } catch {
+        // silently fall back to nothing — the card handles null
+      } finally {
+        if (!cancelled) setInsightLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <div style={{ background:c.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:88 }}>
@@ -145,15 +167,41 @@ export default function BankHome() {
         </div>
 
         {/* AI insight */}
-        <div style={{ background:'#EAF3DE', border:'1px solid #B4D88A', borderRadius:16, padding:16, marginBottom:16 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            <span style={{ fontSize:10, fontWeight:800, color:'#27500A', letterSpacing:0.8, textTransform:'uppercase' }}>AI Insight</span>
+        <Link href="/village/bank/advisor" style={{ textDecoration:'none', display:'block' }}>
+          <div style={{ background:'#EAF3DE', border:'1px solid #B4D88A', borderRadius:16, padding:16, marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
+                <span style={{ fontSize:10, fontWeight:800, color:'#27500A', letterSpacing:0.8, textTransform:'uppercase' }}>AI Insight</span>
+              </div>
+              <span style={{ fontSize:11, color:'#27500A', fontWeight:600, opacity:0.7 }}>Ask more →</span>
+            </div>
+            {insightLoading ? (
+              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
+                {[80, 60, 45].map((w, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      height:11, borderRadius:6, background:'#B4D88A',
+                      width:`${w}%`,
+                      animation:'bankInsightPulse 1.4s ease-in-out infinite',
+                      animationDelay:`${i*0.12}s`,
+                    }}
+                  />
+                ))}
+                <style>{`
+                  @keyframes bankInsightPulse {
+                    0%,100% { opacity:0.4; } 50% { opacity:0.9; }
+                  }
+                `}</style>
+              </div>
+            ) : (
+              <p style={{ fontSize:13, color:'#27500A', lineHeight:1.6, margin:0 }}>
+                {aiInsight ?? 'Your spending is 12% lower than last month — great discipline. Your savings rate is 18%, putting you on track to hit your Home Down Payment goal 3 months early. Tap to chat with your AI advisor.'}
+              </p>
+            )}
           </div>
-          <p style={{ fontSize:13, color:'#27500A', lineHeight:1.6, margin:0 }}>
-            Your spending is 12% lower than last month — great discipline. Your savings rate is 18%, putting you on track to hit your Home Down Payment goal 3 months early. Consider moving $400 from checking to savings to strengthen your emergency fund ratio.
-          </p>
-        </div>
+        </Link>
 
         {/* Spending snapshot */}
         <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:16, marginBottom:16 }}>
