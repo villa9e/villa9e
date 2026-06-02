@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { BankBottomNav } from '@/components/bank/BankBottomNav';
 
 const B = {
   day:   { bg:'#F2F7FA', card:'#FFFFFF', border:'#C8DCE8', text:'#0A1F2E', textSec:'#3A5A6E', textTer:'#7A9AAE', action:'#0A5F8A' },
@@ -54,30 +55,6 @@ const TX_ICON: Record<string,string> = {
   Transfer:      'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4',
 };
 
-export function BankBottomNav({ active }: { active: string }) {
-  const { theme } = useVillageTheme();
-  const c = theme === 'night' ? B.night : B.day;
-  const tabs = [
-    { href:'/village/bank',              label:'Home',    d:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
-    { href:'/village/bank/move',         label:'Move',    d:'M5 12h14M12 5l7 7-7 7' },
-    { href:'/village/bank/invest',       label:'Invest',  d:'M23 6l-9.5 9.5-5-5L1 18' },
-    { href:'/village/bank/village-fund', label:'Fund',    d:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M9 11a4 4 0 100-8 4 4 0 000 8zM23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75' },
-    { href:'/village/bank/advisor',      label:'Advisor', d:'M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z' },
-  ];
-  return (
-    <nav style={{ position:'fixed', bottom:0, left:'50%', transform:'translateX(-50%)', width:'100%', maxWidth:480, background:c.card, borderTop:`1px solid ${c.border}`, display:'flex', zIndex:50 }}>
-      {tabs.map(t => {
-        const on = active === t.href;
-        return (
-          <Link key={t.href} href={t.href} style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', padding:'10px 0 8px', color:on?c.action:c.textTer, textDecoration:'none', fontSize:10, fontWeight:on?700:400, gap:3 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={on?2.5:1.5} strokeLinecap="round" strokeLinejoin="round"><path d={t.d}/></svg>
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
 
 export default function BankHome() {
   const { theme } = useVillageTheme();

@@ -23,7 +23,7 @@ export interface UserGPSProfile {
   skills: Array<{ skill_name: string; rating: number }>;
   weeklyAvailableHours: number;
   financialProfile: {
-    plaidConnected: boolean;
+    bankConnected: boolean;
     estimatedMonthlyBudget: number;
     crowdfundCapacity: number;
   };
@@ -290,7 +290,7 @@ async function runFundingAgent(goal: GoalInput, fp: UserGPSProfile['financialPro
 Goal: "${goal.title}" — ${goal.category}
 User-estimated cost: ${goal.estimatedCost ? '$' + goal.estimatedCost : 'not specified'}
 User financial profile:
-- Plaid bank connected: ${fp.plaidConnected}
+- Bank connected: ${fp.bankConnected}
 - Est. monthly discretionary budget: $${fp.estimatedMonthlyBudget}
 - Crowdfund capacity (audience size): ${fp.crowdfundCapacity}
 

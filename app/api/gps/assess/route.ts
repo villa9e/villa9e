@@ -19,17 +19,15 @@ export async function POST(req: NextRequest) {
   const { goal_id } = await req.json();
 
   // Load goal + user profile in parallel
-  const [goalRes, profileRes, skillsRes, plaidRes] = await Promise.allSettled([
+  const [goalRes, profileRes, skillsRes] = await Promise.allSettled([
     admin.from('goals').select('*').eq('id', goal_id).single(),
     admin.from('profiles').select('username, display_name, personality_type, weekly_hours_available').eq('id', user.id).single(),
     admin.from('user_skills').select('skill_name, rating').eq('user_id', user.id),
-    admin.from('plaid_connections').select('id').eq('user_id', user.id).limit(1),
   ]);
 
   const goal    = goalRes.status === 'fulfilled' ? goalRes.value.data : null;
   const profile = profileRes.status === 'fulfilled' ? profileRes.value.data : null;
   const skills  = skillsRes.status === 'fulfilled' ? skillsRes.value.data : [];
-  const plaid   = plaidRes.status === 'fulfilled' ? plaidRes.value.data : [];
 
   if (!goal) return NextResponse.json({ error: 'Goal not found' }, { status: 404 });
 
@@ -51,7 +49,7 @@ export async function POST(req: NextRequest) {
     skills:       skills ?? [],
     weeklyAvailableHours: goal.weekly_hours_available ?? profile?.weekly_hours_available ?? 10,
     financialProfile: {
-      plaidConnected:          (plaid ?? []).length > 0,
+      bankConnected:           false,
       estimatedMonthlyBudget:  200,
       crowdfundCapacity:       0,
     },

@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { BankBottomNav } from '../page';
+import { BankBottomNav } from '@/components/bank/BankBottomNav';
 
 const B = {
   day:   { bg:'#F2F7FA', card:'#FFFFFF', border:'#C8DCE8', text:'#0A1F2E', textSec:'#3A5A6E', textTer:'#7A9AAE', action:'#0A5F8A' },

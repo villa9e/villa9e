@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     skills:       skills ?? [],
     weeklyAvailableHours: goal.weekly_hours_available ?? profile?.weekly_hours_available ?? 10,
     financialProfile: {
-      plaidConnected:          false,
+      bankConnected:           false,
       estimatedMonthlyBudget:  200,
       crowdfundCapacity:       0,
     },

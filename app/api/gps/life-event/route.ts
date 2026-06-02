@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     archetype:    ctx.archetype ?? undefined,
     skills:       [],
     weeklyAvailableHours: goal.weekly_hours_available ?? 10,
-    financialProfile:     { plaidConnected: false, estimatedMonthlyBudget: 200, crowdfundCapacity: 0 },
+    financialProfile:     { bankConnected: false, estimatedMonthlyBudget: 200, crowdfundCapacity: 0 },
     completionRate:       0.65,
   };
 
