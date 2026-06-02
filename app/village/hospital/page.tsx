@@ -662,23 +662,48 @@ export default function HospitalPage() {
         .from('wellness_logs')
         .select('readiness,mood,energy,stress,focus,ai_insight')
         .eq('user_id', user.id).eq('log_date', today).single();
-      if (log) {
-        const r = parseFloat(log.readiness ?? 0);
-        const e = log.energy ?? null;
-        const s = log.stress ?? null;
-        const summary = r >= 7 ? 'High readiness · Great day for focused work'
-          : r >= 5 ? 'Moderate readiness · Balanced effort recommended'
-          : r > 0 ? 'Lower readiness · Prioritize recovery today'
-          : 'Log your mood and energy to see your readiness score.';
-        setVitals({
-          readiness: r,
-          readinessSummary: summary,
-          mood: log.mood ?? null,
-          energy: e,
-          stress: s,
-          focus: log.focus ?? null,
-          aiInsight: log.ai_insight ?? null,
-        });
+
+      const r = parseFloat(log?.readiness ?? 0);
+      const summary = r >= 7 ? 'High readiness · Great day for focused work'
+        : r >= 5 ? 'Moderate readiness · Balanced effort recommended'
+        : r > 0 ? 'Lower readiness · Prioritize recovery today'
+        : 'Log your mood and energy to see your readiness score.';
+
+      const baseVitals: LiveVitals = {
+        readiness: r,
+        readinessSummary: summary,
+        mood: log?.mood ?? null,
+        energy: log?.energy ?? null,
+        stress: log?.stress ?? null,
+        focus: log?.focus ?? null,
+        aiInsight: log?.ai_insight ?? null,
+      };
+
+      setVitals(baseVitals);
+
+      // If there's no cached insight but there is wellness data, fetch AI insight
+      if (!log?.ai_insight && log && (log.mood || log.energy || log.stress)) {
+        try {
+          const res = await fetch('/api/wellness/insight');
+          if (res.ok) {
+            const { insight, readiness: newReadiness } = await res.json();
+            if (insight) {
+              const updatedReadiness = newReadiness || r;
+              const updatedSummary = updatedReadiness >= 7 ? 'High readiness · Great day for focused work'
+                : updatedReadiness >= 5 ? 'Moderate readiness · Balanced effort recommended'
+                : updatedReadiness > 0 ? 'Lower readiness · Prioritize recovery today'
+                : summary;
+              setVitals(prev => ({
+                ...prev,
+                aiInsight: insight,
+                readiness: updatedReadiness,
+                readinessSummary: updatedSummary,
+              }));
+            }
+          }
+        } catch {
+          // Insight fetch failed silently — vitals are still shown
+        }
       }
     });
   }, []);
