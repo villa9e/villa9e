@@ -19,7 +19,7 @@ const HIDE_PREFIXES = [
 ];
 
 // Arc radius (px from logo center to icon center)
-const RADIUS = 126;
+const RADIUS = 148;
 
 // angleDeg: degrees clockwise from straight-up (0 = up, -90 = left, +90 = right)
 const ITEMS = [

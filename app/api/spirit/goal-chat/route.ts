@@ -145,13 +145,16 @@ ${spiritCtx.communicationStyle ? `Their preferred communication style: ${spiritC
     const isRateLimit = status === 429;
     const isAuth      = status === 401 || status === 403;
     console.error('[Spirit goal-chat] Claude API error:', { status, errType, errMsg });
-    const humanMessage = isOverload
+    const isCredits = errMsg.toLowerCase().includes('credit') || errMsg.toLowerCase().includes('billing');
+    const humanMessage = isCredits
+      ? 'Spirit is resting right now — AI features will be back shortly. In the meantime, browse Goal DNA templates or keep executing your current sprint.'
+      : isOverload
       ? 'Spirit is in high demand right now — try again in a moment.'
       : isRateLimit
       ? 'Spirit is getting a lot of love right now. Give it 10 seconds and try again.'
       : isAuth
       ? 'Spirit needs to reconnect. Refresh the page and try again.'
-      : `Spirit had a moment [${status || errType}]. Send that again and we will keep going.`;
+      : 'Spirit had a moment. Send that again and we will keep going.';
     return NextResponse.json({
       message: humanMessage,
       phase: 'discovery',

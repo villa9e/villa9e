@@ -13,6 +13,9 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // Wrap entire handler to catch AI credit errors gracefully
+  try {
+
   const { goal_id } = await req.json();
 
   // Load goal + user profile in parallel
@@ -157,4 +160,14 @@ export async function POST(req: NextRequest) {
     scenarioImpacts: plan.scenarioImpacts,
     totalWeeks:    plan.totalWeeks,
   });
+  } catch (err: any) {
+    const msg = err?.message ?? '';
+    const isCredits = msg.toLowerCase().includes('credit') || msg.toLowerCase().includes('billing');
+    return NextResponse.json({
+      offline: true,
+      message: isCredits
+        ? 'The GPS engine is temporarily offline. Your existing plan is still active — keep executing your current sprint.'
+        : 'GPS assessment failed. Try again in a moment.',
+    }, { status: 200 });
+  }
 }

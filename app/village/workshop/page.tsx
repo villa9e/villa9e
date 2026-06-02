@@ -74,13 +74,36 @@ function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () 
   );
 }
 
-function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
+function VideoCard({ card, onOoWop, owopped, activeAction }: {
+  card: FeedCard; onOoWop: () => void; owopped: boolean;
+  activeAction?: { sprintNum: number; actionNum: number; actionTotal: number; title: string } | null;
+}) {
   const [playing, setPlaying] = useState(false);
   const { speak } = useSpiritVoice();
-  const thumb = card.media?.thumbnail || `https://img.youtube.com/vi/${card.media?.videoId}/maxresdefault.jpg`;
+  const thumb = card.media?.thumbnail || (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: 'var(--v-bg)' }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: '#0c1828' }}>
+      {/* Action context banner — the core differentiator */}
+      {activeAction && (
+        <div style={{
+          position: 'absolute', top: 56, left: 12, right: 64, zIndex: 15,
+          background: 'rgba(83,74,183,0.88)', borderRadius: 8,
+          padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8,
+          backdropFilter: 'blur(8px)',
+        }}>
+          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#AFA9EC" strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <div>
+            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', margin: 0, letterSpacing: '0.04em' }}>
+              SPRINT {activeAction.sprintNum} · ACTION {activeAction.actionNum} OF {activeAction.actionTotal}
+            </p>
+            <p style={{ fontSize: 12, color: '#fff', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
+              {activeAction.title}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Video / thumbnail */}
       <div className="flex-1 relative">
         {playing && card.media?.videoId ? (
@@ -92,11 +115,14 @@ function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => 
           />
         ) : (
           <>
-            {thumb && <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.2) 100%)' }} />
+            {thumb
+              ? <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
+              : <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#0c1828,#1a2448)' }} />
+            }
+            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)' }} />
             <button onClick={() => { setPlaying(true); speak(card.title, 'casual'); }}
               className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)' }}>
+              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}>
                 <PlaySvg />
               </div>
             </button>
@@ -105,12 +131,12 @@ function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => 
       </div>
 
       {/* Info overlay */}
-      <div className="absolute bottom-0 left-0 right-0 px-5 pb-28">
-        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block" style={{ background: 'rgba(255,107,43,0.25)', color: '#FF6B2B', border: '1px solid rgba(255,107,43,0.4)' }}>
-          🎬 Training
+      <div className="absolute bottom-0 left-0 right-0 px-4 pb-28">
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block" style={{ background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
+          Training
         </span>
-        <h2 className="text-xl font-black text-white leading-tight mt-1">{card.title}</h2>
-        <p className="text-sm mt-1" style={{ color: 'rgba(255,255,255,0.55)' }}>{card.subtitle}</p>
+        <h2 className="text-lg font-black text-white leading-tight mt-1">{card.title}</h2>
+        <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{card.subtitle}</p>
       </div>
     </div>
   );
@@ -299,6 +325,7 @@ export default function WorkshopPage() {
   const [loading,      setLoading]      = useState(true);
   const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
   const [activeSprints,setActiveSprints]= useState<any[]>([]);
+  const [activeAction, setActiveAction] = useState<{ sprintNum: number; actionNum: number; actionTotal: number; title: string } | null>(null);
   const [showNudge,    setShowNudge]    = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY  = useRef(0);
@@ -360,9 +387,27 @@ export default function WorkshopPage() {
 
       if (user && goals.length) {
         setActiveGoals(goals);
-        // Load active sprints for GPS tab
+        // Load active sprints for GPS tab + action context banner
         fetch('/api/sprints').then(r => r.ok ? r.json() : []).then(data => {
-          if (Array.isArray(data)) setActiveSprints(data.filter((s:any) => s.status === 'active'));
+          if (!Array.isArray(data)) return;
+          const active = data.filter((s:any) => s.status === 'active');
+          setActiveSprints(active);
+          // Extract the first pending action for the context banner
+          const sprint = active[0];
+          if (sprint?.sprint_actions?.length) {
+            const pendingActions = sprint.sprint_actions
+              .filter((a:any) => !a.completed)
+              .sort((a:any,b:any) => a.order_index - b.order_index);
+            const action = pendingActions[0];
+            if (action) {
+              setActiveAction({
+                sprintNum:   sprint.sprint_number ?? 1,
+                actionNum:   (action.order_index ?? 0) + 1,
+                actionTotal: sprint.sprint_actions.length,
+                title:       action.title,
+              });
+            }
+          }
         }).catch(() => {});
       }
 
@@ -726,7 +771,7 @@ export default function WorkshopPage() {
             className="absolute inset-0"
           >
             {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} activeAction={activeAction} />}
             {card?.type === 'goal'        && <GoalCard card={card} />}
             {card?.type === 'achievement' && <GoalCard card={card} />}
             {card?.type === 'guide'       && <GuideCard />}
