@@ -15,6 +15,16 @@ const POST_LABELS = [
   { id: 'general',          icon: '✨', label: 'General Post',      desc: 'Anything on your mind',           workshop: false },
 ];
 
+// DreamLine-specific post type pills (shown in the social feed)
+const DREAMLINE_TYPES = [
+  { id: 'goal_recap',   label: 'Goal Recap',   color: '#A855F7' },
+  { id: 'sprint_win',   label: 'Sprint Win',   color: '#14B8A6' },
+  { id: 'how_to',       label: 'How-to',       color: '#1A2DBF' },
+  { id: 'general',      label: 'General',      color: '#6B7280' },
+  { id: 'ask_for_help', label: 'Ask for Help', color: '#F59E0B' },
+] as const;
+type DreamlineType = typeof DREAMLINE_TYPES[number]['id'];
+
 type Toggle = { key: string; label: string; desc: string; default?: boolean };
 const TOGGLES: Toggle[] = [
   { key: 'allowComments',           label: 'Allow Comments',              desc: 'Let others comment on this post',      default: true  },
@@ -45,6 +55,7 @@ export default function PostDetailsPage() {
   const [tagInput, setTagInput] = useState('');
   const [mentionInput, setMentionInput] = useState('');
   const [showAdDisclosure, setShowAdDisclosure] = useState(false);
+  const [dreamlineType, setDreamlineType] = useState<DreamlineType>('general');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const d = store.details;
@@ -118,6 +129,7 @@ export default function PostDetailsPage() {
         hashtags:           d.hashtags,
         location_name:      d.location,
         post_label:         d.postLabel,
+        dreamline_label:    dreamlineType,
         goal_id:            d.goalId,
         sprint_id:          d.sprintId,
         action_ref:         d.actionRef,
@@ -247,6 +259,30 @@ export default function PostDetailsPage() {
             </div>
           </div>
         </div>
+
+        {/* DreamLine post type — pill selector */}
+        <Section title="DreamLine Label" subtitle="How this post appears in the social feed">
+          <div className="px-4 flex flex-wrap gap-2">
+            {DREAMLINE_TYPES.map(t => {
+              const active = dreamlineType === t.id;
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => setDreamlineType(t.id)}
+                  style={{
+                    padding: '7px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                    border: `2px solid ${active ? t.color : 'rgba(255,255,255,0.12)'}`,
+                    background: active ? `${t.color}22` : 'rgba(255,255,255,0.04)',
+                    color: active ? t.color : 'rgba(255,255,255,0.55)',
+                    cursor: 'pointer', transition: 'all 0.15s',
+                  }}
+                >
+                  {t.label}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
 
         {/* Content label */}
         <Section title="Content Type" subtitle="Helps us route this to the right place">

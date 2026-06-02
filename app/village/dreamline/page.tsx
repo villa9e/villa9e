@@ -10,7 +10,7 @@ import { awardScore } from '@/lib/village/score';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const REACTIONS = [
   { id: 'oowop',  emoji: '✊', label: 'OoWop'   },
@@ -20,14 +20,52 @@ const REACTIONS = [
   { id: 'crown',  emoji: '👑', label: 'Crown'   },
 ];
 
-type PostType = 'text' | 'photo' | 'video' | 'milestone' | 'reel';
+// ── DreamLine post type system ────────────────────────────────────────────────
+// These are the DreamLine-specific labels (different from studio post_type media type)
+type DreamlineLabel =
+  | 'goal_recap'
+  | 'sprint_win'
+  | 'how_to'
+  | 'general'
+  | 'ask_for_help'
+  | 'milestone';
 
-function detectPostType(post: any): PostType {
-  if (post.post_type) return post.post_type as PostType;
+const DREAMLINE_LABELS: Record<DreamlineLabel, { label: string; color: string; bg: string }> = {
+  goal_recap:   { label: 'Goal Recap',     color: '#A855F7', bg: 'rgba(168,85,247,0.15)'  },
+  sprint_win:   { label: 'Sprint Win',     color: '#14B8A6', bg: 'rgba(20,184,166,0.15)'  },
+  how_to:       { label: 'Workshop',       color: '#1A2DBF', bg: 'rgba(26,45,191,0.15)'   },
+  general:      { label: 'General',        color: '#6B7280', bg: 'rgba(107,114,128,0.15)' },
+  ask_for_help: { label: 'Ask for Help',   color: '#F59E0B', bg: 'rgba(245,158,11,0.15)'  },
+  milestone:    { label: 'Milestone',      color: '#10B981', bg: 'rgba(16,185,129,0.15)'  },
+};
+
+// Map studio/create post labels → DreamLine label
+function toDreamlineLabel(post: any): DreamlineLabel | null {
+  const raw = post.post_label ?? post.dreamline_label ?? null;
+  if (!raw) return null;
+  const map: Record<string, DreamlineLabel> = {
+    goal_recap:     'goal_recap',
+    sprint_update:  'sprint_win',
+    sprint_win:     'sprint_win',
+    action_how_to:  'how_to',
+    how_to:         'how_to',
+    workshop:       'how_to',
+    help_request:   'ask_for_help',
+    ask_for_help:   'ask_for_help',
+    general:        'general',
+    milestone:      'milestone',
+  };
+  return map[raw] ?? null;
+}
+
+// Media type detection (for rendering the right card)
+type MediaPostType = 'text' | 'photo' | 'video' | 'milestone' | 'reel';
+
+function detectMediaType(post: any): MediaPostType {
   if (post.media_url?.match(/\.(mp4|mov|webm)/i)) return 'reel';
   if (post.media_url?.match(/\.(jpg|jpeg|png|gif|webp)/i)) return 'photo';
   if (/youtube\.com|youtu\.be|vimeo\.com/i.test(post.content || '')) return 'video';
-  if (post.goal_id || post.milestone) return 'milestone';
+  if (post.milestone) return 'milestone';
   return 'text';
 }
 
@@ -37,8 +75,8 @@ function extractYouTubeId(url: string) {
 }
 
 // ── Story circle ──────────────────────────────────────────────────────────────
-function StoryRing({ username, tier, hasNew, onClick }: {
-  username: string; tier?: string; hasNew: boolean; onClick: () => void;
+function StoryRing({ username, hasNew, onClick }: {
+  username: string; hasNew: boolean; onClick: () => void;
 }) {
   const ringColor = hasNew ? '#7C3AED' : 'rgba(124,58,237,0.25)';
   return (
@@ -46,7 +84,7 @@ function StoryRing({ username, tier, hasNew, onClick }: {
       whileTap={{ scale: 0.93 }}
       onClick={onClick}
       className="flex flex-col items-center gap-1.5 flex-shrink-0"
-      style={{ width: 68 }}
+      style={{ width: 68, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
     >
       <div style={{
         width: 58, height: 58, borderRadius: '50%',
@@ -57,7 +95,7 @@ function StoryRing({ username, tier, hasNew, onClick }: {
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
           background: 'linear-gradient(135deg, #2D1B4E, #1A0A30)',
-          overflow: 'hidden',
+          overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/default-avatar.png" alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -67,6 +105,85 @@ function StoryRing({ username, tier, hasNew, onClick }: {
         @{username}
       </span>
     </motion.button>
+  );
+}
+
+// ── Spirit insight card ───────────────────────────────────────────────────────
+function SpiritInsightCard({ isNight }: { isNight: boolean }) {
+  const [insight, setInsight] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/spirit/dreamline-insight')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.insight) setInsight(d.insight); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (!loading && !insight) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        borderRadius: 16,
+        background: isNight
+          ? 'linear-gradient(135deg, #0D2318, #0E2E1A)'
+          : 'linear-gradient(135deg, #DCFCE7, #F0FDF4)',
+        border: '1px solid rgba(16,185,129,0.3)',
+        padding: '14px 16px',
+        marginBottom: 12,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 12,
+      }}
+    >
+      {/* Spirit icon */}
+      <div style={{
+        width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
+        background: 'linear-gradient(135deg, #10B981, #059669)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase',
+          color: '#10B981', marginBottom: 4,
+        }}>Spirit — Daily Insight</p>
+        {loading ? (
+          <div style={{
+            height: 14, borderRadius: 7,
+            background: isNight ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.2)',
+            width: '85%', animation: 'pulse 1.5s infinite',
+          }} />
+        ) : (
+          <p style={{
+            fontSize: 13, lineHeight: 1.55, fontWeight: 500,
+            color: isNight ? '#6EE7B7' : '#065F46',
+          }}>
+            {insight}
+          </p>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Post type badge ───────────────────────────────────────────────────────────
+function PostTypeBadge({ label }: { label: DreamlineLabel }) {
+  const cfg = DREAMLINE_LABELS[label];
+  return (
+    <span style={{
+      fontSize: 10, padding: '2px 8px', borderRadius: 20, fontWeight: 700,
+      background: cfg.bg, color: cfg.color,
+    }}>
+      {cfg.label}
+    </span>
   );
 }
 
@@ -81,7 +198,8 @@ function PostCard({
 }) {
   const [showReactions, setShowReactions] = useState(false);
   const [carouselIdx, setCarouselIdx] = useState(0);
-  const type = detectPostType(post);
+  const mediaType = detectMediaType(post);
+  const dreamlineLabel = toDreamlineLabel(post);
 
   const bg     = isNight ? '#1a2332' : '#FFFFFF';
   const border = isNight ? '1px solid var(--v-card-border)' : '1px solid #EDE9FE';
@@ -90,7 +208,22 @@ function PostCard({
   const accent = '#7C3AED';
 
   const images: string[] = post.images ?? (post.media_url ? [post.media_url] : []);
-  const ytId = type === 'video' ? extractYouTubeId(post.content || '') : null;
+  const ytId = mediaType === 'video' ? extractYouTubeId(post.content || '') : null;
+
+  // Trigger keyword generation if needed (fire-and-forget)
+  useEffect(() => {
+    if (!post.ai_keywords?.length && post.content) {
+      fetch('/api/dreamline/keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          post_id: post.id,
+          content: post.content,
+          post_type: dreamlineLabel ?? 'general',
+        }),
+      }).catch(() => {});
+    }
+  }, [post.id]);
 
   return (
     <motion.div
@@ -102,17 +235,24 @@ function PostCard({
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 16px 10px' }}>
         <div style={{
           width: 40, height: 40, borderRadius: '50%', flexShrink: 0,
-          overflow: 'hidden',
+          overflow: 'hidden', background: accent,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={post.profiles?.avatar_url || '/default-avatar.png'}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          {post.profiles?.avatar_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={post.profiles.avatar_url}
+              alt=""
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <span style={{ color: '#fff', fontWeight: 800, fontSize: 15 }}>
+              {(post.profiles?.username ?? 'V')[0].toUpperCase()}
+            </span>
+          )}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 800, fontSize: 14, color: text }}>
               @{post.profiles?.username || 'villager'}
             </span>
@@ -125,10 +265,10 @@ function PostCard({
                 {post.profiles.score_tier}
               </span>
             )}
-            {type === 'milestone' && (
-              <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, fontWeight: 700, background: 'rgba(16,185,129,0.15)', color: '#10B981' }}>
-                🏆 Milestone
-              </span>
+            {/* DreamLine post type badge */}
+            {dreamlineLabel && <PostTypeBadge label={dreamlineLabel} />}
+            {!dreamlineLabel && mediaType === 'milestone' && (
+              <PostTypeBadge label="milestone" />
             )}
             {(post.has_affiliate || post.is_ad) && (
               <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 20, fontWeight: 700, background: 'rgba(245,158,11,0.15)', color: '#D97706' }}>
@@ -145,15 +285,32 @@ function PostCard({
           style={{ background: 'none', border: 'none', color: muted, fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>···</button>
       </div>
 
+      {/* Workshop context — if How-to, show linked goal/sprint */}
+      {dreamlineLabel === 'how_to' && (post.goal_title || post.sprint_title) && (
+        <div style={{
+          margin: '0 16px 10px', padding: '8px 12px', borderRadius: 10,
+          background: isNight ? 'rgba(26,45,191,0.12)' : 'rgba(26,45,191,0.06)',
+          border: '1px solid rgba(26,45,191,0.2)',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A2DBF" strokeWidth="2.5" strokeLinecap="round">
+            <path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/>
+          </svg>
+          <span style={{ fontSize: 11, color: '#1A2DBF', fontWeight: 700 }}>
+            {post.goal_title ?? post.sprint_title}
+          </span>
+        </div>
+      )}
+
       {/* Text content */}
-      {post.content && type !== 'reel' && (
+      {post.content && mediaType !== 'reel' && (
         <div style={{ padding: '0 16px 12px', fontSize: 14, lineHeight: 1.6, color: text }}>
           {post.content}
         </div>
       )}
 
       {/* Milestone card */}
-      {type === 'milestone' && post.milestone && (
+      {mediaType === 'milestone' && post.milestone && (
         <div style={{
           margin: '0 16px 12px', padding: '14px 16px', borderRadius: 14,
           background: isNight ? 'linear-gradient(135deg, #0D1F18, #1A3D2F)' : 'linear-gradient(135deg, #DCFCE7, #F0FDF4)',
@@ -172,8 +329,9 @@ function PostCard({
       )}
 
       {/* Image carousel */}
-      {type === 'photo' && images.length > 0 && (
+      {mediaType === 'photo' && images.length > 0 && (
         <div style={{ position: 'relative', background: '#000', marginBottom: 4 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={images[carouselIdx]}
             alt="post media"
@@ -199,7 +357,6 @@ function PostCard({
                   display: carouselIdx === images.length - 1 ? 'none' : 'flex', alignItems: 'center', justifyContent: 'center',
                 }}
               >›</button>
-              {/* Dots */}
               <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 5 }}>
                 {images.map((_, i) => (
                   <div key={i} style={{
@@ -214,8 +371,8 @@ function PostCard({
         </div>
       )}
 
-      {/* Video embed */}
-      {type === 'video' && ytId && (
+      {/* YouTube/Vimeo embed */}
+      {mediaType === 'video' && ytId && (
         <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#000', marginBottom: 4 }}>
           <iframe
             src={`https://www.youtube.com/embed/${ytId}`}
@@ -227,7 +384,7 @@ function PostCard({
       )}
 
       {/* Reel (vertical video) */}
-      {type === 'reel' && post.media_url && (
+      {mediaType === 'reel' && post.media_url && (
         <div style={{ position: 'relative', background: '#000' }}>
           <video
             src={post.media_url}
@@ -249,7 +406,7 @@ function PostCard({
 
       {/* Action bar */}
       <div style={{ padding: '10px 16px 12px', display: 'flex', alignItems: 'center', gap: 4 }}>
-        {/* OoWop reaction */}
+        {/* OoWop — fist icon, amber when active */}
         <OoWopButton
           count={post.oowop_count || 0}
           hasGiven={givenOoWops.has(post.id)}
@@ -304,7 +461,7 @@ function PostCard({
           </AnimatePresence>
         </div>
 
-        {/* Comment */}
+        {/* Comment count */}
         <Link
           href={`/village/dreamline/post/${post.id}`}
           style={{ display: 'flex', alignItems: 'center', gap: 5, color: muted, textDecoration: 'none', padding: '6px 10px', borderRadius: 20, fontSize: 13, marginLeft: 'auto' }}
@@ -325,7 +482,14 @@ function PostCard({
         </button>
 
         {/* Share */}
-        <button style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', padding: '6px 8px', borderRadius: 20, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}>
+        <button
+          onClick={() => {
+            if (navigator.share) {
+              navigator.share({ title: `@${post.profiles?.username || 'villager'}`, url: window.location.origin + `/village/dreamline/post/${post.id}` }).catch(() => {});
+            }
+          }}
+          style={{ background: 'none', border: 'none', color: muted, cursor: 'pointer', padding: '6px 8px', borderRadius: 20, fontSize: 13, display: 'flex', alignItems: 'center', gap: 5 }}
+        >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13"/>
           </svg>
@@ -358,11 +522,29 @@ function PostCard({
   );
 }
 
-// ── Post composer ─────────────────────────────────────────────────────────────
+// ── Post composer (quick post from feed) ──────────────────────────────────────
+type QuickPostType = 'goal_recap' | 'sprint_win' | 'how_to' | 'general' | 'ask_for_help';
+
+const QUICK_POST_TYPES: { id: QuickPostType; label: string; color: string }[] = [
+  { id: 'goal_recap',   label: 'Goal Recap',   color: '#A855F7' },
+  { id: 'sprint_win',   label: 'Sprint Win',   color: '#14B8A6' },
+  { id: 'how_to',       label: 'Workshop',     color: '#1A2DBF' },
+  { id: 'general',      label: 'General',      color: '#6B7280' },
+  { id: 'ask_for_help', label: 'Ask for Help', color: '#F59E0B' },
+];
+
+const QUICK_PLACEHOLDERS: Record<QuickPostType, string> = {
+  goal_recap:   'Share your goal progress or a win…',
+  sprint_win:   'What sprint did you just complete?',
+  how_to:       'Teach a skill or share a how-to…',
+  general:      'What\'s on your mind today?',
+  ask_for_help: 'What do you need from the village?',
+};
+
 function PostComposer({
   isNight, onPost, postCount,
-}: { isNight: boolean; onPost: (content: string, type: PostType) => Promise<void>; postCount: number }) {
-  const [activeType, setActiveType] = useState<PostType>('text');
+}: { isNight: boolean; onPost: (content: string, dreamlineLabel: QuickPostType) => Promise<void>; postCount: number }) {
+  const [activeType, setActiveType] = useState<QuickPostType>('general');
   const [content, setContent]       = useState('');
   const [posting, setPosting]       = useState(false);
 
@@ -370,22 +552,6 @@ function PostComposer({
   const border = isNight ? '1px solid var(--v-card-border)' : '1px solid #EDE9FE';
   const muted  = isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
-
-  const TYPES: { id: PostType; icon: string; label: string }[] = [
-    { id: 'text',      icon: '📝', label: 'Post'      },
-    { id: 'photo',     icon: '📸', label: 'Photo'     },
-    { id: 'video',     icon: '🎬', label: 'Video'     },
-    { id: 'milestone', icon: '🏆', label: 'Milestone' },
-    { id: 'reel',      icon: '⚡', label: 'Reel'      },
-  ];
-
-  const placeholders: Record<PostType, string> = {
-    text:      'Share your progress, a win, or what you learned…',
-    photo:     'Add a photo URL or describe what you\'re sharing…',
-    video:     'Paste a YouTube or Vimeo link…',
-    milestone: 'Describe your milestone achievement…',
-    reel:      'Paste a video URL for your reel…',
-  };
 
   async function handlePost() {
     if (!content.trim() || posting || postCount >= 3) return;
@@ -397,29 +563,32 @@ function PostComposer({
 
   return (
     <div style={{ background: bg, border, borderRadius: 20, padding: 16, marginBottom: 12 }}>
-      {/* Type selector */}
+      {/* Post type selector — pill row */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {TYPES.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setActiveType(t.id)}
-            style={{
-              flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-              border: 'none', cursor: 'pointer',
-              background: activeType === t.id ? '#7C3AED' : (isNight ? 'rgba(124,58,237,0.12)' : 'rgba(124,58,237,0.08)'),
-              color: activeType === t.id ? '#fff' : '#7C3AED',
-              transition: 'all 0.15s',
-            }}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
+        {QUICK_POST_TYPES.map(t => {
+          const active = activeType === t.id;
+          return (
+            <button
+              key={t.id}
+              onClick={() => setActiveType(t.id)}
+              style={{
+                flexShrink: 0, padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                border: 'none', cursor: 'pointer',
+                background: active ? t.color : (isNight ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
+                color: active ? '#fff' : t.color,
+                transition: 'all 0.15s',
+              }}
+            >
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
       <textarea
         value={content}
         onChange={e => setContent(e.target.value)}
-        placeholder={placeholders[activeType]}
+        placeholder={QUICK_PLACEHOLDERS[activeType]}
         rows={3}
         disabled={postCount >= 3}
         style={{
@@ -432,15 +601,15 @@ function PostComposer({
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 }}>
         <span style={{ fontSize: 12, color: muted }}>
-          {postCount >= 3 ? 'Max 3 posts/day ✓' : `${3 - postCount} posts left today`}
+          {postCount >= 3 ? 'Max 3 posts/day' : `${3 - postCount} posts left today`}
         </span>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <Link href="/village/studio" style={{
+          <Link href="/village/create" style={{
             fontSize: 12, fontWeight: 700, padding: '6px 14px', borderRadius: 20, textDecoration: 'none',
             background: isNight ? 'rgba(124,58,237,0.15)' : 'rgba(124,58,237,0.08)',
             color: '#7C3AED', border: '1px solid rgba(124,58,237,0.25)',
           }}>
-            🎬 Studio
+            Studio
           </Link>
           <motion.button
             whileTap={{ scale: 0.93 }}
@@ -452,7 +621,7 @@ function PostComposer({
               color: '#fff', border: 'none', cursor: posting ? 'default' : 'pointer',
             }}
           >
-            {posting ? '…' : '✨ Share'}
+            {posting ? '…' : 'Share'}
           </motion.button>
         </div>
       </div>
@@ -493,6 +662,7 @@ export default function DreamLinePage() {
     return () => window.removeEventListener('devicemotion', h);
   }, []);
 
+  // Infinite scroll observer
   useEffect(() => {
     if (!bottomRef.current) return;
     const obs = new IntersectionObserver(
@@ -501,6 +671,7 @@ export default function DreamLinePage() {
     );
     obs.observe(bottomRef.current);
     return () => obs.disconnect();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMore, loadingMore, posts.length]);
 
   const observePost = useCallback((el: HTMLDivElement | null, postId: string) => {
@@ -540,6 +711,7 @@ export default function DreamLinePage() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function loadData() {
@@ -557,7 +729,7 @@ export default function DreamLinePage() {
       if (favs) setFavorites(new Set(favs.map((f: any) => f.post_id)));
       loadDiscoverSteps(user.id);
     }
-    // Load story users (recent posters in last 24h)
+    // Story users (recent posters in last 24h)
     const yesterday = new Date(Date.now() - 86400000).toISOString();
     const { data: recentPosts } = await (supabase as any)
       .from('dream_line_posts')
@@ -575,11 +747,13 @@ export default function DreamLinePage() {
       setStoryUsers(unique.map((p: any) => p.profiles).filter(Boolean));
     }
 
+    // Load first page of feed
     const feedRes = await fetch(`/api/dreamline/feed?limit=${PAGE_SIZE}&offset=0`);
     if (feedRes.ok) {
       const data = await feedRes.json();
       if (Array.isArray(data) && data.length > 0) { setPosts(data); setHasMore(data.length === PAGE_SIZE); return; }
     }
+    // Fallback: direct Supabase query
     const { data } = await (supabase as any).from('dream_line_posts')
       .select('*, profiles(username, avatar_url, village_score, score_tier, score_multiplier)')
       .eq('visibility', 'public').eq('is_hidden', false)
@@ -613,21 +787,32 @@ export default function DreamLinePage() {
     setLoadingMore(false);
   }
 
-  async function handlePost(content: string, type: PostType) {
+  async function handlePost(content: string, dreamlineLabel: QuickPostType) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    let extra: any = { post_type: type };
-    if (type === 'video' || type === 'reel') extra.media_url = content.match(/https?:\/\/\S+/)?.[0] ?? null;
     const { data: post, error } = await (supabase as any).from('dream_line_posts').insert({
-      user_id: user.id, content, visibility: 'public', ...extra,
+      user_id: user.id,
+      content,
+      visibility: 'public',
+      post_label: dreamlineLabel,
+      dreamline_label: dreamlineLabel,
     }).select('id').single();
     if (!error && post) {
       setPostCount(c => c + 1);
       VillageSound.post();
       await awardScore('DREAM_LINE_POST');
-      if (/youtube\.com|youtu\.be|vimeo\.com/i.test(content)) {
-        fetch('/api/video/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ post_id: post.id, content }) }).catch(() => {});
-      }
+      // Generate keywords in background
+      fetch('/api/dreamline/keywords', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, content, post_type: dreamlineLabel }),
+      }).catch(() => {});
+      // Score for mission alignment
+      fetch('/api/dreamline/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ post_id: post.id, content }),
+      }).catch(() => {});
     }
   }
 
@@ -646,7 +831,7 @@ export default function DreamLinePage() {
 
   async function handleToggleFavorite(post: any) {
     const isStudio = !!post._source;
-    if (!isStudio) return; // only studio posts have favorites API
+    if (!isStudio) return;
     const isFav = favorites.has(post.id);
     setFavorites(prev => { const n = new Set(prev); isFav ? n.delete(post.id) : n.add(post.id); return n; });
     await fetch('/api/studio/favorite', {
@@ -686,7 +871,7 @@ export default function DreamLinePage() {
         )}
       </AnimatePresence>
 
-      {/* ── Stories row ─────────────────────────────────────────────── */}
+      {/* Stories row */}
       {storyUsers.length > 0 && (
         <div style={{
           background: isNight ? '#0C0E1C' : '#FFFFFF',
@@ -694,7 +879,7 @@ export default function DreamLinePage() {
           padding: '14px 0',
         }}>
           <div style={{ display: 'flex', gap: 14, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
-            {/* "Your story" button */}
+            {/* Your story */}
             <motion.button
               whileTap={{ scale: 0.93 }}
               onClick={() => router.push('/village/create')}
@@ -717,7 +902,6 @@ export default function DreamLinePage() {
               <StoryRing
                 key={i}
                 username={u.username || '?'}
-                tier={u.score_tier}
                 hasNew={i < 5}
                 onClick={() => router.push(`/villager/${u.username}`)}
               />
@@ -728,7 +912,10 @@ export default function DreamLinePage() {
 
       <div style={{ maxWidth: 680, margin: '0 auto', padding: '16px 12px' }}>
 
-        {/* ── OoWop Discovery (horizontal scroll) ────────────────────── */}
+        {/* Spirit daily insight */}
+        <SpiritInsightCard isNight={isNight} />
+
+        {/* OoWop Discovery (horizontal scroll) */}
         {discoverSteps.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, color: isNight ? '#3A3F62' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -780,11 +967,11 @@ export default function DreamLinePage() {
           </div>
         )}
 
-        {/* ── Post composer ───────────────────────────────────────────── */}
+        {/* Post composer */}
         <PostComposer isNight={isNight} onPost={handlePost} postCount={postCount} />
 
-        {/* ── Feed ────────────────────────────────────────────────────── */}
-        {posts.map((post, i) => (
+        {/* Feed */}
+        {posts.map((post) => (
           <div key={post.id} ref={el => observePost(el as HTMLDivElement | null, post.id)}>
             <PostCard
               post={post}
@@ -816,7 +1003,7 @@ export default function DreamLinePage() {
             />
           )}
           {!hasMore && posts.length > 0 && (
-            <p style={{ fontSize: 12, color: isNight ? '#2A2F4A' : '#C4B5FD' }}>You've seen everything ✨</p>
+            <p style={{ fontSize: 12, color: isNight ? '#2A2F4A' : '#C4B5FD' }}>You have seen everything</p>
           )}
         </div>
       </div>
