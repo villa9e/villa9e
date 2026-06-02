@@ -2,288 +2,155 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { VillageHeader } from '@/components/village/VillageHeader';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { BackButton } from '@/components/village/BackButton';
 
-const CATEGORIES = ['All','Creative','Technical','Business','Trades','Wellness','Education','Spiritual'];
+// ── Icons ─────────────────────────────────────────────────────────────────────
+function IconCards()  { return <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>; }
+function IconStore()  { return <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M3 9l1-4h16l1 4"/><path d="M21 9v11a1 1 0 01-1 1H4a1 1 0 01-1-1V9"/><path d="M9 21V9"/><path d="M15 21V9"/></svg>; }
+function IconUsers()  { return <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>; }
+function IconBuilding(){ return <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M8 21V13h8v8"/><path d="M8 7h.01M12 7h.01M16 7h.01M8 11h.01M12 11h.01M16 11h.01"/></svg>; }
+function IconBell()   { return <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>; }
+function IconSearch() { return <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>; }
 
-export default function TradingPostPage() {
-  const [listings, setListings] = useState<any[]>([]);
-  const [category, setCategory] = useState('All');
-  const [search, setSearch] = useState('');
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: '', description: '', skill_offered: '', category: 'Creative', hourly_rate: '', deal_types: ['trade','pay'] });
-  const [saving, setSaving] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [contacting, setContacting] = useState<any>(null);
-  const [contactMsg, setContactMsg] = useState('');
-  const [contacted, setContacted] = useState(false);
-  const [hiring, setHiring]         = useState<string | null>(null); // listing_id being hired
-  const [paidSuccess, setPaidSuccess] = useState(false);
+function Avatar({ name, size = 40 }: { name: string; size?: number }) {
+  const colors = ['#2952E8','#1D9E75','#C48A20','#D4537E','#7C3AED','#0033CC'];
+  const c = colors[name.charCodeAt(0) % colors.length];
+  return (
+    <div style={{ width: size, height: size, borderRadius: size / 2, background: c, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: size * 0.36, flexShrink: 0 }}>
+      {name.slice(0, 1).toUpperCase()}
+    </div>
+  );
+}
+
+const SECTIONS = [
+  { key: 'deals',  label: 'Deals',  sub: 'Swipe investments',        href: '/village/trading-post/deals',  border: 'var(--v-brand)',   icon: <IconCards />,    iconColor: 'var(--v-brand)' },
+  { key: 'market', label: 'Market', sub: 'Storefronts and services', href: '/village/trading-post/market', border: 'var(--v-gold)',    icon: <IconStore />,    iconColor: 'var(--v-gold)' },
+  { key: 'tribe',  label: 'Tribe',  sub: 'Your network',             href: '/village/trading-post/tribe',  border: 'var(--v-success)', icon: <IconUsers />,    iconColor: 'var(--v-success)' },
+  { key: 'office', label: 'Office', sub: 'Meetings and messages',    href: '/village/trading-post/office', border: '#D4537E',          icon: <IconBuilding />, iconColor: '#ED93B1' },
+];
+
+export default function TradingPostHub() {
   const supabase = createClient();
+  const router = useRouter();
+  const [stores, setStores]       = useState<any[]>([]);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [unread, setUnread]       = useState(0);
 
   useEffect(() => {
-    loadListings();
-    supabase.auth.getUser().then(({ data: { user } }) => setUserId(user?.id ?? null));
-    // Detect Stripe success redirect
-    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('paid') === 'success') {
-      setPaidSuccess(true);
-      setTimeout(() => setPaidSuccess(false), 5000);
-      window.history.replaceState({}, '', '/village/trading-post');
-    }
-  }, [category, search]);
+    (async () => {
+      const [{ data: s }, { data: c }] = await Promise.all([
+        (supabase as any).from('estores').select('id,store_name,tagline,product_types,user_id,profiles(username)').eq('status','active').order('follower_count',{ascending:false}).limit(3),
+        (supabase as any).from('connections').select('id,profiles!connections_to_user_id_fkey(username,display_name)').limit(8),
+      ]);
+      setStores(s ?? []);
+      setConnections(c ?? []);
+    })();
+  }, []);
 
-  async function loadListings() {
-    let q = supabase.from('trading_post_listings').select('*, profiles(username, avatar_url, village_score, score_tier)').eq('is_active', true);
-    if (category !== 'All') q = q.eq('category', category);
-    if (search.trim()) q = q.ilike('skill_offered', `%${search}%`);
-    q = q.order('average_rating', { ascending: false }).limit(30);
-    const { data } = await q;
-    setListings(data ?? []);
-  }
-
-  async function createListing() {
-    if (!form.skill_offered.trim() || !form.title.trim()) return;
-    setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('trading_post_listings').insert({
-        user_id:      user.id,
-        title:        form.title,
-        description:  form.description,
-        skill_offered: form.skill_offered,
-        category:     form.category,
-        hourly_rate:  form.hourly_rate ? parseFloat(form.hourly_rate) : null,
-        deal_types:   form.deal_types,
-        is_active:    true,
-      });
-      setShowCreate(false);
-      setForm({ title: '', description: '', skill_offered: '', category: 'Creative', hourly_rate: '', deal_types: ['trade','pay'] });
-      loadListings();
-    }
-    setSaving(false);
-  }
-
-  async function sendContact() {
-    if (!contacting || !contactMsg.trim()) return;
-    const res = await fetch('/api/trading-post/contact', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ listing_id: contacting.id, message: contactMsg }),
-    });
-    if (res.ok) { setContacted(true); setTimeout(() => { setContacting(null); setContactMsg(''); setContacted(false); }, 2500); }
-  }
-
-  const { theme } = useVillageTheme();
-  const isNight  = theme === 'night';
-  const bg       = isNight ? '#111827' : '#F0FDF4';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#BBF7D0';
-  const textMain = isNight ? '#F0EBE0' : '#052E16';
-  const textMute = isNight ? '#4A4F72' : '#166534';
-  const accent   = isNight ? '#4ADE80' : '#16A34A';
-
-  const dealColor = (type: string): React.CSSProperties => ({
-    background: type === 'trade' ? (isNight ? '#0D2D1A' : '#DCFCE7') : type === 'pay' ? (isNight ? '#0D1A2D' : '#DBEAFE') : (isNight ? '#1A0D2D' : '#F3E8FF'),
-    color: type === 'trade' ? '#16A34A' : type === 'pay' ? '#1D4ED8' : '#7C3AED',
-  });
+  const bg    = 'var(--v-bg)';
+  const card  = 'var(--v-card-bg)';
+  const border= 'var(--v-card-border)';
+  const text  = 'var(--v-text)';
+  const muted = 'var(--v-text-muted)';
+  const sub   = 'var(--v-text-sub)';
 
   return (
-    <div className="min-h-screen" style={{ background: bg }}>
-      <div className="sticky top-0 z-20 flex items-center gap-2 px-4 py-3 border-b"
-        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
-        <Link href="/village/map" className="text-xl" style={{ color: '#fff' }}>←</Link>
-        <span className="text-2xl">🏪</span>
-        <div className="flex-1">
-          <h1 className="text-lg font-black text-white">Trading Post</h1>
-          <p className="text-xs text-white/60">Skills marketplace — trade, hire, or network</p>
-        </div>
-        <button onClick={() => setShowCreate(true)}
-          className="rounded-full px-3 py-1 text-sm font-bold"
-          style={{ background: 'rgba(255,255,255,0.2)', color: '#fff' }}>
-          + List Skill
+    <div style={{ minHeight: '100vh', background: bg, paddingBottom: 90 }}>
+      <BackButton to="/village/map" />
+
+      {/* Top bar */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', alignItems: 'center', padding: '14px 16px 14px 60px', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
+        <p style={{ flex: 1, fontSize: 18, fontWeight: 900, color: text }}>Trading Post</p>
+        <button style={{ width: 36, height: 36, borderRadius: 18, background: 'transparent', border: 'none', color: muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <IconSearch />
+        </button>
+        <button style={{ position: 'relative', width: 36, height: 36, borderRadius: 18, background: 'transparent', border: 'none', color: muted, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: 4 }}>
+          <IconBell />
+          {unread > 0 && <span style={{ position: 'absolute', top: 4, right: 4, width: 14, height: 14, borderRadius: 7, background: 'var(--v-gold)', color: '#fff', fontSize: 8, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{unread}</span>}
         </button>
       </div>
 
-      {/* Payment success toast */}
-      {paidSuccess && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl font-bold text-white text-sm"
-          style={{ background: 'linear-gradient(135deg,#22C55E,#16A34A)', boxShadow: '0 4px 24px rgba(34,197,94,0.4)' }}>
-          ✅ Payment successful! Your session is booked.
-        </div>
-      )}
-
-      {/* Contact modal */}
-      {contacting && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="w-full max-w-sm p-6 space-y-4 rounded-3xl"
-            style={{ background: cardBg, border: `1px solid ${border}` }}>
-            {contacted ? (
-              <div className="text-center py-6 space-y-2">
-                <div className="text-5xl animate-float">💬</div>
-                <h2 className="text-xl font-bold text-green-600">Message Sent!</h2>
-                <p className="text-sm text-gray-500">@{contacting.profiles?.username} will receive your inquiry.</p>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center justify-between">
-                  <h2 className="font-bold">Contact @{contacting.profiles?.username}</h2>
-                  <button onClick={() => { setContacting(null); setContactMsg(''); }} className="text-gray-400 text-2xl">×</button>
-                </div>
-                <div className="bg-green-50 rounded-2xl p-3 text-xs text-green-700">
-                  <p className="font-bold">{contacting.title}</p>
-                  {contacting.hourly_rate && <p className="mt-0.5">${contacting.hourly_rate}/hr · {(contacting.deal_types ?? []).join(', ')}</p>}
-                </div>
-                <textarea value={contactMsg} onChange={e => setContactMsg(e.target.value)}
-                  placeholder="Introduce yourself. What do you need? What can you offer in return?"
-                  rows={4} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
-                <div className="flex gap-3">
-                  <button onClick={() => { setContacting(null); setContactMsg(''); }}
-                    className="flex-1 border border-gray-200 rounded-full py-3 text-gray-500 text-sm">Cancel</button>
-                  <button onClick={sendContact} disabled={!contactMsg.trim()}
-                    className="flex-1 bg-green-600 text-white rounded-full py-3 font-bold text-sm disabled:opacity-50">
-                    Send Inquiry
-                  </button>
-                </div>
-              </>
-            )}
-          </motion.div>
-        </div>
-      )}
-
-      {/* Create listing modal */}
-      {showCreate && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-          <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-            className="w-full max-w-lg p-6 space-y-4 max-h-[90vh] overflow-y-auto rounded-3xl"
-            style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold">List Your Skill</h2>
-              <button onClick={() => setShowCreate(false)} className="text-gray-400 text-2xl">×</button>
-            </div>
-            {[
-              { label: 'Listing Title', key: 'title', placeholder: 'e.g. "I\'ll design your logo"' },
-              { label: 'Skill Offered', key: 'skill_offered', placeholder: 'e.g. Graphic Design' },
-              { label: 'Hourly Rate ($)', key: 'hourly_rate', placeholder: 'e.g. 50 (leave blank if trade-only)' },
-            ].map(({ label, key, placeholder }) => (
-              <div key={key}>
-                <label className="text-sm font-medium text-gray-700">{label}</label>
-                <input value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  placeholder={placeholder} className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" />
-              </div>
-            ))}
-            <div>
-              <label className="text-sm font-medium text-gray-700">Category</label>
-              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400">
-                {CATEGORIES.filter(c => c !== 'All').map(c => <option key={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium text-gray-700">Description</label>
-              <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Describe your offer, portfolio, experience…" rows={3}
-                className="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 resize-none" />
-            </div>
-            <button onClick={createListing} disabled={saving || !form.title.trim()} className="w-full bg-green-600 text-white rounded-full py-3 font-bold hover:bg-green-700 disabled:opacity-50">
-              {saving ? 'Listing…' : '🏪 Post to Trading Post'}
-            </button>
-          </motion.div>
-        </div>
-      )}
-
-      <div className="max-w-2xl mx-auto p-4 space-y-4">
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search skills (e.g. video editing, music production…)"
-          className="w-full rounded-2xl px-4 py-3 text-sm focus:outline-none"
-          style={{ background: cardBg, border: `1px solid ${border}`, color: textMain }} />
-
-        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
-          {CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setCategory(cat)}
-              className="flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors"
-              style={{
-                background: category === cat ? accent : cardBg,
-                color:      category === cat ? '#fff'  : textMute,
-                border:     `1px solid ${category === cat ? accent : border}`,
-              }}>
-              {cat}
-            </button>
+      <div style={{ padding: '16px' }}>
+        {/* 4-tile hub grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 24 }}>
+          {SECTIONS.map((s, i) => (
+            <motion.div key={s.key} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}>
+              <Link href={s.href} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', background: card, border: `1px solid ${s.border}`, borderRadius: 14, padding: '20px 12px', gap: 8, minHeight: 90 }}>
+                <div style={{ color: s.iconColor }}>{s.icon}</div>
+                <p style={{ fontSize: 14, fontWeight: 800, color: text, margin: 0 }}>{s.label}</p>
+                <p style={{ fontSize: 10, color: muted, margin: 0, textAlign: 'center' }}>{s.sub}</p>
+              </Link>
+            </motion.div>
           ))}
         </div>
 
-        {listings.map((l, i) => (
-          <motion.div key={l.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
-            className="rounded-2xl p-4" style={{ background: cardBg, border: `1px solid ${border}` }}>
-            <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
-                style={{ background: isNight ? '#1E2240' : '#DCFCE7' }}>
-                <img src={l.profiles?.avatar_url || '/default-avatar.png'} className="w-full h-full rounded-2xl object-cover" alt="" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-bold text-sm" style={{ color: textMain }}>{l.title}</p>
-                    <p className="text-xs" style={{ color: textMute }}>@{l.profiles?.username} · {l.skill_offered}</p>
+        {/* Active in market */}
+        {stores.length > 0 && (
+          <>
+            <p style={{ fontSize: 10, fontWeight: 900, color: 'var(--v-gold)', letterSpacing: '0.06em', marginBottom: 10 }}>ACTIVE IN MARKET</p>
+            <div style={{ background: card, border: `1px solid ${border}`, borderRadius: 14, overflow: 'hidden', marginBottom: 20 }}>
+              {stores.map((store, i) => (
+                <Link key={store.id} href={`/village/trading-post/market/${store.id}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 14px', textDecoration: 'none', borderBottom: i < stores.length - 1 ? `1px solid ${border}` : 'none' }}>
+                  <Avatar name={store.store_name} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: text, margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{store.store_name}</p>
+                    <p style={{ fontSize: 11, color: muted, margin: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{store.tagline}</p>
+                    {store.product_types?.length > 0 && (
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                        {(store.product_types as string[]).slice(0, 2).map(t => (
+                          <span key={t} className="pill pill-blue" style={{ fontSize: 9 }}>{t}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {l.hourly_rate && <span className="font-bold text-sm flex-shrink-0" style={{ color: '#1877F2' }}>${l.hourly_rate}/h</span>}
-                </div>
-                {l.description && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: textMute }}>{l.description}</p>}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  {(l.deal_types ?? []).map((dt: string) => (
-                    <span key={dt} className="text-xs px-2 py-0.5 rounded-full font-medium" style={dealColor(dt)}>{dt}</span>
-                  ))}
-                  {l.average_rating > 0 && <span className="text-xs text-amber-500">★ {l.average_rating.toFixed(1)}</span>}
-                </div>
-              </div>
+                  <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={sub} strokeWidth={2} strokeLinecap="round"><path d="M9 18l6-6-6-6"/></svg>
+                </Link>
+              ))}
             </div>
-            {l.user_id !== userId && (
-              <div className="flex gap-2 mt-3">
-                {l.deal_types?.includes('trade') && (
-                  <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
-                    style={{ background: isNight ? '#0D2D1A' : '#DCFCE7', color: '#16A34A' }}>🤝 Barter</button>
-                )}
-                {l.deal_types?.includes('pay') && l.hourly_rate && (
-                  <button
-                    onClick={async () => {
-                      setHiring(l.id);
-                      try {
-                        const res = await fetch('/api/trading-post/pay', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ listing_id: l.id }),
-                        });
-                        const data = await res.json();
-                        if (data.url) window.location.href = data.url;
-                        else setContacting(l); // fallback to contact
-                      } catch { setContacting(l); }
-                      setHiring(null);
-                    }}
-                    disabled={hiring === l.id}
-                    className="flex-1 rounded-full py-2 text-xs font-bold disabled:opacity-60"
-                    style={{ background: '#1877F2', color: '#fff' }}>
-                    {hiring === l.id ? '…' : `💳 Hire $${l.hourly_rate}/hr`}
-                  </button>
-                )}
-                <button onClick={() => setContacting(l)} className="flex-1 rounded-full py-2 text-xs font-bold"
-                  style={{ background: isNight ? '#1A0D2D' : '#F3E8FF', color: '#7C3AED' }}>💬 Network</button>
-              </div>
-            )}
-          </motion.div>
-        ))}
+          </>
+        )}
 
-        {listings.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-3">🏪</p>
-            <p className="mb-4" style={{ color: textMute }}>No listings yet. Be the first villager to offer a skill!</p>
-            <button onClick={() => setShowCreate(true)}
-              className="rounded-full px-6 py-3 font-bold text-white"
-              style={{ background: accent }}>
-              + List My Skill
-            </button>
+        {/* New in tribe */}
+        {connections.length > 0 && (
+          <>
+            <p style={{ fontSize: 10, fontWeight: 900, color: 'var(--v-text-sub)', letterSpacing: '0.06em', marginBottom: 10 }}>NEW IN TRIBE</p>
+            <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4 }}>
+              {connections.slice(0, 8).map((c: any) => {
+                const name = c.profiles?.display_name ?? c.profiles?.username ?? 'V';
+                return (
+                  <div key={c.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                    <Avatar name={name} size={44} />
+                    <p style={{ fontSize: 9, color: muted, fontWeight: 700, textAlign: 'center', maxWidth: 44, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{name.split(' ')[0]}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Quick-start CTAs if no content */}
+        {stores.length === 0 && (
+          <div style={{ background: card, border: `1px solid ${border}`, borderRadius: 14, padding: 20, textAlign: 'center', marginBottom: 16 }}>
+            <p style={{ fontSize: 28, marginBottom: 8 }}>🏪</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: text, marginBottom: 6 }}>The market is open</p>
+            <p style={{ fontSize: 12, color: muted, marginBottom: 14 }}>Be the first to list your store and start building your village income.</p>
+            <Link href="/village/trading-post/market/create" style={{ display: 'inline-block', background: 'var(--v-gold)', color: '#fff', borderRadius: 20, padding: '10px 24px', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
+              Open Your Store
+            </Link>
           </div>
         )}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: 'var(--v-card-bg)', borderTop: `1px solid ${border}`, display: 'flex', paddingBottom: 'env(safe-area-inset-bottom,0px)', zIndex: 30 }}>
+        {SECTIONS.map(s => (
+          <Link key={s.key} href={s.href} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '8px 0', textDecoration: 'none', color: sub }}>
+            <div style={{ fontSize: 14 }}>{s.icon}</div>
+            <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.04em' }}>{s.label.toUpperCase()}</span>
+          </Link>
+        ))}
       </div>
     </div>
   );

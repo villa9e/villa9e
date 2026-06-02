@@ -23,42 +23,91 @@
     --ring: 214 89% 52%;
     --radius: 0.75rem;
 
-    /* Day theme tokens */
-    --v-bg:        #FFF8EE;
-    --v-surface:   #FFFDF7;
-    --v-card-bg:   #FFFFFF;
-    --v-card-border: #F0E6D3;
-    --v-text:      #2D1F0E;
-    --v-text-muted:#8B6F47;
-    --v-text-sub:  #B8965A;
-    --v-accent:    #E8770A;
-    --v-step-done: #F0FDF4;
-    --v-step-done-border: #BBF7D0;
-    --v-step-next: #FFF7ED;
-    --v-step-next-border: #FED7AA;
-    --v-step-idle: #F9FAFB;
-    --v-step-idle-border: #E5E7EB;
-    --v-progress-bg: #F3F4F6;
-    --v-shadow:    0 2px 8px rgba(24,119,242,0.08);
+    /* ── Village Brand (Day / Light) ──────────────────────── */
+    --v-bg:              #FFFFFF;
+    --v-bg-2:            #F4F6FD;
+    --v-bg-3:            #EAF0FB;
+    --v-surface:         #FFFFFF;
+    --v-card-bg:         #FFFFFF;
+    --v-card-border:     #D0DAFA;
+    --v-text:            #0A1A4A;
+    --v-text-muted:      #4A5A80;
+    --v-text-sub:        #8A9AC0;
+    --v-text-on-brand:   #FFFFFF;
+
+    /* Brand blues */
+    --v-brand:           #2952E8;
+    --v-brand-deep:      #0033CC;
+    --v-brand-light:     #C8D8F8;
+
+    /* Semantic */
+    --v-success:         #1D9E75;
+    --v-success-light:   #E1F5EE;
+    --v-warning:         #BA7517;
+    --v-warning-light:   #FAEEDA;
+    --v-danger:          #D63B3B;
+    --v-danger-light:    #FCEAEA;
+    --v-gold:            #C48A20;
+    --v-gold-light:      #FDF3DC;
+
+    --v-divider:         #E0E8FA;
+    --v-shadow:          0 2px 12px rgba(41,82,232,0.08);
+
+    /* Step states */
+    --v-step-done:       #E1F5EE;
+    --v-step-done-border: #1D9E75;
+    --v-step-next:       #C8D8F8;
+    --v-step-next-border: #2952E8;
+    --v-step-idle:       #F4F6FD;
+    --v-step-idle-border: #D0DAFA;
+    --v-progress-bg:     #EAF0FB;
+
+    /* Accent (kept for backward compat) */
+    --v-accent:          #2952E8;
   }
 
   [data-theme="night"] {
-    --v-bg:        #0A0B12;
-    --v-surface:   #0E1020;
-    --v-card-bg:   #12152A;
-    --v-card-border: #1E2240;
-    --v-text:      #F0EBE0;
-    --v-text-muted:#7A7FA8;
-    --v-text-sub:  #4A4F72;
-    --v-accent:    #FF6B2B;
-    --v-step-done: #0D1F1A;
-    --v-step-done-border: #1A3D2F;
-    --v-step-next: #1A1505;
-    --v-step-next-border: #3D2A0A;
-    --v-step-idle: #0E0F1A;
-    --v-step-idle-border: #1E2240;
-    --v-progress-bg: #1A1C2E;
-    --v-shadow:    0 2px 8px rgba(0,0,0,0.35);
+    /* ── Village Brand (Night / Dark) ──────────────────────── */
+    --v-bg:              #080E24;
+    --v-bg-2:            #0E1630;
+    --v-bg-3:            #141E3C;
+    --v-surface:         #0E1630;
+    --v-card-bg:         #1A2448;
+    --v-card-border:     #2A3860;
+    --v-text:            #F0F4FF;
+    --v-text-muted:      #A8B8E0;
+    --v-text-sub:        #5A6A90;
+    --v-text-on-brand:   #FFFFFF;
+
+    /* Brand blues */
+    --v-brand:           #4D72FF;
+    --v-brand-deep:      #2952E8;
+    --v-brand-light:     #1E3080;
+
+    /* Semantic */
+    --v-success:         #1D9E75;
+    --v-success-light:   #04342C;
+    --v-warning:         #EF9F27;
+    --v-warning-light:   #2A1E08;
+    --v-danger:          #E24B4A;
+    --v-danger-light:    #2A1018;
+    --v-gold:            #D4A030;
+    --v-gold-light:      #241808;
+
+    --v-divider:         #1E2A50;
+    --v-shadow:          0 2px 12px rgba(0,0,0,0.4);
+
+    /* Step states */
+    --v-step-done:       #04342C;
+    --v-step-done-border: #1D9E75;
+    --v-step-next:       #1E3080;
+    --v-step-next-border: #4D72FF;
+    --v-step-idle:       #0E1630;
+    --v-step-idle-border: #2A3860;
+    --v-progress-bg:     #141E3C;
+
+    /* Accent (kept for backward compat) */
+    --v-accent:          #4D72FF;
   }
 }
 
@@ -104,11 +153,42 @@
   background: linear-gradient(135deg, #1877F2 0%, #42A5F5 100%);
 }
 
-.village-text { color: var(--v-text); }
-.village-text-muted { color: var(--v-text-muted); }
-.village-text-sub { color: var(--v-text-sub); }
-.village-surface { background: var(--v-surface); }
+.village-text        { color: var(--v-text); }
+.village-text-muted  { color: var(--v-text-muted); }
+.village-text-sub    { color: var(--v-text-sub); }
+.village-surface     { background: var(--v-surface); }
 .village-progress-bg { background: var(--v-progress-bg); }
+
+/* ── Brand utility classes ── */
+.vb-bg           { background: var(--v-bg); }
+.vb-bg-2         { background: var(--v-bg-2); }
+.vb-bg-3         { background: var(--v-bg-3); }
+.vb-card         { background: var(--v-card-bg); border: 1px solid var(--v-card-border); }
+.vb-text         { color: var(--v-text); }
+.vb-text-muted   { color: var(--v-text-muted); }
+.vb-text-sub     { color: var(--v-text-sub); }
+.vb-brand        { color: var(--v-brand); }
+.vb-gold         { color: var(--v-gold); }
+.vb-success      { color: var(--v-success); }
+.vb-danger       { color: var(--v-danger); }
+.vb-divider      { border-color: var(--v-divider); }
+
+/* ── Pill system ── */
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  border-radius: 20px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; white-space: nowrap;
+}
+.pill-blue   { background: var(--v-brand-light); color: var(--v-brand-deep); }
+.pill-gold   { background: var(--v-gold-light);  color: var(--v-gold); }
+.pill-teal   { background: var(--v-success-light); color: var(--v-success); }
+.pill-red    { background: var(--v-danger-light); color: var(--v-danger); }
+.pill-amber  { background: var(--v-warning-light); color: var(--v-warning); }
+.pill-solid-brand { background: var(--v-brand); color: #fff; }
+.pill-solid-gold  { background: var(--v-gold);  color: #fff; }
+
+/* ── Scrollbar update for new brand ── */
+[data-theme="night"] ::-webkit-scrollbar-thumb { background: rgba(77,114,255,0.2); }
 
 /* ── Animations ── */
 @keyframes float {
