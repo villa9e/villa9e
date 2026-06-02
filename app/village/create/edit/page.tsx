@@ -202,28 +202,8 @@ export default function EditPage() {
   return (
     <div className="fixed inset-0 bg-black flex flex-col" style={{ zIndex: 100 }}>
 
-      {/* ── TOP TOOL RAIL ─────────────────────────────────────────────────────── */}
-      <div className="flex-shrink-0 overflow-x-auto py-3 px-3"
-        style={{ scrollbarWidth: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-        <div className="flex gap-2 min-w-max">
-          {TOOLS.map(tool => (
-            <button key={tool.id}
-              onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
-              className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl flex-shrink-0 transition-all"
-              style={{
-                background: activeTool === tool.id ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.07)',
-                border: activeTool === tool.id ? '1px solid #1877F2' : '1px solid transparent',
-                cursor: 'pointer', color: activeTool === tool.id ? '#1877F2' : 'rgba(255,255,255,0.7)',
-              }}>
-              {tool.icon}
-              <span style={{ fontSize: 10, fontWeight: 600 }}>{tool.label}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── MEDIA PREVIEW ────────────────────────────────────────────────────── */}
-      <div ref={previewRef} className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
+      {/* ── MEDIA PREVIEW — top 60% ───────────────────────────────────────────── */}
+      <div ref={previewRef} className="relative overflow-hidden flex-shrink-0" style={{ height: '60%' }}>
         {session.mediaType === 'text' ? (
           <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'var(--v-bg)' }}>
             <p className="text-white text-2xl font-black text-center px-8">{session.textContent}</p>
@@ -285,15 +265,35 @@ export default function EditPage() {
         ))}
       </div>
 
-      {/* ── TOOL PANEL ───────────────────────────────────────────────────────── */}
+      {/* ── TOOL RAIL — below media ─────────────────────────────────────────── */}
+      <div className="flex-shrink-0 overflow-x-auto py-2 px-3"
+        style={{ scrollbarWidth: 'none', borderBottom: '1px solid rgba(255,255,255,0.08)', background: 'rgba(0,0,0,0.6)' }}>
+        <div className="flex gap-2 min-w-max">
+          {TOOLS.map(tool => (
+            <button key={tool.id}
+              onClick={() => setActiveTool(activeTool === tool.id ? null : tool.id)}
+              className="flex flex-col items-center gap-1 px-3 py-2 rounded-2xl flex-shrink-0 transition-all"
+              style={{
+                background: activeTool === tool.id ? 'rgba(24,119,242,0.2)' : 'rgba(255,255,255,0.07)',
+                border: activeTool === tool.id ? '1px solid #1877F2' : '1px solid transparent',
+                cursor: 'pointer', color: activeTool === tool.id ? '#1877F2' : 'rgba(255,255,255,0.7)',
+              }}>
+              {tool.icon}
+              <span style={{ fontSize: 10, fontWeight: 600 }}>{tool.label}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── TOOL PANEL — fills remaining 40% below rail ──────────────────────── */}
       <AnimatePresence>
         {activeTool && (
           <motion.div
             key={activeTool}
-            initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
+            initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 12 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-            className="flex-shrink-0 overflow-y-auto"
-            style={{ maxHeight: '42%', background: 'var(--v-bg)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            className="flex-1 overflow-y-auto"
+            style={{ background: '#0a0a14', borderTop: '1px solid rgba(255,255,255,0.1)', minHeight: 0 }}>
 
             {/* ── ADJUST ── */}
             {activeTool === 'adjust' && (

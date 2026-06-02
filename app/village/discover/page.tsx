@@ -1,288 +1,495 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
-import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+
+interface SearchResults {
+  users:  any[];
+  posts:  any[];
+  goals:  any[];
+  deals:  any[];
+  stores: any[];
+}
+
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+      stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  );
+}
+function UserIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+      <circle cx="12" cy="7" r="4"/>
+    </svg>
+  );
+}
+function FileTextIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+    </svg>
+  );
+}
+function FlagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/>
+      <line x1="4" y1="22" x2="4" y2="15"/>
+    </svg>
+  );
+}
+function TagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+      <line x1="7" y1="7" x2="7.01" y2="7"/>
+    </svg>
+  );
+}
+function StoreIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  );
+}
+function TrendingIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
+      <polyline points="17 6 23 6 23 12"/>
+    </svg>
+  );
+}
+function XIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+      stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  );
+}
 
 export default function DiscoverPage() {
-  const [villagers, setVillagers] = useState<any[]>([]);
-  const [matches, setMatches] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [matching, setMatching] = useState(false);
-  const [tab, setTab]          = useState<'matches' | 'discover' | 'mentors'>('matches');
-  const [mentors, setMentors]  = useState<any[]>([]);
-  const [mentorLoading, setMentorLoading] = useState(false);
+  const router   = useRouter();
   const supabase = createClient();
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
 
-  const bg     = isNight ? 'var(--v-bg)' : '#F0F4FF';
-  const card   = isNight ? '#0D1020' : '#FFFFFF';
-  const border = isNight ? '#1A1F3A' : '#E0E7FF';
-  const text   = isNight ? '#F0EBE0' : '#1E1B4B';
-  const muted  = isNight ? '#4A4F72' : '#6D28D9';
-  const sub    = isNight ? '#3A3F5A' : '#9CA3AF';
+  const [query,          setQuery]          = useState('');
+  const [loading,        setLoading]        = useState(false);
+  const [results,        setResults]        = useState<SearchResults | null>(null);
+  const [trendingGoals,  setTrendingGoals]  = useState<any[]>([]);
+  const [activeCreators, setActiveCreators] = useState<any[]>([]);
+  const [openDeals,      setOpenDeals]      = useState<any[]>([]);
+  const [newStores,      setNewStores]      = useState<any[]>([]);
+  const [defaultLoading, setDefaultLoading] = useState(true);
 
-  useEffect(() => { loadVillagers(); }, []);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
 
-  async function loadVillagers() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  useEffect(() => {
+    loadDefaults();
+    inputRef.current?.focus();
+  }, []);
 
-    const [{ data: top }, { data: myMatches }] = await Promise.all([
+  async function loadDefaults() {
+    setDefaultLoading(true);
+    const [goalsRes, creatorsRes, dealsRes, storesRes] = await Promise.allSettled([
+      (supabase as any).from('goal_templates')
+        .select('id,title,category,probability_score,clone_count')
+        .order('clone_count', { ascending: false })
+        .limit(5),
       (supabase as any).from('profiles')
-        .select('id,username,display_name,village_score,score_tier,personality_type,occupation')
-        .neq('id', user.id).gt('village_score', 0)
-        .order('village_score', { ascending: false }).limit(20),
-      (supabase as any).from('villager_matches')
-        .select('*, profiles!villager_matches_matched_user_id_fkey(username,display_name,village_score,score_tier,personality_type,occupation)')
-        .eq('user_id', user.id).eq('is_dismissed', false)
-        .order('match_score', { ascending: false }).limit(10),
+        .select('id,username,display_name,avatar_url,village_score')
+        .order('village_score', { ascending: false })
+        .limit(8),
+      (supabase as any).from('deals')
+        .select('id,name,deal_type,asking_price,currency')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(3),
+      (supabase as any).from('estores')
+        .select('id,store_name,store_description')
+        .order('created_at', { ascending: false })
+        .limit(4),
     ]);
-    setVillagers(top ?? []);
-    setMatches(myMatches ?? []);
+
+    if (goalsRes.status    === 'fulfilled') setTrendingGoals(goalsRes.value.data    ?? []);
+    if (creatorsRes.status === 'fulfilled') setActiveCreators(creatorsRes.value.data ?? []);
+    if (dealsRes.status    === 'fulfilled') setOpenDeals(dealsRes.value.data        ?? []);
+    if (storesRes.status   === 'fulfilled') setNewStores(storesRes.value.data       ?? []);
+    setDefaultLoading(false);
+  }
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query.trim()) { setResults(null); return; }
+    debounceRef.current = setTimeout(() => runSearch(query.trim()), 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query]);
+
+  async function runSearch(q: string) {
+    setLoading(true);
+    const ilike = `%${q}%`;
+    const [usersRes, postsRes, goalsRes, dealsRes, storesRes] = await Promise.allSettled([
+      (supabase as any).from('profiles')
+        .select('id,username,display_name,avatar_url,village_score')
+        .or(`username.ilike.${ilike},display_name.ilike.${ilike}`)
+        .limit(5),
+      (supabase as any).from('dream_line_posts')
+        .select('id,content,created_at')
+        .ilike('content', ilike)
+        .limit(5),
+      (supabase as any).from('goals')
+        .select('id,title,category,probability_score')
+        .ilike('title', ilike)
+        .limit(5),
+      (supabase as any).from('deals')
+        .select('id,name,deal_type,asking_price,currency,status')
+        .ilike('name', ilike)
+        .limit(5),
+      (supabase as any).from('estores')
+        .select('id,store_name,store_description')
+        .ilike('store_name', ilike)
+        .limit(5),
+    ]);
+
+    setResults({
+      users:  usersRes.status  === 'fulfilled' ? (usersRes.value.data  ?? []) : [],
+      posts:  postsRes.status  === 'fulfilled' ? (postsRes.value.data  ?? []) : [],
+      goals:  goalsRes.status  === 'fulfilled' ? (goalsRes.value.data  ?? []) : [],
+      deals:  dealsRes.status  === 'fulfilled' ? (dealsRes.value.data  ?? []) : [],
+      stores: storesRes.status === 'fulfilled' ? (storesRes.value.data ?? []) : [],
+    });
     setLoading(false);
   }
 
-  async function loadMentors() {
-    if (mentors.length > 0) return;
-    setMentorLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setMentorLoading(false); return; }
-    // Find high-score villagers (legend/elder tier) who could mentor
-    const { data } = await (supabase as any)
-      .from('profiles')
-      .select('id,username,display_name,village_score,score_tier,personality_type,occupation,bio')
-      .neq('id', user.id)
-      .in('score_tier', ['legend','elder','builder'])
-      .order('village_score', { ascending: false })
-      .limit(12);
-    setMentors(data ?? []);
-    setMentorLoading(false);
-  }
+  const totalResults = results
+    ? results.users.length + results.posts.length + results.goals.length + results.deals.length + results.stores.length
+    : 0;
 
-  async function requestMentor(mentorId: string, mentorName: string) {
-    if (sent.has(mentorId)) return;
-    setSent(prev => new Set([...prev, mentorId]));
-    await fetch('/api/connections/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ addressee_id: mentorId, message: `Hi ${mentorName}, I admire your journey in the village. Would you be open to mentoring me?` }),
-    });
-  }
-
-  async function runMatching() {
-    setMatching(true);
-    await fetch('/api/claude/match-villagers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
-    await loadVillagers();
-    setMatching(false);
-    setTab('matches');
-  }
-
-  const [sent, setSent] = useState<Set<string>>(new Set());
-
-  async function connectWithVillager(matchedId: string) {
-    if (sent.has(matchedId)) return;
-    setSent(prev => new Set([...prev, matchedId]));
-    await fetch('/api/connections/request', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ addressee_id: matchedId }),
-    });
-  }
-
-  async function dismissMatch(matchId: string) {
-    await (supabase as any).from('villager_matches').update({ is_dismissed: true }).eq('id', matchId);
-    setMatches(prev => prev.filter(m => m.id !== matchId));
-  }
-
-  const tierIcon = (tier: string) => tier === 'legend' ? '🏆' : tier === 'elder' ? '⚡' : tier === 'builder' ? '🏗️' : tier === 'grower' ? '🌱' : '🌾';
-  const ARCHETYPE_EMOJI: Record<string,string> = { architect:'🏗️', spark:'⚡', anchor:'⚓', compass:'🧭', pioneer:'🏔️', sage:'📚', weaver:'🕸️', flame:'🔥' };
-
-  const VillagerCard = ({ v, matchData }: { v: any; matchData?: any }) => (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-      className="rounded-2xl p-4"
-      style={{ background: card, border: `1px solid ${border}` }}>
-      <div className="flex items-start gap-3">
-        <Link href={`/villager/${v.username}`}>
-          <div className="w-12 h-12 rounded-2xl flex-shrink-0 overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={v.avatar_url || '/default-avatar.png'} alt="" className="w-full h-full object-cover" />
-          </div>
-        </Link>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <Link href={`/villager/${v.username}`}>
-              <p className="font-bold text-sm" style={{ color: text }}>@{v.username}</p>
-            </Link>
-            <span>{tierIcon(v.score_tier ?? 'seedling')}</span>
-            {v.personality_type && <span className="text-sm">{ARCHETYPE_EMOJI[v.personality_type] ?? ''}</span>}
-            <span className="text-xs ml-auto" style={{ color: sub }}>{v.village_score ?? 0} pts</span>
-          </div>
-          {v.display_name && <p className="text-sm mt-0.5" style={{ color: muted }}>{v.display_name}</p>}
-          {v.occupation && <p className="text-xs mt-0.5" style={{ color: sub }}>{v.occupation}</p>}
-          {matchData?.match_reason && (
-            <p className="text-xs mt-1.5 px-2 py-1 rounded-lg"
-              style={{ color: '#60a5fa', background: isNight ? 'rgba(24,119,242,0.1)' : 'rgba(24,119,242,0.06)' }}>
-              ✨ {matchData.match_reason}
-            </p>
-          )}
-          {matchData?.match_score && (
-            <div className="flex items-center gap-2 mt-1.5">
-              <div className="flex-1 rounded-full h-1.5" style={{ background: 'var(--v-progress-bg)' }}>
-                <div className="h-1.5 rounded-full" style={{ width: `${matchData.match_score}%`, background: '#1877F2' }} />
-              </div>
-              <span className="text-xs font-bold" style={{ color: '#1877F2' }}>{matchData.match_score}% match</span>
-            </div>
-          )}
-        </div>
+  function AvatarPlaceholder({ name, size = 40 }: { name: string; size?: number }) {
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        background: 'linear-gradient(135deg,#2952E8,#4D72FF)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.4, fontWeight: 800, color: '#fff',
+      }}>
+        {name?.[0]?.toUpperCase() ?? '?'}
       </div>
-      <div className="flex gap-2 mt-3">
-        <button onClick={() => connectWithVillager(v.id)}
-          disabled={sent.has(v.id)}
-          className="flex-1 text-white rounded-full py-2 text-xs font-bold transition-all disabled:opacity-60"
-          style={{ background: sent.has(v.id) ? '#22C55E' : '#1877F2' }}>
-          {sent.has(v.id) ? '✓ Sent' : '🤝 Connect'}
-        </button>
-        {matchData && (
-          <button onClick={() => dismissMatch(matchData.id)}
-            className="px-4 rounded-full text-xs font-semibold transition-colors"
-            style={{ background: isNight ? '#1A1F3A' : '#F3F4F6', color: sub }}>
-            ✕
-          </button>
-        )}
+    );
+  }
+
+  function SectionHeading({ icon, label, color = '#2952E8' }: { icon: React.ReactNode; label: string; color?: string }) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ color }}>{icon}</span>
+        <span style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.5)', letterSpacing: '0.06em', textTransform: 'uppercase' as const }}>
+          {label}
+        </span>
       </div>
-    </motion.div>
-  );
+    );
+  }
 
   return (
-    <div className="min-h-screen pb-24" style={{ background: bg }}>
-      {/* Header */}
-      <div className="sticky top-0 z-20 px-4 py-3 flex items-center gap-3"
-        style={{ background: isNight ? 'rgba(6,8,16,0.92)' : 'rgba(240,244,255,0.92)', backdropFilter: 'blur(12px)', borderBottom: `1px solid ${border}` }}>
-        <Link href="/village/map" className="text-xl" style={{ color: muted }}>←</Link>
-        <span className="text-2xl">🔍</span>
-        <div className="flex-1">
-          <h1 className="text-lg font-black" style={{ color: text }}>Discover Villagers</h1>
-          <p className="text-xs" style={{ color: muted }}>Find your people</p>
+    <div style={{ minHeight: '100vh', background: '#080E24', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+
+      {/* TOP BAR */}
+      <div style={{
+        position: 'sticky', top: 0, zIndex: 20, padding: '14px 16px 12px',
+        background: 'rgba(8,14,36,0.96)', backdropFilter: 'blur(16px)',
+        borderBottom: '1px solid rgba(255,255,255,0.07)',
+      }}>
+        <p style={{ fontSize: 22, fontWeight: 900, marginBottom: 12, letterSpacing: '-0.02em' }}>Discover</p>
+        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+          <div style={{ position: 'absolute', left: 12, pointerEvents: 'none' }}>
+            <SearchIcon />
+          </div>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search people, posts, goals, deals..."
+            autoComplete="off"
+            style={{
+              width: '100%', padding: '11px 40px 11px 40px', borderRadius: 14,
+              background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)',
+              color: '#fff', fontSize: 15, outline: 'none',
+            }}
+          />
+          {query && (
+            <button onClick={() => setQuery('')}
+              style={{ position: 'absolute', right: 12, background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+              <XIcon />
+            </button>
+          )}
         </div>
-        <Link href="/village/discover/connections"
-          className="text-xs font-semibold mr-1" style={{ color: '#60a5fa' }}>
-          🤝 Connections
-        </Link>
-        <button onClick={runMatching} disabled={matching}
-          className="px-3 py-1.5 rounded-full text-xs font-bold text-white disabled:opacity-50"
-          style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
-          {matching ? '⟳ Matching…' : '🤖 AI Match'}
-        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b" style={{ background: card, borderColor: border }}>
-        {([
-          ['matches',  `✨ Matches (${matches.length})`],
-          ['discover', '🌍 Villagers'],
-          ['mentors',  '🎓 Mentors'],
-        ] as const).map(([t, label]) => (
-          <button key={t} onClick={() => { setTab(t); if (t === 'mentors') loadMentors(); }}
-            className="flex-1 py-3 text-xs font-semibold transition-colors relative"
-            style={{ color: tab === t ? '#1877F2' : muted }}>
-            {label}
-            {tab === t && <motion.div layoutId="discover-tab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#1877F2]" />}
-          </button>
-        ))}
-      </div>
+      {/* CONTENT */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px 100px' }}>
 
-      <div className="max-w-2xl mx-auto p-4 space-y-3">
-        {loading && (
-          <div className="text-center py-12 text-sm" style={{ color: muted }}>Loading villagers…</div>
-        )}
-
-        {!loading && tab === 'matches' && (
-          matches.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-5xl mb-3">🤖</p>
-              <p className="text-sm mb-4" style={{ color: muted }}>No AI matches yet.</p>
-              <button onClick={runMatching} disabled={matching}
-                className="px-6 py-3 rounded-full font-bold text-white"
-                style={{ background: 'linear-gradient(135deg,#1877F2,#7C3AED)' }}>
-                {matching ? 'Finding matches…' : '✨ Find My Villagers'}
-              </button>
-            </div>
-          ) : (
-            matches.map(m => <VillagerCard key={m.id} v={m.profiles} matchData={m} />)
-          )
-        )}
-
-        {!loading && tab === 'discover' && villagers.map((v, i) => (
-          <motion.div key={v.id} transition={{ delay: i * 0.03 }}>
-            <VillagerCard v={v} />
-          </motion.div>
-        ))}
-
-        {!loading && tab === 'discover' && villagers.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-3">🌍</p>
-            <p className="text-sm" style={{ color: muted }}>No villagers yet. Be the first to join!</p>
-          </div>
-        )}
-
-        {/* ── MENTORS ── */}
-        {tab === 'mentors' && mentorLoading && (
-          <div className="text-center py-12 text-sm" style={{ color: muted }}>Finding mentors…</div>
-        )}
-        {tab === 'mentors' && !mentorLoading && mentors.length === 0 && (
-          <div className="text-center py-16">
-            <p className="text-5xl mb-3">🎓</p>
-            <p className="font-bold mb-2" style={{ color: text }}>No mentors found yet</p>
-            <p className="text-sm" style={{ color: muted }}>
-              Mentors are high-score villagers who've proven their journey. Keep building — you could be one.
-            </p>
-          </div>
-        )}
-        {tab === 'mentors' && !mentorLoading && mentors.map((m, i) => {
-          const isSent = sent.has(m.id);
-          const tierLabel = m.score_tier === 'legend' ? '🏆 Legend' : m.score_tier === 'elder' ? '⚡ Elder' : '🏗️ Builder';
-          return (
-            <motion.div key={m.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.04 }}
-              className="rounded-2xl p-4"
-              style={{ background: card, border: `1px solid ${border}` }}>
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl text-white flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)' }}>
-                  {m.username?.[0]?.toUpperCase() ?? '🎓'}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-black text-sm" style={{ color: text }}>@{m.username}</p>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold"
-                      style={{ background: 'rgba(124,58,237,0.15)', color: '#7C3AED' }}>
-                      {tierLabel}
-                    </span>
-                  </div>
-                  {m.display_name && <p className="text-sm mt-0.5" style={{ color: muted }}>{m.display_name}</p>}
-                  {m.occupation && <p className="text-xs mt-0.5" style={{ color: sub }}>{m.occupation}</p>}
-                  {m.bio && <p className="text-xs mt-1.5 line-clamp-2" style={{ color: sub }}>{m.bio}</p>}
-                  <p className="text-xs mt-1" style={{ color: sub }}>
-                    {m.village_score ?? 0} village points
-                  </p>
-                  <button onClick={() => requestMentor(m.id, m.display_name || m.username)}
-                    disabled={isSent}
-                    className="mt-3 w-full py-2 rounded-xl text-xs font-black transition-all"
-                    style={{
-                      background: isSent ? 'rgba(255,255,255,0.04)' : 'linear-gradient(135deg,#7C3AED,#1877F2)',
-                      color: isSent ? sub : '#fff',
-                      border: isSent ? `1px solid ${border}` : 'none',
-                    }}>
-                    {isSent ? '✓ Request Sent' : '🎓 Request Mentorship'}
-                  </button>
-                </div>
+        {/* SEARCH RESULTS */}
+        {query.trim() && (
+          <>
+            {loading && (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>
+                Searching...
               </div>
-            </motion.div>
-          );
-        })}
+            )}
+            {!loading && results && totalResults === 0 && (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15 }}>No results for &ldquo;{query}&rdquo;</p>
+              </div>
+            )}
+            {!loading && results && totalResults > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+
+                {results.users.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<UserIcon />} label="People" color="#4D72FF" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {results.users.map(u => (
+                        <motion.button key={u.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          onClick={() => router.push(`/villager/${u.username}`)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 12,
+                            padding: '12px 14px', borderRadius: 14, width: '100%', textAlign: 'left',
+                            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer',
+                          }}>
+                          {u.avatar_url
+                            ? <img src={u.avatar_url} alt="" style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                            : <AvatarPlaceholder name={u.username} size={40} />
+                          }
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>@{u.username}</p>
+                            {u.display_name && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 1 }}>{u.display_name}</p>}
+                          </div>
+                          <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.3)', flexShrink: 0 }}>{u.village_score ?? 0} pts</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {results.posts.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<FileTextIcon />} label="Posts" color="#10B981" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {results.posts.map(p => (
+                        <motion.div key={p.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>
+                            {p.content?.slice(0, 120)}{p.content?.length > 120 ? '...' : ''}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {results.goals.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<FlagIcon />} label="Goals" color="#8B5CF6" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {results.goals.map(g => (
+                        <motion.div key={g.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          style={{ padding: '12px 14px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{g.title}</p>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                            {g.category && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{g.category}</span>}
+                            {g.probability_score != null && <span style={{ fontSize: 11, color: '#10B981', fontWeight: 700 }}>{g.probability_score}% GPS</span>}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {results.deals.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<TagIcon />} label="Deals" color="#F59E0B" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {results.deals.map(d => (
+                        <motion.button key={d.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          onClick={() => router.push(`/village/trading-post/deals/${d.id}`)}
+                          style={{ display: 'block', padding: '12px 14px', borderRadius: 14, width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{d.name}</p>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                            {d.deal_type && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{d.deal_type}</span>}
+                            {d.asking_price != null && <span style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B' }}>{d.currency ?? '$'}{d.asking_price.toLocaleString()}</span>}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {results.stores.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<StoreIcon />} label="Stores" color="#EC4899" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {results.stores.map(s => (
+                        <motion.button key={s.id}
+                          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                          onClick={() => router.push(`/village/trading-post/market/${s.id}`)}
+                          style={{ display: 'block', padding: '12px 14px', borderRadius: 14, width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
+                          <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{s.store_name}</p>
+                          {s.store_description && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{s.store_description?.slice(0, 80)}</p>}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* DEFAULT TRENDING STATE */}
+        {!query.trim() && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+            {defaultLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: 'rgba(255,255,255,0.3)', fontSize: 14 }}>Loading...</div>
+            ) : (
+              <>
+                {trendingGoals.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<TrendingIcon />} label="Trending Goals" color="#8B5CF6" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {trendingGoals.map((g, i) => (
+                        <motion.button key={g.id}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => router.push('/village/workshop/templates')}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 14, padding: '14px', borderRadius: 16,
+                            width: '100%', textAlign: 'left', background: 'rgba(139,92,246,0.08)',
+                            border: '1px solid rgba(139,92,246,0.18)', cursor: 'pointer',
+                          }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: 'rgba(139,92,246,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ color: '#8B5CF6' }}><FlagIcon /></span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</p>
+                            <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+                              {g.category && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{g.category}</span>}
+                              {(g.clone_count ?? 0) > 0 && <span style={{ fontSize: 11, color: '#8B5CF6', fontWeight: 700 }}>{g.clone_count} clones</span>}
+                            </div>
+                          </div>
+                          {g.probability_score != null && (
+                            <span style={{ fontSize: 11, fontWeight: 800, color: '#10B981', background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: 20 }}>
+                              {g.probability_score}%
+                            </span>
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {activeCreators.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<UserIcon />} label="Active Creators" color="#4D72FF" />
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+                      {activeCreators.map((c, i) => (
+                        <motion.button key={c.id}
+                          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: i * 0.04 }}
+                          onClick={() => router.push(`/villager/${c.username}`)}
+                          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', width: 'calc(25% - 12px)' }}>
+                          {c.avatar_url
+                            ? <img src={c.avatar_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(77,114,255,0.3)' }} />
+                            : (
+                              <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'linear-gradient(135deg,#2952E8,#4D72FF)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, fontWeight: 800, color: '#fff' }}>
+                                {c.username?.[0]?.toUpperCase() ?? '?'}
+                              </div>
+                            )
+                          }
+                          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600, maxWidth: 64, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            @{c.username}
+                          </span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {openDeals.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<TagIcon />} label="Open Deals" color="#F59E0B" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {openDeals.map((d, i) => (
+                        <motion.button key={d.id}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => router.push(`/village/trading-post/deals/${d.id}`)}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 14, padding: '14px', borderRadius: 16,
+                            width: '100%', textAlign: 'left', background: 'rgba(245,158,11,0.08)',
+                            border: '1px solid rgba(245,158,11,0.18)', cursor: 'pointer',
+                          }}>
+                          <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: 'rgba(245,158,11,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ color: '#F59E0B' }}><TagIcon /></span>
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
+                            {d.deal_type && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{d.deal_type}</p>}
+                          </div>
+                          {d.asking_price != null && (
+                            <span style={{ fontSize: 13, fontWeight: 900, color: '#F59E0B', flexShrink: 0 }}>
+                              {d.currency ?? '$'}{d.asking_price.toLocaleString()}
+                            </span>
+                          )}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {newStores.length > 0 && (
+                  <section>
+                    <SectionHeading icon={<StoreIcon />} label="New in Market" color="#EC4899" />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {newStores.map((s, i) => (
+                        <motion.button key={s.id}
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          onClick={() => router.push(`/village/trading-post/market/${s.id}`)}
+                          style={{ padding: '14px', borderRadius: 16, textAlign: 'left', background: 'rgba(236,72,153,0.07)', border: '1px solid rgba(236,72,153,0.16)', cursor: 'pointer' }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, marginBottom: 8, background: 'rgba(236,72,153,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span style={{ color: '#EC4899' }}><StoreIcon /></span>
+                          </div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.store_name}</p>
+                          <span style={{ fontSize: 10, fontWeight: 700, color: '#EC4899', background: 'rgba(236,72,153,0.12)', padding: '2px 6px', borderRadius: 10 }}>NEW</span>
+                        </motion.button>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
