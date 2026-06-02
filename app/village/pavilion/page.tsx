@@ -5,441 +5,355 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
-// ─── Pavilion — community screening, concerts, webinars, shows ───────────────
-// Users can watch/host long-form content. Creators sell tickets via VLG/Stripe.
+// ─── Pavilion Home — YouTube + Eventbrite + Udemy inside The Village ─────────
 
 interface Show {
-  id:          string;
-  title:       string;
-  description: string;
-  creator_id:  string;
+  id:            string;
+  title:         string;
+  description:   string;
+  creator_id:    string;
   creator_name?: string;
-  type:        'film' | 'concert' | 'webinar' | 'show' | 'presentation';
-  status:      'upcoming' | 'live' | 'replay';
-  ticket_price: number;  // 0 = free
-  stream_url:  string | null;
-  thumbnail:   string | null;
-  starts_at:   string | null;
+  type:          string;
+  status:        'upcoming' | 'live' | 'replay' | 'scheduled';
+  ticket_price:  number;
+  stream_url:    string | null;
+  thumbnail:     string | null;
+  starts_at:     string | null;
   attendee_count: number;
-  created_at:  string;
+  created_at:    string;
 }
 
-const TYPE_ICONS: Record<string, string> = {
-  film: '🎬', concert: '🎵', webinar: '💡', show: '📺', presentation: '📊',
+// ─── Mock Data ────────────────────────────────────────────────────────────────
+const LIVE_SHOWS: Show[] = [
+  { id:'l1', title:'Goal GPS Live Workshop', description:'Build your 12-week sprint plan in real time with Spirit AI.', creator_id:'', creator_name:'spiritai', type:'webinar', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:312, created_at:'' },
+  { id:'l2', title:'Village Beats — Friday Night', description:'Live DJ set from the village music community.', creator_id:'', creator_name:'dj_village', type:'concert', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:189, created_at:'' },
+  { id:'l3', title:'Black Founders Q&A', description:'Founders share how they raised pre-seed without Silicon Valley.', creator_id:'', creator_name:'founders_club', type:'presentation', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:94, created_at:'' },
+];
+
+const UPCOMING_EVENTS: Show[] = [
+  { id:'u1', title:'Brand Identity Masterclass', description:'Build a brand that moves people. Led by award-winning designer Nia James.', creator_id:'', creator_name:'niajames', type:'webinar', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+86400000).toISOString(), attendee_count:47, created_at:'' },
+  { id:'u2', title:'Village Jazz Night', description:'An intimate virtual jazz performance from our Village musicians.', creator_id:'', creator_name:'jazzvillage', type:'concert', status:'upcoming', ticket_price:25, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+172800000).toISOString(), attendee_count:128, created_at:'' },
+  { id:'u3', title:'Credit Repair Blueprint', description:'Step-by-step guide to rebuilding your credit score in 90 days.', creator_id:'', creator_name:'creditpro', type:'webinar', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+259200000).toISOString(), attendee_count:203, created_at:'' },
+  { id:'u4', title:'Short Film Premiere: The Village', description:'An 18-minute short film about community, purpose, and building something real.', creator_id:'', creator_name:'cinema_v', type:'film', status:'upcoming', ticket_price:10, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+345600000).toISOString(), attendee_count:76, created_at:'' },
+  { id:'u5', title:'Crypto for Builders', description:'DeFi fundamentals and how to use VLG tokens in the real economy.', creator_id:'', creator_name:'web3village', type:'presentation', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+432000000).toISOString(), attendee_count:155, created_at:'' },
+];
+
+const COURSES = [
+  { id:'c1', title:'Goal GPS: 12-Week Sprint System', instructor:'Spirit AI', modules:8, rating:4.9, price:0, enrolled:true, progress:65, category:'Personal' },
+  { id:'c2', title:'Credit & Financial Foundation', instructor:'Marcus Thompson', modules:12, rating:4.8, price:49, enrolled:true, progress:20, category:'Finance' },
+  { id:'c3', title:'Full-Stack Next.js Bootcamp', instructor:'Kwame A.', modules:24, rating:4.7, price:99, enrolled:false, progress:0, category:'Tech' },
+  { id:'c4', title:'Launch Your Brand in 30 Days', instructor:'Nia James', modules:10, rating:4.6, price:79, enrolled:false, progress:0, category:'Business' },
+];
+
+const CREATORS = [
+  { id:'cr1', name:'Spirit AI', handle:'spiritai', followers:12400, verified:true },
+  { id:'cr2', name:'Nia James', handle:'niajames', followers:3280, verified:true },
+  { id:'cr3', name:'Marcus T.', handle:'marcust', followers:1870, verified:false },
+  { id:'cr4', name:'DJ Village', handle:'dj_village', followers:940, verified:false },
+  { id:'cr5', name:'Kwame A.', handle:'devpath', followers:4120, verified:true },
+  { id:'cr6', name:'Priya S.', handle:'priyas', followers:2650, verified:false },
+];
+
+const TYPE_COLOR: Record<string, string> = {
+  webinar:'#2952E8', concert:'#BE185D', film:'#7C3AED', presentation:'#059669', show:'#E8770A',
 };
-const TYPE_COLORS: Record<string, string> = {
-  film: '#7C3AED', concert: '#BE185D', webinar: '#1877F2', show: '#E8770A', presentation: '#059669',
-};
 
-function ShowCard({ show, isNight, onEnter }: { show: Show; isNight: boolean; onEnter: (s: Show) => void }) {
-  const isLive = show.status === 'live';
-  const isFree = show.ticket_price === 0;
-  const bg     = isNight ? '#1a2332' : '#FFFFFF';
-  const border = isNight ? 'var(--v-card-border)' : '#EDE9FE';
-  const text   = isNight ? '#E8E3F8' : '#1E1B4B';
-  const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-  const accent = TYPE_COLORS[show.type] ?? '#7C3AED';
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
+function formatFollowers(n: number) {
+  return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+}
+
+function CreatorInitials({ name, size = 48 }: { name: string; size?: number }) {
+  const colors = ['#2952E8','#1D9E75','#BE185D','#7C3AED','#E8770A','#059669'];
+  const bg = colors[name.charCodeAt(0) % colors.length];
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      whileTap={{ scale: 0.98 }}
-      style={{ background: bg, border: `1px solid ${border}`, borderRadius: 20, overflow: 'hidden', cursor: 'pointer' }}
-      onClick={() => onEnter(show)}
-    >
-      {/* Thumbnail / placeholder */}
-      <div style={{ height: 160, background: `linear-gradient(135deg, ${accent}30, ${accent}10)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {show.thumbnail ? (
-          <img src={show.thumbnail} alt={show.title} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', inset: 0 }} />
-        ) : (
-          <span style={{ fontSize: 52 }}>{TYPE_ICONS[show.type] ?? '🎭'}</span>
-        )}
-        {/* Live badge */}
-        {isLive && (
-          <div style={{
-            position: 'absolute', top: 12, left: 12,
-            background: '#DC2626', borderRadius: 20, padding: '4px 10px',
-            display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }}
-              style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />
-            <span style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>LIVE NOW</span>
-          </div>
-        )}
-        {/* Type badge */}
-        <div style={{
-          position: 'absolute', top: 12, right: 12,
-          background: `${accent}CC`, borderRadius: 12, padding: '4px 10px',
-        }}>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#fff' }}>{show.type.toUpperCase()}</span>
-        </div>
-        {/* Attendees */}
-        {show.attendee_count > 0 && (
-          <div style={{ position: 'absolute', bottom: 10, right: 12, background: 'rgba(0,0,0,0.6)', borderRadius: 12, padding: '3px 10px' }}>
-            <span style={{ fontSize: 11, color: '#fff', fontWeight: 700 }}>👥 {show.attendee_count}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div style={{ padding: '14px 16px' }}>
-        <p style={{ fontWeight: 900, fontSize: 15, color: text, marginBottom: 4, lineHeight: 1.3 }}>{show.title}</p>
-        <p style={{ fontSize: 12, color: muted, marginBottom: 10, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {show.description}
-        </p>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12, color: muted }}>by @{show.creator_name ?? 'villager'}</span>
-          <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={e => { e.stopPropagation(); onEnter(show); }}
-            style={{
-              padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 900, border: 'none', cursor: 'pointer',
-              background: isLive ? '#DC2626' : accent,
-              color: '#fff',
-            }}
-          >
-            {isLive ? '▶ Join Live' : isFree ? 'Watch Free' : `🎟 ${show.ticket_price} VLG`}
-          </motion.button>
-        </div>
-      </div>
-    </motion.div>
+    <div style={{ width: size, height: size, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: size * 0.35, flexShrink: 0 }}>
+      {name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+    </div>
   );
 }
 
-function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => void; isNight: boolean }) {
-  const [chatMsg, setChatMsg] = useState('');
-  const [messages, setMessages] = useState<{ name: string; msg: string; ts: number }[]>([
-    { name: 'Spirit', msg: `Welcome to "${show.title}". Enjoy the show! 🎭`, ts: Date.now() },
-  ]);
-
-  const bg   = '#0A0B14'; // Screening room is always dark (cinematic)
-  const text = '#FFFFFF';
-
-  function sendMsg() {
-    if (!chatMsg.trim()) return;
-    setMessages(prev => [...prev, { name: 'You', msg: chatMsg.trim(), ts: Date.now() }]);
-    setChatMsg('');
-  }
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[150] flex flex-col"
-      style={{ background: bg }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: 'rgba(0,0,0,0.6)', borderBottom: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
-        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.1)', color: '#fff', cursor: 'pointer', fontSize: 16 }}>←</button>
-        <div style={{ flex: 1 }}>
-          <p style={{ color: '#fff', fontWeight: 900, fontSize: 14 }}>{show.title}</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {show.status === 'live' && (
-              <motion.div animate={{ opacity: [1,0.4,1] }} transition={{ duration: 1.2, repeat: Infinity }}
-                style={{ width: 8, height: 8, borderRadius: '50%', background: '#DC2626' }} />
-            )}
-            <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
-              {show.status === 'live' ? 'LIVE' : show.status === 'replay' ? 'REPLAY' : 'UPCOMING'} · {show.attendee_count} watching
-            </span>
-          </div>
-        </div>
-        <span style={{ fontSize: 24 }}>{TYPE_ICONS[show.type]}</span>
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-        {/* Main video area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          {show.stream_url ? (
-            <div style={{ flex: 1, position: 'relative', background: '#000' }}>
-              <iframe
-                src={(() => {
-                  const url = show.stream_url!;
-                  // YouTube: watch?v= → embed/
-                  if (url.includes('youtube.com/watch')) return url.replace('watch?v=', 'embed/');
-                  // YouTube short: youtu.be/ID → embed/ID
-                  if (url.includes('youtu.be/')) return url.replace('youtu.be/', 'youtube.com/embed/');
-                  // Vimeo: vimeo.com/ID → player.vimeo.com/video/ID
-                  if (url.includes('vimeo.com/') && !url.includes('player')) return url.replace('vimeo.com/', 'player.vimeo.com/video/');
-                  // Twitch: twitch.tv/CHANNEL → player.twitch.tv/?channel=
-                  if (url.includes('twitch.tv/') && !url.includes('player')) {
-                    const ch = url.split('twitch.tv/')[1];
-                    return `https://player.twitch.tv/?channel=${ch}&parent=${typeof window !== 'undefined' ? window.location.hostname : 'villa9e.app'}`;
-                  }
-                  return url;
-                })()}
-                style={{ width: '100%', height: '100%', border: 'none' }}
-                allow="autoplay; fullscreen; picture-in-picture"
-                allowFullScreen
-              />
-            </div>
-          ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--v-card-bg)' }}>
-              <span style={{ fontSize: 64, marginBottom: 16 }}>{TYPE_ICONS[show.type]}</span>
-              <p style={{ color: '#fff', fontWeight: 900, fontSize: 18, marginBottom: 8 }}>{show.title}</p>
-              <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', maxWidth: 320, padding: '0 24px' }}>
-                {show.status === 'upcoming'
-                  ? `This show starts ${show.starts_at ? new Date(show.starts_at).toLocaleString() : 'soon'}. Come back then!`
-                  : show.description}
-              </p>
-              {show.stream_url && (
-                <a href={show.stream_url} target="_blank" rel="noopener noreferrer"
-                  style={{ marginTop: 20, padding: '10px 24px', borderRadius: 20, background: '#DC2626', color: '#fff', fontWeight: 900, fontSize: 14, textDecoration: 'none' }}>
-                  ▶ Watch on Stream Platform
-                </a>
-              )}
-            </div>
-          )}
-
-          {/* Show description bar */}
-          <div style={{ padding: '12px 16px', background: 'rgba(0,0,0,0.7)', borderTop: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-            <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, lineHeight: 1.5 }}>{show.description}</p>
-          </div>
-        </div>
-
-        {/* Live chat sidebar */}
-        <div style={{ width: 280, display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.4)', borderLeft: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
-            <p style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Live Chat</p>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', scrollbarWidth: 'none' }}>
-            {messages.map((m, i) => (
-              <div key={i} style={{ marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 800, color: m.name === 'Spirit' ? '#7C3AED' : m.name === 'You' ? '#1877F2' : 'rgba(255,255,255,0.5)', marginRight: 6 }}>{m.name}</span>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}>{m.msg}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ padding: '10px 14px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', gap: 8, flexShrink: 0 }}>
-            <input
-              value={chatMsg}
-              onChange={e => setChatMsg(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') sendMsg(); }}
-              placeholder="Say something…"
-              style={{ flex: 1, background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 20, padding: '8px 12px', color: '#fff', fontSize: 13, outline: 'none' }}
-            />
-            <button onClick={sendMsg} disabled={!chatMsg.trim()}
-              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: '#7C3AED', color: '#fff', cursor: 'pointer', fontSize: 14, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: chatMsg.trim() ? 1 : 0.4 }}>
-              ›
-            </button>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ─── Create show modal ────────────────────────────────────────────────────────
-function CreateShowModal({ isNight, accent, text, muted, onClose, onCreated }: {
-  isNight: boolean; accent: string; text: string; muted: string;
-  onClose: () => void; onCreated: (show: Show) => void;
-}) {
-  const supabase = createClient();
-  const [form, setForm] = useState({
-    title: '', description: '', type: 'show' as Show['type'],
-    stream_url: '', ticket_price: 0, starts_at: '',
-  });
-  const [saving, setSaving] = useState(false);
-
-  const bg     = isNight ? 'rgba(7,8,15,0.99)' : 'rgba(240,244,255,0.99)';
-  const border = isNight ? 'var(--v-card-border)' : '#DDD6FE';
-  const inputStyle = {
-    width: '100%', padding: '11px 14px', borderRadius: 12,
-    border: `1px solid ${border}`,
-    background: isNight ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)',
-    color: text, fontSize: 14, outline: 'none', boxSizing: 'border-box' as const,
-  };
-
-  async function create() {
-    if (!form.title.trim()) return;
-    setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSaving(false); return; }
-
-    const payload: any = {
-      host_id:      user.id,
-      title:        form.title,
-      description:  form.description,
-      type:         form.type,
-      stream_url:   form.stream_url || null,
-      ticket_price: form.ticket_price,
-      starts_at:    form.starts_at || null,
-      status:       form.starts_at ? 'scheduled' : 'live',
-    };
-
-    const { data, error } = await (supabase as any).from('pavilion_shows').insert(payload).select().single();
-    setSaving(false);
-    if (!error && data) {
-      onCreated({ ...data, status: data.status === 'live' ? 'live' : 'upcoming', attendee_count: 0 });
-    } else {
-      // If table doesn't exist yet, show a helpful message
-      alert('Event created! Run migration 024 in Supabase to enable the full Pavilion database.');
-      onClose();
-    }
-  }
-
-  return (
-    <motion.div
-      initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-      className="fixed bottom-0 left-0 right-0 z-[160] rounded-t-3xl"
-      style={{ background: bg, backdropFilter: 'blur(24px)', maxHeight: '90vh', overflowY: 'auto', padding: 24, border: `1px solid ${border}` }}
-    >
-      <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
-      <h2 style={{ color: text, fontWeight: 900, fontSize: 18, marginBottom: 4 }}>Host an Event</h2>
-      <p style={{ color: muted, fontSize: 13, marginBottom: 20, lineHeight: 1.5 }}>
-        Stream a film, concert, webinar, or show. Sell tickets in VLG or keep it free.
-      </p>
-
-      {/* Type selector */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        {(['film','concert','webinar','show','presentation'] as const).map(t => (
-          <button key={t} onClick={() => setForm(p => ({ ...p, type: t }))}
-            style={{
-              padding: '8px 14px', borderRadius: 20, border: `2px solid ${form.type === t ? accent : border}`,
-              background: form.type === t ? accent + '22' : 'transparent', cursor: 'pointer',
-              color: form.type === t ? accent : muted, fontWeight: 700, fontSize: 12,
-            }}>
-            {TYPE_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}
-          </button>
-        ))}
-      </div>
-
-      {/* Fields */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
-        <input value={form.title} onChange={e => setForm(p => ({...p, title: e.target.value}))}
-          placeholder="Event title *" style={inputStyle} />
-        <textarea value={form.description} onChange={e => setForm(p => ({...p, description: e.target.value}))}
-          placeholder="What's this event about?" rows={3}
-          style={{ ...inputStyle, resize: 'none' }} />
-        <input value={form.stream_url} onChange={e => setForm(p => ({...p, stream_url: e.target.value}))}
-          placeholder="Stream URL (YouTube, Vimeo, Twitch…)" style={inputStyle} />
-        <div style={{ display: 'flex', gap: 10 }}>
-          <input type="datetime-local" value={form.starts_at} onChange={e => setForm(p => ({...p, starts_at: e.target.value}))}
-            style={{ ...inputStyle, flex: 1 }} />
-          <div style={{ position: 'relative', flex: '0 0 auto' }}>
-            <input type="number" min={0} value={form.ticket_price}
-              onChange={e => setForm(p => ({...p, ticket_price: Number(e.target.value)}))}
-              placeholder="0" style={{ ...inputStyle, width: 110, paddingLeft: 36 }} />
-            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: muted, fontSize: 12 }}>⬡ VLG</span>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10 }}>
-        <button onClick={onClose} style={{ flex: 1, padding: 14, borderRadius: 20, border: 'none', background: 'rgba(255,255,255,0.07)', color: muted, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
-          Cancel
-        </button>
-        <button onClick={create} disabled={saving || !form.title.trim()}
-          style={{ flex: 2, padding: 14, borderRadius: 20, border: 'none', background: accent, color: '#fff', fontWeight: 900, cursor: 'pointer', fontSize: 14, opacity: saving || !form.title.trim() ? 0.6 : 1 }}>
-          {saving ? 'Creating…' : `🎭 Go Live${form.ticket_price > 0 ? ` · ⬡${form.ticket_price} VLG` : ' · Free'}`}
-        </button>
-      </div>
-    </motion.div>
-  );
-}
-
-export default function PavilionPage() {
-  const [shows, setShows]   = useState<Show[]>([]);
-  const [filter, setFilter] = useState<'all' | 'live' | 'upcoming' | 'replay'>('all');
-  const [activeShow, setActiveShow] = useState<Show | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const supabase = createClient();
+// ─── Pavilion Bottom Nav ──────────────────────────────────────────────────────
+function PavilionNav({ active }: { active: 'home' | 'live' | 'learn' | 'mine' }) {
   const { theme } = useVillageTheme();
-  const isNight  = theme === 'night';
+  const isNight = theme === 'night';
+  const bg = isNight ? '#080E24' : '#FFFFFF';
+  const border = isNight ? '#1E2448' : '#E8EAF6';
+  const active_c = '#2952E8';
+  const inactive_c = isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
 
-  const bg     = isNight ? 'var(--v-bg)' : '#F0F4FF';
-  const text   = isNight ? '#E8E3F8' : '#1E1B4B';
-  const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-  const accent = '#6366F1';
+  const tabs = [
+    { key:'home', label:'Home', href:'/village/pavilion', d:'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z' },
+    { key:'live', label:'Live', href:'/village/pavilion/live', d:'M15 10l4.553-2.069A1 1 0 0121 8.868V15.13a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z' },
+    { key:'learn', label:'Learn', href:'/village/pavilion/learn', d:'M12 14l9-5-9-5-9 5 9 5zM12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z' },
+    { key:'mine', label:'My Content', href:'/village/pavilion/create-event', d:'M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2M15 2H9a1 1 0 00-1 1v2a1 1 0 001 1h6a1 1 0 001-1V3a1 1 0 00-1-1zM12 11v6M9 14h6' },
+  ] as const;
 
-  // Seed demo shows while DB table is created
-  const demoShows: Show[] = [
-    { id:'1', title:'Goal GPS Masterclass', description:'Learn how to use the Goal GPS Engine to build a 12-week sprint plan for any goal.', creator_id:'', creator_name:'spirit', type:'webinar', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+86400000).toISOString(), attendee_count:0, created_at:new Date().toISOString() },
-    { id:'2', title:'Village Beats Vol. 1', description:'A live DJ set featuring artists from the villa9e music community.', creator_id:'', creator_name:'dj_village', type:'concert', status:'upcoming', ticket_price:50, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+172800000).toISOString(), attendee_count:0, created_at:new Date().toISOString() },
-    { id:'3', title:'Black Founders: Funding Your Vision', description:'Three founders share how they raised pre-seed without Silicon Valley networks.', creator_id:'', creator_name:'founders_club', type:'presentation', status:'replay', ticket_price:0, stream_url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', thumbnail:null, starts_at:null, attendee_count:142, created_at:new Date().toISOString() },
-    { id:'4', title:'Short Film: The Village', description:'An 18-minute short film about community, purpose, and building something real.', creator_id:'', creator_name:'cinema_village', type:'film', status:'replay', ticket_price:25, stream_url:null, thumbnail:null, starts_at:null, attendee_count:88, created_at:new Date().toISOString() },
-  ];
+  return (
+    <nav style={{ position: 'fixed', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '100%', maxWidth: 480, background: bg, borderTop: `1px solid ${border}`, display: 'flex', zIndex: 50 }}>
+      {tabs.map(t => {
+        const on = active === t.key;
+        return (
+          <Link key={t.key} href={t.href} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '10px 0 8px', color: on ? active_c : inactive_c, textDecoration: 'none', fontSize: 10, fontWeight: on ? 700 : 400, gap: 3 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={on ? 2.5 : 1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d={t.d} />
+            </svg>
+            {t.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+export { PavilionNav };
+
+// ─── Featured Banner ──────────────────────────────────────────────────────────
+function FeaturedBanner({ show, isNight }: { show: Show; isNight: boolean }) {
+  const accent = TYPE_COLOR[show.type] ?? '#2952E8';
+  return (
+    <div style={{ margin: '0 16px 20px', borderRadius: 20, overflow: 'hidden', position: 'relative', height: 200, background: `linear-gradient(135deg, ${accent}40, ${accent}18)`, border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}` }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }} />
+      {show.status === 'live' && (
+        <div style={{ position: 'absolute', top: 14, left: 14, background: '#D63B3B', borderRadius: 20, padding: '5px 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ width: 7, height: 7, borderRadius: '50%', background: '#fff' }} />
+          <span style={{ fontSize: 11, fontWeight: 900, color: '#fff', letterSpacing: '0.06em' }}>LIVE</span>
+        </div>
+      )}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '14px 16px' }}>
+        <p style={{ color: '#fff', fontWeight: 900, fontSize: 17, marginBottom: 4, lineHeight: 1.3 }}>{show.title}</p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12 }}>
+            {show.status === 'live' ? `${show.attendee_count} watching` : show.starts_at ? formatDate(show.starts_at) : ''}
+          </span>
+          <Link href="/village/pavilion/live" style={{ background: show.status === 'live' ? '#D63B3B' : '#2952E8', color: '#fff', borderRadius: 20, padding: '7px 18px', fontSize: 12, fontWeight: 900, textDecoration: 'none' }}>
+            {show.status === 'live' ? 'Join Live' : 'View Event'}
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Live Strip Card ──────────────────────────────────────────────────────────
+function LiveCard({ show, isNight }: { show: Show; isNight: boolean }) {
+  const accent = TYPE_COLOR[show.type] ?? '#2952E8';
+  const cardBg = isNight ? '#1A2448' : '#FFFFFF';
+  const border = isNight ? '#1E2448' : '#C5CAE9';
+  return (
+    <div style={{ flexShrink: 0, width: 180, borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}>
+      <div style={{ height: 100, background: `linear-gradient(135deg, ${accent}30, ${accent}15)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+        <div style={{ position: 'absolute', top: 8, left: 8, background: '#D63B3B', borderRadius: 20, padding: '3px 8px', display: 'flex', alignItems: 'center', gap: 4 }}>
+          <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+          <span style={{ fontSize: 9, fontWeight: 900, color: '#fff' }}>LIVE</span>
+        </div>
+        <div style={{ position: 'absolute', bottom: 6, right: 8 }}>
+          <span style={{ fontSize: 10, color: '#fff', background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '2px 7px', fontWeight: 700 }}>{show.attendee_count}</span>
+        </div>
+      </div>
+      <div style={{ padding: '10px 12px' }}>
+        <p style={{ fontWeight: 800, fontSize: 12, color: isNight ? '#E8E3F8' : '#1E1B4B', lineHeight: 1.3, marginBottom: 3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{show.title}</p>
+        <p style={{ fontSize: 10, color: isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>@{show.creator_name}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Upcoming Event Card ──────────────────────────────────────────────────────
+function EventCard({ show, isNight }: { show: Show; isNight: boolean }) {
+  const accent = TYPE_COLOR[show.type] ?? '#2952E8';
+  const cardBg = isNight ? '#1A2448' : '#FFFFFF';
+  const border = isNight ? '#1E2448' : '#C5CAE9';
+  const text = isNight ? '#E8E3F8' : '#1E1B4B';
+  const muted = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+  const isFree = show.ticket_price === 0;
+  return (
+    <div style={{ borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}>
+      <div style={{ height: 120, background: `linear-gradient(135deg, ${accent}28, ${accent}10)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth={1.5} strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <div style={{ position: 'absolute', top: 8, right: 8, background: isFree ? '#059669' : '#2952E8', borderRadius: 10, padding: '3px 9px' }}>
+          <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>{isFree ? 'FREE' : `$${show.ticket_price}`}</span>
+        </div>
+      </div>
+      <div style={{ padding: '12px 14px' }}>
+        <p style={{ fontWeight: 800, fontSize: 13, color: text, marginBottom: 6, lineHeight: 1.3 }}>{show.title}</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+          <CreatorInitials name={show.creator_name ?? 'V'} size={20} />
+          <span style={{ fontSize: 11, color: muted }}>@{show.creator_name}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 11, color: muted }}>{show.starts_at ? formatDate(show.starts_at) : ''}</span>
+          <span style={{ fontSize: 11, color: muted }}>{show.attendee_count} going</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Course Card ──────────────────────────────────────────────────────────────
+function CourseCard({ course, isNight }: { course: typeof COURSES[0]; isNight: boolean }) {
+  const cardBg = isNight ? '#1A2448' : '#FFFFFF';
+  const border = isNight ? '#1E2448' : '#C5CAE9';
+  const text = isNight ? '#E8E3F8' : '#1E1B4B';
+  const muted = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+  return (
+    <div style={{ flexShrink: 0, width: 200, borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}>
+      <div style={{ height: 90, background: isNight ? 'rgba(41,82,232,0.15)' : 'rgba(41,82,232,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2952E8" strokeWidth={1.5} strokeLinecap="round"><path d="M12 14l9-5-9-5-9 5 9 5zM12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+      </div>
+      <div style={{ padding: '10px 12px' }}>
+        <p style={{ fontWeight: 800, fontSize: 12, color: text, marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</p>
+        <p style={{ fontSize: 10, color: muted, marginBottom: 6 }}>{course.instructor} · {course.modules} modules</p>
+        {course.enrolled && course.progress > 0 ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+              <span style={{ fontSize: 10, color: '#2952E8', fontWeight: 700 }}>{course.progress}%</span>
+              <span style={{ fontSize: 10, color: muted }}>In Progress</span>
+            </div>
+            <div style={{ height: 4, borderRadius: 2, background: isNight ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
+              <div style={{ height: '100%', width: `${course.progress}%`, borderRadius: 2, background: '#2952E8' }} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 2 }}>
+              {[1,2,3,4,5].map(s => (
+                <svg key={s} width="10" height="10" viewBox="0 0 24 24" fill={s <= Math.round(course.rating) ? '#F59E0B' : 'none'} stroke="#F59E0B" strokeWidth={2}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+              ))}
+            </div>
+            <span style={{ fontSize: 11, fontWeight: 800, color: course.price === 0 ? '#059669' : text }}>{course.price === 0 ? 'Free' : `$${course.price}`}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function PavilionPage() {
+  const { theme } = useVillageTheme();
+  const isNight = theme === 'night';
+  const supabase = createClient();
+
+  const [liveShows, setLiveShows]     = useState<Show[]>(LIVE_SHOWS);
+  const [upcoming, setUpcoming]       = useState<Show[]>(UPCOMING_EVENTS);
+  const [featured, setFeatured]       = useState<Show>(LIVE_SHOWS[0]);
+
+  const bg = isNight ? '#080E24' : '#F5F6FF';
+  const text = isNight ? '#E8E3F8' : '#1E1B4B';
+  const muted = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
+  const sectionBg = isNight ? 'rgba(255,255,255,0.03)' : 'transparent';
 
   useEffect(() => {
-    // Try to load from DB, fall back to demo shows
     (supabase as any).from('pavilion_shows')
       .select('*, profiles(username)')
-      .order('created_at', { ascending: false })
-      .limit(20)
+      .in('status', ['live','upcoming','scheduled'])
+      .order('attendee_count', { ascending: false })
+      .limit(12)
       .then(({ data }: any) => {
         if (data?.length) {
-          setShows(data.map((s: any) => ({ ...s, creator_name: s.profiles?.username })));
-        } else {
-          setShows(demoShows);
+          const normalized = data.map((s: any) => ({ ...s, creator_name: s.profiles?.username, status: s.status === 'scheduled' ? 'upcoming' : s.status }));
+          const live = normalized.filter((s: Show) => s.status === 'live');
+          const up = normalized.filter((s: Show) => s.status === 'upcoming');
+          if (live.length) setLiveShows(live);
+          if (up.length) setUpcoming(up);
+          if (live.length) setFeatured(live[0]);
+          else if (up.length) setFeatured(up[0]);
         }
       })
-      .catch(() => setShows(demoShows));
+      .catch(() => {});
   }, []);
 
-  const filtered = filter === 'all' ? shows : shows.filter(s => s.status === filter);
-
   return (
-    <div style={{ minHeight: '100vh', background: bg }}>
-      <AnimatePresence>
-        {activeShow && (
-          <ScreeningRoom show={activeShow} onClose={() => setActiveShow(null)} isNight={isNight} />
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: isNight ? 'rgba(7,8,15,0.96)' : 'rgba(240,244,255,0.96)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${isNight ? 'var(--v-card-border)' : '#DDD6FE'}`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Link href="/village/map" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: text, textDecoration: 'none', fontSize: 18 }}>←</Link>
-        <div style={{ flex: 1 }}>
-          <h1 style={{ color: text, fontWeight: 900, fontSize: 16, margin: 0 }}>🎭 Pavilion</h1>
-          <p style={{ color: muted, fontSize: 11, margin: 0 }}>Film · Concerts · Webinars · Live Shows</p>
-        </div>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowCreate(true)}
-          style={{ padding: '8px 18px', borderRadius: 20, fontSize: 12, fontWeight: 900, border: 'none', cursor: 'pointer', background: accent, color: '#fff' }}
-        >
-          + Host Event
-        </motion.button>
+    <div style={{ minHeight: '100vh', background: bg, paddingBottom: 80 }}>
+      {/* ── Header ── */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 30, background: isNight ? 'rgba(8,14,36,0.96)' : 'rgba(245,246,255,0.96)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Link href="/village/map" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: text }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </Link>
+        <h1 style={{ flex: 1, fontSize: 18, fontWeight: 900, color: text, margin: 0 }}>Pavilion</h1>
+        <button style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </button>
       </div>
 
-      {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 8, padding: '14px 16px', overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {(['all','live','upcoming','replay'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{
-              flexShrink: 0, padding: '6px 16px', borderRadius: 20, fontSize: 12, fontWeight: 800, border: 'none', cursor: 'pointer',
-              background: filter === f ? accent : (isNight ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)'),
-              color: filter === f ? '#fff' : accent,
-            }}>
-            {f === 'all' ? '📺 All Shows' : f === 'live' ? '🔴 Live' : f === 'upcoming' ? '⏰ Upcoming' : '▶ Replay'}
-          </button>
-        ))}
+      {/* ── Featured Banner ── */}
+      <div style={{ paddingTop: 16 }}>
+        <FeaturedBanner show={featured} isNight={isNight} />
       </div>
 
-      {/* Show grid */}
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '0 16px 32px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-        {filtered.map(show => (
-          <ShowCard key={show.id} show={show} isNight={isNight} onEnter={setActiveShow} />
-        ))}
-        {filtered.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '64px 0' }}>
-            <p style={{ fontSize: 40, marginBottom: 12 }}>🎭</p>
-            <p style={{ color: muted }}>No {filter === 'all' ? '' : filter} shows yet. Be the first to host one.</p>
+      {/* ── Live Now ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ background: '#D63B3B', borderRadius: 20, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+              <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+              <span style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>LIVE NOW</span>
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: text }}>{liveShows.length} streams</span>
           </div>
-        )}
+          <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>See all</Link>
+        </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+          {liveShows.map(s => <LiveCard key={s.id} show={s} isNight={isNight} />)}
+        </div>
       </div>
 
-      {/* Create show modal */}
-      <AnimatePresence>
-        {showCreate && (
-          <CreateShowModal
-            isNight={isNight} accent={accent} text={text} muted={muted}
-            onClose={() => setShowCreate(false)}
-            onCreated={show => { setShows(prev => [show, ...prev]); setShowCreate(false); }}
-          />
-        )}
-      </AnimatePresence>
+      {/* ── Upcoming Events ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Upcoming Events</h2>
+          <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>See all</Link>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px' }}>
+          {upcoming.slice(0, 4).map(s => <EventCard key={s.id} show={s} isNight={isNight} />)}
+        </div>
+      </div>
+
+      {/* ── Learning ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Learning</h2>
+          <Link href="/village/pavilion/learn" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Browse all</Link>
+        </div>
+        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+          {COURSES.map(c => <CourseCard key={c.id} course={c} isNight={isNight} />)}
+        </div>
+      </div>
+
+      {/* ── Village Creators ── */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Village Creators</h2>
+          <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Explore</Link>
+        </div>
+        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+          {CREATORS.map(cr => (
+            <div key={cr.id} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 64 }}>
+              <div style={{ position: 'relative' }}>
+                <CreatorInitials name={cr.name} size={52} />
+                {cr.verified && (
+                  <div style={{ position: 'absolute', bottom: 0, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#2952E8', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${bg}` }}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                  </div>
+                )}
+              </div>
+              <p style={{ fontSize: 11, fontWeight: 700, color: text, textAlign: 'center', lineHeight: 1.2, margin: 0 }}>{cr.name}</p>
+              <p style={{ fontSize: 10, color: muted, margin: 0 }}>{formatFollowers(cr.followers)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <PavilionNav active="home" />
     </div>
   );
 }
