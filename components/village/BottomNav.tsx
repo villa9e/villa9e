@@ -26,37 +26,38 @@ const ITEMS = [
   {
     href:     '/village/workshop',
     label:    'Workshop',
-    angleDeg: -72,
-    // Brain — two lobes
-    path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3zM12 7v10M9 9v6M15 9v6',
+    angleDeg: -80,
+    path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3z',
   },
   {
     href:     '/village/workshop',
-    label:    'Goal',
-    angleDeg: -36,
-    // Target / bullseye — three concentric circles + center dot
+    label:    'Goals',
+    angleDeg: -40,
     path: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-4a6 6 0 100-12 6 6 0 000 12zm0-4a2 2 0 100-4 2 2 0 000 4z',
   },
   {
     href:     '/village/create',
     label:    'Create',
     angleDeg: 0,
-    // Camera body + lens circle + plus on lens
     path: 'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 10a4 4 0 100 8 4 4 0 000-8zm2 4h-1.5v-1.5a.5.5 0 00-1 0V14H10a.5.5 0 000 1h1.5v1.5a.5.5 0 001 0V15H14a.5.5 0 000-1z',
   },
   {
     href:     '/village/dreamline',
     label:    'DreamLine',
-    angleDeg: 36,
-    // 5-pointed star
+    angleDeg: 40,
     path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
   },
   {
     href:     '/village/trading-post',
     label:    'Trading Post',
-    angleDeg: 72,
-    // Market stall / price tag
+    angleDeg: 80,
     path: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
+  },
+  {
+    href:     '/village/bank',
+    label:    'Bank',
+    angleDeg: 120,
+    path: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10',
   },
 ] as const;
 
@@ -268,10 +269,10 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 380, damping: 24 }}
           >
             <Image
-              src="/menu-logo.png"
-              width={36}
-              height={36}
-              alt="villa9e"
+              src="/village-teepee-logo.png"
+              width={40}
+              height={40}
+              alt="The Village"
               style={{ objectFit: 'contain', display: 'block' }}
               priority
             />

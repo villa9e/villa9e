@@ -468,13 +468,13 @@ export default function WorkshopPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ background: 'var(--v-bg)' }}>
-        <div className="space-y-3 text-center">
-          <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-3xl font-black" style={{ color: '#E8770A', fontFamily: 'monospace' }}>
-            Workshop
+      <div className="flex h-screen items-center justify-center" style={{ background: '#080E24' }}>
+        <div className="space-y-4 text-center">
+          <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
+            <img src="/village-teepee-logo.png" alt="Workshop" style={{ width: 64, height: 64, margin: '0 auto' }} />
           </motion.div>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Loading your feed…</p>
+          <p className="text-sm font-black" style={{ color: '#4D72FF', letterSpacing: '0.08em' }}>WORKSHOP</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Loading your feed…</p>
         </div>
       </div>
     );
@@ -485,10 +485,10 @@ export default function WorkshopPage() {
   const CARD_H = 'calc(100dvh - 80px)';
 
   return (
-    <div style={{ background: 'var(--v-bg)', minHeight: '100dvh' }}>
+    <div style={{ background: '#080E24', minHeight: '100dvh' }}>
       {/* Top bar */}
       <div className="sticky top-0 z-30 px-5 pt-12 pb-3"
-        style={{ background: 'linear-gradient(to bottom, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.6) 70%, transparent 100%)' }}>
+        style={{ background: 'linear-gradient(to bottom, rgba(8,14,36,0.95) 0%, rgba(8,14,36,0.6) 70%, transparent 100%)' }}>
         <span className="text-base font-black text-white">Workshop</span>
       </div>
 
