@@ -1,6 +1,6 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { BackButton } from '@/components/village/BackButton';
 
@@ -76,41 +76,47 @@ function DraggableText({
   onSelect: () => void;
   onMoved: (x: number, y: number) => void;
 }) {
-  const [resetKey, setResetKey] = useState(0);
+  // Use motion values so position is tracked by Framer Motion — no remount needed
+  const mx = useMotionValue(layer.x);
+  const my = useMotionValue(layer.y);
+
+  // Sync when parent updates position (e.g. undo)
+  useEffect(() => { mx.set(layer.x); }, [layer.x]);
+  useEffect(() => { my.set(layer.y); }, [layer.y]);
 
   return (
     <motion.div
-      key={resetKey}
       drag
-      dragConstraints={{
-        left:   -layer.x,
-        right:  dims.w - layer.x - 8,
-        top:    -layer.y,
-        bottom: dims.h - layer.y - 8,
-      }}
       dragMomentum={false}
       dragElastic={0}
+      dragConstraints={{
+        left:   0,
+        top:    0,
+        right:  Math.max(0, dims.w - 80),
+        bottom: Math.max(0, dims.h - 30),
+      }}
       onTap={onSelect}
-      onDragEnd={(_, info) => {
-        onMoved(
-          Math.max(0, Math.min(dims.w - 8, layer.x + info.offset.x)),
-          Math.max(0, Math.min(dims.h - 8, layer.y + info.offset.y)),
-        );
-        setResetKey(k => k + 1);
+      onDragEnd={() => {
+        const nx = Math.max(0, Math.min(dims.w - 8, mx.get()));
+        const ny = Math.max(0, Math.min(dims.h - 8, my.get()));
+        onMoved(nx, ny);
       }}
       style={{
         position: 'absolute',
-        top: layer.y,
-        left: layer.x,
+        top: 0,
+        left: 0,
+        x: mx,
+        y: my,
         cursor: 'grab',
         touchAction: 'none',
         outline: selected ? '1.5px solid rgba(255,255,255,0.7)' : 'none',
         outlineOffset: 4,
         borderRadius: 4,
         padding: '2px 4px',
-        maxWidth: dims.w - layer.x - 4,
+        maxWidth: dims.w - 16,
         userSelect: 'none',
         WebkitUserSelect: 'none',
+        zIndex: selected ? 10 : 1,
       }}
     >
       <p style={{
@@ -124,6 +130,7 @@ function DraggableText({
         textShadow: '0 1px 8px rgba(0,0,0,0.7)',
         margin: 0,
         pointerEvents: 'none',
+        minWidth: 40,
       }}>
         {layer.text || '…'}
       </p>
@@ -147,6 +154,17 @@ function EditorCanvas({
   onDeselectAll: () => void;
 }) {
   const dims = CANVAS_DIMS[ratio];
+  const captionLines = captions.split('\n').filter(l => l.trim());
+  const [captionIdx, setCaptionIdx] = useState(0);
+
+  // Cycle captions every 2s when multiple lines exist
+  useEffect(() => {
+    if (captionLines.length <= 1) { setCaptionIdx(0); return; }
+    const t = setInterval(() => setCaptionIdx(i => (i + 1) % captionLines.length), 2000);
+    return () => clearInterval(t);
+  }, [captionLines.length, captions]);
+
+  const currentCaption = captionLines[captionIdx] ?? '';
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0' }}>
@@ -181,20 +199,29 @@ function EditorCanvas({
           />
         ))}
 
-        {/* Captions bar */}
-        {captions.trim() && (
-          <div style={{
-            position: 'absolute', bottom: 28, left: 8, right: 8,
-            background: 'rgba(0,0,0,0.72)', borderRadius: 8,
-            padding: '5px 10px',
-          }}>
-            <p style={{
-              color: '#fff', fontSize: 11, fontWeight: 700,
-              textAlign: 'center', margin: 0, lineHeight: 1.4,
-            }}>
-              {captions.split('\n').filter(Boolean)[0]}
-            </p>
-          </div>
+        {/* Captions bar — cycles through all caption lines */}
+        {currentCaption && (
+          <AnimatePresence mode="wait">
+            <motion.div key={captionIdx}
+              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                position: 'absolute', bottom: 28, left: 8, right: 8,
+                background: 'rgba(0,0,0,0.72)', borderRadius: 8,
+                padding: '5px 10px',
+              }}>
+              <p style={{ color: '#fff', fontSize: 11, fontWeight: 700, textAlign: 'center', margin: 0, lineHeight: 1.4 }}>
+                {currentCaption}
+              </p>
+              {captionLines.length > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 3, marginTop: 3 }}>
+                  {captionLines.map((_, i) => (
+                    <div key={i} style={{ width: 4, height: 4, borderRadius: 2, background: i === captionIdx ? '#fff' : 'rgba(255,255,255,0.35)' }} />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
 
         {/* Audio now-playing badge */}
@@ -338,6 +365,22 @@ function TextPanel({
   );
 }
 
+// Free preview audio URLs (royalty-free, no login required)
+const TRACK_URLS: Record<string, string> = {
+  h1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  h2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+  h3: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3',
+  f1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3',
+  f2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3',
+  f3: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3',
+  c1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
+  c2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+  c3: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
+  v1: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
+  v2: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3',
+  v3: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
+};
+
 // ─── Audio tool panel ─────────────────────────────────────────────────────────
 function AudioPanel({
   audio, onSelect,
@@ -346,6 +389,31 @@ function AudioPanel({
   onSelect: (t: AudioTrack | null) => void;
 }) {
   const [cat, setCat] = useState('Hype');
+  const [previewing, setPreviewing] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  function playPreview(track: AudioTrack) {
+    // Stop any existing preview
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (previewing === track.id) {
+      setPreviewing(null);
+      return;
+    }
+    const url = TRACK_URLS[track.id];
+    if (!url) return;
+    const a = new Audio(url);
+    a.volume = 0.5;
+    a.play().catch(() => {});
+    audioRef.current = a;
+    setPreviewing(track.id);
+    a.onended = () => setPreviewing(null);
+  }
+
+  // Stop preview when panel unmounts
+  useEffect(() => () => { audioRef.current?.pause(); }, []);
 
   return (
     <div style={{ padding: '12px 16px', background: 'var(--v-card-bg)', borderTop: '1px solid var(--v-card-border)', maxHeight: 240, overflowY: 'auto' }}>
@@ -362,7 +430,7 @@ function AudioPanel({
           </button>
         ))}
         {audio && (
-          <button onClick={() => onSelect(null)}
+          <button onClick={() => { onSelect(null); audioRef.current?.pause(); setPreviewing(null); }}
             style={{
               padding: '5px 14px', borderRadius: 20, border: '1px solid #3D1515',
               cursor: 'pointer', flexShrink: 0, background: 'transparent',
@@ -374,38 +442,47 @@ function AudioPanel({
       </div>
       {/* Track list */}
       {AUDIO_LIBRARY[cat].map(track => {
-        const active = audio?.id === track.id;
+        const selected = audio?.id === track.id;
+        const playing  = previewing === track.id;
         return (
-          <button key={track.id} onClick={() => onSelect(active ? null : track)}
-            style={{
-              width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-              padding: '8px 12px', borderRadius: 12, marginBottom: 6, border: 'none', cursor: 'pointer',
-              background: active ? `${ACCENT}22` : 'var(--v-card-bg)',
-              outline: active ? `1px solid ${ACCENT}` : 'none',
-            }}>
-            <div style={{
-              width: 34, height: 34, borderRadius: 8, flexShrink: 0,
-              background: active ? ACCENT : 'var(--v-card-border)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15,
-            }}>
-              {active ? '⏸' : '▶'}
-            </div>
-            <div style={{ flex: 1, textAlign: 'left' }}>
-              <p style={{ color: '#F0EBE0', fontSize: 13, fontWeight: 700, margin: 0 }}>{track.name}</p>
-              <p style={{ color: '#6D6E8A', fontSize: 10, margin: 0 }}>{track.category} · {track.duration}</p>
-            </div>
-            {active && (
-              <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 20 }}>
-                {[1, 1.6, 0.8, 1.3, 1].map((h, i) => (
-                  <motion.div key={i}
-                    animate={{ scaleY: [1, h * 1.5, 1] }}
-                    transition={{ repeat: Infinity, duration: 0.4 + i * 0.07, delay: i * 0.05 }}
-                    style={{ width: 3, height: 16, borderRadius: 2, background: '#34D399', transformOrigin: 'bottom' }}
-                  />
-                ))}
+          <div key={track.id} style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+            {/* Preview button */}
+            <button onClick={() => playPreview(track)}
+              style={{
+                width: 34, height: 34, borderRadius: 8, flexShrink: 0, border: 'none', cursor: 'pointer',
+                background: playing ? ACCENT : 'var(--v-card-border)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, color: '#fff',
+              }}>
+              {playing ? '⏸' : '▶'}
+            </button>
+            {/* Track info + select */}
+            <button onClick={() => onSelect(selected ? null : track)}
+              style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 8,
+                padding: '6px 10px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                background: selected ? `${ACCENT}22` : 'var(--v-card-bg)',
+                outline: selected ? `1px solid ${ACCENT}` : 'none', textAlign: 'left',
+              }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ color: '#F0EBE0', fontSize: 13, fontWeight: 700, margin: 0 }}>{track.name}</p>
+                <p style={{ color: '#6D6E8A', fontSize: 10, margin: 0 }}>{track.category} · {track.duration}</p>
               </div>
-            )}
-          </button>
+              {playing && (
+                <div style={{ display: 'flex', gap: 2, alignItems: 'flex-end', height: 20 }}>
+                  {[1, 1.6, 0.8, 1.3, 1].map((h, i) => (
+                    <motion.div key={i}
+                      animate={{ scaleY: [1, h * 1.5, 1] }}
+                      transition={{ repeat: Infinity, duration: 0.4 + i * 0.07, delay: i * 0.05 }}
+                      style={{ width: 3, height: 16, borderRadius: 2, background: '#34D399', transformOrigin: 'bottom' }}
+                    />
+                  ))}
+                </div>
+              )}
+              {selected && !playing && (
+                <span style={{ color: ACCENT, fontSize: 10, fontWeight: 700 }}>Selected</span>
+              )}
+            </button>
+          </div>
         );
       })}
     </div>
@@ -414,15 +491,16 @@ function AudioPanel({
 
 // ─── Captions panel ───────────────────────────────────────────────────────────
 function CaptionsPanel({ captions, onChange }: { captions: string; onChange: (v: string) => void }) {
+  const lines = captions.split('\n').filter(l => l.trim());
   return (
     <div style={{ padding: '12px 16px', background: 'var(--v-card-bg)', borderTop: '1px solid var(--v-card-border)' }}>
       <p style={{ color: '#6D6E8A', fontSize: 10, fontWeight: 700, marginBottom: 6 }}>
-        CAPTIONS — one line = one caption card shown at bottom of video
+        CAPTIONS — type each caption on a new line. They cycle on the canvas below.
       </p>
       <textarea
         value={captions}
         onChange={e => onChange(e.target.value)}
-        placeholder={'Line one of captions\nLine two\nLine three...'}
+        placeholder={'First caption line\nSecond caption line\nThird caption line...'}
         rows={5}
         style={{
           width: '100%', boxSizing: 'border-box',
@@ -431,8 +509,17 @@ function CaptionsPanel({ captions, onChange }: { captions: string; onChange: (v:
           resize: 'none', outline: 'none',
         }}
       />
+      {lines.length > 0 && (
+        <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {lines.map((l, i) => (
+            <span key={i} style={{ background: '#2D2F4A', borderRadius: 6, padding: '3px 8px', fontSize: 11, color: '#F0EBE0' }}>
+              {i + 1}. {l.length > 30 ? l.slice(0, 30) + '…' : l}
+            </span>
+          ))}
+        </div>
+      )}
       <p style={{ color: '#4A4F72', fontSize: 10, marginTop: 6 }}>
-        Edit captions here before posting. Each line will be timed to the clip.
+        {lines.length} caption{lines.length !== 1 ? 's' : ''} · Each will display for 2 seconds in the editor preview.
       </p>
     </div>
   );
@@ -486,8 +573,8 @@ function TrimPanel({
       {/* IN point */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
         <span style={{ color: '#6D6E8A', fontSize: 10, fontWeight: 700, width: 30 }}>IN</span>
-        <input type="range" min={0} max={trimEnd - 5} value={trimStart}
-          onChange={e => onStart(Number(e.target.value))}
+        <input type="range" min={0} max={Math.max(0, trimEnd - 5)} value={Math.min(trimStart, trimEnd - 5)}
+          onChange={e => { const v = Number(e.target.value); onStart(Math.min(v, trimEnd - 5)); }}
           style={{ flex: 1, accentColor: ACCENT }} />
         <span style={{ color: '#F0EBE0', fontSize: 11, width: 36 }}>
           {(trimStart * 0.3).toFixed(1)}s
@@ -497,8 +584,8 @@ function TrimPanel({
       {/* OUT point */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <span style={{ color: '#6D6E8A', fontSize: 10, fontWeight: 700, width: 30 }}>OUT</span>
-        <input type="range" min={trimStart + 5} max={100} value={trimEnd}
-          onChange={e => onEnd(Number(e.target.value))}
+        <input type="range" min={Math.min(trimStart + 5, 100)} max={100} value={Math.max(trimEnd, trimStart + 5)}
+          onChange={e => { const v = Number(e.target.value); onEnd(Math.max(v, trimStart + 5)); }}
           style={{ flex: 1, accentColor: ACCENT }} />
         <span style={{ color: '#F0EBE0', fontSize: 11, width: 36 }}>
           {(trimEnd * 0.3).toFixed(1)}s

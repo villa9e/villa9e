@@ -143,27 +143,70 @@ function GoalCard({ card }: { card: FeedCard }) {
   );
 }
 
-// ── Sidebar action buttons ─────────────────────────────────────────────────────
-function SideActions({ card, onOoWop, owopped, oowopCount }: {
-  card: FeedCard; onOoWop: () => void; owopped: boolean; oowopCount: number;
-}) {
-  const BUTTONS = [
-    { icon: <HeartSvg />, label: oowopCount.toString(), action: onOoWop, active: owopped, color: owopped ? '#FF6B2B' : 'white' },
-    { icon: <OoWopSvg />, label: 'OoWop', action: onOoWop, active: owopped, color: owopped ? '#FFD700' : 'white' },
-    { icon: <ShareSvg />, label: 'Share', action: () => { if (navigator.share) navigator.share({ title: card.title, url: window.location.href }); }, active: false, color: 'white' },
-  ];
+// ── Fist fly-up OoWop animation ─────────────────────────────────────────────
+function FistAnimation({ show }: { show: boolean }) {
   return (
-    <div className="absolute right-4 bottom-36 flex flex-col items-center gap-6 z-20">
-      {BUTTONS.map((btn, i) => (
-        <motion.button key={i} whileTap={{ scale: 0.85 }} onClick={btn.action}
-          className="flex flex-col items-center gap-1.5">
-          <div className="w-12 h-12 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: btn.color }}>
-            {btn.icon}
-          </div>
-          <span className="text-[11px] font-bold" style={{ color: 'rgba(255,255,255,0.7)' }}>{btn.label}</span>
-        </motion.button>
-      ))}
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 1, scale: 0.6, y: 0 }}
+          animate={{ opacity: 0, scale: 1.8, y: -180 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50 }}>
+          <OoWopSvg />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── Sidebar action buttons ─────────────────────────────────────────────────────
+function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount }: {
+  card: FeedCard; onOoWop: () => void; onSkip: () => void; onSave: () => void;
+  owopped: boolean; saved: boolean; oowopCount: number;
+}) {
+  const SaveSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
+  const ThumbDown = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
+
+  return (
+    <div style={{ position: 'absolute', right: 8, bottom: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, zIndex: 20 }}>
+      {/* OoWop */}
+      <motion.button whileTap={{ scale: 0.85 }} onClick={onOoWop}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owopped ? 'rgba(239,159,39,0.3)' : 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: owopped ? '#EF9F27' : 'white' }}>
+          <OoWopSvg />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{oowopCount > 0 ? oowopCount.toLocaleString() : 'OoWop'}</span>
+      </motion.button>
+
+      {/* Skip */}
+      <motion.button whileTap={{ scale: 0.85 }} onClick={onSkip}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.6)' }}>
+          <ThumbDown />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>Skip</span>
+      </motion.button>
+
+      {/* Share */}
+      <motion.button whileTap={{ scale: 0.85 }}
+        onClick={() => { if (navigator.share) navigator.share({ title: card.title, url: window.location.href }); }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
+          <ShareSvg />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Share</span>
+      </motion.button>
+
+      {/* Save */}
+      <motion.button whileTap={{ scale: 0.85 }} onClick={onSave}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: saved ? 'rgba(0,51,204,0.3)' : 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: saved ? '#4D72FF' : 'white' }}>
+          <SaveSvg />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Save</span>
+      </motion.button>
     </div>
   );
 }
@@ -250,6 +293,9 @@ export default function WorkshopPage() {
   const [cards,        setCards]        = useState<FeedCard[]>([]);
   const [current,      setCurrent]      = useState(0);
   const [owopped,      setOwopped]      = useState<Set<string>>(new Set());
+  const [saved,        setSaved]        = useState<Set<string>>(new Set());
+  const [skipped,      setSkipped]      = useState<Set<string>>(new Set());
+  const [showFist,     setShowFist]     = useState(false);
   const [loading,      setLoading]      = useState(true);
   const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
   const [activeSprints,setActiveSprints]= useState<any[]>([]);
@@ -471,22 +517,39 @@ export default function WorkshopPage() {
   }
 
   async function handleOoWop(cardId: string) {
-    if (owopped.has(cardId)) return;
+    // Toggle — un-OoWop if already owopped
+    if (owopped.has(cardId)) {
+      setOwopped(prev => { const n = new Set(prev); n.delete(cardId); return n; });
+      setCards(prev => prev.map(c => c.id === cardId ? { ...c, oowops: Math.max(0, (c.oowops ?? 1) - 1) } : c));
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     setOwopped(prev => { const n = new Set(prev); n.add(cardId); return n; });
     setCards(prev => prev.map(c => c.id === cardId ? { ...c, oowops: (c.oowops ?? 0) + 1 } : c));
+    setShowFist(true);
+    setTimeout(() => setShowFist(false), 800);
     const card = cards.find(c => c.id === cardId);
     if (!card) return;
     if (card.type === 'template') {
-      (supabase as any).from('goal_templates')
-        .update({ oowop_count: (card.oowops ?? 0) + 1 })
-        .eq('id', cardId).then(() => {}).catch(() => {});
+      (supabase as any).from('goal_templates').update({ oowop_count: (card.oowops ?? 0) + 1 }).eq('id', cardId).catch(() => {});
     } else if (card.type === 'video') {
-      (supabase as any).from('studio_videos')
-        .update({ oowop_count: (card.oowops ?? 0) + 1 })
-        .eq('id', cardId).then(() => {}).catch(() => {});
+      (supabase as any).from('studio_videos').update({ oowop_count: (card.oowops ?? 0) + 1 }).eq('id', cardId).catch(() => {});
     }
+  }
+
+  function handleSkip(cardId: string) {
+    setSkipped(prev => { const n = new Set(prev); n.add(cardId); return n; });
+    // Advance to next card
+    if (current < cards.length - 1) setCurrent(c => c + 1);
+  }
+
+  function handleSave(cardId: string) {
+    setSaved(prev => {
+      const n = new Set(prev);
+      if (n.has(cardId)) n.delete(cardId); else n.add(cardId);
+      return n;
+    });
   }
 
   if (loading) {
@@ -668,9 +731,22 @@ export default function WorkshopPage() {
             {card?.type === 'achievement' && <GoalCard card={card} />}
             {card?.type === 'guide'       && <GuideCard />}
 
+            {/* Fist fly-up animation on OoWop */}
+            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40, color: '#EF9F27' }}>
+              <FistAnimation show={showFist} />
+            </div>
+
             {card && card.type !== 'guide' && <AuthorBar card={card} />}
             {card && card.type !== 'goal' && card.type !== 'guide' && (
-              <SideActions card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)} />
+              <SideActions
+                card={card}
+                onOoWop={() => handleOoWop(card.id)}
+                onSkip={() => handleSkip(card.id)}
+                onSave={() => handleSave(card.id)}
+                owopped={owopped.has(card.id)}
+                saved={saved.has(card.id)}
+                oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)}
+              />
             )}
           </motion.div>
         </AnimatePresence>
