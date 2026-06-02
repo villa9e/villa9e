@@ -110,6 +110,11 @@ CREATE POLICY "contributions_own" ON crowdfunding_contributions FOR ALL
 -- ── 6. Studio videos oowop_count column ─────────────────────
 ALTER TABLE studio_videos ADD COLUMN IF NOT EXISTS oowop_count INT DEFAULT 0;
 
+-- ── 7. Crowdfunding: add status column (old schema had is_active) ──
+ALTER TABLE crowdfunding_campaigns ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+-- Back-fill: rows with is_active=true get status='active', others get 'inactive'
+UPDATE crowdfunding_campaigns SET status = CASE WHEN is_active = TRUE THEN 'active' ELSE 'inactive' END WHERE status IS NULL OR status = 'active';
+
 -- ── 7. Realtime enable ───────────────────────────────────────
 ALTER PUBLICATION supabase_realtime ADD TABLE messages;
 ALTER PUBLICATION supabase_realtime ADD TABLE conversations;

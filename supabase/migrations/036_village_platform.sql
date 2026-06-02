@@ -179,19 +179,33 @@ ALTER TABLE office_meetings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE office_threads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE office_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "deals_public_view"    ON deals           FOR SELECT USING (status = 'active');
-CREATE POLICY IF NOT EXISTS "deals_own"            ON deals           FOR ALL    USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "swipes_own"           ON deal_swipes     FOR ALL    USING (investor_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "feedback_own"         ON deal_feedback   FOR ALL    USING (TRUE);
-CREATE POLICY IF NOT EXISTS "matches_own"          ON deal_matches    FOR SELECT USING (investor_id = auth.uid() OR creator_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "estores_public"       ON estores         FOR SELECT USING (status = 'active');
-CREATE POLICY IF NOT EXISTS "estores_own"          ON estores         FOR ALL    USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "products_public"      ON estore_products FOR SELECT USING (status = 'active');
-CREATE POLICY IF NOT EXISTS "products_own"         ON estore_products FOR ALL    USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "follows_own"          ON estore_follows  FOR ALL    USING (user_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "meetings_own"         ON office_meetings FOR ALL    USING (creator_id = auth.uid());
-CREATE POLICY IF NOT EXISTS "threads_participant"  ON office_threads  FOR ALL    USING (participant_ids::jsonb ? auth.uid()::text);
-CREATE POLICY IF NOT EXISTS "messages_participant" ON office_messages FOR ALL    USING (sender_id = auth.uid());
+DROP POLICY IF EXISTS "deals_public_view"    ON deals;
+DROP POLICY IF EXISTS "deals_own"            ON deals;
+DROP POLICY IF EXISTS "swipes_own"           ON deal_swipes;
+DROP POLICY IF EXISTS "feedback_own"         ON deal_feedback;
+DROP POLICY IF EXISTS "matches_own"          ON deal_matches;
+DROP POLICY IF EXISTS "estores_public"       ON estores;
+DROP POLICY IF EXISTS "estores_own"          ON estores;
+DROP POLICY IF EXISTS "products_public"      ON estore_products;
+DROP POLICY IF EXISTS "products_own"         ON estore_products;
+DROP POLICY IF EXISTS "follows_own"          ON estore_follows;
+DROP POLICY IF EXISTS "meetings_own"         ON office_meetings;
+DROP POLICY IF EXISTS "threads_participant"  ON office_threads;
+DROP POLICY IF EXISTS "messages_participant" ON office_messages;
+
+CREATE POLICY "deals_public_view"    ON deals           FOR SELECT USING (status = 'active');
+CREATE POLICY "deals_own"            ON deals           FOR ALL    USING (user_id = auth.uid());
+CREATE POLICY "swipes_own"           ON deal_swipes     FOR ALL    USING (investor_id = auth.uid());
+CREATE POLICY "feedback_own"         ON deal_feedback   FOR ALL    USING (TRUE);
+CREATE POLICY "matches_own"          ON deal_matches    FOR SELECT USING (investor_id = auth.uid() OR creator_id = auth.uid());
+CREATE POLICY "estores_public"       ON estores         FOR SELECT USING (status = 'active');
+CREATE POLICY "estores_own"          ON estores         FOR ALL    USING (user_id = auth.uid());
+CREATE POLICY "products_public"      ON estore_products FOR SELECT USING (status = 'active');
+CREATE POLICY "products_own"         ON estore_products FOR ALL    USING (user_id = auth.uid());
+CREATE POLICY "follows_own"          ON estore_follows  FOR ALL    USING (user_id = auth.uid());
+CREATE POLICY "meetings_own"         ON office_meetings FOR ALL    USING (creator_id = auth.uid());
+CREATE POLICY "threads_participant"  ON office_threads  FOR ALL    USING (participant_ids::jsonb ? auth.uid()::text);
+CREATE POLICY "messages_participant" ON office_messages FOR ALL    USING (sender_id = auth.uid());
 
 -- ── Indexes ───────────────────────────────────────────────────────────────────
 CREATE INDEX IF NOT EXISTS idx_deals_status ON deals(status);
