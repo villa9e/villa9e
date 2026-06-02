@@ -58,7 +58,7 @@ function MoreMenu({ onClose }: { onClose: () => void }) {
       onClick={onClose}>
       <motion.div initial={{ y: 60 }} animate={{ y: 0 }} exit={{ y: 60 }}
         onClick={e => e.stopPropagation()}
-        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: '#1F2937', borderRadius: '24px 24px 0 0', padding: '12px 0 40px' }}>
+        style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'var(--v-card-bg)', borderRadius: '24px 24px 0 0', padding: '12px 0 40px' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
         {items.map(it => (
           <button key={it.label} onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: 16, width: '100%', padding: '14px 24px', fontSize: 15, color: '#fff', fontWeight: 600, background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -92,7 +92,7 @@ function AddHighlightModal({ userId, onClose, onSaved }: { userId: string; onClo
       onClick={onClose}>
       <motion.div initial={{ y: 80 }} animate={{ y: 0 }} exit={{ y: 80 }}
         onClick={e => e.stopPropagation()}
-        style={{ width: '100%', background: '#1F2937', borderRadius: '24px 24px 0 0', padding: '20px 20px 40px' }}>
+        style={{ width: '100%', background: 'var(--v-card-bg)', borderRadius: '24px 24px 0 0', padding: '20px 20px 40px' }}>
         <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', margin: '0 auto 20px' }} />
         <p style={{ color: '#fff', fontSize: 16, fontWeight: 900, marginBottom: 16 }}>New Highlight</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
@@ -258,7 +258,7 @@ export default function HutPage() {
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-      style={{ background: '#111827', minHeight: '100vh', color: '#fff', overflowX: 'hidden', paddingBottom: 40 }}>
+      style={{ background: 'var(--v-bg)', minHeight: '100vh', color: '#fff', overflowX: 'hidden', paddingBottom: 40 }}>
       <BackButton to="/village/workshop" />
 
       {/* ── Header ───────────────────────────────────────────── */}
@@ -296,7 +296,7 @@ export default function HutPage() {
       <div style={{ padding: '20px 16px 12px', display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{ flexShrink: 0 }}>
           <div style={{ width: 88, height: 88, borderRadius: 44, padding: 3, background: 'linear-gradient(135deg,#22C55E,#16A34A)', position: 'relative' }}>
-            <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid #111827', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '100%', height: '100%', borderRadius: 100, overflow: 'hidden', border: '2.5px solid var(--v-bg)', background: '#1877F2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img
                 src={profile?.avatar_url || '/default-avatar.png'}
                 alt=""
@@ -304,7 +304,7 @@ export default function HutPage() {
               />
             </div>
             {profile?.is_verified && (
-              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid #111827', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, background: '#1877F2', border: '2px solid var(--v-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
             )}
@@ -483,7 +483,7 @@ export default function HutPage() {
             onClick={() => setPillModal(null)}>
             <motion.div initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
               onClick={e => e.stopPropagation()}
-              style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 80, background: '#1F2937', borderRadius: '24px 24px 0 0', overflow: 'hidden' }}>
+              style={{ flex: 1, display: 'flex', flexDirection: 'column', marginTop: 80, background: 'var(--v-card-bg)', borderRadius: '24px 24px 0 0', overflow: 'hidden' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                 <p style={{ fontWeight: 900, fontSize: 16, color: '#fff' }}>
                   {pillModal.type === 'verified' ? 'Verifications' : pillModal.type === 'successes' ? 'Successes' : pillModal.type === 'testimonials' ? 'Testimonials' : 'Deals'}

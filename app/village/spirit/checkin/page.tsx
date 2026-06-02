@@ -35,7 +35,7 @@ export default function SpiritCheckinPage() {
   const { speak } = useSpiritVoice();
   const isNight  = theme === 'night';
 
-  const bg      = isNight ? '#111827' : '#F0F4FF';
+  const bg      = isNight ? 'var(--v-bg)' : '#F0F4FF';
   const cardBg  = isNight ? '#0D1020' : '#FFFFFF';
   const border  = isNight ? '#1A1F3A' : '#E0E7FF';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
@@ -176,7 +176,7 @@ export default function SpiritCheckinPage() {
     <div className="min-h-screen flex flex-col" style={{ background: bg }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#0A0B18' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? 'var(--v-bg)' : '#fff', borderColor: border }}>
         <Link href="/village/spirit" className="text-xl" style={{ color: muted }}>←</Link>
         <div className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center"
           style={{ background: isNight ? '#08101A' : '#EEF2FF', border: `2px solid #1877F2` }}>

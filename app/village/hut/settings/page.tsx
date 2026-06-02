@@ -38,12 +38,12 @@ export default function SettingsPage() {
   const { voiceGender, setGender, voiceEnabled, toggleVoice } = useSpiritVoice();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#111827' : '#F8F9FF';
-  const card    = isNight ? '#1F2937' : '#FFFFFF';
+  const bg      = isNight ? 'var(--v-bg)' : '#F8F9FF';
+  const card    = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
   const border  = isNight ? '#374151' : '#E0E7FF';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#9CA3AF' : '#6B7280';
-  const inputBg = isNight ? '#111827' : '#F0F4FF';
+  const inputBg = isNight ? 'var(--v-bg)' : '#F0F4FF';
 
   useEffect(() => {
     async function load() {

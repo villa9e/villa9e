@@ -34,7 +34,7 @@ const PlaySvg     = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="
 function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
   const steps = card.data?.steps ?? [];
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, #111827 60%)` }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, var(--v-bg) 60%)` }}>
       {/* Gradient overlay */}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)' }} />
 
@@ -80,7 +80,7 @@ function VideoCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => 
   const thumb = card.media?.thumbnail || `https://img.youtube.com/vi/${card.media?.videoId}/maxresdefault.jpg`;
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: '#111827' }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: 'var(--v-bg)' }}>
       {/* Video / thumbnail */}
       <div className="flex-1 relative">
         {playing && card.media?.videoId ? (
@@ -120,7 +120,7 @@ function GoalCard({ card }: { card: FeedCard }) {
   const progress = card.data?.progress ?? 0;
   const probability = card.data?.probability ?? 0;
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, #111827 70%)` }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, var(--v-bg) 70%)` }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
 
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
@@ -197,7 +197,7 @@ function GuideCard() {
   ];
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, #111827 60%)' }}>
+    <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, var(--v-bg) 60%)' }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 40%)' }} />
 
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28 pt-20">
@@ -468,7 +468,7 @@ export default function WorkshopPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ background: '#111827' }}>
+      <div className="flex h-screen items-center justify-center" style={{ background: 'var(--v-bg)' }}>
         <div className="space-y-3 text-center">
           <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 1.5, repeat: Infinity }}
             className="text-3xl font-black" style={{ color: '#E8770A', fontFamily: 'monospace' }}>
@@ -485,7 +485,7 @@ export default function WorkshopPage() {
   const CARD_H = 'calc(100dvh - 80px)';
 
   return (
-    <div style={{ background: '#111827', minHeight: '100dvh' }}>
+    <div style={{ background: 'var(--v-bg)', minHeight: '100dvh' }}>
       {/* Top bar */}
       <div className="sticky top-0 z-30 px-5 pt-12 pb-3"
         style={{ background: 'linear-gradient(to bottom, rgba(17,24,39,0.95) 0%, rgba(17,24,39,0.6) 70%, transparent 100%)' }}>

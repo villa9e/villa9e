@@ -700,7 +700,7 @@ export default function HospitalPage() {
 
   return (
     <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
-      style={{ background: '#111827', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+      style={{ background: 'var(--v-bg)', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
       <BackButton to="/village/hut" />
 
       {/* Header */}

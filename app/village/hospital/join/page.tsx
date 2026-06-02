@@ -86,9 +86,9 @@ export default function JoinAsProviderPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#111827' : '#F0FDF4';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#BBF7D0';
+  const bg       = isNight ? 'var(--v-bg)' : '#F0FDF4';
+  const cardBg   = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border   = isNight ? 'var(--v-card-border)' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166534';
   const accent   = isNight ? '#34D399' : '#059669';
@@ -120,7 +120,7 @@ export default function JoinAsProviderPage() {
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        style={{ background: isNight ? 'var(--v-card-bg)' : accent, borderColor: isNight ? 'var(--v-card-border)' : 'transparent' }}>
         <Link href="/village/hospital" className="text-xl text-white">←</Link>
         <div className="flex-1">
           <h1 className="font-black text-white text-base">Join as a Professional</h1>
@@ -129,7 +129,7 @@ export default function JoinAsProviderPage() {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1" style={{ background: isNight ? '#1E2240' : '#BBF7D0' }}>
+      <div className="h-1" style={{ background: isNight ? 'var(--v-card-border)' : '#BBF7D0' }}>
         <motion.div className="h-full" animate={{ width: `${progress}%` }} transition={{ duration: 0.4 }}
           style={{ background: accent }} />
       </div>
@@ -213,19 +213,19 @@ export default function JoinAsProviderPage() {
                       <textarea value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                         placeholder={ph} rows={3}
                         className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none resize-none"
-                        style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                        style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                     ) : (
                       <input type="text" value={(form as any)[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                         placeholder={ph}
                         className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                        style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                        style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                     )}
                   </div>
                 ))}
               </div>
               <div className="flex gap-2 pt-4">
                 <button onClick={() => setStep('type')} className="flex-1 py-3 rounded-2xl text-sm font-bold"
-                  style={{ background: isNight ? '#1E2240' : '#F0FDF4', color: textMute }}>← Back</button>
+                  style={{ background: isNight ? 'var(--v-card-border)' : '#F0FDF4', color: textMute }}>← Back</button>
                 <button onClick={() => setStep('documents')} disabled={!form.first_name || !form.last_name}
                   className="flex-1 py-3 rounded-2xl text-sm font-bold text-white disabled:opacity-40"
                   style={{ background: accent }}>Continue →</button>
@@ -252,7 +252,7 @@ export default function JoinAsProviderPage() {
                 <input type="url" value={docUrl} onChange={e => setDocUrl(e.target.value)}
                   placeholder="Or paste a Cloudinary/URL to your document"
                   className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none text-center"
-                  style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                  style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
               </div>
 
               <div className="rounded-2xl p-4 mb-4" style={{ background: isNight ? '#0D1820' : '#ECFDF5', border: `1px solid ${border}` }}>
@@ -270,7 +270,7 @@ export default function JoinAsProviderPage() {
 
               <div className="flex gap-2">
                 <button onClick={() => setStep('details')} className="flex-1 py-3 rounded-2xl text-sm font-bold"
-                  style={{ background: isNight ? '#1E2240' : '#F0FDF4', color: textMute }}>← Back</button>
+                  style={{ background: isNight ? 'var(--v-card-border)' : '#F0FDF4', color: textMute }}>← Back</button>
                 <button onClick={submit}
                   className="flex-1 py-3 rounded-2xl text-sm font-bold text-white"
                   style={{ background: accent }}>
@@ -331,7 +331,7 @@ export default function JoinAsProviderPage() {
                   )}
                   <Link href="/village/hospital"
                     className="block py-3 rounded-2xl font-bold text-sm text-center"
-                    style={{ background: isNight ? '#1E2240' : '#ECFDF5', color: textMute }}>
+                    style={{ background: isNight ? 'var(--v-card-border)' : '#ECFDF5', color: textMute }}>
                     Back to Hospital
                   </Link>
                 </div>

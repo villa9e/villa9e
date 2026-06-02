@@ -85,9 +85,9 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
   // ─── Colors ───────────────────────────────────────────────────────────────
   const accent  = '#1877F2';
-  const bg      = isNight ? '#111827' : '#FFF8EE';
-  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
-  const border  = isNight ? '#1E2240' : '#E8E8F0';
+  const bg      = isNight ? 'var(--v-bg)' : 'var(--v-bg)';
+  const cardBg  = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border  = isNight ? 'var(--v-card-border)' : '#E8E8F0';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#4A4F72' : '#6B7280';
 
@@ -511,7 +511,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
 
         {/* Progress bar */}
         <div className="px-4 pb-2 flex items-center gap-3">
-          <div className="flex-1 rounded-full h-1.5" style={{ background: isNight ? '#1E2240' : '#E8E8F0' }}>
+          <div className="flex-1 rounded-full h-1.5" style={{ background: isNight ? 'var(--v-card-border)' : '#E8E8F0' }}>
             <div className="h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${goal.progress_percentage ?? 0}%`, background: 'linear-gradient(90deg,#1877F2,#7C3AED)' }} />
           </div>
@@ -698,7 +698,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       ].map(s => (
                         <button key={s} onClick={() => { setSpiritInput(s); }}
                           className="text-xs px-3 py-1.5 rounded-full font-medium"
-                          style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: accent, border: 'none', cursor: 'pointer' }}>
+                          style={{ background: isNight ? 'var(--v-card-border)' : '#EEF2FF', color: accent, border: 'none', cursor: 'pointer' }}>
                           {s}
                         </button>
                       ))}
@@ -711,7 +711,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       style={{
                         background: msg.role === 'user'
                           ? 'linear-gradient(135deg,#1877F2,#7C3AED)'
-                          : (isNight ? '#1F2937' : '#F3F4F6'),
+                          : (isNight ? 'var(--v-card-bg)' : '#F3F4F6'),
                         color: msg.role === 'user' ? '#fff' : text,
                       }}>
                       {msg.role === 'assistant' && <p className="text-xs font-bold mb-1" style={{ color: '#8B5CF6' }}>🌀 Spirit</p>}
@@ -721,7 +721,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 ))}
                 {sendingSpirit && (
                   <div className="flex justify-start">
-                    <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background: isNight ? '#1F2937' : '#F3F4F6' }}>
+                    <div className="rounded-2xl px-4 py-3 flex gap-1.5 items-center" style={{ background: isNight ? 'var(--v-card-bg)' : '#F3F4F6' }}>
                       {[0, 1, 2].map(i => (
                         <div key={i} className="w-2 h-2 rounded-full animate-bounce" style={{ background: '#8B5CF6', animationDelay: `${i * 0.15}s` }} />
                       ))}
@@ -834,7 +834,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                         {/* Meta pills */}
                         <div className="flex flex-wrap gap-2 mt-3">
                           {instructions?.estimatedTotalMinutes && (
-                            <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: muted }}>
+                            <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: muted }}>
                               ⏱ ~{instructions.estimatedTotalMinutes}min
                             </span>
                           )}
@@ -867,7 +867,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                                     border: 'none', cursor: 'pointer',
                                   }}>
                                   <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0 mt-0.5 text-white"
-                                    style={{ background: expandedStep === i ? accent : (isNight ? '#1E2240' : '#E5E7EB'), color: expandedStep === i ? '#fff' : muted }}>
+                                    style={{ background: expandedStep === i ? accent : (isNight ? 'var(--v-card-border)' : '#E5E7EB'), color: expandedStep === i ? '#fff' : muted }}>
                                     {i + 1}
                                   </span>
                                   <div className="flex-1 min-w-0">
@@ -913,7 +913,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                               {(currentStep.app_videos ?? []).map((v: any, i: number) => (
                                 <a key={`app-${i}`} href={v.video_url ?? '#'} target="_blank" rel="noreferrer"
                                   className="flex items-center gap-3 p-2.5 rounded-2xl"
-                                  style={{ background: isNight ? '#1E2240' : '#F3F4F6', textDecoration: 'none' }}>
+                                  style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', textDecoration: 'none' }}>
                                   {v.thumbnail_url && <img src={v.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
                                   <span className="text-xs font-semibold leading-snug" style={{ color: text }}>{v.title}</span>
                                 </a>
@@ -921,7 +921,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                               {(currentStep.youtube_videos ?? []).map((v: any, i: number) => (
                                 <a key={`yt-${i}`} href={`https://www.youtube.com/watch?v=${v.videoId ?? v.id}`} target="_blank" rel="noreferrer"
                                   className="flex items-center gap-3 p-2.5 rounded-2xl"
-                                  style={{ background: isNight ? '#1E2240' : '#F3F4F6', textDecoration: 'none' }}>
+                                  style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', textDecoration: 'none' }}>
                                   {v.thumbnail && <img src={v.thumbnail} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />}
                                   <span className="text-xs font-semibold leading-snug" style={{ color: text }}>{v.title}</span>
                                 </a>
@@ -936,7 +936,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                             <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: muted }}>Resources Needed</p>
                             <div className="flex flex-wrap gap-2">
                               {instructions.resourcesNeeded.map((r: string, i: number) => (
-                                <span key={i} className="text-xs px-2.5 py-1 rounded-full" style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: text }}>
+                                <span key={i} className="text-xs px-2.5 py-1 rounded-full" style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: text }}>
                                   📦 {r}
                                 </span>
                               ))}
@@ -966,11 +966,11 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                                 <textarea value={verifyNotes} onChange={e => setVerifyNotes(e.target.value)}
                                   placeholder="Tell Spirit what you did — even a sentence or two."
                                   rows={3} className="w-full text-sm rounded-2xl px-4 py-3 resize-none focus:outline-none"
-                                  style={{ background: isNight ? '#111827' : '#FFF8EE', border: `1px solid ${border}`, color: text, fontFamily: 'inherit' }} />
+                                  style={{ background: isNight ? 'var(--v-bg)' : 'var(--v-bg)', border: `1px solid ${border}`, color: text, fontFamily: 'inherit' }} />
                                 <div className="flex gap-2">
                                   <button onClick={() => { setShowVerifyInput(false); setVerifyNotes(''); }}
                                     className="text-sm px-4 py-2.5 rounded-2xl font-bold"
-                                    style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: muted, border: 'none', cursor: 'pointer' }}>
+                                    style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: muted, border: 'none', cursor: 'pointer' }}>
                                     Cancel
                                   </button>
                                   <button onClick={verifyAndComplete} disabled={verifying}
@@ -980,7 +980,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                                   </button>
                                 </div>
                                 {verifyResult && !verifyResult.verified && (
-                                  <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: isNight ? '#0D1020' : '#EEF2FF', border: `1px solid ${isNight ? '#1E2240' : '#C7D2FE'}` }}>
+                                  <div className="rounded-2xl px-4 py-3 text-sm" style={{ background: isNight ? '#0D1020' : '#EEF2FF', border: `1px solid ${isNight ? 'var(--v-card-border)' : '#C7D2FE'}` }}>
                                     <p className="font-bold text-xs mb-1" style={{ color: accent }}>Spirit says:</p>
                                     <p style={{ color: text }}>{verifyResult.spirit_message}</p>
                                   </div>
@@ -1111,7 +1111,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                         className="w-full flex items-center gap-3 px-4 py-3 border-b text-left transition-colors last:border-0"
                         style={{ background: 'none', border: 'none', borderBottom: i < steps.length - 1 ? `1px solid ${border}` : 'none', cursor: 'pointer' }}>
                         <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
-                          style={{ background: isDone ? '#22C55E' : (isNight ? '#1E2240' : '#F3F4F6'), color: isDone ? '#fff' : muted }}>
+                          style={{ background: isDone ? '#22C55E' : (isNight ? 'var(--v-card-border)' : '#F3F4F6'), color: isDone ? '#fff' : muted }}>
                           {isDone ? '✓' : i + 1}
                         </span>
                         <span className="flex-1 text-sm font-medium truncate" style={{ color: isDone ? muted : text, textDecoration: isDone ? 'line-through' : 'none' }}>
@@ -1345,7 +1345,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 {showCommentDrawer && (
                   <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 28 }}
                     className="absolute bottom-0 left-0 right-0 rounded-t-3xl overflow-hidden"
-                    style={{ background: isNight ? '#1F2937' : '#fff', zIndex: 30, maxHeight: '65%' }}
+                    style={{ background: isNight ? 'var(--v-card-bg)' : '#fff', zIndex: 30, maxHeight: '65%' }}
                     onClick={e => e.stopPropagation()}>
                     <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: border }}>
                       <p className="font-black text-sm" style={{ color: text }}>Comments</p>
@@ -1387,7 +1387,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                             placeholder="Add a comment…"
                             maxLength={500}
                             className="flex-1 text-sm px-3 py-2 rounded-xl outline-none"
-                            style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: text, border: 'none' }}
+                            style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: text, border: 'none' }}
                           />
                           <button onClick={submitDrawerComment} disabled={postingComment || !drawerCommentText.trim()}
                             className="px-3 py-2 rounded-xl text-xs font-black"
@@ -1433,7 +1433,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                   <button key={level} onClick={() => changePace(level)} disabled={savingPace}
                     className="w-full text-left rounded-2xl p-4 transition-all"
                     style={{
-                      background: isSelected ? `${p.color}12` : (isNight ? '#1F2937' : '#F9FAFB'),
+                      background: isSelected ? `${p.color}12` : (isNight ? 'var(--v-card-bg)' : '#F9FAFB'),
                       border: `${isSelected ? 2 : 1}px solid ${isSelected ? p.color : border}`,
                       cursor: 'pointer',
                     }}>

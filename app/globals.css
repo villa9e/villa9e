@@ -238,3 +238,47 @@ button, a, [role="button"] {
   display: flex;
   flex-direction: column;
 }
+
+/* ── Responsive App Shell ────────────────────────────────────────── */
+/* On desktop: center the app at 480px, show brand bg behind it     */
+@media (min-width: 640px) {
+  html {
+    background: var(--v-bg-2);
+  }
+  body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    background: var(--v-bg-2);
+  }
+  body > * {
+    width: 100%;
+    max-width: 480px;
+    min-height: 100vh;
+    background: var(--v-bg);
+    box-shadow: 0 0 0 1px var(--v-card-border), 0 8px 48px rgba(41,82,232,0.08);
+    position: relative;
+  }
+  /* Fixed elements stay within the 480px column */
+  .fixed-shell {
+    max-width: 480px;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+}
+
+/* ── Touch / Pointer: swipe cards work with both touch and mouse ── */
+.drag-card {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Responsive spacing helpers ── */
+.app-px  { padding-left: 16px; padding-right: 16px; }
+.app-py  { padding-top: 16px; padding-bottom: 16px; }
+
+@media (min-width: 640px) {
+  .app-px { padding-left: 20px; padding-right: 20px; }
+}

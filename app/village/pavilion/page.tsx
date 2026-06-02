@@ -35,7 +35,7 @@ function ShowCard({ show, isNight, onEnter }: { show: Show; isNight: boolean; on
   const isLive = show.status === 'live';
   const isFree = show.ticket_price === 0;
   const bg     = isNight ? '#1a2332' : '#FFFFFF';
-  const border = isNight ? '#1E2240' : '#EDE9FE';
+  const border = isNight ? 'var(--v-card-border)' : '#EDE9FE';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
   const accent = TYPE_COLORS[show.type] ?? '#7C3AED';
@@ -175,7 +175,7 @@ function ScreeningRoom({ show, onClose, isNight }: { show: Show; onClose: () => 
               />
             </div>
           ) : (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1F2937' }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--v-card-bg)' }}>
               <span style={{ fontSize: 64, marginBottom: 16 }}>{TYPE_ICONS[show.type]}</span>
               <p style={{ color: '#fff', fontWeight: 900, fontSize: 18, marginBottom: 8 }}>{show.title}</p>
               <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, textAlign: 'center', maxWidth: 320, padding: '0 24px' }}>
@@ -243,7 +243,7 @@ function CreateShowModal({ isNight, accent, text, muted, onClose, onCreated }: {
   const [saving, setSaving] = useState(false);
 
   const bg     = isNight ? 'rgba(7,8,15,0.99)' : 'rgba(240,244,255,0.99)';
-  const border = isNight ? '#1E2240' : '#DDD6FE';
+  const border = isNight ? 'var(--v-card-border)' : '#DDD6FE';
   const inputStyle = {
     width: '100%', padding: '11px 14px', borderRadius: 12,
     border: `1px solid ${border}`,
@@ -348,7 +348,7 @@ export default function PavilionPage() {
   const { theme } = useVillageTheme();
   const isNight  = theme === 'night';
 
-  const bg     = isNight ? '#111827' : '#F0F4FF';
+  const bg     = isNight ? 'var(--v-bg)' : '#F0F4FF';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
   const accent = '#6366F1';
@@ -388,7 +388,7 @@ export default function PavilionPage() {
       </AnimatePresence>
 
       {/* Header */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: isNight ? 'rgba(7,8,15,0.96)' : 'rgba(240,244,255,0.96)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${isNight ? '#1E2240' : '#DDD6FE'}`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: isNight ? 'rgba(7,8,15,0.96)' : 'rgba(240,244,255,0.96)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${isNight ? 'var(--v-card-border)' : '#DDD6FE'}`, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <Link href="/village/map" style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: text, textDecoration: 'none', fontSize: 18 }}>←</Link>
         <div style={{ flex: 1 }}>
           <h1 style={{ color: text, fontWeight: 900, fontSize: 16, margin: 0 }}>🎭 Pavilion</h1>

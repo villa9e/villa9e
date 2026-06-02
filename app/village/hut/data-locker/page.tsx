@@ -30,9 +30,9 @@ export default function DataLockerPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#111827' : '#F0FDF4';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#BBF7D0';
+  const bg       = isNight ? 'var(--v-bg)' : '#F0FDF4';
+  const cardBg   = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border   = isNight ? 'var(--v-card-border)' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166534';
   const accent   = isNight ? '#34D399' : '#059669';
@@ -77,7 +77,7 @@ export default function DataLockerPage() {
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#1F2937' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? 'var(--v-card-bg)' : '#fff', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: textMute }}>←</Link>
         <span className="text-2xl">🔐</span>
         <div className="flex-1">
@@ -162,7 +162,7 @@ export default function DataLockerPage() {
                       {/* Toggle switch */}
                       <button onClick={() => toggle(cat.key)}
                         className="relative w-12 h-6 rounded-full flex-shrink-0 transition-colors"
-                        style={{ background: on ? accent : (isNight ? '#1E2240' : '#E5E7EB') }}>
+                        style={{ background: on ? accent : (isNight ? 'var(--v-card-border)' : '#E5E7EB') }}>
                         <span className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
                           style={{ transform: on ? 'translateX(24px)' : 'translateX(0)' }} />
                       </button>
@@ -209,7 +209,7 @@ export default function DataLockerPage() {
           <div className="flex gap-2">
             <a href="/api/data-export" download
               className="flex-1 py-2.5 rounded-xl text-xs font-bold text-center"
-              style={{ background: isNight ? '#1E2240' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA', textDecoration: 'none' }}>
+              style={{ background: isNight ? 'var(--v-card-border)' : '#EEF2FF', color: isNight ? '#7A7FA8' : '#4338CA', textDecoration: 'none' }}>
               📥 Download My Data
             </a>
             <a href="mailto:privacy@villa9e.app?subject=Data Deletion Request"

@@ -18,9 +18,9 @@ export default function SprintPage({ params }: { params: { id: string } }) {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#111827' : '#FFF8EE';
-  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
-  const border  = isNight ? '#1E2240' : '#FED7AA';
+  const bg      = isNight ? 'var(--v-bg)' : 'var(--v-bg)';
+  const cardBg  = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border  = isNight ? 'var(--v-card-border)' : '#FED7AA';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#4A4F72' : '#6B7280';
   const accent  = '#1877F2';
@@ -84,7 +84,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
     <div className="min-h-screen pb-24" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#111827' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? 'var(--v-bg)' : '#fff', borderColor: border }}>
         <Link href={sprint.goal_id ? `/village/workshop/goal/${sprint.goal_id}` : '/village/workshop'}
           className="text-xl" style={{ color: muted }}>←</Link>
         <div className="flex-1">
@@ -128,7 +128,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                 initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
                 transition={{ type: 'spring', damping: 16, stiffness: 280 }}
                 className="w-full max-w-sm rounded-3xl p-8 text-center"
-                style={{ background: isNight ? '#1F2937' : '#fff', border: `1px solid ${border}` }}
+                style={{ background: isNight ? 'var(--v-card-bg)' : '#fff', border: `1px solid ${border}` }}
               >
                 <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 2, repeat: Infinity }}>
                   <span className="text-7xl">⚡</span>
@@ -145,7 +145,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
 
                 {/* Rewards */}
                 <div className="rounded-2xl p-4 mb-5 space-y-2"
-                  style={{ background: isNight ? '#111827' : '#F8FAFF', border: `1px solid ${border}` }}>
+                  style={{ background: isNight ? 'var(--v-bg)' : '#F8FAFF', border: `1px solid ${border}` }}>
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold" style={{ color: muted }}>Village Score</span>
                     <span className="text-sm font-black" style={{ color: '#22C55E' }}>+50 pts</span>
@@ -175,7 +175,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                   </Link>
                   <button onClick={() => setCelebrate(false)}
                     className="w-full py-3 rounded-2xl font-semibold text-sm"
-                    style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: muted }}>
+                    style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: muted }}>
                     Close
                   </button>
                 </div>
@@ -192,7 +192,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
           style={{ background: cardBg, border: `1px solid ${border}` }}>
           <div className="relative w-20 h-20 flex-shrink-0">
             <svg className="w-20 h-20 -rotate-90">
-              <circle cx="40" cy="40" r="36" fill="none" stroke={isNight ? '#1E2240' : '#E5E7EB'} strokeWidth="7" />
+              <circle cx="40" cy="40" r="36" fill="none" stroke={isNight ? 'var(--v-card-border)' : '#E5E7EB'} strokeWidth="7" />
               <circle cx="40" cy="40" r="36" fill="none" stroke={accent} strokeWidth="7"
                 strokeDasharray={circumference}
                 strokeDashoffset={circumference * (1 - pct / 100)}
@@ -294,7 +294,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                   <p className="text-xs font-semibold" style={{ color: isToday ? accent : muted }}>{day}</p>
                   <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                     style={{
-                      background: !hasActions ? (isNight ? '#1E2240' : '#F3F4F6')
+                      background: !hasActions ? (isNight ? 'var(--v-card-border)' : '#F3F4F6')
                         : dayCompleted ? 'rgba(34,197,94,0.2)' : (isNight ? '#1A1F3A' : '#EEF2FF'),
                       border: isToday ? `2px solid ${accent}` : '2px solid transparent',
                       color: dayCompleted ? '#22C55E' : hasActions ? accent : muted,

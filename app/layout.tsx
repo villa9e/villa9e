@@ -49,7 +49,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        {/* Register service worker for PWA */}
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
@@ -62,9 +61,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <PostHogProvider>
           <SpiritVoiceProvider>
             <ThemeSync />
-            {children}
-            <NavSpacer />
-            <BottomNav />
+            <div id="app-shell" style={{ width: '100%', maxWidth: 480, margin: '0 auto', minHeight: '100vh', position: 'relative', background: 'var(--v-bg)' }}>
+              {children}
+              <NavSpacer />
+              <BottomNav />
+            </div>
           </SpiritVoiceProvider>
         </PostHogProvider>
       </body>

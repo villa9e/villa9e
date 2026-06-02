@@ -33,9 +33,9 @@ export default function TribesPage() {
   // ── theme ─────────────────────────────────────────────────────────────────
   const { theme, toggle } = useVillageTheme();
   const isNight  = theme === 'night';
-  const bg       = isNight ? '#111827' : '#FFF0F8';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#FBCFE8';
+  const bg       = isNight ? 'var(--v-bg)' : '#FFF0F8';
+  const cardBg   = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border   = isNight ? 'var(--v-card-border)' : '#FBCFE8';
   const textMain = isNight ? '#F0EBE0' : '#2D0D1F';
   const textMute = isNight ? '#4A4F72' : '#9D174D';
   const accent   = '#DB2777';
@@ -182,7 +182,7 @@ export default function TribesPage() {
       {/* ── top bar ─────────────────────────────────────────────────────── */}
       <div
         className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}
+        style={{ background: isNight ? 'var(--v-card-bg)' : accent, borderColor: isNight ? 'var(--v-card-border)' : 'transparent' }}
       >
         <a href="/village/map" className="text-xl" style={{ color: isNight ? '#F0EBE0' : '#fff' }}>←</a>
         <span className="text-2xl">👥</span>
@@ -194,7 +194,7 @@ export default function TribesPage() {
           <button
             onClick={() => setShowCreate(true)}
             className="rounded-full px-3 py-1 text-sm font-bold"
-            style={{ background: isNight ? '#1E2240' : 'rgba(255,255,255,0.2)', color: '#fff' }}
+            style={{ background: isNight ? 'var(--v-card-border)' : 'rgba(255,255,255,0.2)', color: '#fff' }}
           >
             + Create
           </button>
@@ -202,7 +202,7 @@ export default function TribesPage() {
         <button
           onClick={toggle}
           className="w-9 h-9 rounded-full flex items-center justify-center"
-          style={{ background: isNight ? '#1E2240' : 'rgba(255,255,255,0.15)' }}
+          style={{ background: isNight ? 'var(--v-card-border)' : 'rgba(255,255,255,0.15)' }}
         >
           <span className="text-base">{isNight ? '☀️' : '🌙'}</span>
         </button>
@@ -212,7 +212,7 @@ export default function TribesPage() {
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-0">
         <div
           className="flex rounded-2xl overflow-hidden border"
-          style={{ borderColor: border, background: isNight ? '#1F2937' : '#FCE7F3' }}
+          style={{ borderColor: border, background: isNight ? 'var(--v-card-bg)' : '#FCE7F3' }}
         >
           {(['my', 'discover'] as Tab[]).map(t => (
             <button
@@ -251,7 +251,7 @@ export default function TribesPage() {
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                 placeholder="Tribe name (e.g. 'The EP Squad')"
                 className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
-                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
+                style={{ background: isNight ? 'var(--v-bg)' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
               />
 
               <textarea
@@ -260,13 +260,13 @@ export default function TribesPage() {
                 placeholder="What is this tribe working toward?"
                 rows={3}
                 className="w-full rounded-xl px-4 py-3 text-sm focus:outline-none resize-none"
-                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
+                style={{ background: isNight ? 'var(--v-bg)' : '#FFF0F8', border: `1px solid ${border}`, color: textMain }}
               />
 
               {/* is_public toggle */}
               <div
                 className="flex items-center justify-between rounded-xl px-4 py-3"
-                style={{ background: isNight ? '#111827' : '#FFF0F8', border: `1px solid ${border}` }}
+                style={{ background: isNight ? 'var(--v-bg)' : '#FFF0F8', border: `1px solid ${border}` }}
               >
                 <div>
                   <p className="text-sm font-semibold" style={{ color: textMain }}>Make tribe public</p>
@@ -277,7 +277,7 @@ export default function TribesPage() {
                 <button
                   onClick={() => setForm(f => ({ ...f, is_public: !f.is_public }))}
                   className="w-12 h-6 rounded-full transition-colors relative"
-                  style={{ background: form.is_public ? accent : (isNight ? '#1E2240' : '#FBCFE8') }}
+                  style={{ background: form.is_public ? accent : (isNight ? 'var(--v-card-border)' : '#FBCFE8') }}
                 >
                   <span
                     className="absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all"
@@ -326,7 +326,7 @@ export default function TribesPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ background: isNight ? '#1E2240' : '#FCE7F3' }}
+                        style={{ background: isNight ? 'var(--v-card-border)' : '#FCE7F3' }}
                       >👥</div>
                       <div className="flex-1">
                         <p className="font-bold" style={{ color: textMain }}>{tribe.name}</p>
@@ -357,7 +357,7 @@ export default function TribesPage() {
                         <span
                           key={pill.label}
                           className="flex-1 text-center rounded-full py-2 text-xs font-bold"
-                          style={{ background: isNight ? '#111827' : '#FDF2F8', color: pill.color }}
+                          style={{ background: isNight ? 'var(--v-bg)' : '#FDF2F8', color: pill.color }}
                         >
                           {pill.label}
                         </span>
@@ -440,7 +440,7 @@ export default function TribesPage() {
                     <div className="flex items-start gap-3">
                       <div
                         className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0"
-                        style={{ background: isNight ? '#1E2240' : '#FCE7F3' }}
+                        style={{ background: isNight ? 'var(--v-card-border)' : '#FCE7F3' }}
                       >👥</div>
 
                       <div className="flex-1 min-w-0">
@@ -463,7 +463,7 @@ export default function TribesPage() {
                         <Link href={`/village/tribes/${tribe.id}`}>
                           <button
                             className="rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap transition-all"
-                            style={{ background: isNight ? '#1E2240' : '#FCE7F3', color: accentFg, border: `1px solid ${border}` }}
+                            style={{ background: isNight ? 'var(--v-card-border)' : '#FCE7F3', color: accentFg, border: `1px solid ${border}` }}
                           >
                             View →
                           </button>

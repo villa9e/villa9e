@@ -225,7 +225,7 @@ export default function EditPage() {
       {/* ── MEDIA PREVIEW ────────────────────────────────────────────────────── */}
       <div ref={previewRef} className="flex-1 relative overflow-hidden" style={{ minHeight: 0 }}>
         {session.mediaType === 'text' ? (
-          <div className="absolute inset-0 flex items-center justify-center" style={{ background: '#111827' }}>
+          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'var(--v-bg)' }}>
             <p className="text-white text-2xl font-black text-center px-8">{session.textContent}</p>
           </div>
         ) : session.mediaType === 'photo' ? (
@@ -293,7 +293,7 @@ export default function EditPage() {
             initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', damping: 28, stiffness: 300 }}
             className="flex-shrink-0 overflow-y-auto"
-            style={{ maxHeight: '42%', background: '#111827', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            style={{ maxHeight: '42%', background: 'var(--v-bg)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
 
             {/* ── ADJUST ── */}
             {activeTool === 'adjust' && (

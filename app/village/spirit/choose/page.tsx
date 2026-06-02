@@ -60,7 +60,7 @@ export default function ChooseSpiritPage() {
   }
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: '#111827' }}>
+    <div className="min-h-screen pb-28" style={{ background: 'var(--v-bg)' }}>
       {/* Header */}
       <div className="sticky top-0 z-20 px-4 py-3.5 flex items-center gap-3"
         style={{ background: 'rgba(6,8,16,0.92)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>

@@ -84,7 +84,7 @@ function PostCard({
   const type = detectPostType(post);
 
   const bg     = isNight ? '#1a2332' : '#FFFFFF';
-  const border = isNight ? '1px solid #1E2240' : '1px solid #EDE9FE';
+  const border = isNight ? '1px solid var(--v-card-border)' : '1px solid #EDE9FE';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.38)';
   const accent = '#7C3AED';
@@ -336,7 +336,7 @@ function PostCard({
       {(post.oowop_count || 0) > 0 && (post.oowop_count || 0) < 3 && (
         <div style={{ padding: '0 16px 14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ flex: 1, height: 4, borderRadius: 2, background: isNight ? '#1E2240' : '#EDE9FE' }}>
+            <div style={{ flex: 1, height: 4, borderRadius: 2, background: isNight ? 'var(--v-card-border)' : '#EDE9FE' }}>
               <div style={{
                 height: '100%', borderRadius: 2, transition: 'width 0.4s',
                 width: `${((post.oowop_count || 0) / 3) * 100}%`,
@@ -367,7 +367,7 @@ function PostComposer({
   const [posting, setPosting]       = useState(false);
 
   const bg     = isNight ? '#1a2332' : '#FFFFFF';
-  const border = isNight ? '1px solid #1E2240' : '1px solid #EDE9FE';
+  const border = isNight ? '1px solid var(--v-card-border)' : '1px solid #EDE9FE';
   const muted  = isNight ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.35)';
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
 
@@ -425,7 +425,7 @@ function PostComposer({
         style={{
           width: '100%', resize: 'none', fontSize: 14, outline: 'none', lineHeight: 1.6,
           background: 'transparent', color: text,
-          border: `1px solid ${isNight ? '#1E2240' : '#DDD6FE'}`,
+          border: `1px solid ${isNight ? 'var(--v-card-border)' : '#DDD6FE'}`,
           borderRadius: 12, padding: 12, boxSizing: 'border-box',
         }}
       />
@@ -484,7 +484,7 @@ export default function DreamLinePage() {
   const isNight = theme === 'night';
 
   const accent = '#7C3AED';
-  const pageBg = isNight ? '#111827' : '#F3EFFF';
+  const pageBg = isNight ? 'var(--v-bg)' : '#F3EFFF';
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('DeviceMotionEvent' in window)) return;
@@ -747,7 +747,7 @@ export default function DreamLinePage() {
                     style={{
                       flexShrink: 0, borderRadius: 18, padding: '14px 16px',
                       background: isNight ? '#1a2332' : '#FFFFFF',
-                      border: isNight ? '1px solid #1E2240' : '1px solid #EDE9FE',
+                      border: isNight ? '1px solid var(--v-card-border)' : '1px solid #EDE9FE',
                       width: 220, display: 'flex', flexDirection: 'column', gap: 12,
                     }}
                   >

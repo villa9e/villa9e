@@ -14,9 +14,9 @@ export default function ReferralsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#111827' : '#FFFBF0';
-  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
-  const border  = isNight ? '#1E2240' : '#FED7AA';
+  const bg      = isNight ? 'var(--v-bg)' : '#FFFBF0';
+  const cardBg  = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border  = isNight ? 'var(--v-card-border)' : '#FED7AA';
   const text    = isNight ? '#F0EBE0' : '#1A0A00';
   const muted   = isNight ? '#4A4F72' : '#78350F';
   const accent  = isNight ? '#FBBF24' : '#D97706';
@@ -62,7 +62,7 @@ export default function ReferralsPage() {
     <div className="min-h-screen" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#111827' : '#D97706', borderColor: border }}>
+        style={{ background: isNight ? 'var(--v-bg)' : '#D97706', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: isNight ? muted : 'rgba(255,255,255,0.8)' }}>←</Link>
         <span className="text-2xl">👥</span>
         <div className="flex-1">
@@ -79,7 +79,7 @@ export default function ReferralsPage() {
           <p className="text-xs mb-3" style={{ color: muted }}>Share this link. When someone joins, you both earn 100 $VLG.</p>
           <div className="flex gap-2">
             <div className="flex-1 rounded-xl border px-3 py-2 text-xs font-mono truncate"
-              style={{ background: isNight ? '#0D1020' : '#FFF8EE', border: `1px solid ${border}`, color: muted }}>
+              style={{ background: isNight ? '#0D1020' : 'var(--v-bg)', border: `1px solid ${border}`, color: muted }}>
               {referralLink || 'Loading…'}
             </div>
             <button onClick={copyLink}
@@ -146,7 +146,7 @@ export default function ReferralsPage() {
               {referrals.map((r: any) => (
                 <div key={r.id} className="flex items-center gap-3 py-2 border-b last:border-0" style={{ borderColor: border }}>
                   <div className="w-9 h-9 rounded-2xl flex items-center justify-center text-lg flex-shrink-0"
-                    style={{ background: isNight ? '#1A1F3A' : '#FFF8EE', border: `1px solid ${border}` }}>
+                    style={{ background: isNight ? '#1A1F3A' : 'var(--v-bg)', border: `1px solid ${border}` }}>
                     👤
                   </div>
                   <div className="flex-1 min-w-0">

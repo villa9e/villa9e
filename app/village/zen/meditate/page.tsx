@@ -124,7 +124,7 @@ export default function MeditatePage() {
 
   if (completed) {
     return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,#1F2937 0%,#111827 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,var(--v-card-bg) 0%,var(--v-bg) 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
         <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: 'spring', stiffness: 260, damping: 22 }}
           style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 72, marginBottom: 16 }}>🧘</div>
@@ -152,7 +152,7 @@ export default function MeditatePage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,#1F2937 0%,#111827 100%)', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg,var(--v-card-bg) 0%,var(--v-bg) 100%)', color: '#fff', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <button onClick={() => router.push('/village/zen')}

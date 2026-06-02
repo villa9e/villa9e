@@ -40,9 +40,9 @@ export default function BankPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#111827' : '#FFFBF0';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#FDE68A';
+  const bg       = isNight ? 'var(--v-bg)' : '#FFFBF0';
+  const cardBg   = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border   = isNight ? 'var(--v-card-border)' : '#FDE68A';
   const textMain = isNight ? '#F0EBE0' : '#2D1F0E';
   const textMute = isNight ? '#4A4F72' : '#8B6F47';
   const accent   = isNight ? '#FFB84D' : '#D97706';
@@ -245,13 +245,13 @@ export default function BankPage() {
                 <Link href="/village/hut/data-locker" className="text-xs font-bold" style={{ color: '#1877F2' }}>Manage →</Link>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#111827' : '#FFF8EE' }}>
+                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? 'var(--v-bg)' : 'var(--v-bg)' }}>
                   <p className="text-xs" style={{ color: textMute }}>This Month</p>
                   <p className="font-black text-lg" style={{ color: accent }}>
                     ${parseFloat(dataLocker?.monthly_earnings ?? 0).toFixed(2)}
                   </p>
                 </div>
-                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? '#111827' : '#FFF8EE' }}>
+                <div className="rounded-xl p-3 text-center" style={{ background: isNight ? 'var(--v-bg)' : 'var(--v-bg)' }}>
                   <p className="text-xs" style={{ color: textMute }}>Total Earned</p>
                   <p className="font-black text-lg" style={{ color: accent }}>
                     ${parseFloat(dataLocker?.total_earnings ?? 0).toFixed(2)}
@@ -299,7 +299,7 @@ export default function BankPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-bold text-sm" style={{ color: textMain }}>{opt.title}</p>
                       <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                        style={{ background: opt.available ? (isNight ? '#2D1F00' : '#FEF9C3') : (isNight ? '#1E2240' : '#F3F4F6'), color: opt.available ? accent : textMute }}>
+                        style={{ background: opt.available ? (isNight ? '#2D1F00' : '#FEF9C3') : (isNight ? 'var(--v-card-border)' : '#F3F4F6'), color: opt.available ? accent : textMute }}>
                         {opt.tag}
                       </span>
                     </div>
@@ -333,7 +333,7 @@ export default function BankPage() {
                     <span>{currentTierData.label}</span>
                     <span>{nextTierData.label} at {nextTierData.min} pts</span>
                   </div>
-                  <div className="h-3 rounded-full overflow-hidden mb-2" style={{ background: isNight ? '#1E2240' : '#FDE68A' }}>
+                  <div className="h-3 rounded-full overflow-hidden mb-2" style={{ background: isNight ? 'var(--v-card-border)' : '#FDE68A' }}>
                     <motion.div initial={{ width: 0 }} animate={{ width: `${tierPct}%` }} transition={{ duration: 1, ease: 'easeOut' }}
                       className="h-full rounded-full"
                       style={{ background: `linear-gradient(90deg, ${currentTierData.color}, ${nextTierData.color})` }} />
@@ -366,7 +366,7 @@ export default function BankPage() {
                       <div className="flex flex-wrap gap-1 mt-1">
                         {t.perks.map(perk => (
                           <span key={perk} className="text-xs px-2 py-0.5 rounded-full"
-                            style={{ background: isNight ? '#1E2240' : '#F3F4F6', color: isUnlocked ? textMain : textMute }}>
+                            style={{ background: isNight ? 'var(--v-card-border)' : '#F3F4F6', color: isUnlocked ? textMain : textMute }}>
                             {isUnlocked ? '✓' : '○'} {perk}
                           </span>
                         ))}

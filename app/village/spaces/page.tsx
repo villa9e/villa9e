@@ -634,7 +634,7 @@ function TriggerScreen({ event, onDone }: { event: SpacesEvent; onDone: () => vo
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#111827', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--v-bg)', display: 'flex', flexDirection: 'column' }}>
       <div style={{ background: 'linear-gradient(180deg,#1E0A3C 0%,#150828 100%)', padding: '20px 16px 32px', flexShrink: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 24 }}>
           <button onClick={onDone} style={{ fontSize: 14, fontWeight: 800, color: 'rgba(255,255,255,0.5)', background: 'rgba(255,255,255,0.08)', padding: '6px 14px', borderRadius: 20, border: 'none', cursor: 'pointer' }}>Done</button>
@@ -774,7 +774,7 @@ export default function SpacesPage() {
   }
 
   return (
-    <div style={{ background: '#111827', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ background: 'var(--v-bg)', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
       <BackButton to="/village/hut" />
 
       {/* Header */}

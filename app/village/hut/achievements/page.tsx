@@ -21,9 +21,9 @@ export default function AchievementsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg      = isNight ? '#111827' : '#F8FAFF';
-  const cardBg  = isNight ? '#1F2937' : '#FFFFFF';
-  const border  = isNight ? '#1E2240' : '#E0E7FF';
+  const bg      = isNight ? 'var(--v-bg)' : '#F8FAFF';
+  const cardBg  = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border  = isNight ? 'var(--v-card-border)' : '#E0E7FF';
   const text    = isNight ? '#F0EBE0' : '#1E1B4B';
   const muted   = isNight ? '#4A4F72' : '#6B7280';
 
@@ -68,7 +68,7 @@ export default function AchievementsPage() {
     <div className="min-h-screen pb-24" style={{ background: bg }}>
       {/* Header */}
       <div className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#111827' : '#fff', borderColor: border }}>
+        style={{ background: isNight ? 'var(--v-bg)' : '#fff', borderColor: border }}>
         <Link href="/village/hut" className="text-xl" style={{ color: muted }}>←</Link>
         <div className="flex-1">
           <h1 className="font-black text-base" style={{ color: text }}>Achievements</h1>
@@ -97,7 +97,7 @@ export default function AchievementsPage() {
           <button key={cat} onClick={() => setFilter(cat)}
             className="flex-shrink-0 text-xs font-bold px-3 py-1.5 rounded-full capitalize transition-all"
             style={{
-              background: filter === cat ? '#1877F2' : (isNight ? '#1E2240' : '#EEF2FF'),
+              background: filter === cat ? '#1877F2' : (isNight ? 'var(--v-card-border)' : '#EEF2FF'),
               color:      filter === cat ? '#fff' : muted,
             }}>
             {cat}
@@ -117,7 +117,7 @@ export default function AchievementsPage() {
               transition={{ delay: i * 0.04 }}
               className="rounded-2xl p-4 space-y-2 relative"
               style={{
-                background:  ach.earned ? cardBg : (isNight ? '#111827' : '#F3F4F6'),
+                background:  ach.earned ? cardBg : (isNight ? 'var(--v-bg)' : '#F3F4F6'),
                 border:      `1px solid ${ach.earned ? r.color + '40' : border}`,
                 boxShadow:   ach.earned ? `0 0 16px ${r.glow}` : 'none',
                 opacity:     ach.earned ? 1 : 0.5,

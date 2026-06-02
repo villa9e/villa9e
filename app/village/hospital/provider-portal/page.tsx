@@ -31,9 +31,9 @@ export default function ProviderPortalPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
 
-  const bg       = isNight ? '#111827' : '#F0FDF4';
-  const cardBg   = isNight ? '#1F2937' : '#FFFFFF';
-  const border   = isNight ? '#1E2240' : '#BBF7D0';
+  const bg       = isNight ? 'var(--v-bg)' : '#F0FDF4';
+  const cardBg   = isNight ? 'var(--v-card-bg)' : '#FFFFFF';
+  const border   = isNight ? 'var(--v-card-border)' : '#BBF7D0';
   const textMain = isNight ? '#F0EBE0' : '#052E16';
   const textMute = isNight ? '#4A4F72' : '#166634';
   const accent   = isNight ? '#34D399' : '#059669';
@@ -139,7 +139,7 @@ export default function ProviderPortalPage() {
   return (
     <div className="min-h-screen" style={{ background: bg }}>
       <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 border-b"
-        style={{ background: isNight ? '#1F2937' : accent, borderColor: isNight ? '#1E2240' : 'transparent' }}>
+        style={{ background: isNight ? 'var(--v-card-bg)' : accent, borderColor: isNight ? 'var(--v-card-border)' : 'transparent' }}>
         <Link href="/village/hospital" className="text-xl text-white">←</Link>
         <span className="text-2xl">🏥</span>
         <div className="flex-1">
@@ -199,7 +199,7 @@ export default function ProviderPortalPage() {
 
             <Link href="/village/hospital/join"
               className="block text-center py-3 rounded-2xl text-sm font-bold"
-              style={{ background: isNight ? '#1E2240' : '#ECFDF5', color: textMute }}>
+              style={{ background: isNight ? 'var(--v-card-border)' : '#ECFDF5', color: textMute }}>
               Edit Provider Profile →
             </Link>
           </>
@@ -218,7 +218,7 @@ export default function ProviderPortalPage() {
                 className="w-full flex items-center gap-3 rounded-2xl p-4 text-left transition-all"
                 style={{ background: cardBg, border: `1px solid ${border}` }}>
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black"
-                  style={{ background: isNight ? '#1E2240' : '#ECFDF5', color: accent }}>
+                  style={{ background: isNight ? 'var(--v-card-border)' : '#ECFDF5', color: accent }}>
                   {patient.username?.[0]?.toUpperCase()}
                 </div>
                 <div>
@@ -243,14 +243,14 @@ export default function ProviderPortalPage() {
                   <input type="url" value={imageUrl} onChange={e => setImageUrl(e.target.value)}
                     placeholder="https://res.cloudinary.com/…"
                     className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                    style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                    style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-semibold block mb-1" style={{ color: textMute }}>Eye Side</label>
                     <select value={eyeSide} onChange={e => setEyeSide(e.target.value)}
                       className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                      style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }}>
+                      style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }}>
                       <option value="OD">OD (Right)</option>
                       <option value="OS">OS (Left)</option>
                       <option value="OU">OU (Both)</option>
@@ -261,7 +261,7 @@ export default function ProviderPortalPage() {
                     <input value={patientRef} onChange={e => setPatientRef(e.target.value)}
                       placeholder="Optional"
                       className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                      style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                      style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                   </div>
                 </div>
                 <button onClick={submitDiagnostic} disabled={!imageUrl || submitting}
@@ -319,7 +319,7 @@ export default function ProviderPortalPage() {
                   <button key={p.id} onClick={() => setSelectedPatient(p)}
                     className="flex-shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-all"
                     style={{
-                      background: selectedPatient?.id === p.id ? accent : (isNight ? '#1E2240' : '#ECFDF5'),
+                      background: selectedPatient?.id === p.id ? accent : (isNight ? 'var(--v-card-border)' : '#ECFDF5'),
                       color:      selectedPatient?.id === p.id ? '#fff' : textMute,
                     }}>
                     @{p.username}
@@ -337,7 +337,7 @@ export default function ProviderPortalPage() {
                       <div className="max-w-xs rounded-2xl px-4 py-2.5 text-sm"
                         style={m.sender_is_provider
                           ? { background: accent, color: '#fff', borderBottomRightRadius: 4 }
-                          : { background: isNight ? '#1E2240' : '#F0FDF4', color: textMain, borderBottomLeftRadius: 4 }}>
+                          : { background: isNight ? 'var(--v-card-border)' : '#F0FDF4', color: textMain, borderBottomLeftRadius: 4 }}>
                         {m.content}
                       </div>
                     </div>
@@ -348,7 +348,7 @@ export default function ProviderPortalPage() {
                     onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                     placeholder="Secure message to patient…"
                     className="flex-1 rounded-2xl px-4 py-3 text-sm focus:outline-none"
-                    style={{ background: isNight ? '#111827' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
+                    style={{ background: isNight ? 'var(--v-bg)' : '#ECFDF5', border: `1px solid ${border}`, color: textMain }} />
                   <button onClick={sendMessage} disabled={!msgText.trim() || sending}
                     className="rounded-2xl px-4 py-3 font-bold text-white disabled:opacity-40"
                     style={{ background: accent }}>↑</button>
