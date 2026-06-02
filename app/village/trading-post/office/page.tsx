@@ -62,8 +62,11 @@ export default function OfficePage() {
 
   function openThread(t:any) {
     setThread(t);
+    // Derive context_label: use thread's context_label field, fall back to context, then null
+    const label = t.context_label ?? t.context ?? null;
+    setThread({ ...t, context_label: label });
     setMessages([
-      { role:'them', text:`Hey! ${t.context ? 'Re: '+t.context+'.' : ''} ${t.preview}`, ts: t.ts },
+      { role:'them', text:t.preview, ts: t.ts },
     ]);
   }
 
@@ -85,12 +88,23 @@ export default function OfficePage() {
           <Avatar name={activeThread.name} size={36} />
           <div style={{ flex:1 }}>
             <p style={{ fontSize:14, fontWeight:700, color:text, margin:0 }}>{activeThread.name}</p>
-            {activeThread.context && <p style={{ fontSize:10, color:muted, margin:0 }}>{activeThread.context}</p>}
           </div>
           <button style={{ background:'none', border:'none', cursor:'pointer', color:muted }}>
             <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           </button>
         </div>
+
+        {/* Context pill */}
+        {activeThread.context_label && (
+          <div style={{ display:'flex', justifyContent:'center', padding:'8px 16px', background:bg, borderBottom:`1px solid ${border}` }}>
+            <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:'var(--v-brand-light)', border:'1px solid var(--v-brand)', borderRadius:20, padding:'5px 14px', maxWidth:'100%' }}>
+              <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="var(--v-brand)" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--v-brand-deep)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                {activeThread.context_label}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Messages */}
         <div style={{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:10 }}>

@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 
@@ -34,22 +34,142 @@ const SUGGEST = [
   { id:'s3', display_name:'David Park',    role:'advisor',  mutuals:6 },
 ];
 
+// Mock pending requests
+const MOCK_PENDING = [
+  { id:'p1', from_user_id:'u10', display_name:'Tariq Williams', role:'investor', context:'Matched on FleetOps deal', mutuals:3 },
+  { id:'p2', from_user_id:'u11', display_name:'Sofia Reyes',    role:'founder',  context:'Mutual connection: Jordan Cole', mutuals:5 },
+];
+
+// ── Pending Requests Panel ────────────────────────────────────────────────────
+interface PendingRequest {
+  id: string;
+  from_user_id: string;
+  display_name: string;
+  role: string;
+  context: string;
+  mutuals: number;
+}
+
+function PendingPanel({ requests, onAccept, onDecline, onClose }: {
+  requests: PendingRequest[];
+  onAccept: (req: PendingRequest) => void;
+  onDecline: (req: PendingRequest) => void;
+  onClose: () => void;
+}) {
+  const border = 'var(--v-card-border)';
+  const card   = 'var(--v-card-bg)';
+  const text   = 'var(--v-text)';
+  const muted  = 'var(--v-text-muted)';
+  const sub    = 'var(--v-text-sub)';
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
+      <motion.div initial={{ y:100, opacity:0 }} animate={{ y:0, opacity:1 }} exit={{ y:100, opacity:0 }}
+        style={{ background:card, borderRadius:'24px 24px 0 0', width:'100%', maxWidth:480, maxHeight:'80vh', overflowY:'auto', paddingBottom:'max(24px,env(safe-area-inset-bottom))' }}>
+        {/* Handle */}
+        <div style={{ display:'flex', justifyContent:'center', paddingTop:12, paddingBottom:4 }}>
+          <div style={{ width:36, height:4, borderRadius:2, background:border }} />
+        </div>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 20px 16px' }}>
+          <p style={{ fontSize:16, fontWeight:900, color:text, margin:0 }}>
+            Connection Requests
+            {requests.length > 0 && (
+              <span style={{ marginLeft:8, display:'inline-flex', alignItems:'center', justifyContent:'center', width:22, height:22, borderRadius:11, background:'var(--v-gold)', color:'#fff', fontSize:11, fontWeight:900, verticalAlign:'middle' }}>
+                {requests.length}
+              </span>
+            )}
+          </p>
+          <button onClick={onClose} style={{ background:'none', border:'none', color:muted, fontSize:24, cursor:'pointer', lineHeight:1 }}>×</button>
+        </div>
+
+        {requests.length === 0 ? (
+          <div style={{ padding:'40px 20px', textAlign:'center' }}>
+            <p style={{ fontSize:24, marginBottom:8 }}>🤝</p>
+            <p style={{ fontSize:13, color:muted }}>No pending requests right now.</p>
+          </div>
+        ) : (
+          <div style={{ padding:'0 16px', display:'flex', flexDirection:'column', gap:10 }}>
+            {requests.map(req => (
+              <div key={req.id} style={{ background:'var(--v-bg-2)', border:`1px solid ${border}`, borderRadius:14, padding:'14px' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+                  <Avatar name={req.display_name} size={44} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:14, fontWeight:700, color:text, margin:'0 0 2px' }}>{req.display_name}</p>
+                    <p style={{ fontSize:10, color:muted, margin:'0 0 4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{req.context}</p>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      <span className={`pill ${ROLE_PILL[req.role]??'pill-blue'}`} style={{ fontSize:9, textTransform:'capitalize' }}>{req.role}</span>
+                      <span style={{ fontSize:10, color:sub }}>{req.mutuals} mutual</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
+                  <button onClick={() => onDecline(req)}
+                    style={{ flex:1, padding:'10px 0', borderRadius:12, border:`1px solid ${border}`, background:'transparent', color:muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    Decline
+                  </button>
+                  <button onClick={() => onAccept(req)}
+                    style={{ flex:2, padding:'10px 0', borderRadius:12, background:'var(--v-success)', border:'none', color:'#fff', fontSize:12, fontWeight:900, cursor:'pointer' }}>
+                    Accept
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+}
+
 export default function TribePage() {
   const supabase = createClient();
-  const [connections, setConnections] = useState<any[]>([]);
-  const [filter, setFilter] = useState('All');
-  const [userId, setUserId] = useState('');
-  const [sending, setSending] = useState<string|null>(null);
-  const [sent, setSent]       = useState<Set<string>>(new Set());
+  const [connections, setConnections]   = useState<any[]>([]);
+  const [filter, setFilter]             = useState('All');
+  const [userId, setUserId]             = useState('');
+  const [sending, setSending]           = useState<string|null>(null);
+  const [sent, setSent]                 = useState<Set<string>>(new Set());
+  const [pendingReqs, setPendingReqs]   = useState<PendingRequest[]>(MOCK_PENDING);
+  const [showPending, setShowPending]   = useState(false);
+
+  const bg    = 'var(--v-bg)';
+  const card  = 'var(--v-card-bg)';
+  const border= 'var(--v-card-border)';
+  const text  = 'var(--v-text)';
+  const muted = 'var(--v-text-muted)';
+  const sub   = 'var(--v-text-sub)';
 
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) setUserId(user.id);
-      const { data } = await (supabase as any).from('connections')
-        .select('*,profiles!connections_to_user_id_fkey(username,display_name,personality_type)')
-        .limit(30);
-      setConnections(data && data.length > 0 ? data : MOCK);
+      if (user) {
+        setUserId(user.id);
+        // Load accepted connections
+        const { data: conns } = await (supabase as any)
+          .from('connections')
+          .select('*,profiles!connections_to_user_id_fkey(username,display_name,personality_type)')
+          .eq('pending', false)
+          .limit(30);
+        setConnections(conns && conns.length > 0 ? conns : MOCK);
+
+        // Load pending incoming requests
+        const { data: reqs } = await (supabase as any)
+          .from('connections')
+          .select('*,profiles!connections_from_user_id_fkey(username,display_name)')
+          .eq('to_user_id', user.id)
+          .eq('pending', true);
+        if (reqs && reqs.length > 0) {
+          setPendingReqs(reqs.map((r: any) => ({
+            id: r.id,
+            from_user_id: r.from_user_id,
+            display_name: r.profiles?.display_name ?? r.profiles?.username ?? 'Villager',
+            role: 'member',
+            context: 'Connected through villa9e',
+            mutuals: 0,
+          })));
+        }
+      } else {
+        setConnections(MOCK);
+      }
     })();
   }, []);
 
@@ -60,17 +180,21 @@ export default function TribePage() {
     setSending(null);
   }
 
+  async function acceptRequest(req: PendingRequest) {
+    await (supabase as any).from('connections').update({ pending: false }).eq('id', req.id).catch(()=>{});
+    setPendingReqs(r => r.filter(x => x.id !== req.id));
+    setConnections(c => [...c, { id: req.from_user_id, display_name: req.display_name, role: req.role, context: req.context }]);
+  }
+
+  async function declineRequest(req: PendingRequest) {
+    await (supabase as any).from('connections').delete().eq('id', req.id).catch(()=>{});
+    setPendingReqs(r => r.filter(x => x.id !== req.id));
+  }
+
   const filtered = filter === 'All' ? connections : connections.filter((c:any) => {
     const role = c.role ?? c.profiles?.personality_type ?? '';
     return role.toLowerCase().includes(filter.toLowerCase().replace(' pro',''));
   });
-
-  const bg    = 'var(--v-bg)';
-  const card  = 'var(--v-card-bg)';
-  const border= 'var(--v-card-border)';
-  const text  = 'var(--v-text)';
-  const muted = 'var(--v-text-muted)';
-  const sub   = 'var(--v-text-sub)';
 
   return (
     <div style={{ minHeight:'100vh', background:bg, paddingBottom:90 }}>
@@ -80,7 +204,7 @@ export default function TribePage() {
           <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg> Post
         </Link>
         <p style={{ flex:1, textAlign:'center', fontSize:17, fontWeight:900, color:text }}>Tribe</p>
-        <button style={{ fontSize:12, fontWeight:900, color:'var(--v-success)', textDecoration:'none', background:'var(--v-success-light)', borderRadius:20, padding:'6px 14px', border:'none', cursor:'pointer' }}>
+        <button style={{ fontSize:12, fontWeight:900, color:'var(--v-success)', background:'var(--v-success-light)', borderRadius:20, padding:'6px 14px', border:'none', cursor:'pointer' }}>
           + Invite
         </button>
       </div>
@@ -88,13 +212,20 @@ export default function TribePage() {
       {/* Stats row */}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, padding:'12px 16px', borderBottom:`1px solid ${border}` }}>
         {[
-          { value: connections.length, label:'Connections', color:text },
-          { value: 3, label:'New this week', color:'var(--v-success)' },
-          { value: 1, label:'Pending', color:'var(--v-gold)' },
+          { value: connections.length, label:'Connections', color:text, onClick: undefined },
+          { value: 3, label:'New this week', color:'var(--v-success)', onClick: undefined },
+          { value: pendingReqs.length, label:'Pending', color:'var(--v-gold)', onClick: () => setShowPending(true) },
         ].map(s => (
-          <div key={s.label} style={{ background:'var(--v-bg-2)', borderRadius:10, padding:'10px 8px', textAlign:'center' }}>
+          <div
+            key={s.label}
+            onClick={s.onClick}
+            style={{ background:'var(--v-bg-2)', borderRadius:10, padding:'10px 8px', textAlign:'center', cursor: s.onClick ? 'pointer' : 'default', position:'relative' }}
+          >
             <p style={{ fontSize:18, fontWeight:900, color:s.color, margin:0 }}>{s.value}</p>
             <p style={{ fontSize:9, color:sub, margin:0, letterSpacing:'0.04em' }}>{s.label.toUpperCase()}</p>
+            {s.label === 'Pending' && pendingReqs.length > 0 && (
+              <span style={{ position:'absolute', top:6, right:6, width:8, height:8, borderRadius:4, background:'var(--v-gold)' }} />
+            )}
           </div>
         ))}
       </div>
@@ -124,13 +255,16 @@ export default function TribePage() {
             const context = c.context ?? `Connected through villa9e`;
             return (
               <div key={c.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom: i < filtered.length-1 ? `1px solid ${border}` : 'none' }}>
-                <Avatar name={name} />
+                <Link href={`/village/trading-post/tribe/${c.id ?? c.from_user_id ?? 'unknown'}`} style={{ textDecoration:'none', flexShrink:0 }}>
+                  <Avatar name={name} />
+                </Link>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{name}</p>
+                  <Link href={`/village/trading-post/tribe/${c.id ?? 'unknown'}`} style={{ textDecoration:'none' }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{name}</p>
+                  </Link>
                   <p style={{ fontSize:10, color:muted, margin:'0 0 4px', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{context}</p>
                   <span className={`pill ${ROLE_PILL[role]??'pill-blue'}`} style={{fontSize:9,textTransform:'capitalize'}}>{role}</span>
                 </div>
-                {/* Message + call */}
                 <div style={{ display:'flex', gap:6 }}>
                   <Link href="/village/trading-post/office" style={{ width:32, height:32, borderRadius:16, background:'var(--v-gold-light)', display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}>
                     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--v-gold)" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
@@ -162,6 +296,18 @@ export default function TribePage() {
           ))}
         </div>
       </div>
+
+      {/* Pending requests panel */}
+      <AnimatePresence>
+        {showPending && (
+          <PendingPanel
+            requests={pendingReqs}
+            onAccept={acceptRequest}
+            onDecline={declineRequest}
+            onClose={() => setShowPending(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
