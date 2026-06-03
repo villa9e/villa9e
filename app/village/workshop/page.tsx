@@ -192,11 +192,46 @@ function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount
   card: FeedCard; onOoWop: () => void; onSkip: () => void; onSave: () => void;
   owopped: boolean; saved: boolean; oowopCount: number;
 }) {
+  const [following, setFollowing] = useState(false);
   const SaveSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
   const ThumbDown = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
 
+  // Derive consistent color initials avatar when no avatar_url
+  const AVATAR_COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E'];
+  const username = card.author.username || '?';
+  const avatarColor = AVATAR_COLORS[username.charCodeAt(0) % AVATAR_COLORS.length];
+  const initials = username.slice(0, 1).toUpperCase();
+
   return (
     <div style={{ position: 'absolute', right: 8, bottom: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, zIndex: 20 }}>
+      {/* Creator avatar + follow button */}
+      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 19, overflow: 'hidden', border: '1.5px solid white', position: 'relative', flexShrink: 0 }}>
+          {card.author.avatar_url
+            ? <img src={card.author.avatar_url} alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <div style={{ width: '100%', height: '100%', background: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: '#fff' }}>{initials}</div>
+          }
+        </div>
+        {/* Follow toggle (+/check) overlapping bottom of avatar */}
+        <motion.button
+          whileTap={{ scale: 0.85 }}
+          onClick={() => setFollowing(f => !f)}
+          style={{
+            position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
+            width: 16, height: 16, borderRadius: 8,
+            background: following ? '#0D9488' : '#7C3AED',
+            border: '1.5px solid white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
+        >
+          {following
+            ? <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          }
+        </motion.button>
+      </div>
+
       {/* OoWop */}
       <motion.button whileTap={{ scale: 0.85 }} onClick={onOoWop}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>

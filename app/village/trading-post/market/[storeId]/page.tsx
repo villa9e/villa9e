@@ -115,6 +115,31 @@ export default function EStorePage() {
         </div>
       </div>
 
+      {/* Credentials section */}
+      {store.verified && (
+        <div style={{ padding: '0 16px', marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <p style={{ fontSize: 10, fontWeight: 900, color: '#0D9488', letterSpacing: '0.06em' }}>VERIFIED CREDENTIALS</p>
+            <Link href="/village/hut/verifications" style={{ fontSize: 11, color: 'var(--v-text-muted)', fontWeight: 700, textDecoration: 'none' }}>View all →</Link>
+          </div>
+          {[
+            { type: 'Business License', issuer: 'State of California', date: 'Mar 2023' },
+            { type: 'Professional Certificate', issuer: 'Harvard Business School Online', date: 'Nov 2022' },
+          ].map(cred => (
+            <div key={cred.type} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
+              <div style={{ width: 28, height: 28, borderRadius: 14, background: 'rgba(13,148,136,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth={2.5} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: text, margin: 0 }}>{cred.type}</p>
+                <p style={{ fontSize: 11, color: muted, margin: 0 }}>{cred.issuer} · {cred.date}</p>
+              </div>
+              <span style={{ fontSize: 9, fontWeight: 900, color: '#0D9488', background: 'rgba(13,148,136,0.15)', border: '1px solid rgba(13,148,136,0.3)', borderRadius: 20, padding: '3px 8px', flexShrink: 0 }}>VERIFIED</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Products by type */}
       {Object.entries(byType).map(([type, prods]:any) => {
         const tc = TYPE_COLOR[type] ?? { bg:'var(--v-bg-2)', text:muted, label:type.toUpperCase() };
