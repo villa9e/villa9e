@@ -45,24 +45,53 @@ export type CharacterType =
 
 export type BodyType = 'male' | 'female';
 
+export type SkinUndertone = 'cool' | 'neutral' | 'warm';
+
 export interface AvatarConfig {
-  skin_id:        string;
-  hair_id:        string;
-  hair_color_id:  string;
-  outfit_id:      string;
-  accessory_id:   string;
-  character_type?: CharacterType;   // defaults to 'casual'
-  body_type?:      BodyType;        // defaults to 'male'
+  skin_id:                string;
+  hair_id:                string;
+  hair_color_id:          string;
+  outfit_id:              string;
+  accessory_id:           string;
+  character_type?:        CharacterType;
+  body_type?:             BodyType;
+  // --- New fields added in Avatar Studio v2 ---
+  skin_undertone:         SkinUndertone;
+  face_width:             number;
+  eye_size:               number;
+  nose_shape:             number;
+  jaw_shape:              number;
+  facial_hair_id:         string;
+  face_accessory_id:      string;
+  hat_id:                 string;
+  jewelry_id:             string;
+  background_scene_id:    string;
+  default_idle_animation: string;
+  makeup_lip:             string;
+  makeup_eye:             string;
 }
 
 export const DEFAULT_AVATAR_CONFIG: AvatarConfig = {
-  skin_id:        's5',
-  hair_id:        'h1',
-  hair_color_id:  'c1',
-  outfit_id:      'o2',
-  accessory_id:   'a0',
-  character_type: 'casual',
-  body_type:      'male',
+  skin_id:                's5',
+  hair_id:                'straight',
+  hair_color_id:          'c1',
+  outfit_id:              'o2',
+  accessory_id:           'a0',
+  character_type:         'casual',
+  body_type:              'male',
+  skin_undertone:         'neutral',
+  face_width:             50,
+  eye_size:               50,
+  nose_shape:             50,
+  jaw_shape:              50,
+  facial_hair_id:         'none',
+  face_accessory_id:      'none',
+  hat_id:                 'none',
+  jewelry_id:             'none',
+  background_scene_id:    'gradient',
+  default_idle_animation: 'standard_idle',
+  makeup_lip:             'none',
+  makeup_eye:             'none',
 };
 
 // Resolve character_type + body_type → GLTF URL
