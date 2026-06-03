@@ -7,7 +7,7 @@ import {
   ENERGY_COLORS,
   ENERGY_LABELS,
   fmtTime,
-} from '../page';
+} from '@/lib/spaces/utils';
 
 // ── Re-export mock events builder (same data as Spaces home) ──────────────────
 function buildMockEvents(): SpacesEvent[] {

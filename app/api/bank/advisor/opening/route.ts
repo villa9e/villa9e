@@ -110,3 +110,4 @@ Return JSON only: { "message": "...", "suggestedQuestions": ["...", "...", "..."
     });
   }
 }
+export const dynamic = 'force-dynamic';
