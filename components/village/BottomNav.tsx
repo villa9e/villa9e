@@ -1,22 +1,14 @@
 'use client';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 
 const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/trading-post'];
 const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
-
-// Pages with their own back-button UI — no floating nav here
-const HIDE_PREFIXES = [
-  '/village/hut',
-  '/village/studio',
-  '/village/zen',
-  '/village/hospital',
-  '/village/spaces',
-];
+// Teepee is visible on EVERY village page — no hide prefixes
 
 // Arc radius (px from logo center to icon center)
 const RADIUS = 148;
@@ -69,16 +61,184 @@ function arcPos(angleDeg: number) {
   };
 }
 
+// ── Search Drawer ────────────────────────────────────────────────────────────
+function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [query, setQuery]       = useState('');
+  const [results, setResults]   = useState<any[]>([]);
+  const [loading, setLoading]   = useState(false);
+  const inputRef                = useRef<HTMLInputElement>(null);
+  const router                  = useRouter();
+
+  useEffect(() => {
+    if (open) {
+      setQuery('');
+      setResults([]);
+      setTimeout(() => inputRef.current?.focus(), 300);
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!query.trim()) { setResults([]); return; }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/discover/search?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setResults(data.results ?? []);
+        }
+      } catch { /* silent */ } finally {
+        setLoading(false);
+      }
+    }, 350);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  function goTo(href: string) {
+    onClose();
+    router.push(href);
+  }
+
+  const CATEGORY_COLORS: Record<string, string> = {
+    user: '#1877F2', post: '#7C3AED', market: '#059669',
+    deal: '#D97706', goal: '#BE185D', default: '#4A7A96',
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 200,
+            background: 'rgba(5,8,20,0.98)',
+            backdropFilter: 'blur(24px)',
+            display: 'flex', flexDirection: 'column',
+          }}
+        >
+          {/* Handle bar */}
+          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 4 }}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)' }} />
+          </div>
+
+          {/* Search bar */}
+          <div style={{ padding: '12px 16px 0' }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: 'rgba(255,255,255,0.08)', borderRadius: 14,
+              border: '1.5px solid rgba(255,255,255,0.12)', padding: '10px 14px',
+            }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth={2} strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Search the Village…"
+                style={{
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  color: '#fff', fontSize: 16, fontWeight: 500,
+                }}
+              />
+              {query && (
+                <button onClick={() => setQuery('')} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.4)', fontSize: 18, lineHeight: 1, padding: 0 }}>
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Category pills */}
+          {!query && (
+            <div style={{ padding: '16px 16px 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {[
+                { label: 'People', href: '/village/discover?type=users' },
+                { label: 'Content', href: '/village/discover?type=posts' },
+                { label: 'Market', href: '/village/trading-post/market' },
+                { label: 'Deals', href: '/village/trading-post/deals' },
+                { label: 'Goals', href: '/village/workshop' },
+              ].map(c => (
+                <button key={c.label} onClick={() => goTo(c.href)}
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 20, padding: '8px 16px', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Results */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 120px' }}>
+            {loading && (
+              <div style={{ textAlign: 'center', padding: 32, color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>
+                Searching…
+              </div>
+            )}
+            {!loading && query && results.length === 0 && (
+              <div style={{ textAlign: 'center', padding: 32, color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>
+                No results for &ldquo;{query}&rdquo;
+              </div>
+            )}
+            {results.map((r: any, i: number) => (
+              <button key={i} onClick={() => goTo(r.href ?? '/village/discover')}
+                style={{ width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '12px 14px', marginBottom: 8, cursor: 'pointer' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {r.avatar ? (
+                    <img src={r.avatar} alt="" style={{ width: 36, height: 36, borderRadius: 18, objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: 36, height: 36, borderRadius: 18, background: CATEGORY_COLORS[r.type ?? 'default'] + '33', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <span style={{ fontSize: 16 }}>{r.emoji ?? '🔍'}</span>
+                    </div>
+                  )}
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: 0 }}>{r.title}</p>
+                    {r.subtitle && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.45)', margin: '2px 0 0' }}>{r.subtitle}</p>}
+                  </div>
+                  <div style={{ marginLeft: 'auto' }}>
+                    <span style={{
+                      background: CATEGORY_COLORS[r.type ?? 'default'] + '22',
+                      color: CATEGORY_COLORS[r.type ?? 'default'],
+                      borderRadius: 20, padding: '3px 8px', fontSize: 10, fontWeight: 700,
+                    }}>{r.type ?? 'result'}</span>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Close button */}
+          <div style={{ position: 'absolute', bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))', left: '50%', transform: 'translateX(-50%)' }}>
+            <button onClick={onClose}
+              style={{
+                width: 52, height: 52, borderRadius: 26,
+                background: 'rgba(255,255,255,0.1)', border: '1.5px solid rgba(255,255,255,0.2)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+              }}>
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function BottomNavInner() {
-  const path     = usePathname();
-  const [open, setOpen]         = useState(false);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [initials, setInitials]   = useState('');
+  const path      = usePathname();
+  const [open, setOpen]             = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [avatarUrl, setAvatarUrl]   = useState<string | null>(null);
+  const [initials, setInitials]     = useState('');
+  const [unreadCount, setUnreadCount] = useState(0);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const isVisible = SHOW_PREFIXES.some(p => path.startsWith(p)) &&
-                    !HIDE_EXACT.some(p => path === p) &&
-                    !HIDE_PREFIXES.some(p => path.startsWith(p));
+                    !HIDE_EXACT.some(p => path === p);
 
   useEffect(() => {
     const supabase = createClient();
@@ -94,11 +254,25 @@ function BottomNavInner() {
           const name = data?.display_name || data?.username || '';
           setInitials(name.slice(0, 2).toUpperCase());
         });
+
+      // Load unread notification count
+      (supabase as any)
+        .from('notifications')
+        .select('id', { count: 'exact' })
+        .eq('user_id', user.id)
+        .eq('read', false)
+        .then(({ count }: any) => { if (count) setUnreadCount(count); });
     });
   }, []);
 
-  // Close on route change
+  // Close nav on route change
   useEffect(() => { setOpen(false); }, [path]);
+
+  // Close search when teepee closes
+  const handleTeepeeToggle = useCallback(() => {
+    if (searchOpen) { setSearchOpen(false); return; }
+    setOpen(o => !o);
+  }, [searchOpen]);
 
   if (!isVisible) return null;
 
@@ -106,6 +280,9 @@ function BottomNavInner() {
 
   return (
     <>
+      {/* Search Drawer */}
+      <SearchDrawer open={searchOpen} onClose={() => { setSearchOpen(false); }} />
+
       {/* Backdrop — closes menu on tap */}
       <AnimatePresence>
         {open && (
@@ -161,6 +338,43 @@ function BottomNavInner() {
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </Link>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Magnifying glass — bottom left, appears when open */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            key="search-icon"
+            initial={{ opacity: 0, scale: 0.6, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.6, y: 20 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28, delay: 0.05 }}
+            style={{
+              position: 'fixed',
+              bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+              left: 24,
+              zIndex: 51,
+            }}
+          >
+            <button
+              onClick={() => { setOpen(false); setSearchOpen(true); }}
+              style={{
+                width: ICON_SZ, height: ICON_SZ, borderRadius: ICON_SZ / 2,
+                background: 'rgba(20,20,30,0.85)', backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                border: '2.5px solid rgba(255,255,255,0.6)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+              }}
+              aria-label="Search"
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2.2} strokeLinecap="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -230,7 +444,37 @@ function BottomNavInner() {
         })}
       </AnimatePresence>
 
-      {/* Main trigger button — center bottom, respects 480px shell on desktop */}
+      {/* Notification bell — fixed top right, always visible */}
+      <Link
+        href="/village/notifications"
+        style={{
+          position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', right: 16,
+          zIndex: 47, width: 36, height: 36, borderRadius: 18,
+          background: 'rgba(10,10,18,0.75)', backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+          border: '1px solid rgba(255,255,255,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          textDecoration: 'none',
+        }}
+        aria-label="Notifications"
+      >
+        <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unreadCount > 0 && (
+          <span style={{
+            position: 'absolute', top: -2, right: -2,
+            width: 16, height: 16, borderRadius: 8,
+            background: '#E8170A', color: '#fff',
+            fontSize: 9, fontWeight: 900, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1.5px solid rgba(5,8,20,0.9)',
+          }}>
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </Link>
+
+      {/* Main trigger button — center bottom */}
       <div style={{
         position: 'fixed',
         bottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
@@ -241,7 +485,7 @@ function BottomNavInner() {
       }}>
         <motion.button
           ref={triggerRef}
-          onClick={() => setOpen(o => !o)}
+          onClick={handleTeepeeToggle}
           whileTap={{ scale: 0.92 }}
           style={{
             width: 60,
