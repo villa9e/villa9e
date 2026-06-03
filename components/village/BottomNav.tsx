@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { useNotifications } from '@/lib/hooks/useNotifications';
 
 const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/trading-post'];
 const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
@@ -234,7 +235,7 @@ function BottomNavInner() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [avatarUrl, setAvatarUrl]   = useState<string | null>(null);
   const [initials, setInitials]     = useState('');
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { count: unreadCount }      = useNotifications();
   const triggerRef = useRef<HTMLButtonElement>(null);
 
   const isVisible = SHOW_PREFIXES.some(p => path.startsWith(p)) &&
@@ -254,14 +255,6 @@ function BottomNavInner() {
           const name = data?.display_name || data?.username || '';
           setInitials(name.slice(0, 2).toUpperCase());
         });
-
-      // Load unread notification count
-      (supabase as any)
-        .from('notifications')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id)
-        .eq('read', false)
-        .then(({ count }: any) => { if (count) setUnreadCount(count); });
     });
   }, []);
 

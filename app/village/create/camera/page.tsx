@@ -6,7 +6,7 @@ import { setSessionMedia, setSessionText } from '@/lib/create/session';
 import { useCreateStore, CSS_FILTERS } from '@/lib/create/store';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type CaptureMode    = 'photo' | 'video' | 'text' | 'upload';
+type CaptureMode    = 'photo' | 'video' | 'text' | 'upload' | 'live';
 type VideoDuration  = 30 | 60 | 0;   // 0 = freeform (10 min max)
 type VideoSpeed     = 0.5 | 1 | 2;
 type ScreenFormat   = 'full' | 'split-top' | 'split-bottom';
@@ -148,6 +148,103 @@ function SoundFileIcon() {
 }
 
 // ─── Pill selector sub-component ─────────────────────────────────────────────
+// ─── Go Live Panel ────────────────────────────────────────────────────────────
+function GoLivePanel() {
+  const router = useRouter();
+  const [phase, setPhase] = useState<'idle' | 'countdown' | 'live' | 'ended'>('idle');
+  const [count, setCount] = useState(3);
+  const [elapsed, setElapsed] = useState(0);
+
+  function startCountdown() {
+    setPhase('countdown');
+    setCount(3);
+    let n = 3;
+    const iv = setInterval(() => {
+      n--;
+      if (n <= 0) {
+        clearInterval(iv);
+        goLive();
+      } else {
+        setCount(n);
+      }
+    }, 1000);
+  }
+
+  async function goLive() {
+    setPhase('live');
+    setElapsed(0);
+    // Set is_live = true
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await (supabase as any).from('profiles').update({ is_live: true }).eq('id', user.id);
+        // Track user ID for ending live
+        sessionStorage.setItem('live_user_id', user.id);
+        // Navigate to live viewer (own stream)
+        router.push(`/village/live/${user.id}`);
+      }
+    } catch { /* silent */ }
+  }
+
+  async function endLive() {
+    setPhase('ended');
+    try {
+      const { createClient } = await import('@/lib/supabase/client');
+      const supabase = createClient();
+      const userId = sessionStorage.getItem('live_user_id');
+      if (userId) {
+        await (supabase as any).from('profiles').update({ is_live: false }).eq('id', userId);
+      }
+    } catch { /* silent */ }
+  }
+
+  if (phase === 'idle') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '20px 0 8px' }}>
+        <button onClick={startCountdown}
+          style={{ width: 80, height: 80, borderRadius: 40, background: '#E8170A', border: '4px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 0 32px rgba(232,23,10,0.5)' }}>
+          <svg width={28} height={28} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round">
+            <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/>
+          </svg>
+        </button>
+        <span style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700 }}>Go Live</span>
+      </div>
+    );
+  }
+
+  if (phase === 'countdown') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 0 8px' }}>
+        <motion.span
+          key={count}
+          initial={{ scale: 1.5, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{ fontSize: 72, fontWeight: 900, color: '#E8170A', lineHeight: 1, textShadow: '0 0 40px rgba(232,23,10,0.6)' }}>
+          {count}
+        </motion.span>
+        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 14, fontWeight: 700 }}>Going Live…</span>
+      </div>
+    );
+  }
+
+  if (phase === 'ended') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '20px 0 8px' }}>
+        <p style={{ color: '#fff', fontSize: 15, fontWeight: 700 }}>Stream ended</p>
+        <button onClick={() => router.back()}
+          style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', borderRadius: 20, padding: '8px 20px', cursor: 'pointer', fontSize: 13 }}>
+          Back
+        </button>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 function PillRow<T extends string | number>({
   options, value, onChange, labels,
 }: {
@@ -753,7 +850,24 @@ export default function CameraPage() {
                   onClick={() => setMode('upload')}
                 />
               </label>
+              {/* Go Live tab */}
+              <button
+                onClick={() => setMode('live')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0,
+                  color: mode === 'live' ? '#E8170A' : 'rgba(255,255,255,0.45)',
+                  fontSize: 14, fontWeight: 700,
+                  borderBottom: mode === 'live' ? '2px solid #E8170A' : '2px solid transparent',
+                  paddingBottom: 3,
+                }}>
+                Live
+              </button>
             </div>
+          )}
+
+          {/* Go Live countdown screen */}
+          {mode === 'live' && !isRecording && (
+            <GoLivePanel />
           )}
 
           {/* Record row — always shown (just stop btn during recording) */}

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
@@ -26,6 +26,9 @@ function SignupPageInner() {
   const [step, setStep]         = useState<'account' | 'sent' | 'too_young'>('account');
   const [spotsLeft, setSpotsLeft] = useState<number | null>(null);
   const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameChecking, setUsernameChecking]   = useState(false);
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (ref) localStorage.setItem('villa9e_referrer', ref);
@@ -35,6 +38,34 @@ function SignupPageInner() {
         if (data) setSpotsLeft(Math.max(0, data.max_count - data.count));
       });
   }, [ref]);
+
+  // Real-time username availability check
+  useEffect(() => {
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    if (!username || username.length < 3) {
+      setUsernameAvailable(null);
+      return;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) {
+      setUsernameAvailable(false);
+      return;
+    }
+    setUsernameChecking(true);
+    usernameDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/check-username?handle=${encodeURIComponent(username)}`);
+        const data = await res.json();
+        setUsernameAvailable(data.available ?? false);
+      } catch {
+        setUsernameAvailable(null);
+      } finally {
+        setUsernameChecking(false);
+      }
+    }, 500);
+    return () => {
+      if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+    };
+  }, [username]);
 
   async function handleGoogle() {
     await supabase.auth.signInWithOAuth({
@@ -231,13 +262,26 @@ function SignupPageInner() {
 
           {/* Form */}
           <form onSubmit={handleSignup} className="space-y-3">
-            <input
-              value={username}
-              onChange={e => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-              placeholder="Username (letters, numbers, _)"
-              required minLength={3} maxLength={30}
-              {...fieldProps('username')}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                value={username}
+                onChange={e => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); setUsernameAvailable(null); }}
+                placeholder="Username (letters, numbers, _)"
+                required minLength={3} maxLength={20}
+                {...fieldProps('username')}
+              />
+              {username.length >= 3 && (
+                <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', fontSize: 12, fontWeight: 700 }}>
+                  {usernameChecking ? (
+                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>…</span>
+                  ) : usernameAvailable === true ? (
+                    <span style={{ color: '#4CAF50' }}>✓ @{username} available</span>
+                  ) : usernameAvailable === false ? (
+                    <span style={{ color: '#f87171' }}>✗ Taken</span>
+                  ) : null}
+                </div>
+              )}
+            </div>
             <input
               type="email"
               value={email}
