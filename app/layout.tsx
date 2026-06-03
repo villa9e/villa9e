@@ -10,9 +10,9 @@ import { SpiritVoiceProvider } from '@/components/village/SpiritVoiceProvider';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'villa9e — It takes a village.',
-  description: 'A GPS system for your goals. Set goals, build GPS plans with AI, validate progress with your village, and earn $VLG.',
-  themeColor: '#1877F2',
+  title: 'The Village — It takes a village.',
+  description: 'GPS for your goals. Community, commerce, wellness, and finance — all in one. Powered by Legaci Jackson.',
+  themeColor: '#0033CC',
   manifest: '/manifest.json',
   metadataBase: new URL('https://villa9e.app'),
   icons: {
@@ -20,22 +20,22 @@ export const metadata: Metadata = {
     apple: '/favicon.png',
   },
   openGraph: {
-    title: 'villa9e — It takes a village.',
-    description: 'A GPS system for your goals. Set goals, build GPS plans with AI, validate progress with your village, and earn $VLG.',
+    title: 'The Village — It takes a village.',
+    description: 'GPS for your goals. Community, commerce, wellness, and finance — all in one.',
     url: 'https://villa9e.app',
-    siteName: 'villa9e',
+    siteName: 'The Village',
     type: 'website',
     images: [{
       url: '/api/og',
       width: 1200,
       height: 630,
-      alt: 'villa9e — It takes a village.',
+      alt: 'The Village — It takes a village.',
     }],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'villa9e — It takes a village.',
-    description: 'A GPS system for your goals. Set goals, build GPS plans with AI, validate progress with your village.',
+    title: 'The Village — It takes a village.',
+    description: 'GPS for your goals. Community, commerce, wellness, and finance — all in one.',
     images: ['/api/og'],
   },
   robots: {

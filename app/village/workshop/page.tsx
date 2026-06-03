@@ -634,13 +634,16 @@ export default function WorkshopPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center" style={{ background: '#080E24' }}>
-        <div className="space-y-4 text-center">
-          <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}>
-            <img src="/village-teepee-logo.png" alt="Workshop" style={{ width: 64, height: 64, margin: '0 auto' }} />
-          </motion.div>
-          <p className="text-sm font-black" style={{ color: '#4D72FF', letterSpacing: '0.08em' }}>WORKSHOP</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Loading your feed…</p>
+      <div style={{ background: '#000', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
+        {/* Loading MP4 — full screen */}
+        <video
+          autoPlay muted loop playsInline
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+          src="/loading.mp4"
+        />
+        {/* Overlay text */}
+        <div style={{ position: 'relative', zIndex: 10, textAlign: 'center' }}>
+          <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }}>WORKSHOP</p>
         </div>
       </div>
     );
