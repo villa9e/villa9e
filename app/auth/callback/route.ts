@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       // Safety net: ensure profile exists (trigger may not have fired for OAuth)
       const { data: profile } = await supabase
         .from('profiles')
-        .select('onboarding_complete, username')
+        .select('onboarding_completed, username')
         .eq('id', user.id)
         .single();
 
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
         }, { onConflict: 'id' });
       }
 
-      if (!profile?.onboarding_complete) {
-        return NextResponse.redirect(`${origin}/onboarding/spirit`);
+      if (!profile?.onboarding_completed) {
+        return NextResponse.redirect(`${origin}/village/onboarding`);
       }
     }
   }

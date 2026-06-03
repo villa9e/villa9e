@@ -113,7 +113,17 @@ function SignupPageInner() {
 
     // If Supabase auto-confirms (no email verification required), session is returned immediately
     if (signupData?.session) {
-      router.push('/village/workshop?welcome=1');
+      // Check if onboarding already completed (e.g. returning user)
+      const { data: profile } = await (supabase as any)
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', signupData.session.user.id)
+        .single();
+      if (profile?.onboarding_completed) {
+        router.push('/village/workshop');
+      } else {
+        router.push('/village/onboarding');
+      }
       return;
     }
 
