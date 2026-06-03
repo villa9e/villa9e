@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { QRCodeSVG } from 'qrcode.react';
 
 // ── Number formatter ──────────────────────────────────────────────
 function fmt(n: number) {
@@ -269,12 +270,12 @@ function CountPill({ icon, count, label, onTap }: { icon: React.ReactNode; count
 }
 
 // ── More bottom sheet ─────────────────────────────────────────────
-function MoreMenu({ onClose }: { onClose: () => void }) {
+function MoreMenu({ onClose, onShareProfile }: { onClose: () => void; onShareProfile: () => void }) {
   const items = [
-    { icon: <IconShare />, label: 'Share Profile' },
-    { icon: <IconQR />, label: 'Scan QR Code' },
-    { icon: <IconBlock />, label: 'Block' },
-    { icon: <IconFlag />, label: 'Report' },
+    { icon: <IconShare />, label: 'Share Profile', action: onShareProfile },
+    { icon: <IconQR />, label: 'Scan QR Code', action: onClose },
+    { icon: <IconBlock />, label: 'Block', action: onClose },
+    { icon: <IconFlag />, label: 'Report', action: onClose },
   ];
   return (
     <motion.div
@@ -303,7 +304,7 @@ function MoreMenu({ onClose }: { onClose: () => void }) {
         {items.map(it => (
           <button
             key={it.label}
-            onClick={onClose}
+            onClick={() => { it.action(); if (it.label !== 'Share Profile') onClose(); }}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -322,6 +323,107 @@ function MoreMenu({ onClose }: { onClose: () => void }) {
             {it.label}
           </button>
         ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ── QR Share Modal ────────────────────────────────────────────────
+function QRShareModal({ username, onClose }: { username: string; onClose: () => void }) {
+  const profileUrl = `https://villa9e.app/${username}`;
+  const [copied, setCopied] = useState(false);
+
+  function copyLink() {
+    navigator.clipboard.writeText(profileUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(() => {
+      // Fallback for environments without clipboard API
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function nativeShare() {
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      (navigator as any).share({ title: `@${username} on villa9e`, url: profileUrl }).catch(() => {});
+    } else {
+      copyLink();
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ y: 60, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 60, opacity: 0 }}
+        onClick={e => e.stopPropagation()}
+        style={{
+          width: '100%',
+          maxWidth: 480,
+          background: '#0E1630',
+          borderRadius: '24px 24px 0 0',
+          padding: '20px 24px 48px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 0,
+        }}
+      >
+        {/* Handle */}
+        <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)', marginBottom: 20 }} />
+
+        {/* Title */}
+        <p style={{ fontWeight: 900, fontSize: 18, color: '#F0F4FF', marginBottom: 20 }}>Share Profile</p>
+
+        {/* QR code */}
+        <div style={{ padding: 16, background: '#FFFFFF', borderRadius: 20, marginBottom: 16 }}>
+          <QRCodeSVG
+            value={profileUrl}
+            size={240}
+            bgColor="#FFFFFF"
+            fgColor="#0033CC"
+            level="M"
+          />
+        </div>
+
+        {/* Username */}
+        <p style={{ fontSize: 16, fontWeight: 800, color: '#F0F4FF', marginBottom: 4 }}>@{username}</p>
+        <p style={{ fontSize: 13, color: 'rgba(240,244,255,0.4)', marginBottom: 24 }}>{profileUrl}</p>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+          <button
+            onClick={copyLink}
+            style={{ flex: 1, padding: '13px 0', borderRadius: 16, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: copied ? '#1D9E75' : '#F0F4FF', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            {copied ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copy link
+              </>
+            )}
+          </button>
+          <button
+            onClick={nativeShare}
+            style={{ flex: 1, padding: '13px 0', borderRadius: 16, background: '#4D72FF', border: 'none', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.59 13.51l6.83 3.98M15.41 6.51l-6.82 3.98"/></svg>
+            Share
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -489,6 +591,7 @@ export default function HutPage() {
   const [hasActiveStory, setHasActiveStory] = useState(false);
   const [tab, setTab] = useState<ContentTab>('grid');
   const [showMore, setShowMore] = useState(false);
+  const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pillModal, setPillModal] = useState<PillType | null>(null);
 
@@ -526,8 +629,8 @@ export default function HutPage() {
       draftsRes,
       storiesRes,
     ] = await Promise.allSettled([
-      // profiles
-      (supabase as any).from('profiles').select('*').eq('id', user.id).single(),
+      // profiles — include is_live and is_online for ring color
+      (supabase as any).from('profiles').select('*, is_live, is_online').eq('id', user.id).single(),
       // following count (requester)
       (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted'),
       // tribe/followers count (addressee)
@@ -628,10 +731,19 @@ export default function HutPage() {
     ? oowopedPosts
     : [];
 
-  // Determine story ring style
-  const storyRing = hasActiveStory
-    ? { padding: 3, background: '#1D9E75' }
-    : { padding: 3, background: 'rgba(255,255,255,0.1)' };
+  // Determine ring color based on priority:
+  // 1. Red (#E24B4A) — is_live
+  // 2. Green (#1D9E75) — active story within 24h
+  // 3. Royal blue (#2952E8) — is_online
+  // 4. Navy (#0033CC) — offline default
+  const ringColor = profile?.is_live
+    ? '#E24B4A'
+    : hasActiveStory
+    ? '#1D9E75'
+    : profile?.is_online
+    ? '#2952E8'
+    : '#0033CC';
+  const storyRing = { padding: 3, background: ringColor };
 
   // ── Mock highlights (fallback if none in DB) ───────────────────
   const shownHighlights: { id: string; title: string }[] =
@@ -1071,7 +1183,18 @@ export default function HutPage() {
 
       {/* ── Modals ──────────────────────────────────────────────── */}
       <AnimatePresence>
-        {showMore && <MoreMenu onClose={() => setShowMore(false)} />}
+        {showMore && (
+        <MoreMenu
+          onClose={() => setShowMore(false)}
+          onShareProfile={() => { setShowMore(false); setShowQR(true); }}
+        />
+      )}
+      {showQR && (
+        <QRShareModal
+          username={profile?.username ?? 'me'}
+          onClose={() => setShowQR(false)}
+        />
+      )}
         {pillModal && (
           <PillSheet type={pillModal} onClose={() => setPillModal(null)} />
         )}
