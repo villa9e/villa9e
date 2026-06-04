@@ -581,6 +581,7 @@ export default function HutPage() {
     testimonials: 0,
     deals: 0,
   });
+  const [vlgBalance, setVlgBalance] = useState<number>(0);
   const [hasStore, setHasStore] = useState(false);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
@@ -657,7 +658,11 @@ export default function HutPage() {
       (supabase as any).from('stories').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
     ]);
 
-    if (profRes.status === 'fulfilled') setProfile(profRes.value.data);
+    if (profRes.status === 'fulfilled') {
+      setProfile(profRes.value.data);
+      const bal = parseFloat(profRes.value.data?.vlg_balance ?? '0') || 0;
+      setVlgBalance(bal);
+    }
     if (postsRes.status === 'fulfilled') setPosts(postsRes.value.data ?? []);
     if (pinnedRes.status === 'fulfilled') setPinnedPosts(pinnedRes.value.data ?? []);
     if (highlightsRes.status === 'fulfilled') setHighlights(highlightsRes.value.data ?? []);
@@ -906,6 +911,31 @@ export default function HutPage() {
           <Stat n={stats.tribe} label="Tribe" href="/village/tribes" />
           <Stat n={stats.oowops} label="OoWops" />
         </div>
+      </div>
+
+      {/* $VLG balance pill */}
+      <div style={{ padding: '0 16px 10px' }}>
+        <Link
+          href="/village/hut/vlg-wallet"
+          style={{
+            display:        'inline-flex',
+            alignItems:     'center',
+            gap:            8,
+            background:     'rgba(239,159,39,0.1)',
+            border:         '1px solid rgba(239,159,39,0.25)',
+            borderRadius:   999,
+            padding:        '6px 16px',
+            textDecoration: 'none',
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF9F27" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 6v6l4 2" />
+          </svg>
+          <span style={{ fontSize: 13, fontWeight: 800, color: '#EF9F27' }}>
+            {vlgBalance.toLocaleString()} $VLG
+          </span>
+        </Link>
       </div>
 
       {/* ── Bio + Counts ────────────────────────────────────────── */}

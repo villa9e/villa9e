@@ -269,10 +269,19 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         });
         setCompletedSteps(prev => new Set([...prev, currentStep.id]));
         setSteps(prev => prev.map(s => s.id === currentStep.id ? { ...s, status: 'completed' } : s));
-        const doneCount = completedSteps.size + 1;
-        setGoal((g: any) => g ? { ...g, progress_percentage: Math.round((doneCount / steps.length) * 100) } : g);
+        const newDoneCount = completedSteps.size + 1;
+        setGoal((g: any) => g ? { ...g, progress_percentage: Math.round((newDoneCount / steps.length) * 100) } : g);
         setShowVerifyInput(false);
         setVerifyNotes('');
+        // Award 200 $VLG if all steps are complete (goal done)
+        if (newDoneCount >= steps.length && steps.length > 0) {
+          setGoal((g: any) => g ? { ...g, gps_stage: 'complete', status: 'completed' } : g);
+          fetch('/api/vlg/earn', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ reason: 'goal_complete', amount: 200, source_id: params.id }),
+          }).catch(() => {});
+        }
         // Auto-advance after brief delay
         setTimeout(goToNextAction, 800);
       }

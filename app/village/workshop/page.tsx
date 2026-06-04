@@ -616,6 +616,12 @@ export default function WorkshopPage() {
     } else if (card.type === 'video') {
       (supabase as any).from('studio_videos').update({ oowop_count: (card.oowops ?? 0) + 1 }).eq('id', cardId).catch(() => {});
     }
+    // Award 1 $VLG for first-time OoWop (fire-and-forget)
+    fetch('/api/vlg/earn', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ reason: 'oowop_earned', amount: 1, source_id: cardId }),
+    }).catch(() => {});
   }
 
   function handleSkip(cardId: string) {

@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -46,6 +46,94 @@ function ShareIcon() {
   );
 }
 
+function CameraIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  );
+}
+
+function GalleryIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <circle cx="8.5" cy="8.5" r="1.5" />
+      <polyline points="21,15 16,10 5,21" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+      <polyline points="14,2 14,8 20,8" />
+    </svg>
+  );
+}
+
+function LinkIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+      <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+function TeepeeIcon({ pulsing }: { pulsing?: boolean }) {
+  return (
+    <motion.svg
+      width="48" height="48" viewBox="0 0 48 48" fill="none" aria-hidden="true"
+      animate={pulsing ? { scale: [1, 1.12, 1] } : {}}
+      transition={pulsing ? { repeat: Infinity, duration: 1.2, ease: 'easeInOut' } : {}}
+    >
+      <polygon points="24,4 44,44 4,44" fill="none" stroke="#0EA5E9" strokeWidth="2.5" strokeLinejoin="round" />
+      <line x1="24" y1="4" x2="24" y2="44" stroke="#0EA5E9" strokeWidth="1.5" />
+      <line x1="19" y1="4" x2="12" y2="0" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="24" y1="4" x2="24" y2="0" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="29" y1="4" x2="36" y2="0" stroke="#0EA5E9" strokeWidth="1.5" strokeLinecap="round" />
+    </motion.svg>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// VLG toast
+// ---------------------------------------------------------------------------
+function VlgToast({ amount, onDone }: { amount: number; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 2200);
+    return () => clearTimeout(t);
+  }, [onDone]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 40, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      transition={{ type: 'spring', damping: 18, stiffness: 350 }}
+      style={{
+        position: 'fixed',
+        bottom: 100,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 80,
+        background: 'rgba(239,159,39,0.95)',
+        borderRadius: 999,
+        padding: '10px 22px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        boxShadow: '0 8px 32px rgba(239,159,39,0.4)',
+      }}
+    >
+      <span style={{ fontSize: 16, fontWeight: 900, color: '#fff' }}>+{amount} $VLG earned</span>
+    </motion.div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Sprint celebration overlay (spec §11.4)
 // ---------------------------------------------------------------------------
@@ -68,7 +156,6 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
     : '';
 
   async function startNextSprint() {
-    // Try to find and activate next sprint
     try {
       const res = await fetch('/api/sprints/next', {
         method: 'POST',
@@ -93,12 +180,6 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
       const goalTitle = sprint.goal_title ?? sprint.title ?? 'my goal';
       const sprintNum = sprint.sprint_number ?? '';
       const content   = `I just completed Sprint ${sprintNum} of ${goalTitle}!`;
-      await fetch('/api/dreamline/feed', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, type: 'sprint_complete', source_id: sprint.id }),
-      }).catch(() => {});
-      // Fallback to dream_line_posts table if dedicated endpoint not ready
       await fetch('/api/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,7 +199,6 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
       className="fixed inset-0 z-[60] flex items-center justify-center p-6"
       style={{ background: '#0a0a0f' }}
     >
-      {/* Inner card */}
       <motion.div
         initial={{ scale: 0.75, y: 40 }}
         animate={{ scale: 1, y: 0 }}
@@ -126,158 +206,431 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
         transition={{ type: 'spring', damping: 18, stiffness: 300 }}
         className="w-full max-w-sm flex flex-col items-center text-center"
       >
-        {/* Badge icon — 90px circle with amber-teal gradient border */}
+        {/* Badge icon */}
         <div
-          className="flex items-center justify-center rounded-full mb-5"
-          style={{
-            width: 90,
-            height: 90,
-            background: '#0a0a0f',
-            border: '2px solid transparent',
-            backgroundClip: 'padding-box',
-            boxShadow: '0 0 0 2px transparent',
-            position: 'relative',
-          }}
+          style={{ width: 90, height: 90, position: 'relative', marginBottom: 20 }}
         >
-          {/* Gradient border workaround */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #F59E0B, #0EA5E9)',
-              zIndex: 0,
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              inset: 2,
-              borderRadius: '50%',
-              background: '#0a0a0f',
-              zIndex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
+          <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'linear-gradient(135deg, #F59E0B, #0EA5E9)', zIndex: 0 }} />
+          <div style={{ position: 'absolute', inset: 2, borderRadius: '50%', background: '#0a0a0f', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <BadgeIcon size={44} />
           </div>
         </div>
 
-        {/* Title */}
         <h2 style={{ fontSize: 22, fontWeight: 900, color: '#ffffff', lineHeight: 1.2, marginBottom: 6 }}>
           Sprint complete!
         </h2>
-
-        {/* Subtitle — sprint title */}
         <p style={{ fontSize: 15, color: '#6B7280', marginBottom: 20 }}>
           {sprint?.title ?? 'Weekly Sprint'}
         </p>
 
-        {/* Stats row — 3 tiles */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr 1fr',
-            gap: 8,
-            width: '100%',
-            marginBottom: 20,
-          }}
-        >
+        {/* Stats row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, width: '100%', marginBottom: 20 }}>
           {[
             { label: 'Sprint', value: sprint?.sprint_number ? `#${sprint.sprint_number}` : '—' },
             { label: 'Week',   value: weekRange || '—' },
             { label: 'Done',   value: `${done}/${total}` },
           ].map(({ label, value }) => (
-            <div
-              key={label}
-              style={{
-                background: '#111118',
-                borderRadius: 12,
-                padding: '10px 6px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 3,
-              }}
-            >
-              <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {label}
-              </span>
-              <span style={{ fontSize: 13, color: '#F0EBE0', fontWeight: 800 }}>
-                {value}
-              </span>
+            <div key={label} style={{ background: '#111118', borderRadius: 12, padding: '10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+              <span style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+              <span style={{ fontSize: 13, color: '#F0EBE0', fontWeight: 800 }}>{value}</span>
             </div>
           ))}
         </div>
 
         {/* $VLG earned pill */}
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6,
-            background: 'rgba(245,158,11,0.12)',
-            border: '1px solid rgba(245,158,11,0.25)',
-            borderRadius: 999,
-            padding: '6px 16px',
-            marginBottom: 28,
-          }}
-        >
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 999, padding: '6px 16px', marginBottom: 28 }}>
           <span style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B' }}>+50 $VLG</span>
         </div>
 
         {/* Buttons */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-          <button
-            onClick={startNextSprint}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              borderRadius: 16,
-              background: '#0EA5E9',
-              color: '#ffffff',
-              fontSize: 15,
-              fontWeight: 700,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
+          <button onClick={startNextSprint} style={{ width: '100%', padding: '14px 20px', borderRadius: 16, background: '#0EA5E9', color: '#ffffff', fontSize: 15, fontWeight: 700, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             Start next sprint
             <ArrowRightIcon />
           </button>
-
-          <button
-            onClick={shareToDreamLine}
-            disabled={sharing}
-            style={{
-              width: '100%',
-              padding: '14px 20px',
-              borderRadius: 16,
-              background: '#1877F2',
-              color: '#ffffff',
-              fontSize: 15,
-              fontWeight: 700,
-              border: 'none',
-              cursor: sharing ? 'not-allowed' : 'pointer',
-              opacity: sharing ? 0.7 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-            }}
-          >
+          <button onClick={shareToDreamLine} disabled={sharing} style={{ width: '100%', padding: '14px 20px', borderRadius: 16, background: '#1877F2', color: '#ffffff', fontSize: 15, fontWeight: 700, border: 'none', cursor: sharing ? 'not-allowed' : 'pointer', opacity: sharing ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
             Share to DreamLine
             <ShareIcon />
           </button>
         </div>
       </motion.div>
     </motion.div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Verification bottom sheet
+// ---------------------------------------------------------------------------
+
+type VerifMethod = 'photo' | 'video' | 'screenshot' | 'document' | 'social_url' | 'text';
+
+const SOCIAL_PLATFORMS = ['Instagram', 'Twitter', 'LinkedIn', 'TikTok', 'YouTube', 'Other'];
+
+interface VerifySheetProps {
+  action: any;
+  actionLevel: number;
+  onClose: () => void;
+  onVerified: (result: { sprintCompleted: boolean; vlgEarned: number }) => void;
+}
+
+function VerifySheet({ action, actionLevel, onClose, onVerified }: VerifySheetProps) {
+  const method: VerifMethod = action.verification_method ?? 'text';
+
+  const [preview, setPreview]           = useState<string | null>(null);
+  const [previewFile, setPreviewFile]   = useState<File | null>(null);
+  const [socialUrl, setSocialUrl]       = useState('');
+  const [platform, setPlatform]         = useState('');
+  const [text, setText]                 = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [reviewing, setReviewing]       = useState(false);
+  const [error, setError]               = useState('');
+  const cameraRef  = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const docRef     = useRef<HTMLInputElement>(null);
+
+  function handleFileSelect(file: File) {
+    setPreviewFile(file);
+    const reader = new FileReader();
+    reader.onload = e => setPreview(e.target?.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  async function submit() {
+    setError('');
+    if (method === 'text' && text.length < 50) {
+      setError('Please write at least 50 characters.');
+      return;
+    }
+    if ((method === 'social_url') && !socialUrl.startsWith('http')) {
+      setError('Please enter a valid URL starting with http.');
+      return;
+    }
+    if (['photo', 'video', 'screenshot', 'document'].includes(method) && !preview) {
+      setError('Please select a file first.');
+      return;
+    }
+
+    setSubmitting(true);
+    setReviewing(true);
+
+    // Wait 1.5s for animation
+    await new Promise(r => setTimeout(r, 1500));
+
+    let proof_data: string = '';
+    if (method === 'social_url') {
+      proof_data = socialUrl;
+    } else if (method === 'text') {
+      proof_data = text;
+    } else {
+      proof_data = preview ?? '';
+    }
+
+    try {
+      const res = await fetch(`/api/actions/${action.id}/verify`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          verification_method: method,
+          proof_data,
+          action_level: actionLevel,
+        }),
+      });
+      const data = await res.json();
+
+      if (!data.verified) {
+        setReviewing(false);
+        setSubmitting(false);
+        setError(data.message ?? 'Verification failed. Please try again.');
+        return;
+      }
+
+      setReviewing(false);
+      onVerified({ sprintCompleted: data.sprintCompleted, vlgEarned: data.vlgEarned ?? 10 });
+    } catch {
+      setReviewing(false);
+      setSubmitting(false);
+      setError('Something went wrong. Please try again.');
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={submitting ? undefined : onClose}
+        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 40 }}
+      />
+
+      {/* Sheet */}
+      <motion.div
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+        style={{
+          position:     'fixed',
+          bottom:       0,
+          left:         0,
+          right:        0,
+          height:       '70vh',
+          background:   '#0E1630',
+          borderRadius: '24px 24px 0 0',
+          zIndex:       50,
+          display:      'flex',
+          flexDirection:'column',
+          overflow:     'hidden',
+        }}
+      >
+        {/* Handle bar */}
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 8, flexShrink: 0 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 999, background: 'rgba(255,255,255,0.18)' }} />
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px 32px' }}>
+          {/* Title */}
+          <h3 style={{ fontSize: 17, fontWeight: 900, color: '#F0EBE0', marginBottom: 4 }}>
+            Verify Action
+          </h3>
+          <p style={{ fontSize: 14, color: '#93C5FD', marginBottom: 16, fontWeight: 600 }}>
+            {action.title}
+          </p>
+
+          {/* Verification method label */}
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(14,165,233,0.12)', border: '1px solid rgba(14,165,233,0.25)', borderRadius: 999, padding: '4px 12px', marginBottom: 20 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#38BDF8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {method.replace('_', ' ')}
+            </span>
+          </div>
+
+          {/* --- Spirit reviewing overlay --- */}
+          {reviewing && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '32px 0' }}>
+              <TeepeeIcon pulsing />
+              <p style={{ fontSize: 15, fontWeight: 700, color: '#93C5FD' }}>Spirit is reviewing...</p>
+            </div>
+          )}
+
+          {/* --- PHOTO / VIDEO --- */}
+          {!reviewing && (method === 'photo' || method === 'video') && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Hidden inputs */}
+              <input
+                ref={cameraRef}
+                type="file"
+                accept={method === 'video' ? 'image/*,video/*' : 'image/*,video/*'}
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*,video/*"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+
+              {preview ? (
+                <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 8 }}>
+                  <img src={preview} alt="Preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
+                  <button
+                    onClick={() => { setPreview(null); setPreviewFile(null); }}
+                    style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: 999, color: '#fff', width: 28, height: 28, cursor: 'pointer', fontSize: 14 }}
+                  >
+                    x
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button
+                    onClick={() => cameraRef.current?.click()}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 12px', background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)', borderRadius: 16, color: '#F0EBE0', cursor: 'pointer' }}
+                  >
+                    <CameraIcon />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Take a photo/video</span>
+                  </button>
+                  <button
+                    onClick={() => galleryRef.current?.click()}
+                    style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 12px', background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)', borderRadius: 16, color: '#F0EBE0', cursor: 'pointer' }}
+                  >
+                    <GalleryIcon />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Choose from library</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* --- SCREENSHOT --- */}
+          {!reviewing && method === 'screenshot' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+              <input
+                ref={galleryRef}
+                type="file"
+                accept="image/*"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+
+              {preview ? (
+                <div style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', marginBottom: 8 }}>
+                  <img src={preview} alt="Screenshot preview" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', display: 'block' }} />
+                  <button onClick={() => { setPreview(null); setPreviewFile(null); }} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.55)', border: 'none', borderRadius: 999, color: '#fff', width: 28, height: 28, cursor: 'pointer', fontSize: 14 }}>x</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button onClick={() => cameraRef.current?.click()} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 12px', background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)', borderRadius: 16, color: '#F0EBE0', cursor: 'pointer' }}>
+                    <CameraIcon />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Take screenshot</span>
+                  </button>
+                  <button onClick={() => galleryRef.current?.click()} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 12px', background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)', borderRadius: 16, color: '#F0EBE0', cursor: 'pointer' }}>
+                    <GalleryIcon />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>Choose screenshot</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* --- DOCUMENT --- */}
+          {!reviewing && method === 'document' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <input
+                ref={docRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.xlsx,image/*"
+                style={{ display: 'none' }}
+                onChange={e => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+              />
+              {preview ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(255,255,255,0.06)', padding: '14px 16px', borderRadius: 14 }}>
+                  <FileIcon />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: '#F0EBE0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{previewFile?.name ?? 'Document selected'}</p>
+                    <p style={{ fontSize: 11, color: '#6B7280' }}>{previewFile ? `${(previewFile.size / 1024).toFixed(0)} KB` : ''}</p>
+                  </div>
+                  <button onClick={() => { setPreview(null); setPreviewFile(null); }} style={{ background: 'none', border: 'none', color: '#6B7280', cursor: 'pointer', fontSize: 18 }}>x</button>
+                </div>
+              ) : (
+                <button onClick={() => docRef.current?.click()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: '28px 20px', background: 'rgba(255,255,255,0.06)', border: '1.5px dashed rgba(255,255,255,0.2)', borderRadius: 16, color: '#F0EBE0', cursor: 'pointer', width: '100%' }}>
+                  <FileIcon />
+                  <span style={{ fontSize: 14, fontWeight: 600 }}>Choose document</span>
+                  <span style={{ fontSize: 12, color: '#6B7280' }}>PDF, Word, Excel, or image</span>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* --- SOCIAL URL --- */}
+          {!reviewing && method === 'social_url' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(255,255,255,0.06)', border: '1.5px solid rgba(255,255,255,0.12)', borderRadius: 14, padding: '0 14px' }}>
+                <LinkIcon />
+                <input
+                  type="url"
+                  value={socialUrl}
+                  onChange={e => setSocialUrl(e.target.value)}
+                  placeholder="Paste the URL of your post"
+                  style={{ flex: 1, background: 'none', border: 'none', outline: 'none', color: '#F0EBE0', fontSize: 14, padding: '14px 0' }}
+                />
+              </div>
+
+              {/* Platform pills */}
+              <div>
+                <p style={{ fontSize: 12, color: '#6B7280', fontWeight: 600, marginBottom: 8 }}>Platform</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {SOCIAL_PLATFORMS.map(p => (
+                    <button
+                      key={p}
+                      onClick={() => setPlatform(p)}
+                      style={{
+                        padding:      '6px 14px',
+                        borderRadius: 999,
+                        border:       `1.5px solid ${platform === p ? '#0EA5E9' : 'rgba(255,255,255,0.15)'}`,
+                        background:   platform === p ? 'rgba(14,165,233,0.15)' : 'transparent',
+                        color:        platform === p ? '#38BDF8' : '#9CA3AF',
+                        fontSize:     13,
+                        fontWeight:   600,
+                        cursor:       'pointer',
+                      }}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* --- TEXT --- */}
+          {!reviewing && method === 'text' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <textarea
+                value={text}
+                onChange={e => setText(e.target.value)}
+                placeholder="Describe what you completed..."
+                rows={5}
+                style={{ background: 'rgba(255,255,255,0.06)', border: `1.5px solid ${text.length >= 50 ? 'rgba(14,165,233,0.4)' : 'rgba(255,255,255,0.12)'}`, borderRadius: 14, color: '#F0EBE0', fontSize: 14, padding: '14px', outline: 'none', resize: 'none', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: text.length >= 50 ? '#22C55E' : '#6B7280' }}>{text.length < 50 ? `${50 - text.length} more characters needed` : 'Minimum met'}</span>
+                <span style={{ fontSize: 12, color: '#6B7280' }}>{text.length}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && !reviewing && (
+            <div style={{ marginTop: 12, padding: '10px 14px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 12 }}>
+              <p style={{ fontSize: 13, color: '#FCA5A5', margin: 0 }}>{error}</p>
+            </div>
+          )}
+
+          {/* Instructions */}
+          {action.verification_instructions && !reviewing && (
+            <div style={{ marginTop: 16, padding: '12px 14px', background: 'rgba(14,165,233,0.08)', border: '1px solid rgba(14,165,233,0.2)', borderRadius: 12 }}>
+              <p style={{ fontSize: 12, color: '#7DD3FC', margin: 0, lineHeight: 1.5 }}>{action.verification_instructions}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Submit button — pinned at bottom */}
+        {!reviewing && (
+          <div style={{ padding: '12px 20px 24px', borderTop: '1px solid rgba(255,255,255,0.08)', flexShrink: 0 }}>
+            <button
+              onClick={submit}
+              disabled={submitting}
+              style={{
+                width:        '100%',
+                padding:      '15px 20px',
+                borderRadius: 16,
+                background:   submitting ? 'rgba(14,165,233,0.4)' : '#0EA5E9',
+                color:        '#ffffff',
+                fontSize:     15,
+                fontWeight:   800,
+                border:       'none',
+                cursor:       submitting ? 'not-allowed' : 'pointer',
+                transition:   'background 0.2s',
+              }}
+            >
+              {submitting ? 'Submitting...' : 'Submit verification'}
+            </button>
+          </div>
+        )}
+      </motion.div>
+    </>
   );
 }
 
@@ -293,6 +646,9 @@ export default function SprintPage({ params }: { params: { id: string } }) {
   const [celebrate, setCelebrate]   = useState(false);
   const [vlgFired, setVlgFired]     = useState(false);
   const [newBadges, setNewBadges]   = useState<string[]>([]);
+  const [verifyAction, setVerifyAction] = useState<any | null>(null);
+  const [showVlgToast, setShowVlgToast] = useState(false);
+  const [vlgToastAmount, setVlgToastAmount] = useState(10);
   const confettiFired               = useRef(false);
   const router                      = useRouter();
   const { theme }                   = useVillageTheme();
@@ -317,7 +673,6 @@ export default function SprintPage({ params }: { params: { id: string } }) {
     }).catch(() => {});
   }, [celebrate]);
 
-  // Reset confettiFired when celebrate is dismissed so it can fire again
   useEffect(() => {
     if (!celebrate) confettiFired.current = false;
   }, [celebrate]);
@@ -332,6 +687,36 @@ export default function SprintPage({ params }: { params: { id: string } }) {
     }
     setLoading(false);
   }
+
+  // Called when a verification comes back successful
+  const handleVerified = useCallback(
+    ({ sprintCompleted, vlgEarned }: { sprintCompleted: boolean; vlgEarned: number }) => {
+      // Close sheet
+      const action = verifyAction;
+      setVerifyAction(null);
+
+      if (!action) return;
+
+      // Optimistically mark action complete with spring animation trigger
+      setActions(prev =>
+        prev.map(a =>
+          a.id === action.id
+            ? { ...a, status: 'complete', completed: true, completed_at: new Date().toISOString() }
+            : a
+        )
+      );
+
+      // Show VLG toast
+      setVlgToastAmount(vlgEarned);
+      setShowVlgToast(true);
+
+      if (sprintCompleted) {
+        setSprint((s: any) => s ? { ...s, status: 'complete' } : s);
+        triggerCelebration();
+      }
+    },
+    [verifyAction]
+  );
 
   async function completeAction(actionId: string) {
     setCompleting(actionId);
@@ -358,27 +743,30 @@ export default function SprintPage({ params }: { params: { id: string } }) {
   async function triggerCelebration() {
     if (celebrate) return;
     setCelebrate(true);
-    // Award VLG once
     if (!vlgFired) {
       setVlgFired(true);
       await fetch('/api/vlg/earn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          reason: 'sprint_complete',
-          amount: 50,
+          reason:    'sprint_complete',
+          amount:    50,
           source_id: sprint?.id,
         }),
       }).catch(() => {});
     }
   }
 
-  const done  = actions.filter(a => a.completed).length;
+  const done  = actions.filter(a => a.completed || a.status === 'complete').length;
   const total = actions.length;
   const pct   = total ? Math.round((done / total) * 100) : 0;
   const circumference = 2 * Math.PI * 36;
 
-  // Auto-trigger celebration when all actions are done
+  // Next incomplete action
+  const nextIncomplete = actions.find(a => !a.completed && a.status !== 'complete');
+  // Action level from sprint → goal (default 1)
+  const actionLevel = sprint?.action_level ?? sprint?.goals?.action_level ?? 1;
+
   useEffect(() => {
     if (done === total && total > 0 && !celebrate) {
       triggerCelebration();
@@ -433,10 +821,12 @@ export default function SprintPage({ params }: { params: { id: string } }) {
         </div>
         <span
           className={`text-xs font-bold px-3 py-1 rounded-full ${
-            sprint.status === 'completed' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
+            sprint.status === 'complete' || sprint.status === 'completed'
+              ? 'bg-green-500/20 text-green-400'
+              : 'bg-blue-500/20 text-blue-400'
           }`}
         >
-          {sprint.status === 'completed' ? 'Done' : 'Active'}
+          {sprint.status === 'complete' || sprint.status === 'completed' ? 'Done' : 'Active'}
         </span>
       </div>
 
@@ -448,6 +838,28 @@ export default function SprintPage({ params }: { params: { id: string } }) {
             done={done}
             total={total}
             onClose={() => setCelebrate(false)}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Verification bottom sheet */}
+      <AnimatePresence>
+        {verifyAction && (
+          <VerifySheet
+            action={verifyAction}
+            actionLevel={actionLevel}
+            onClose={() => setVerifyAction(null)}
+            onVerified={handleVerified}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* VLG toast */}
+      <AnimatePresence>
+        {showVlgToast && (
+          <VlgToast
+            amount={vlgToastAmount}
+            onDone={() => setShowVlgToast(false)}
           />
         )}
       </AnimatePresence>
@@ -468,7 +880,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                 stroke={isNight ? 'var(--v-card-border)' : '#E5E7EB'}
                 strokeWidth="7"
               />
-              <circle
+              <motion.circle
                 cx="40" cy="40" r="36"
                 fill="none"
                 stroke={accent}
@@ -476,7 +888,8 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                 strokeDasharray={circumference}
                 strokeDashoffset={circumference * (1 - pct / 100)}
                 strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
+                animate={{ strokeDashoffset: circumference * (1 - pct / 100) }}
+                transition={{ type: 'spring', damping: 20, stiffness: 200 }}
               />
             </svg>
             <div className="absolute inset-0 flex items-center justify-center">
@@ -520,82 +933,122 @@ export default function SprintPage({ params }: { params: { id: string } }) {
           </motion.div>
         )}
 
+        {/* "Verify next action" button */}
+        {nextIncomplete && (sprint.status === 'active' || !sprint.status) && (
+          <motion.button
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setVerifyAction(nextIncomplete)}
+            style={{
+              width:        '100%',
+              padding:      '14px 20px',
+              borderRadius: 18,
+              background:   'linear-gradient(135deg, #0EA5E9, #1877F2)',
+              color:        '#ffffff',
+              fontSize:     15,
+              fontWeight:   800,
+              border:       'none',
+              cursor:       'pointer',
+              display:      'flex',
+              alignItems:   'center',
+              justifyContent: 'center',
+              gap:          10,
+              boxShadow:    '0 6px 24px rgba(14,165,233,0.35)',
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden="true">
+              <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            Verify next action
+          </motion.button>
+        )}
+
         {/* Actions list */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: muted }}>
             This Week&apos;s Actions
           </p>
           <div className="space-y-2">
-            {actions.map((action, i) => (
-              <motion.div
-                key={action.id}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.05 }}
-                className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
-                style={{
-                  background: action.completed
-                    ? (isNight ? 'rgba(34,197,94,0.08)' : '#F0FDF4')
-                    : cardBg,
-                  border: `1px solid ${action.completed
-                    ? (isNight ? 'rgba(34,197,94,0.2)' : '#BBF7D0')
-                    : border}`,
-                  opacity: action.completed ? 0.8 : 1,
-                }}
-              >
-                {/* Checkbox */}
-                <button
-                  onClick={() =>
-                    !action.completed &&
-                    sprint.status !== 'completed' &&
-                    completeAction(action.id)
-                  }
-                  disabled={
-                    action.completed ||
-                    sprint.status === 'completed' ||
-                    completing === action.id
-                  }
-                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all"
+            {actions.map((action, i) => {
+              const isComplete = action.completed || action.status === 'complete';
+              return (
+                <motion.div
+                  key={action.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.05 }}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5"
                   style={{
-                    background: action.completed ? '#22C55E' : 'transparent',
-                    border: `2px solid ${action.completed ? '#22C55E' : muted}`,
-                    cursor: action.completed ? 'default' : 'pointer',
+                    background: isComplete
+                      ? (isNight ? 'rgba(34,197,94,0.08)' : '#F0FDF4')
+                      : cardBg,
+                    border: `1px solid ${isComplete
+                      ? (isNight ? 'rgba(34,197,94,0.2)' : '#BBF7D0')
+                      : border}`,
+                    opacity: isComplete ? 0.8 : 1,
                   }}
                 >
-                  {completing === action.id ? (
-                    <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-                  ) : action.completed ? (
-                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
-                      <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  ) : null}
-                </button>
-
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="text-sm font-medium leading-tight"
+                  {/* Checkbox with spring animation on complete */}
+                  <motion.div
+                    animate={isComplete ? { scale: [1.3, 0.9, 1.05, 1] } : { scale: 1 }}
+                    transition={isComplete ? { type: 'spring', damping: 10, stiffness: 300 } : {}}
+                    className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
                     style={{
-                      color: text,
-                      textDecoration: action.completed ? 'line-through' : 'none',
-                      opacity: action.completed ? 0.6 : 1,
+                      background: isComplete ? '#14B8A6' : 'transparent',
+                      border: `2px solid ${isComplete ? '#14B8A6' : muted}`,
                     }}
                   >
-                    {action.title}
-                  </p>
-                  {action.day_of_week && (
-                    <p className="text-xs mt-0.5" style={{ color: muted }}>
-                      {DAYS[action.day_of_week - 1]}
-                    </p>
-                  )}
-                </div>
+                    {completing === action.id ? (
+                      <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                    ) : isComplete ? (
+                      <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
+                        <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    ) : null}
+                  </motion.div>
 
-                {action.completed && action.completed_at && (
-                  <span className="text-xs" style={{ color: '#22C55E' }}>
-                    {new Date(action.completed_at).toLocaleDateString('en', { weekday: 'short' })}
-                  </span>
-                )}
-              </motion.div>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-medium leading-tight"
+                      style={{
+                        color: text,
+                        textDecoration: isComplete ? 'line-through' : 'none',
+                        opacity: isComplete ? 0.6 : 1,
+                      }}
+                    >
+                      {action.title}
+                    </p>
+                    {action.verification_method && !isComplete && (
+                      <p className="text-xs mt-0.5 font-semibold" style={{ color: '#60A5FA' }}>
+                        {action.verification_method.replace('_', ' ')}
+                      </p>
+                    )}
+                    {action.day_of_week && (
+                      <p className="text-xs mt-0.5" style={{ color: muted }}>
+                        {DAYS[action.day_of_week - 1]}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Verify button per-action */}
+                  {!isComplete && (sprint.status === 'active' || !sprint.status) && (
+                    <button
+                      onClick={() => setVerifyAction(action)}
+                      style={{ background: 'rgba(14,165,233,0.15)', border: '1px solid rgba(14,165,233,0.3)', borderRadius: 999, padding: '4px 10px', color: '#38BDF8', fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      Verify
+                    </button>
+                  )}
+
+                  {isComplete && action.completed_at && (
+                    <span className="text-xs" style={{ color: '#14B8A6' }}>
+                      {new Date(action.completed_at).toLocaleDateString('en', { weekday: 'short' })}
+                    </span>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
         </div>
 
@@ -607,7 +1060,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
           <div className="grid grid-cols-7 gap-1.5">
             {DAYS.map((day, i) => {
               const dayActions    = actions.filter(a => a.day_of_week === i + 1);
-              const dayCompleted  = dayActions.every(a => a.completed);
+              const dayCompleted  = dayActions.every(a => a.completed || a.status === 'complete');
               const hasActions    = dayActions.length > 0;
               const today         = new Date().getDay();
               const adjustedToday = today === 0 ? 7 : today;
@@ -624,15 +1077,15 @@ export default function SprintPage({ params }: { params: { id: string } }) {
                       background: !hasActions
                         ? (isNight ? 'var(--v-card-border)' : '#F3F4F6')
                         : dayCompleted
-                          ? 'rgba(34,197,94,0.2)'
+                          ? 'rgba(20,184,166,0.2)'
                           : (isNight ? '#1A1F3A' : '#EEF2FF'),
                       border: isToday ? `2px solid ${accent}` : '2px solid transparent',
-                      color: dayCompleted ? '#22C55E' : hasActions ? accent : muted,
+                      color: dayCompleted ? '#14B8A6' : hasActions ? accent : muted,
                     }}
                   >
                     {!hasActions ? '·' : dayCompleted ? (
                       <svg width="10" height="8" viewBox="0 0 10 8" fill="none" aria-hidden="true">
-                        <path d="M1 4l3 3 5-6" stroke="#22C55E" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M1 4l3 3 5-6" stroke="#14B8A6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     ) : dayActions.length}
                   </div>
@@ -642,7 +1095,7 @@ export default function SprintPage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {/* Complete sprint button — shown when all done but celebrate hasn't fired yet */}
+        {/* Complete sprint button */}
         {sprint.status === 'active' && done > 0 && done === total && !celebrate && (
           <button
             onClick={async () => {
