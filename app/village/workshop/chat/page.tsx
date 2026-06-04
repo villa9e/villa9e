@@ -24,6 +24,17 @@ type ChatItem =
 
 type Phase = 'discovery' | 'success' | 'proximity' | 'resources' | 'generating' | 'ready' | 'launched';
 
+// ── Agent wave loading types ─────────────────────────────────────────────────
+type AgentStatus = 'pending' | 'running' | 'done';
+
+interface AgentRow {
+  icon:     string;
+  label:    string;
+  running:  string;
+  done:     string;
+  status:   AgentStatus;
+}
+
 const PHASES: { key: Phase; label: string }[] = [
   { key: 'discovery',   label: 'What'     },
   { key: 'success',     label: 'When'     },
@@ -182,6 +193,288 @@ function DuplicateAlert({
           Create separate
         </motion.button>
       </div>
+    </motion.div>
+  );
+}
+
+// ── Agent Wave Loading UI ────────────────────────────────────────────────────
+const WAVE1_AGENTS: Omit<AgentRow, 'status'>[] = [
+  { icon: '🧠', label: 'Skills agent',      running: 'Analyzing your skills vs goal requirements…',    done: 'Strong — 78% skills match'              },
+  { icon: '💰', label: 'Funding agent',     running: 'Calculating cost and financial resources…',       done: 'Gap identified — need ~$840'            },
+  { icon: '👥', label: 'Team agent',        running: 'Evaluating your support network…',               done: 'Solo setup — feasible'                  },
+  { icon: '⏰', label: 'Time agent',        running: 'Matching weekly hours to goal demands…',          done: '8hr/wk — moderate pace'                 },
+  { icon: '📊', label: 'AI agent',          running: 'Analyzing goal feasibility…',                    done: 'Reviewing 847 similar goals…'           },
+];
+const WAVE2_AGENTS: Omit<AgentRow, 'status'>[] = [
+  { icon: '🔍', label: 'Gap agent',         running: 'Identifying your specific gaps…',                done: '2 key gaps found'                       },
+  { icon: '🎯', label: 'Probability agent', running: 'Calculating success probability…',               done: ''  /* filled by score count-up */       },
+];
+
+function AgentWaveOverlay({ probabilityScore }: { probabilityScore?: number }) {
+  const [wave1, setWave1] = useState<AgentRow[]>([]);
+  const [wave2, setWave2] = useState<AgentRow[]>([]);
+  const [showWave3, setShowWave3] = useState(false);
+  const [probDisplay, setProbDisplay] = useState(0);
+  const finalScore = probabilityScore ?? 82;
+
+  useEffect(() => {
+    // Wave 1 — all appear at once after 1.5s, then complete one by one
+    const t1 = setTimeout(() => {
+      setWave1(WAVE1_AGENTS.map(a => ({ ...a, status: 'running' as AgentStatus })));
+      WAVE1_AGENTS.forEach((_, i) => {
+        setTimeout(() => {
+          setWave1(prev => prev.map((row, ri) => ri === i ? { ...row, status: 'done' } : row));
+        }, (i + 1) * 700);
+      });
+    }, 1500);
+
+    // Wave 2 — appear 2s after wave 1 finishes (1.5 + 5*0.7 + 2 = ~7s)
+    const wave2Start = 1500 + WAVE1_AGENTS.length * 700 + 2000;
+    const t2 = setTimeout(() => {
+      setWave2(WAVE2_AGENTS.map(a => ({ ...a, status: 'running' as AgentStatus })));
+      // Gap agent done after 1s
+      setTimeout(() => {
+        setWave2(prev => prev.map((row, ri) => ri === 0 ? { ...row, status: 'done' } : row));
+      }, 1000);
+      // Probability agent: count up then done
+      setTimeout(() => {
+        const duration = 1500;
+        const interval = 50;
+        const steps = duration / interval;
+        let step = 0;
+        const timer = setInterval(() => {
+          step++;
+          setProbDisplay(Math.round((finalScore * step) / steps));
+          if (step >= steps) {
+            clearInterval(timer);
+            setWave2(prev => prev.map((row, ri) => ri === 1 ? { ...row, done: `${finalScore}% success probability`, status: 'done' } : row));
+          }
+        }, interval);
+      }, 1400);
+    }, wave2Start);
+
+    // Wave 3 — 1.5s after wave 2
+    const wave3Start = wave2Start + 1400 + 2000;
+    const t3 = setTimeout(() => setShowWave3(true), wave3Start);
+
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-[80] flex flex-col items-center justify-center px-6"
+      style={{ background: 'rgba(4,5,12,0.97)', backdropFilter: 'blur(16px)' }}
+    >
+      {/* Spirit avatar — pulsing */}
+      <motion.div
+        animate={{ scale: [1, 1.08, 1], opacity: [0.8, 1, 0.8] }}
+        transition={{ duration: 2.4, repeat: Infinity, ease: 'easeInOut' }}
+        className="flex items-center justify-center rounded-full mb-3"
+        style={{ width: 56, height: 56, background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '0 0 40px rgba(124,58,237,0.5)' }}
+      >
+        {/* Sparkle SVG */}
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5z" fill="white" opacity="0.95"/>
+          <path d="M19 14l.75 2.25L22 17l-2.25.75L19 20l-.75-2.25L16 17l2.25-.75z" fill="white" opacity="0.7"/>
+          <path d="M5 17l.5 1.5L7 19l-1.5.5L5 21l-.5-1.5L3 19l1.5-.5z" fill="white" opacity="0.6"/>
+        </svg>
+      </motion.div>
+
+      <p style={{ color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 24, textAlign: 'center' }}>
+        Building your GPS…
+      </p>
+
+      {/* Agent rows */}
+      <div className="w-full max-w-sm space-y-2">
+        {wave1.map((agent, i) => (
+          <AgentRowItem key={`w1-${i}`} agent={agent} />
+        ))}
+
+        {wave2.length > 0 && (
+          <>
+            <div style={{ height: 4 }} />
+            {wave2.map((agent, i) => (
+              <AgentRowItem
+                key={`w2-${i}`}
+                agent={i === 1 && agent.status === 'running'
+                  ? { ...agent, running: `Calculating success probability… ${probDisplay}%` }
+                  : agent
+                }
+              />
+            ))}
+          </>
+        )}
+
+        {showWave3 && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-2 px-3 py-2.5 rounded-2xl mt-1"
+            style={{ background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.25)' }}
+          >
+            <motion.div
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              style={{ width: 8, height: 8, borderRadius: '50%', background: '#A78BFA', flexShrink: 0 }}
+            />
+            <span style={{ color: '#A78BFA', fontSize: 12, fontWeight: 600 }}>
+              Generating your sprint plan
+              <TypingCursor />
+            </span>
+          </motion.div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function TypingCursor() {
+  return (
+    <motion.span
+      animate={{ opacity: [1, 0, 1] }}
+      transition={{ duration: 0.8, repeat: Infinity }}
+      style={{ display: 'inline-block', marginLeft: 2 }}
+    >|</motion.span>
+  );
+}
+
+function AgentRowItem({ agent }: { agent: AgentRow }) {
+  const isDone    = agent.status === 'done';
+  const isRunning = agent.status === 'running';
+  const dotColor  = isDone ? '#1D9E75' : '#F59E0B';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 24 }}
+      className="flex items-center gap-2.5 px-3 py-2.5 rounded-2xl"
+      style={{ background: 'rgba(255,255,255,0.04)', border: `1px solid rgba(255,255,255,0.07)` }}
+    >
+      {/* Status dot */}
+      <motion.div
+        animate={isRunning ? { scale: [1, 1.3, 1], opacity: [0.7, 1, 0.7] } : {}}
+        transition={isRunning ? { duration: 1, repeat: Infinity } : {}}
+        style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }}
+      />
+      {/* Icon */}
+      <span style={{ fontSize: 14, flexShrink: 0 }}>{agent.icon}</span>
+      {/* Text */}
+      <div className="flex-1 min-w-0">
+        <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 700, display: 'block' }}>{agent.label}</span>
+        <span style={{ color: isDone ? '#1D9E75' : 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: 500 }}>
+          {isDone ? `✓ ${agent.done}` : agent.running}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── pathTo95 Screen ──────────────────────────────────────────────────────────
+function PathTo95Screen({
+  probabilityScore, gapAnalysis, onAddToPlan, onGenerateAnyway, isNight,
+}: {
+  probabilityScore: number;
+  gapAnalysis: any[];
+  onAddToPlan: (gap: any) => Promise<void>;
+  onGenerateAnyway: () => void;
+  isNight: boolean;
+}) {
+  const [addingIdx, setAddingIdx] = useState<number | null>(null);
+  const [addedIdxs, setAddedIdxs] = useState<Set<number>>(new Set());
+  const ringColor = probabilityScore >= 50 ? '#F59E0B' : '#EF4444';
+  const circumference = 2 * Math.PI * 44;
+
+  async function handleAdd(gap: any, idx: number) {
+    setAddingIdx(idx);
+    await onAddToPlan(gap);
+    setAddedIdxs(prev => new Set([...prev, idx]));
+    setAddingIdx(null);
+  }
+
+  const displayGaps = gapAnalysis.length > 0
+    ? gapAnalysis.slice(0, 4)
+    : [
+        { gap: 'Build foundational skills',    pathTo95: 'Complete 2 relevant online courses',      severity: 'major'    },
+        { gap: 'Secure startup budget',         pathTo95: 'Apply for 3 small business grants',        severity: 'critical' },
+        { gap: 'Establish accountability team', pathTo95: 'Connect with a mentor or accountability partner', severity: 'minor' },
+      ];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-2 rounded-3xl p-5 space-y-5"
+      style={{ background: isNight ? '#0D1020' : '#FFFFFF', border: `1px solid ${ringColor}40` }}
+    >
+      {/* Score ring */}
+      <div className="flex flex-col items-center gap-3">
+        <div className="relative" style={{ width: 100, height: 100 }}>
+          <svg width="100" height="100" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)' }}>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
+            <circle cx="50" cy="50" r="44" fill="none" stroke={ringColor} strokeWidth="7"
+              strokeDasharray={circumference}
+              strokeDashoffset={circumference * (1 - probabilityScore / 100)}
+              strokeLinecap="round" />
+          </svg>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span style={{ fontSize: 22, fontWeight: 900, color: ringColor }}>{probabilityScore}%</span>
+          </div>
+        </div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: isNight ? '#F0EBE0' : '#1E1B4B', textAlign: 'center' }}>
+          Your GPS score is {probabilityScore}%
+        </p>
+        <p style={{ fontSize: 12, color: isNight ? '#4A4F72' : '#6B7280', textAlign: 'center' }}>
+          Here&apos;s what would get you to 95%:
+        </p>
+      </div>
+
+      {/* Gap cards */}
+      <div className="space-y-2.5">
+        {displayGaps.map((gap: any, i: number) => {
+          const severityColor = gap.severity === 'critical' ? '#EF4444' : gap.severity === 'major' ? '#F59E0B' : '#10B981';
+          const isAdded = addedIdxs.has(i);
+          return (
+            <div key={i} className="rounded-2xl p-3.5 space-y-2"
+              style={{ background: isNight ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', border: `1px solid ${severityColor}25` }}>
+              <div className="flex items-start gap-2">
+                <div style={{ width: 8, height: 8, borderRadius: '50%', background: severityColor, marginTop: 5, flexShrink: 0 }} />
+                <div className="flex-1 min-w-0">
+                  <p style={{ fontSize: 12, fontWeight: 700, color: isNight ? '#F0EBE0' : '#1E1B4B' }}>{gap.gap}</p>
+                  <p style={{ fontSize: 11, color: isNight ? '#4A4F72' : '#6B7280', marginTop: 2 }}>{gap.pathTo95}</p>
+                </div>
+              </div>
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => !isAdded && handleAdd(gap, i)}
+                disabled={isAdded || addingIdx === i}
+                className="w-full py-2 rounded-xl text-xs font-black"
+                style={{
+                  background: isAdded ? 'rgba(29,158,117,0.15)' : 'rgba(29,158,117,0.12)',
+                  color: '#1D9E75',
+                  border: '1.5px solid rgba(29,158,117,0.3)',
+                  cursor: isAdded ? 'default' : 'pointer',
+                }}
+              >
+                {addingIdx === i ? 'Adding…' : isAdded ? '✓ Added to plan' : 'Add this to my plan'}
+              </motion.button>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Generate anyway */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={onGenerateAnyway}
+        className="w-full py-3 rounded-2xl text-sm font-bold"
+        style={{ background: 'rgba(245,158,11,0.1)', color: '#F59E0B', border: '1.5px solid rgba(245,158,11,0.3)' }}
+      >
+        Generate plan anyway (with risk)
+      </motion.button>
     </motion.div>
   );
 }
@@ -360,6 +653,8 @@ export default function GoalChatPage() {
   const [goalId,            setGoalId]             = useState<string | null>(null);
   const [generating,        setGenerating]         = useState(false);
   const [userName,          setUserName]           = useState('');
+  const [showPathTo95,      setShowPathTo95]       = useState(false);
+  const [pathTo95Accepted,  setPathTo95Accepted]   = useState(false);
 
   // ── Phase 1 multi-question flow state ─────────────────────────────────────
   // Tracks how many user turns have happened in discovery (0 = greeting shown, waiting for Q1 answer)
@@ -645,6 +940,11 @@ export default function GoalChatPage() {
         setGoalId(data.goalId);
         setGpsSteps(data.steps ?? []);
         setAffiliates(data.affiliateProducts ?? []);
+        // pathTo95: show gap guidance if probability < 70
+        const probScore = gps?.probabilityScore ?? 0;
+        if (probScore > 0 && probScore < 70) {
+          setShowPathTo95(true);
+        }
 
         if (data.firstTimeFeatures?.needsTradingPostTour) {
           localStorage.setItem('villa9e_needs_trading_tour', '1');
@@ -817,26 +1117,49 @@ export default function GoalChatPage() {
           </div>
         )}
 
-        {/* Generating message */}
-        {generating && (
-          <div className="flex justify-center">
-            <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 1.5, repeat: Infinity }}
-              className="px-4 py-2 rounded-full text-xs"
-              style={{ background: 'rgba(124,58,237,0.12)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.2)' }}>
-              Spirit is building your GPS…
-            </motion.div>
-          </div>
-        )}
-
-        {/* GPS Card — shows when ready */}
-        {gpsData && !generating && gpsSteps.length > 0 && phase !== 'launched' && (
-          <GPSCard
-            gpsData={gpsData}
-            steps={gpsSteps}
-            affiliates={affiliates}
-            onStart={handleStart}
+        {/* pathTo95 screen — shown when probability < 70 */}
+        {gpsData && !generating && showPathTo95 && !pathTo95Accepted && phase !== 'launched' && (
+          <PathTo95Screen
+            probabilityScore={gpsData.probabilityScore ?? 0}
+            gapAnalysis={gpsData.gapAnalysis ?? []}
+            onAddToPlan={async (gap) => {
+              try {
+                await fetch('/api/goals/add-gap-task', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ goal_id: goalId, gap }),
+                });
+              } catch { /* silent */ }
+            }}
+            onGenerateAnyway={() => setPathTo95Accepted(true)}
             isNight={isNight}
           />
+        )}
+
+        {/* GPS Card — shows when ready (probability >= 70 or user accepted risk) */}
+        {gpsData && !generating && gpsSteps.length > 0 && phase !== 'launched' &&
+          (!showPathTo95 || pathTo95Accepted) && (
+          <div>
+            {pathTo95Accepted && gpsData.probabilityScore < 70 && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mx-2 mb-3 px-4 py-3 rounded-2xl"
+                style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.35)' }}
+              >
+                <p style={{ fontSize: 12, color: '#F59E0B', fontWeight: 700 }}>
+                  Proceeding with {gpsData.probabilityScore}% probability — Spirit recommends addressing the gaps above to improve your odds.
+                </p>
+              </motion.div>
+            )}
+            <GPSCard
+              gpsData={gpsData}
+              steps={gpsSteps}
+              affiliates={affiliates}
+              onStart={handleStart}
+              isNight={isNight}
+            />
+          </div>
         )}
       </div>
 
@@ -881,6 +1204,13 @@ export default function GoalChatPage() {
           <p className="text-center text-[10px] mt-1.5" style={{ color: muted }}>Press Enter to send · Shift+Enter for new line</p>
         </div>
       )}
+
+      {/* ── Agent wave loading overlay (Phase 5 — Generating) ──────── */}
+      <AnimatePresence>
+        {generating && (
+          <AgentWaveOverlay probabilityScore={gpsData?.probabilityScore} />
+        )}
+      </AnimatePresence>
 
       {/* ── Countdown ───────────────────────────────────────────────── */}
       <AnimatePresence>
