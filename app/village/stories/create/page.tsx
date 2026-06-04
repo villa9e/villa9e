@@ -27,14 +27,22 @@ export default function StoryCreatePage() {
     const supabase = createClient();
     supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!user) return;
+      // Load from dream_line_posts (primary) with media; fallback includes posts without media for text cards
       const { data } = await (supabase as any)
-        .from('posts')
-        .select('id, media_url, thumbnail_url, caption, created_at')
+        .from('dream_line_posts')
+        .select('id, media_url, thumbnail_url, content, created_at')
         .eq('user_id', user.id)
-        .not('media_url', 'is', null)
         .order('created_at', { ascending: false })
         .limit(30);
-      setPosts(data ?? []);
+      // Map dream_line_posts shape to Post interface
+      const mapped = (data ?? []).map((p: any) => ({
+        id: p.id,
+        media_url: p.media_url ?? null,
+        thumbnail_url: p.thumbnail_url ?? null,
+        caption: p.content ?? null,
+        created_at: p.created_at,
+      }));
+      setPosts(mapped);
     });
   }, []);
 
@@ -58,7 +66,7 @@ export default function StoryCreatePage() {
       });
       if (res.ok) {
         setPosted(true);
-        setTimeout(() => router.back(), 1200);
+        setTimeout(() => router.push('/village/dreamline'), 1200);
       }
     } finally {
       setLoading(false);
@@ -72,10 +80,23 @@ export default function StoryCreatePage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const ext = file.name.split('.').pop();
-    const path = `stories/${user.id}/${Date.now()}.${ext}`;
-    const { error } = await (supabase as any).storage.from('media').upload(path, file);
-    if (!error) {
-      const { data } = (supabase as any).storage.from('media').getPublicUrl(path);
+    const path = `${user.id}/${Date.now()}.${ext}`;
+    // Upload to 'stories' bucket (falls back to 'media' if stories bucket not configured)
+    const storiesUpload = await (supabase as any).storage.from('stories').upload(path, file);
+    let finalPath: string | null = null;
+    let bucketName = 'stories';
+    if (storiesUpload.error) {
+      // Fallback to media bucket
+      const fallback = await (supabase as any).storage.from('media').upload(`stories/${path}`, file);
+      if (!fallback.error) {
+        finalPath = `stories/${path}`;
+        bucketName = 'media';
+      }
+    } else {
+      finalPath = path;
+    }
+    if (finalPath) {
+      const { data } = (supabase as any).storage.from(bucketName).getPublicUrl(finalPath);
       setUploadUrl(data.publicUrl);
       setMediaType(file.type.startsWith('video') ? 'video' : 'image');
       setSelected(null);
@@ -126,10 +147,13 @@ export default function StoryCreatePage() {
                 <div key={p.id} onClick={() => { setSelected(p.id); setUploadUrl(''); }}
                   style={{ aspectRatio: '1', borderRadius: 8, overflow: 'hidden', cursor: 'pointer', border: selected === p.id ? '3px solid #2952E8' : '3px solid transparent', position: 'relative' }}>
                   {p.thumbnail_url || p.media_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.thumbnail_url ?? p.media_url!} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{ width: '100%', height: '100%', background: 'rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={1.5}><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                    <div style={{ width: '100%', height: '100%', background: 'rgba(41,82,232,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 8 }}>
+                      <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, lineHeight: 1.4, textAlign: 'center', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' } as React.CSSProperties}>
+                        {p.caption ?? 'Text post'}
+                      </span>
                     </div>
                   )}
                   {selected === p.id && (
@@ -141,7 +165,7 @@ export default function StoryCreatePage() {
               ))}
               {posts.length === 0 && (
                 <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-                  No posts with media yet
+                  No DreamLine posts yet — share one first
                 </div>
               )}
             </div>

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getRingColor } from '@/lib/hooks/useStoryStatus';
 
 interface Story {
   id: string;
@@ -29,10 +30,12 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(m / 60)}h ago`;
 }
 
-function ringColor(profile: Story['profiles']): string {
-  if (profile.is_live) return '#E8170A';   // red — Live
-  if (profile.is_online) return '#2952E8'; // royal blue — online
-  return '#0033CC';                         // navy — offline
+function ringColorFromProfile(profile: Story['profiles']): string {
+  return getRingColor({
+    hasStory: true,  // we are in the story viewer, so there IS a story
+    isLive: profile.is_live,
+    isOnline: profile.is_online,
+  });
 }
 
 export default function StoryViewerPage() {
@@ -140,7 +143,7 @@ export default function StoryViewerPage() {
   }
 
   const profile = current.profiles;
-  const ring = ringColor(profile);
+  const ring = ringColorFromProfile(profile);
 
   return (
     <div
