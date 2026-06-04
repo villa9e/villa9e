@@ -20,7 +20,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [loading, setLoading]         = useState(true);
 
   // Navigation
-  const [activeTab, setActiveTab]     = useState<'spirit' | 'instructions' | 'workshop'>('instructions');
+  const [activeTab, setActiveTab]     = useState<'gps' | 'spirit' | 'instructions' | 'workshop'>('instructions');
   const [actionIdx, setActionIdx]     = useState(0);
   const [showDropdown, setShowDropdown] = useState(false);
   const [openSprintIdx, setOpenSprintIdx] = useState<number | null>(null);
@@ -68,6 +68,9 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [recalibDelta, setRecalibDelta] = useState<any>(null);
   const [recalculating, setRecalculating] = useState(false);
   const [gpsData, setGpsData]         = useState<any>(null);
+  const [recalibrating, setRecalibrating] = useState(false);
+  const [recalibrateToast, setRecalibrateToast] = useState(false);
+  const [lifeEventToast, setLifeEventToast] = useState(false);
 
   // Pace
   const [showPacePicker, setShowPacePicker] = useState(false);
@@ -206,8 +209,24 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
     else if (info.offset.y > 60 && feedIdx > 0) setFeedIdx(i => i - 1);
   }
 
+  // ─── GPS recalibrate ──────────────────────────────────────────────────────
+  async function recalibrateGPS() {
+    if (recalibrating) return;
+    setRecalibrating(true);
+    try {
+      await fetch('/api/goals/recalibrate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal_id: params.id }),
+      });
+      setRecalibrateToast(true);
+      setTimeout(() => setRecalibrateToast(false), 2500);
+    } catch { /* silent */ }
+    setRecalibrating(false);
+  }
+
   // ─── Tab swipe ────────────────────────────────────────────────────────────
-  const TABS: Array<'spirit' | 'instructions' | 'workshop'> = ['spirit', 'instructions', 'workshop'];
+  const TABS: Array<'gps' | 'spirit' | 'instructions' | 'workshop'> = ['gps', 'spirit', 'instructions', 'workshop'];
   function handleTabSwipe(_: any, info: PanInfo) {
     const idx = TABS.indexOf(activeTab);
     if (info.offset.x < -60 && idx < TABS.length - 1) setActiveTab(TABS[idx + 1]);
@@ -355,6 +374,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
       } : g);
       setShowLifeEvent(false);
       setLifeEventType(''); setLifeEventTitle(''); setLifeEventDesc('');
+      setLifeEventToast(true);
+      setTimeout(() => setLifeEventToast(false), 3000);
     } catch { /* silent */ }
     setLoggingEvent(false);
   }
@@ -656,7 +677,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 color: activeTab === tab ? text : muted,
                 borderBottom: activeTab === tab ? `2px solid ${accent}` : '2px solid transparent',
               }}>
-              {tab === 'spirit' ? 'Spirit' : tab === 'instructions' ? 'Instructions' : 'Workshop'}
+              {tab === 'gps' ? 'GPS' : tab === 'spirit' ? 'Spirit' : tab === 'instructions' ? 'Instructions' : 'Workshop'}
             </button>
           ))}
         </div>
@@ -667,7 +688,145 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
         onDragEnd={handleTabSwipe} style={{ touchAction: 'pan-y' }}>
 
         <AnimatePresence mode="wait">
-          {activeTab === 'spirit' ? (
+          {activeTab === 'gps' ? (
+
+            /* ── GPS TAB ────────────────────────────────────────────────── */
+            <motion.div key="gps" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="flex-1 overflow-y-auto pb-24 px-4 py-4 space-y-5">
+
+              {/* Sprint roadmap — horizontal scrollable circles */}
+              {sprints.length > 0 && (
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: muted }}>Sprint Roadmap</p>
+                  <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                    {sprints.map((sp: any, i: number) => {
+                      const isDone   = sp.status === 'completed';
+                      const isActive = sp.status === 'active';
+                      const circleSize = 52;
+                      return (
+                        <motion.button
+                          key={sp.id}
+                          whileTap={{ scale: 0.93 }}
+                          onClick={() => router.push(`/village/workshop/sprint/${sp.id}`)}
+                          className="flex-shrink-0 flex flex-col items-center gap-1.5"
+                          style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+                        >
+                          <div className="relative" style={{ width: circleSize + 8, height: circleSize + 8 }}>
+                            {/* Active outer ring */}
+                            {isActive && (
+                              <div style={{
+                                position: 'absolute', inset: 0, borderRadius: '50%',
+                                border: '2px solid #7C3AED', boxShadow: '0 0 12px rgba(124,58,237,0.5)',
+                              }} />
+                            )}
+                            <div style={{
+                              position: 'absolute', inset: 4, borderRadius: '50%',
+                              background: isDone ? '#1D9E75' : isActive ? '#4D72FF' : '#2A3860',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                              {isDone ? (
+                                <svg width="18" height="14" viewBox="0 0 18 14" fill="none" aria-hidden="true">
+                                  <path d="M1.5 7l5 5L16.5 1.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                                </svg>
+                              ) : (
+                                <span style={{ color: '#fff', fontSize: 13, fontWeight: 800 }}>{sp.sprint_number ?? i + 1}</span>
+                              )}
+                            </div>
+                          </div>
+                          <span style={{ fontSize: 9, fontWeight: 600, color: isActive ? '#4D72FF' : muted, maxWidth: 56, textAlign: 'center', lineHeight: 1.2 }}>
+                            S{sp.sprint_number ?? i + 1}
+                          </span>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Gap analysis card */}
+              <div className="rounded-3xl p-4 space-y-3"
+                style={{ background: cardBg, border: `1px solid ${border}` }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: muted }}>Gap Analysis</p>
+                {(() => {
+                  const w1 = goal?.wave1_results ?? gpsData?.wave1Results ?? null;
+                  const agentRows = w1
+                    ? [
+                        { label: 'Skills',  value: w1.skillsAgent?.summary   ?? `${w1.skillsAgent?.matchScore ?? 0}% match`,  status: (w1.skillsAgent?.matchScore ?? 0) >= 70 ? 'green' : 'amber' },
+                        { label: 'Funding', value: w1.fundingAgent?.summary  ?? `Gap: $${w1.fundingAgent?.gap ?? 0}`,          status: (w1.fundingAgent?.gap ?? 0) > 500 ? 'red' : 'amber' },
+                        { label: 'Team',    value: w1.teamAgent?.summary     ?? `Strength: ${w1.teamAgent?.teamStrength ?? 0}`, status: (w1.teamAgent?.teamStrength ?? 50) >= 60 ? 'green' : 'amber' },
+                        { label: 'Time',    value: w1.timeAgent?.summary     ?? w1.timeAgent?.feasibility ?? 'Assessed',       status: w1.timeAgent?.feasible !== false ? 'green' : 'amber' },
+                        { label: 'AI Score',value: w1.aiAgent?.summary       ?? `${w1.aiAgent?.feasibilityScore ?? 0}% feasibility`, status: (w1.aiAgent?.feasibilityScore ?? 50) >= 70 ? 'green' : 'amber' },
+                      ]
+                    : [
+                        { label: 'Skills',  value: probScore >= 80 ? 'Strong match' : probScore >= 60 ? 'Some gaps' : 'Significant gaps',  status: probScore >= 80 ? 'green' : probScore >= 60 ? 'amber' : 'red' },
+                        { label: 'Funding', value: probScore >= 80 ? 'Adequate'     : 'Funding gap identified',                            status: probScore >= 75 ? 'green' : 'amber' },
+                        { label: 'Team',    value: 'Solo setup',                                                                           status: 'green' },
+                        { label: 'Time',    value: probScore >= 70 ? 'Feasible pace' : 'Tight timeline',                                   status: probScore >= 70 ? 'green' : 'amber' },
+                        { label: 'AI Score',value: `${probScore}% feasibility`,                                                            status: probScore >= 70 ? 'green' : probScore >= 50 ? 'amber' : 'red' },
+                      ];
+                  const dotColors: Record<string, string> = { green: '#22C55E', amber: '#F59E0B', red: '#EF4444' };
+                  return agentRows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2.5 py-1.5 border-b last:border-0" style={{ borderColor: border }}>
+                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: dotColors[row.status], flexShrink: 0 }} />
+                      <span className="text-xs font-semibold w-16 flex-shrink-0" style={{ color: muted }}>{row.label}</span>
+                      <span className="text-xs flex-1" style={{ color: text }}>{row.value}</span>
+                    </div>
+                  ));
+                })()}
+              </div>
+
+              {/* Recalibrate button */}
+              <div className="flex flex-col items-center gap-3">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={recalibrateGPS}
+                  disabled={recalibrating}
+                  className="w-full py-3 rounded-2xl text-sm font-black"
+                  style={{ background: 'transparent', border: '1.5px solid #1D9E75', color: '#1D9E75', cursor: 'pointer' }}
+                >
+                  {recalibrating ? 'Recalibrating…' : 'Recalibrate GPS'}
+                </motion.button>
+
+                <button
+                  onClick={() => setShowLifeEvent(true)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: muted, textDecoration: 'underline', textDecorationStyle: 'dotted' }}
+                >
+                  Report a life event
+                </button>
+              </div>
+
+              {/* Recalibrate toast */}
+              <AnimatePresence>
+                {recalibrateToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed bottom-20 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-full text-sm font-bold z-50"
+                    style={{ background: '#1D9E75', color: '#fff', whiteSpace: 'nowrap' }}
+                  >
+                    GPS updated
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Life event toast */}
+              <AnimatePresence>
+                {lifeEventToast && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed bottom-20 left-1/2 -translate-x-1/2 px-5 py-2.5 rounded-full text-sm font-bold z-50 text-center"
+                    style={{ background: '#4D72FF', color: '#fff', whiteSpace: 'nowrap', maxWidth: '90vw' }}
+                  >
+                    Spirit has adjusted your GPS plan
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+
+          ) : activeTab === 'spirit' ? (
 
             /* ── SPIRIT TAB ─────────────────────────────────────────────── */
             <motion.div key="spirit" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}

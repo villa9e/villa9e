@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -11,20 +11,148 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 // SVG icons — no emojis
 // ---------------------------------------------------------------------------
 
-function BadgeIcon({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
-      <circle cx="22" cy="22" r="20" fill="url(#badgeGrad)" />
-      <path d="M22 10 l3 7h7l-5.5 4.5 2 7L22 25l-6.5 3.5 2-7L12 17h7z"
-        fill="white" opacity="0.9" />
-      <defs>
-        <linearGradient id="badgeGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#0EA5E9" />
-        </linearGradient>
-      </defs>
-    </svg>
-  );
+// Sprint-specific badge config
+interface BadgeConfig {
+  id:          string;
+  name:        string;
+  icon:        (size: number) => React.ReactNode;
+  ringStart:   string;
+  ringEnd:     string;
+}
+
+function getBadgeConfig(sprintNumber: number, totalSprints: number): BadgeConfig {
+  if (sprintNumber === totalSprints && totalSprints > 0) {
+    return {
+      id: 'goal_complete',
+      name: 'Goal Complete',
+      ringStart: '#F59E0B',
+      ringEnd: '#EF4444',
+      icon: (size) => (
+        // Gold teepee
+        <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <polygon points="22,6 38,38 6,38" fill="url(#teepeeGrad)" opacity="0.95" />
+          <rect x="20" y="28" width="4" height="12" fill="white" opacity="0.8" rx="1" />
+          <circle cx="22" cy="14" r="3" fill="white" opacity="0.7" />
+          <defs>
+            <linearGradient id="teepeeGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#EF4444" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ),
+    };
+  }
+  if (sprintNumber === 25) {
+    return {
+      id: 'sprint_master',
+      name: 'Sprint Master',
+      ringStart: '#8B5CF6',
+      ringEnd: '#EC4899',
+      icon: (size) => (
+        // Purple crown
+        <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <path d="M6 34h32v5H6z" fill="url(#crownBase)" opacity="0.9" rx="2" />
+          <path d="M6 34L10 18l12 10 12-10 4 16H6z" fill="url(#crownBody)" opacity="0.95" />
+          <circle cx="22" cy="18" r="3" fill="white" opacity="0.8" />
+          <defs>
+            <linearGradient id="crownBase" x1="0" y1="0" x2="44" y2="0" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#8B5CF6" />
+              <stop offset="100%" stopColor="#EC4899" />
+            </linearGradient>
+            <linearGradient id="crownBody" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#8B5CF6" />
+              <stop offset="100%" stopColor="#EC4899" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ),
+    };
+  }
+  if (sprintNumber === 10) {
+    return {
+      id: 'dedicated',
+      name: 'Dedicated',
+      ringStart: '#1877F2',
+      ringEnd: '#0EA5E9',
+      icon: (size) => (
+        // Blue star
+        <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <path d="M22 6l4 10h11L28 23l4 12-10-7-10 7 4-12L7 16h11z"
+            fill="url(#starGrad)" opacity="0.95" />
+          <defs>
+            <linearGradient id="starGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1877F2" />
+              <stop offset="100%" stopColor="#0EA5E9" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ),
+    };
+  }
+  if (sprintNumber === 5) {
+    return {
+      id: 'momentum',
+      name: 'Momentum',
+      ringStart: '#F59E0B',
+      ringEnd: '#EF4444',
+      icon: (size) => (
+        // Amber lightning bolt
+        <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <path d="M26 6L12 26h11l-5 14 19-22H26z" fill="url(#lightningGrad)" opacity="0.95" />
+          <defs>
+            <linearGradient id="lightningGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#F59E0B" />
+              <stop offset="100%" stopColor="#EF4444" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ),
+    };
+  }
+  if (sprintNumber === 1) {
+    return {
+      id: 'first_steps',
+      name: 'First Steps',
+      ringStart: '#1D9E75',
+      ringEnd: '#0EA5E9',
+      icon: (size) => (
+        // Teal shield
+        <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+          <path d="M22 6l16 6v14c0 8-7 14-16 17C6 40 0 34 0 26V12l16-6z"
+            transform="translate(3,2)"
+            fill="url(#shieldGrad)" opacity="0.95" />
+          <path d="M15 22l5 5 9-9" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <defs>
+            <linearGradient id="shieldGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stopColor="#1D9E75" />
+              <stop offset="100%" stopColor="#0EA5E9" />
+            </linearGradient>
+          </defs>
+        </svg>
+      ),
+    };
+  }
+  // Default — sprint number badge
+  return {
+    id: `sprint_${sprintNumber}`,
+    name: `Sprint ${sprintNumber}`,
+    ringStart: '#F59E0B',
+    ringEnd: '#0EA5E9',
+    icon: (size) => (
+      <svg width={size} height={size} viewBox="0 0 44 44" fill="none" aria-hidden="true">
+        <circle cx="22" cy="22" r="20" fill="url(#defaultGrad)" />
+        <text x="22" y="28" textAnchor="middle" fill="white" fontSize="16" fontWeight="800"
+          fontFamily="system-ui,sans-serif">{sprintNumber}</text>
+        <defs>
+          <linearGradient id="defaultGrad" x1="0" y1="0" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#F59E0B" />
+            <stop offset="100%" stopColor="#0EA5E9" />
+          </linearGradient>
+        </defs>
+      </svg>
+    ),
+  };
 }
 
 function ArrowRightIcon() {
@@ -66,6 +194,23 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
   const weekRange = weekStart && weekEnd
     ? `${weekStart.toLocaleDateString('en', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
     : '';
+
+  const sprintNumber = sprint?.sprint_number ?? 0;
+  const badge = getBadgeConfig(sprintNumber, total);
+
+  // Unlock badge in DB on mount
+  useEffect(() => {
+    const milestones = [1, 5, 10, 25];
+    const isLastSprint = sprintNumber > 0 && sprintNumber === total;
+    if (milestones.includes(sprintNumber) || isLastSprint) {
+      fetch('/api/badges/unlock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ badge_id: badge.id, sprint_id: sprint?.id }),
+      }).catch(() => {});
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function startNextSprint() {
     // Try to find and activate next sprint
@@ -126,33 +271,33 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
         transition={{ type: 'spring', damping: 18, stiffness: 300 }}
         className="w-full max-w-sm flex flex-col items-center text-center"
       >
-        {/* Badge icon — 90px circle with amber-teal gradient border */}
-        <div
-          className="flex items-center justify-center rounded-full mb-5"
+        {/* Badge icon — 90px circle with badge-specific gradient border */}
+        <motion.div
+          initial={{ scale: 0.5, rotate: -15 }}
+          animate={{ scale: 1, rotate: 0 }}
+          transition={{ type: 'spring', damping: 14, stiffness: 280, delay: 0.1 }}
+          className="flex items-center justify-center rounded-full mb-4"
           style={{
             width: 90,
             height: 90,
-            background: '#0a0a0f',
-            border: '2px solid transparent',
-            backgroundClip: 'padding-box',
-            boxShadow: '0 0 0 2px transparent',
             position: 'relative',
+            filter: `drop-shadow(0 0 20px ${badge.ringStart}60)`,
           }}
         >
-          {/* Gradient border workaround */}
+          {/* Gradient ring */}
           <div
             style={{
               position: 'absolute',
               inset: 0,
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #F59E0B, #0EA5E9)',
+              background: `linear-gradient(135deg, ${badge.ringStart}, ${badge.ringEnd})`,
               zIndex: 0,
             }}
           />
           <div
             style={{
               position: 'absolute',
-              inset: 2,
+              inset: 3,
               borderRadius: '50%',
               background: '#0a0a0f',
               zIndex: 1,
@@ -161,9 +306,14 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
               justifyContent: 'center',
             }}
           >
-            <BadgeIcon size={44} />
+            {badge.icon(48)}
           </div>
-        </div>
+        </motion.div>
+
+        {/* Badge name */}
+        <p style={{ fontSize: 11, fontWeight: 700, color: badge.ringStart, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+          {badge.name}
+        </p>
 
         {/* Title */}
         <h2 style={{ fontSize: 22, fontWeight: 900, color: '#ffffff', lineHeight: 1.2, marginBottom: 6 }}>
