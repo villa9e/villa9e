@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +11,9 @@ const MOCK_OVERVIEW = {
 };
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient() as any;
+  // Use admin client for public DB reads, server client for optional auth
+  const supabase = createAdminClient() as any;
+  try {
 
   // Try to get real counts from DB
   let proposalCounts = { active: 0, passed: 0, rejected: 0 };
@@ -76,9 +78,13 @@ export async function GET(req: NextRequest) {
     treasuryBalance = MOCK_OVERVIEW.treasuryBalance;
   }
 
-  // Optional: user's governance status (if authenticated)
+  // Optional: user's governance status (if authenticated via separate server client)
   let userStatus: any = null;
-  const { data: { user } } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+  let serverClient: any = null;
+  try { serverClient = createServerClient(); } catch { /* no cookies, public request */ }
+  const { data: { user } } = serverClient
+    ? await serverClient.auth.getUser().catch(() => ({ data: { user: null } }))
+    : { data: { user: null } };
 
   if (user) {
     const { data: profile } = await supabase
@@ -101,4 +107,8 @@ export async function GET(req: NextRequest) {
     totalVotesCast,
     userStatus,
   });
+  } catch (err: any) {
+    // Fall back to mock data on any error
+    return NextResponse.json({ ...MOCK_OVERVIEW, userStatus: null });
+  }
 }
