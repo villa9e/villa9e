@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +46,7 @@ const MOCK_PROPOSALS = [
 ];
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient() as any;
+  const supabase = createAdminClient() as any;
   const { searchParams } = new URL(req.url);
 
   const status   = searchParams.get('status') ?? 'all';

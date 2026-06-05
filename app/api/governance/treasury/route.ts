@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,7 +16,7 @@ const MOCK_TREASURY = {
 };
 
 export async function GET(req: NextRequest) {
-  const supabase = createServerClient() as any;
+  const supabase = createAdminClient() as any;
 
   const { data: allocations, error } = await supabase
     .from('vico_treasury_allocations')

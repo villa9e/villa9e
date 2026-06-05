@@ -152,19 +152,21 @@ export default function NotificationsPage() {
     setMarkingAll(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      const now = new Date().toISOString();
       await (supabase as any)
         .from('notifications')
-        .update({ read: true })
+        .update({ read: true, read_at: now })
         .eq('user_id', user.id)
         .eq('read', false);
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, read_at: now })));
     }
     setMarkingAll(false);
   }
 
   async function markRead(id: string) {
-    await (supabase as any).from('notifications').update({ read: true }).eq('id', id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    const now = new Date().toISOString();
+    await (supabase as any).from('notifications').update({ read: true, read_at: now }).eq('id', id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true, read_at: now } : n));
   }
 
   function handleTap(n: any) {
@@ -172,7 +174,7 @@ export default function NotificationsPage() {
     router.push(getNotificationRoute(n));
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => !n.read && !n.read_at).length;
 
   return (
     <div style={{ minHeight: '100vh', background: '#080E24', color: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -244,7 +246,7 @@ export default function NotificationsPage() {
                 style={{
                   display: 'flex', alignItems: 'flex-start', gap: 14,
                   width: '100%', padding: '14px 16px', textAlign: 'left',
-                  background: n.read ? 'transparent' : 'rgba(41,82,232,0.05)',
+                  background: (n.read || n.read_at) ? 'transparent' : 'rgba(41,82,232,0.05)',
                   border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)',
                   cursor: 'pointer', position: 'relative',
                 }}>
@@ -263,8 +265,8 @@ export default function NotificationsPage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{
                     fontSize: 14,
-                    fontWeight: n.read ? 400 : 700,
-                    color: n.read ? 'rgba(255,255,255,0.6)' : '#fff',
+                    fontWeight: (n.read || n.read_at) ? 400 : 700,
+                    color: (n.read || n.read_at) ? 'rgba(255,255,255,0.6)' : '#fff',
                     lineHeight: 1.4,
                     marginBottom: 4,
                   }}>
@@ -276,7 +278,7 @@ export default function NotificationsPage() {
                 </div>
 
                 {/* Unread dot */}
-                {!n.read && (
+                {!n.read && !n.read_at && (
                   <div style={{
                     width: 8, height: 8, borderRadius: '50%',
                     background: '#2952E8', flexShrink: 0, marginTop: 6,
