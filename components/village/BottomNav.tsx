@@ -11,56 +11,38 @@ const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/tr
 const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
 // Teepee is visible on EVERY village page — no hide prefixes
 
-// Arc radius (px from logo center to icon center)
-const RADIUS = 148;
-
-// angleDeg: degrees clockwise from straight-up (0 = up, -90 = left, +90 = right)
 const ITEMS = [
   {
     href:     '/village/workshop',
     label:    'Workshop',
-    angleDeg: -80,
     path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3z',
   },
   {
-    href:     '/village/workshop',
-    label:    'Goals',
-    angleDeg: -40,
-    path: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-4a6 6 0 100-12 6 6 0 000 12zm0-4a2 2 0 100-4 2 2 0 000 4z',
+    href:  '/village/workshop',
+    label: 'Goals',
+    path:  'M12 22a10 10 0 100-20 10 10 0 000 20zm0-4a6 6 0 100-12 6 6 0 000 12zm0-4a2 2 0 100-4 2 2 0 000 4z',
   },
   {
-    href:     '/village/create',
-    label:    'Create',
-    angleDeg: 0,
-    path: 'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 10a4 4 0 100 8 4 4 0 000-8zm2 4h-1.5v-1.5a.5.5 0 00-1 0V14H10a.5.5 0 000 1h1.5v1.5a.5.5 0 001 0V15H14a.5.5 0 000-1z',
+    href:  '/village/create',
+    label: 'Create',
+    path:  'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 10a4 4 0 100 8 4 4 0 000-8zm2 4h-1.5v-1.5a.5.5 0 00-1 0V14H10a.5.5 0 000 1h1.5v1.5a.5.5 0 001 0V15H14a.5.5 0 000-1z',
   },
   {
-    href:     '/village/dreamline',
-    label:    'DreamLine',
-    angleDeg: 40,
-    path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
+    href:  '/village/dreamline',
+    label: 'DreamLine',
+    path:  'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',
   },
   {
-    href:     '/village/trading-post',
-    label:    'Trading Post',
-    angleDeg: 80,
-    path: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
+    href:  '/village/trading-post',
+    label: 'Trading Post',
+    path:  'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01',
   },
   {
-    href:     '/village/bank',
-    label:    'Bank',
-    angleDeg: 120,
-    path: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10',
+    href:  '/village/bank',
+    label: 'Bank',
+    path:  'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10',
   },
 ] as const;
-
-function arcPos(angleDeg: number) {
-  const rad = angleDeg * (Math.PI / 180);
-  return {
-    x: RADIUS * Math.sin(rad),
-    y: -RADIUS * Math.cos(rad),
-  };
-}
 
 // ── Search Drawer ────────────────────────────────────────────────────────────
 function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -372,69 +354,77 @@ function BottomNavInner() {
         )}
       </AnimatePresence>
 
-      {/* Crescent icon buttons */}
+      {/* Horizontal icon row — slides up above the button when open */}
       <AnimatePresence>
-        {open && ITEMS.map((item, idx) => {
-          const pos = arcPos(item.angleDeg);
-          return (
-            <motion.div
-              key={item.href + item.label}
-              initial={{ opacity: 0, scale: 0.4, x: 0, y: 0 }}
-              animate={{
-                opacity: 1, scale: 1,
-                x: pos.x,
-                y: pos.y,
-              }}
-              exit={{ opacity: 0, scale: 0.4, x: 0, y: 0 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 26, delay: idx * 0.04 }}
-              style={{
-                position: 'fixed',
-                bottom: `calc(${24 + ICON_SZ / 2}px + env(safe-area-inset-bottom, 0px))`,
-                left: '50%',
-                marginLeft: -ICON_SZ / 2,
-                marginBottom: -ICON_SZ / 2,
-                zIndex: 52,
-              }}
-            >
-              <Link
-                href={item.href}
-                onClick={() => setOpen(false)}
-                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}
+        {open && (
+          <motion.div
+            key="nav-row"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            style={{
+              position: 'fixed',
+              bottom: `calc(${24 + ICON_SZ + 16}px + env(safe-area-inset-bottom, 0px))`,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 52,
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              gap: 10,
+              padding: '12px 16px',
+              background: 'rgba(8,10,20,0.88)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              borderRadius: 28,
+              border: '1px solid rgba(255,255,255,0.12)',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
+              maxWidth: 'calc(100vw - 32px)',
+            }}
+          >
+            {ITEMS.map((item, idx) => (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, scale: 0.6 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 26, delay: idx * 0.04 }}
               >
-                <div style={{
-                  width: ICON_SZ,
-                  height: ICON_SZ,
-                  borderRadius: ICON_SZ / 2,
-                  background: 'rgba(20,20,30,0.85)',
-                  backdropFilter: 'blur(20px)',
-                  WebkitBackdropFilter: 'blur(20px)',
-                  border: '1.5px solid rgba(255,255,255,0.25)',
-                  boxShadow: '0 6px 24px rgba(0,0,0,0.4)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <svg width={20} height={20} viewBox="0 0 24 24"
-                    fill="none" stroke="#ffffff" strokeWidth="1.8"
-                    strokeLinecap="round" strokeLinejoin="round">
-                    <path d={item.path} />
-                  </svg>
-                </div>
-                <span style={{
-                  color: '#fff',
-                  fontSize: 9,
-                  fontWeight: 800,
-                  letterSpacing: '0.03em',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.8)',
-                  whiteSpace: 'nowrap',
-                  userSelect: 'none',
-                }}>
-                  {item.label}
-                </span>
-              </Link>
-            </motion.div>
-          );
-        })}
+                <Link
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                >
+                  <div style={{
+                    width: ICON_SZ,
+                    height: ICON_SZ,
+                    borderRadius: ICON_SZ / 2,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1.5px solid rgba(255,255,255,0.2)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg width={20} height={20} viewBox="0 0 24 24"
+                      fill="none" stroke="#ffffff" strokeWidth="1.8"
+                      strokeLinecap="round" strokeLinejoin="round">
+                      <path d={item.path} />
+                    </svg>
+                  </div>
+                  <span style={{
+                    color: 'rgba(255,255,255,0.75)',
+                    fontSize: 8,
+                    fontWeight: 800,
+                    letterSpacing: '0.03em',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                    whiteSpace: 'nowrap',
+                    userSelect: 'none',
+                  }}>
+                    {item.label}
+                  </span>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
       </AnimatePresence>
 
       {/* Notification bell — fixed top right, always visible */}
@@ -506,7 +496,7 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 380, damping: 24 }}
           >
             <Image
-              src="/village-teepee-logo.png"
+              src="/menu-logo.png"
               width={40}
               height={40}
               alt="The Village"
