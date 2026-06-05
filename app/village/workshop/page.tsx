@@ -640,17 +640,13 @@ export default function WorkshopPage() {
 
   if (loading) {
     return (
-      <div style={{ background: '#000', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
-        {/* Loading MP4 — full screen */}
+      <div style={{ background: '#080E24', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
         <video
           autoPlay muted loop playsInline
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', opacity: 0.85 }}
+          style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 24 }}
           src="/loading.mp4"
         />
-        {/* Overlay text */}
-        <div style={{ position: 'relative', zIndex: 10, textAlign: 'center' }}>
-          <p style={{ fontSize: 12, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.12em' }}>WORKSHOP</p>
-        </div>
+        <p style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.12em' }}>WORKSHOP</p>
       </div>
     );
   }

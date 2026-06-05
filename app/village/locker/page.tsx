@@ -1,221 +1,141 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { motion } from 'framer-motion';
 
-const L = {
-  day:   { bg:'#F2FAF8', card:'#FFFFFF', border:'#D0EDE6', text:'#0A1F14', textSec:'#3A6A5A', textTer:'#7AA89A' },
-  night: { bg:'#060F0D', card:'#0C1A17', border:'#0F2820', text:'#E8F5F0', textSec:'#8ABFB0', textTer:'#4A8070' },
-};
-
-const LOCKED   = { fill:'#04342C', border:'#1D9E75', text:'#9FE1CB' };
-const SHARED   = { fill:'#412402', border:'#EF9F27', text:'#FAC775' };
-
-type Category = {
-  id: string;
-  name: string;
-  icon: string;
-  shared: boolean;
-  earnings: number;
-};
-
-const INITIAL_CATEGORIES: Category[] = [
-  { id:'gps',     name:'GPS Goals',             icon:'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z', shared:false, earnings:2.40 },
-  { id:'content', name:'Content Engagement',    icon:'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 9a3 3 0 100 6 3 3 0 000-6z',                                                                                         shared:true,  earnings:1.80 },
-  { id:'location',name:'Location',              icon:'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z',                                                                                              shared:false, earnings:0.80 },
-  { id:'wellness',name:'Wellness Metrics',      icon:'M22 12h-4l-3 9L9 3l-3 9H2',                                                                                                                                              shared:false, earnings:8.50 },
-  { id:'finance', name:'Financial Behavior',    icon:'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',                                                                                                                 shared:false, earnings:3.20 },
-  { id:'commerce',name:'Commerce Behavior',     icon:'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0',                                                                                             shared:true,  earnings:1.60 },
-  { id:'social',  name:'Social Graph',          icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75M9 7a4 4 0 100 8 4 4 0 000-8z',                                               shared:false, earnings:1.40 },
-  { id:'goalcont',name:'Goal Content Interests',icon:'M4 19.5A2.5 2.5 0 016.5 17H20M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z',                                                                            shared:true,  earnings:0.80 },
-  { id:'entertain',name:'Entertainment',        icon:'M15.6 11.6L22 7v10l-6.4-4.5v-0.9zM2 7h12v10H2z',                                                                                                                        shared:false, earnings:0.70 },
-  { id:'behavior',name:'Behavioral Patterns',   icon:'M3 12h18M3 6h18M3 18h12',                                                                                                                                               shared:false, earnings:0.60 },
-  { id:'vlg',     name:'VLG Patterns',          icon:'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z',                                                                        shared:false, earnings:0.90 },
-  { id:'comms',   name:'Communication Patterns',icon:'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z',                                                                                                             shared:false, earnings:0.50 },
+const CATEGORIES = [
+  { key:'share_gps_goals',             label:'GPS Goals & Progress',    icon:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',  rate:2.40 },
+  { key:'share_content_engagement',     label:'Content Engagement',      icon:'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',  rate:1.80 },
+  { key:'share_location',               label:'Location Data',           icon:'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z',  rate:0.80 },
+  { key:'share_wellness',               label:'Wellness Metrics',        icon:'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',  rate:8.50 },
+  { key:'share_financial_behavior',     label:'Financial Behavior',      icon:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',  rate:3.20 },
+  { key:'share_commerce_behavior',      label:'Commerce Behavior',       icon:'M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z',  rate:1.60 },
+  { key:'share_social_graph',           label:'Social Graph',            icon:'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',  rate:1.40 },
+  { key:'share_goal_content_interests', label:'Goal Content Interests',  icon:'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',  rate:0.80 },
+  { key:'share_entertainment',          label:'Entertainment Prefs',     icon:'M15 10l4.553-2.069A1 1 0 0121 8.868V15.13a1 1 0 01-1.447.899L15 14M3 8a2 2 0 012-2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z',  rate:0.70 },
+  { key:'share_behavioral_patterns',    label:'Behavioral Patterns',     icon:'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',  rate:0.60 },
+  { key:'share_vlg_patterns',           label:'$VLG Earning Patterns',   icon:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1',  rate:0.90 },
+  { key:'share_communication_patterns', label:'Communication Patterns',  icon:'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z',  rate:0.50 },
 ];
 
-const NAV_ITEMS = [
-  { label:'Home',        href:'/village/locker' },
-  { label:'My Data',     href:'/village/locker/my-data' },
-  { label:'Permissions', href:'/village/locker/permissions' },
-  { label:'Earnings',    href:'/village/locker/earnings' },
-  { label:'Marketplace', href:'/village/locker/marketplace' },
-  { label:'Audit Log',   href:'/village/locker/audit' },
-  { label:'Export',      href:'/village/locker/export' },
-  { label:'Delete',      href:'/village/locker/delete' },
-];
-
-function LockIcon({ open, size=20 }: { open: boolean; size?: number }) {
-  const color = open ? SHARED.text : LOCKED.text;
-  if (open) return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-      <path d="M7 11V7a5 5 0 019.9-1"/>
-    </svg>
-  );
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-      <path d="M7 11V7a5 5 0 0110 0v4"/>
-    </svg>
-  );
-}
-
-export default function LockerHome() {
+export default function DataLockerPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
-  const c = isNight ? L.night : L.day;
-  const [cats, setCats] = useState<Category[]>(INITIAL_CATEGORIES);
+  const bg = isNight ? '#060F0D' : '#F2FAF8';
+  const card = isNight ? '#0C1A17' : '#FFFFFF';
+  const border = isNight ? '1px solid #0F2820' : '1px solid #D0EDE6';
+  const text = isNight ? '#EEF4F8' : '#0A1F2E';
+  const muted = isNight ? 'rgba(255,255,255,0.4)' : '#4A6A7E';
 
-  const sharedCount = cats.filter(c => c.shared).length;
-  const monthlyEarnings = cats.filter(c => c.shared).reduce((s, c) => s + c.earnings, 0);
-  const meterPct = (sharedCount / 12) * 100;
+  const [prefs, setPrefs] = useState<Record<string,boolean>>({});
+  const [estimatedEarnings, setEstimatedEarnings] = useState(0);
+  const [sharedCount, setSharedCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [toggling, setToggling] = useState<string|null>(null);
 
-  function toggle(id: string) {
-    setCats(prev => prev.map(cat => cat.id === id ? { ...cat, shared: !cat.shared } : cat));
+  useEffect(() => {
+    fetch('/api/locker/preferences').then(r => r.json()).then(d => {
+      setPrefs(d.preferences ?? {});
+      setEstimatedEarnings(d.estimatedEarnings ?? 0);
+      setSharedCount(d.sharedCount ?? 0);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  async function toggle(key: string) {
+    const newVal = !prefs[key];
+    setToggling(key);
+    setPrefs(p => ({ ...p, [key]: newVal }));
+    const newEarnings = CATEGORIES.reduce((s, cat) => {
+      const val = cat.key === key ? newVal : (prefs[cat.key] ?? false);
+      return s + (val ? cat.rate : 0);
+    }, 0);
+    setEstimatedEarnings(newEarnings);
+    setSharedCount(CATEGORIES.filter(cat => cat.key === key ? newVal : (prefs[cat.key] ?? false)).length);
+
+    await fetch('/api/locker/preferences', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: newVal }),
+    }).catch(() => {});
+    setToggling(null);
   }
 
+  const pct = (sharedCount / 12) * 100;
+
   return (
-    <div style={{ background:c.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:88 }}>
-      {/* Top bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 20px 12px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
-        <Link href="/village" style={{ textDecoration:'none', display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:'50%', border:`1px solid ${c.border}` }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={c.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </Link>
-        <span style={{ fontWeight:800, fontSize:18, color:c.text, letterSpacing:-0.5 }}>Data Locker</span>
-      </div>
-
-      {/* Side Nav */}
-      <div style={{ overflowX:'auto', display:'flex', gap:0, background:c.card, borderBottom:`1px solid ${c.border}` }}>
-        {NAV_ITEMS.map(item => {
-          const active = item.href === '/village/locker';
-          return (
-            <Link key={item.href} href={item.href} style={{ textDecoration:'none', padding:'10px 14px', fontSize:12, fontWeight:active?700:500, color:active?'#1D9E75':c.textSec, borderBottom:active?'2px solid #1D9E75':'2px solid transparent', whiteSpace:'nowrap' }}>
-              {item.label}
-            </Link>
-          );
-        })}
-      </div>
-
-      <div style={{ padding:'16px 16px 0' }}>
-        {/* Hero */}
-        <div style={{ background:'#085041', borderRadius:20, padding:22, marginBottom:16, position:'relative', overflow:'hidden' }}>
-          <div style={{ position:'absolute', top:-40, right:-30, width:150, height:150, borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
-          <p style={{ color:'rgba(255,255,255,0.65)', fontSize:10, fontWeight:700, letterSpacing:1.2, textTransform:'uppercase', marginBottom:6 }}>Your Data Locker</p>
-          <p style={{ color:'#fff', fontSize:22, fontWeight:800, letterSpacing:-0.5, margin:'0 0 8px', lineHeight:1.2 }}>Your data. Your choice. Your earnings.</p>
-          <p style={{ color:'rgba(255,255,255,0.7)', fontSize:13, margin:'0 0 16px', lineHeight:1.6 }}>
-            Everything the Village holds about you lives here. You decide what stays private and what earns you money.
-          </p>
-          <div style={{ display:'flex', gap:20 }}>
-            <div>
-              <p style={{ color:'rgba(255,255,255,0.6)', fontSize:10, fontWeight:700, letterSpacing:0.8, textTransform:'uppercase', margin:'0 0 2px' }}>Categories</p>
-              <p style={{ color:'#fff', fontSize:20, fontWeight:800, margin:0 }}>12</p>
-            </div>
-            <div style={{ width:1, background:'rgba(255,255,255,0.2)' }}/>
-            <div>
-              <p style={{ color:'rgba(255,255,255,0.6)', fontSize:10, fontWeight:700, letterSpacing:0.8, textTransform:'uppercase', margin:'0 0 2px' }}>Lifetime Earnings</p>
-              <p style={{ color:'#9FE1CB', fontSize:20, fontWeight:800, margin:0 }}>$24.80</p>
-            </div>
-          </div>
+    <div style={{ minHeight:'100vh', background:bg, paddingBottom:90 }}>
+      {/* Hero */}
+      <div style={{ background:'#085041', padding:'20px 16px 24px' }}>
+        <p style={{ fontSize:10, fontWeight:900, color:'#9FE1CB', letterSpacing:'0.08em', marginBottom:8 }}>YOUR DATA LOCKER</p>
+        <p style={{ fontSize:22, fontWeight:900, color:'#fff', marginBottom:6 }}>Your data. Your choice. Your earnings.</p>
+        <p style={{ fontSize:13, color:'#9FE1CB', lineHeight:1.6, marginBottom:16 }}>
+          The Village collects data to make the app work. You decide whether we can use it commercially. When you share it, you earn a direct share of the revenue it generates.
+        </p>
+        <div style={{ display:'flex', gap:20 }}>
+          <div><p style={{ fontSize:24, fontWeight:900, color:'#fff', margin:0 }}>12</p><p style={{ fontSize:11, color:'#9FE1CB', margin:0 }}>Data categories</p></div>
+          <div><p style={{ fontSize:24, fontWeight:900, color:'#EF9F27', margin:0 }}>${(estimatedEarnings).toFixed(2)}</p><p style={{ fontSize:11, color:'#9FE1CB', margin:0 }}>Est. monthly earnings</p></div>
         </div>
+      </div>
 
-        {/* Privacy Meter */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:18, marginBottom:16 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <p style={{ fontWeight:700, fontSize:14, color:c.text, margin:0 }}>Privacy Meter</p>
-            <span style={{ fontSize:12, color:c.textSec }}>Drag categories to adjust</span>
-          </div>
-          <div style={{ position:'relative', height:16, borderRadius:8, background:`linear-gradient(to right, #1D9E75, #EF9F27)`, marginBottom:10, overflow:'visible' }}>
-            <div style={{
-              position:'absolute', top:'50%', left:`${meterPct}%`, transform:'translate(-50%,-50%)',
-              width:22, height:22, borderRadius:'50%', background:'#fff', border:'3px solid #085041',
-              boxShadow:'0 2px 8px rgba(0,0,0,0.3)', zIndex:2,
-            }}/>
-          </div>
+      <div style={{ padding:'16px' }}>
+        {/* Privacy meter */}
+        <div style={{ background:card, border, borderRadius:14, padding:16, marginBottom:16 }}>
           <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-            <span style={{ fontSize:11, color:'#1D9E75', fontWeight:600 }}>Fully Private</span>
-            <span style={{ fontSize:11, color:'#EF9F27', fontWeight:600 }}>Fully Shared</span>
+            <p style={{ fontSize:12, fontWeight:700, color:muted, margin:0 }}>Your current privacy level</p>
+            <p style={{ fontSize:12, fontWeight:700, color:muted, margin:0 }}>{sharedCount} of 12 shared</p>
           </div>
-          <p style={{ fontSize:13, color:c.textSec, margin:0, textAlign:'center', fontWeight:600 }}>
-            {sharedCount} of 12 categories shared · Est. <span style={{ color:isNight?'#FAC775':'#85620A', fontWeight:700 }}>${monthlyEarnings.toFixed(2)}/month</span>
-          </p>
-        </div>
-
-        {/* Spirit recommendations */}
-        <div style={{ background:'#04342C', border:`1px solid #1D9E75`, borderRadius:16, padding:16, marginBottom:16 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:12 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9FE1CB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
-            <span style={{ fontSize:10, fontWeight:800, color:'#9FE1CB', letterSpacing:1, textTransform:'uppercase' }}>Spirit Recommendations</span>
+          <div style={{ height:16, background:isNight?'#1D9E7530':'#D0EDE6', borderRadius:8, overflow:'hidden', marginBottom:8 }}>
+            <div style={{ height:'100%', width:`${pct}%`, background:`linear-gradient(to right, #1D9E75, #EF9F27)`, borderRadius:8, transition:'width 0.4s' }} />
           </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-            <div style={{ background:'rgba(29,158,117,0.15)', borderRadius:12, padding:12 }}>
-              <p style={{ fontSize:13, color:'#9FE1CB', margin:'0 0 8px', lineHeight:1.5 }}>
-                <strong>Wellness Metrics</strong> is your highest-value category at $8.50/month. Health brands pay a premium for this signal.
-              </p>
-              <div style={{ display:'flex', gap:8 }}>
-                <button style={{ flex:1, background:'#1D9E75', border:'none', color:'#fff', borderRadius:8, padding:'7px 0', fontSize:12, fontWeight:700, cursor:'pointer' }}>Review and share</button>
-                <button style={{ flex:1, background:'transparent', border:`1px solid #1D9E75`, color:'#9FE1CB', borderRadius:8, padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer' }}>Keep private</button>
-              </div>
-            </div>
-            <div style={{ background:'rgba(29,158,117,0.15)', borderRadius:12, padding:12 }}>
-              <p style={{ fontSize:13, color:'#9FE1CB', margin:'0 0 8px', lineHeight:1.5 }}>
-                <strong>Financial Behavior</strong> ($3.20/month) has a buyer request active right now. Anonymized spending patterns only.
-              </p>
-              <div style={{ display:'flex', gap:8 }}>
-                <button style={{ flex:1, background:'#1D9E75', border:'none', color:'#fff', borderRadius:8, padding:'7px 0', fontSize:12, fontWeight:700, cursor:'pointer' }}>Review and share</button>
-                <button style={{ flex:1, background:'transparent', border:`1px solid #1D9E75`, color:'#9FE1CB', borderRadius:8, padding:'7px 0', fontSize:12, fontWeight:600, cursor:'pointer' }}>Keep private</button>
-              </div>
-            </div>
+          <div style={{ display:'flex', justifyContent:'space-between' }}>
+            <span style={{ fontSize:11, color:'#1D9E75', fontWeight:700 }}>Fully private</span>
+            <span style={{ fontSize:11, color:'#EF9F27', fontWeight:700 }}>Fully shared</span>
           </div>
         </div>
 
-        {/* 12-category grid */}
-        <p style={{ fontWeight:700, fontSize:14, color:c.text, margin:'0 0 12px' }}>Your 12 Data Categories</p>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:16 }}>
-          {cats.map(cat => {
-            const s = cat.shared ? SHARED : LOCKED;
-            return (
-              <div key={cat.id} style={{ background:s.fill, border:`1px solid ${s.border}`, borderRadius:14, padding:14 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
-                  <div style={{ width:34, height:34, borderRadius:10, background:'rgba(255,255,255,0.08)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={s.text} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d={cat.icon}/>
-                    </svg>
-                  </div>
-                  <button
-                    onClick={() => toggle(cat.id)}
-                    style={{ background:'transparent', border:'none', cursor:'pointer', padding:2 }}
-                    title={cat.shared ? 'Lock this category' : 'Share this category'}
-                  >
-                    <LockIcon open={cat.shared} size={18} />
-                  </button>
-                </div>
-                <p style={{ fontSize:12, fontWeight:700, color:s.text, margin:'0 0 4px', lineHeight:1.3 }}>{cat.name}</p>
-                <p style={{ fontSize:11, color:`${s.text}99`, margin:0 }}>
-                  {cat.shared ? `$${cat.earnings.toFixed(2)}/mo` : 'Locked · Private'}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Quick nav */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, overflow:'hidden', marginBottom:8 }}>
+        {/* Quick links */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
           {[
-            { label:'View all my data', href:'/village/locker/my-data', icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
-            { label:'Manage permissions', href:'/village/locker/permissions', icon:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
-            { label:'Earnings history', href:'/village/locker/earnings', icon:'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' },
-            { label:'Audit log', href:'/village/locker/audit', icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 12h6M9 16h4' },
-          ].map((item, i, arr) => (
-            <Link key={item.href} href={item.href} style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:12, padding:'13px 16px', borderBottom:i<arr.length-1?`1px solid ${c.border}`:'none' }}>
-              <div style={{ width:34, height:34, borderRadius:10, background:isNight?'#0F2820':'#E8F5F0', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.icon}/></svg>
-              </div>
-              <span style={{ flex:1, fontSize:13, fontWeight:600, color:c.text }}>{item.label}</span>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c.textTer} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+            { label:'My Data', href:'/village/locker/my-data', icon:'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
+            { label:'Earnings', href:'/village/locker/earnings', icon:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1' },
+            { label:'Audit Log', href:'/village/locker/audit', icon:'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+            { label:'Export', href:'/village/locker/export', icon:'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4' },
+          ].map(item => (
+            <Link key={item.label} href={item.href} style={{ display:'flex', alignItems:'center', gap:8, background:card, border, borderRadius:12, padding:'12px 14px', textDecoration:'none' }}>
+              <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth={2} strokeLinecap="round"><path d={item.icon}/></svg>
+              <span style={{ fontSize:13, fontWeight:700, color:text }}>{item.label}</span>
             </Link>
           ))}
         </div>
+
+        {/* Category toggles */}
+        <p style={{ fontSize:10, fontWeight:900, color:muted, letterSpacing:'0.06em', marginBottom:12 }}>DATA CATEGORIES</p>
+        {loading ? (
+          <div style={{ textAlign:'center', padding:32, color:muted }}>Loading your data preferences…</div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {CATEGORIES.map(cat => {
+              const isShared = prefs[cat.key] ?? false;
+              return (
+                <div key={cat.key} style={{ background:card, border, borderRadius:14, padding:'14px 16px', display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ width:36, height:36, borderRadius:18, background: isShared ? '#41240222' : '#04342C22', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={isShared?'#EF9F27':'#1D9E75'} strokeWidth={2} strokeLinecap="round"><path d={cat.icon}/></svg>
+                  </div>
+                  <div style={{ flex:1 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{cat.label}</p>
+                    <p style={{ fontSize:11, color:muted, margin:0 }}>Est. ${cat.rate.toFixed(2)}/month if shared</p>
+                  </div>
+                  <button onClick={() => toggle(cat.key)} disabled={toggling === cat.key}
+                    style={{ width:50, height:28, borderRadius:14, border:'none', cursor:'pointer', background: isShared ? '#EF9F27' : '#1D9E75', position:'relative', transition:'background 0.2s', opacity: toggling === cat.key ? 0.6 : 1 }}>
+                    <motion.div animate={{ x: isShared ? 22 : 2 }} transition={{ type:'spring', stiffness:400, damping:25 }}
+                      style={{ width:24, height:24, borderRadius:12, background:'#fff', position:'absolute', top:2, boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,265 +3,193 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BankBottomNav } from '@/components/bank/BankBottomNav';
+import { createClient } from '@/lib/supabase/client';
 
 const B = {
   day:   { bg:'#F2F7FA', card:'#FFFFFF', border:'#C8DCE8', text:'#0A1F2E', textSec:'#3A5A6E', textTer:'#7A9AAE', action:'#0A5F8A' },
   night: { bg:'#060F18', card:'#0E1E2E', border:'#1A3040', text:'#EEF4F8', textSec:'#8EB4CC', textTer:'#4A7A96', action:'#2A9FCC' },
 };
 
-const ACCOUNTS = [
-  { id:'chk',  label:'Checking',    amount:8240    },
-  { id:'sav',  label:'Savings',     amount:4607    },
-  { id:'port', label:'Portfolio',   amount:12840   },
-  { id:'cc',   label:'Credit Card', amount:-1200   },
-];
-
-const TXNS = [
-  { id:1,  merchant:'Whole Foods Market',        category:'Groceries',    amount:-84.32,  date:'Today' },
-  { id:2,  merchant:'Direct Deposit — Acme Corp',category:'Income',       amount:2850.00, date:'Today' },
-  { id:3,  merchant:'Netflix',                   category:'Subscriptions',amount:-15.49,  date:'Yesterday' },
-  { id:4,  merchant:'Shell Gas Station',         category:'Transport',    amount:-52.10,  date:'Yesterday' },
-  { id:5,  merchant:'Amazon',                    category:'Shopping',     amount:-134.99, date:'May 30' },
-  { id:6,  merchant:'Uber Eats',                 category:'Food',         amount:-28.75,  date:'May 30' },
-  { id:7,  merchant:'Gym Membership',            category:'Health',       amount:-45.00,  date:'May 29' },
-  { id:8,  merchant:'Zelle Transfer — Marcus',   category:'Transfer',     amount:200.00,  date:'May 29' },
-  { id:9,  merchant:'Starbucks',                 category:'Food',         amount:-7.85,   date:'May 28' },
-  { id:10, merchant:'Apple iCloud',              category:'Subscriptions',amount:-2.99,   date:'May 28' },
-];
-
-const SPEND = [
-  { name:'Housing',  amount:1850, pct:100, color:'#0A5F8A' },
-  { name:'Food',     amount:847,  pct:71,  color:'#1D9E75' },
-  { name:'Transport',amount:312,  pct:78,  color:'#0F6E56' },
-  { name:'Shopping', amount:634,  pct:79,  color:'#3A5A6E' },
-  { name:'Bills',    amount:420,  pct:84,  color:'#7A9AAE' },
-  { name:'Health',   amount:145,  pct:29,  color:'#2A9FCC' },
-];
-
-const NETWORK = [
-  { name:'Nia J.',    credential:'CFP',       initials:'NJ' },
-  { name:'Marcus T.', credential:'Series 65', initials:'MT' },
-  { name:'Aisha B.',  credential:'CPA',       initials:'AB' },
-];
-
-const TX_ICON: Record<string,string> = {
+const CATEGORY_ICONS: Record<string,string> = {
   Income:        'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6',
-  Groceries:     'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18M16 10a4 4 0 01-8 0',
-  Subscriptions: 'M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8',
+  Food:          'M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z',
   Transport:     'M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v9a2 2 0 01-2 2h-2',
   Shopping:      'M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4zM3 6h18',
-  Food:          'M18 8h1a4 4 0 010 8h-1M2 8h16v9a4 4 0 01-4 4H6a4 4 0 01-4-4V8z',
-  Health:        'M22 12h-4l-3 9L9 3l-3 9H2',
   Transfer:      'M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4',
+  Investment:    'M23 6l-9.5 9.5-5-5L1 18',
+  Health:        'M22 12h-4l-3 9L9 3l-3 9H2',
+  Other:         'M12 2a10 10 0 110 20A10 10 0 0112 2z',
 };
 
+const ACCOUNT_COLORS: Record<string,string> = {
+  checking: '#0A5F8A', savings: '#1D9E75', investment: '#534AB7', credit: '#D63B3B',
+};
 
 export default function BankHome() {
   const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
-  const c = isNight ? B.night : B.day;
-  const [showNW, setShowNW] = useState(false);
-  const total = ACCOUNTS.reduce((s, a) => s + a.amount, 0);
+  const c = theme === 'night' ? B.night : B.day;
+  const supabase = createClient();
 
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
-  const [insightLoading, setInsightLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
     (async () => {
-      try {
-        const res = await fetch('/api/bank/advisor/opening');
-        if (cancelled) return;
-        if (res.ok) {
-          const data = await res.json();
-          setAiInsight(data.message ?? null);
-        }
-      } catch {
-        // silently fall back to nothing — the card handles null
-      } finally {
-        if (!cancelled) setInsightLoading(false);
-      }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+
+      const [accountsRes, txnsRes, insightRes] = await Promise.allSettled([
+        fetch('/api/bank/accounts').then(r => r.json()),
+        fetch('/api/bank/transactions?limit=10').then(r => r.json()),
+        fetch('/api/bank/advisor/opening').then(r => r.json()),
+      ]);
+
+      if (accountsRes.status === 'fulfilled') setAccounts(accountsRes.value.accounts ?? []);
+      if (txnsRes.status === 'fulfilled') setTransactions(txnsRes.value.transactions ?? []);
+      if (insightRes.status === 'fulfilled') setAiInsight(insightRes.value.message ?? null);
+      setLoading(false);
     })();
-    return () => { cancelled = true; };
   }, []);
 
+  const totalBalance = accounts.reduce((s, a) => s + (a.balance ?? 0), 0);
+  const available = accounts.filter(a => a.account_type !== 'credit').reduce((s, a) => s + (a.available_balance ?? 0), 0);
+  const pending = totalBalance - available;
+
+  function fmtCurrency(n: number) {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
+  }
+
+  function fmtDate(iso: string) {
+    const d = new Date(iso);
+    const today = new Date();
+    const diff = Math.floor((today.getTime() - d.getTime()) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  }
+
   return (
-    <div style={{ background:c.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:88 }}>
-      {/* Top bar */}
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px 12px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
-        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c.action} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <span style={{ fontWeight:800, fontSize:18, color:c.text, letterSpacing:-0.5 }}>Village Bank</span>
-        </div>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={c.textSec} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+    <div style={{ minHeight:'100vh', background:c.bg, paddingBottom:80 }}>
+      {/* Header */}
+      <div style={{ position:'sticky', top:0, zIndex:20, display:'flex', alignItems:'center', padding:'14px 16px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
+        <p style={{ flex:1, fontSize:18, fontWeight:900, color:c.text }}>Bank</p>
+        <Link href="/village/bank/advisor" style={{ display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36, borderRadius:18, background:`${c.action}15`, textDecoration:'none' }}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={c.action} strokeWidth={2} strokeLinecap="round"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </Link>
       </div>
 
-      <div style={{ padding:'16px 16px 0' }}>
-        {/* Balance card — always dark */}
-        <div style={{ background:'#0A5F8A', borderRadius:20, padding:20, marginBottom:16, position:'relative', overflow:'hidden' }}>
-          <div style={{ position:'absolute', top:-30, right:-30, width:130, height:130, borderRadius:'50%', background:'rgba(255,255,255,0.06)', pointerEvents:'none' }}/>
-          <div style={{ position:'absolute', bottom:-20, left:30, width:90, height:90, borderRadius:'50%', background:'rgba(255,255,255,0.04)', pointerEvents:'none' }}/>
-          <p style={{ color:'rgba(255,255,255,0.7)', fontSize:11, fontWeight:600, letterSpacing:0.8, textTransform:'uppercase', marginBottom:4, position:'relative' }}>Total Balance</p>
-          <p style={{ color:'#fff', fontSize:32, fontWeight:800, letterSpacing:-1, margin:'0 0 6px', position:'relative' }}>
-            ${total.toLocaleString('en-US',{minimumFractionDigits:2})}
-          </p>
-          <div style={{ display:'flex', gap:20, marginBottom:12, position:'relative' }}>
-            <span style={{ color:'rgba(255,255,255,0.65)', fontSize:12 }}>Available <strong style={{ color:'#fff' }}>$12,847.00</strong></span>
-            <span style={{ color:'rgba(255,255,255,0.65)', fontSize:12 }}>Pending <strong style={{ color:'#fff' }}>$0.00</strong></span>
-          </div>
-          <button onClick={()=>setShowNW(v=>!v)} style={{ background:'rgba(255,255,255,0.15)', border:'none', color:'#fff', borderRadius:20, padding:'5px 14px', fontSize:12, cursor:'pointer', fontWeight:600, position:'relative' }}>
-            {showNW?'Hide Net Worth':'Show Net Worth'}
-          </button>
-          {showNW && (
-            <div style={{ background:'rgba(255,255,255,0.1)', borderRadius:12, padding:'10px 14px', marginTop:10, position:'relative' }}>
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'rgba(255,255,255,0.8)', marginBottom:4 }}><span>Assets</span><strong style={{ color:'#fff' }}>$25,687.00</strong></div>
-              <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:'rgba(255,255,255,0.8)', marginBottom:4 }}><span>Liabilities</span><strong style={{ color:'#fff' }}>-$1,200.00</strong></div>
-              <div style={{ borderTop:'1px solid rgba(255,255,255,0.2)', marginTop:6, paddingTop:6, display:'flex', justifyContent:'space-between', fontSize:13, fontWeight:700, color:'#fff' }}><span>Net Worth</span><span>$24,487.00</span></div>
-            </div>
+      <div style={{ padding:'16px' }}>
+        {/* Total balance card */}
+        <div style={{ background:'#0A5F8A', borderRadius:20, padding:20, marginBottom:16 }}>
+          <p style={{ fontSize:11, color:'rgba(255,255,255,0.6)', letterSpacing:'0.06em', marginBottom:6 }}>TOTAL BALANCE</p>
+          {loading ? (
+            <div style={{ width:160, height:36, borderRadius:8, background:'rgba(255,255,255,0.1)', marginBottom:8 }} />
+          ) : (
+            <p style={{ fontSize:32, fontWeight:900, color:'#fff', marginBottom:6 }}>{fmtCurrency(totalBalance)}</p>
           )}
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:10, position:'relative' }}>
-            {ACCOUNTS.map(a=>(
-              <span key={a.id} style={{ background:'rgba(255,255,255,0.15)', borderRadius:20, padding:'3px 10px', fontSize:11, color:'#fff', fontWeight:600 }}>{a.label}</span>
+          <p style={{ fontSize:12, color:'rgba(255,255,255,0.65)' }}>Available {fmtCurrency(available)} · Pending {fmtCurrency(Math.abs(pending))}</p>
+
+          {/* Account pills */}
+          <div style={{ display:'flex', gap:6, marginTop:14, flexWrap:'wrap' }}>
+            {accounts.map(a => (
+              <span key={a.id} style={{ background:'rgba(255,255,255,0.15)', borderRadius:20, padding:'4px 10px', fontSize:11, color:'#fff', fontWeight:700, textTransform:'capitalize' }}>
+                {a.account_name?.split(' ')[1] ?? a.account_type} {fmtCurrency(a.balance)}
+              </span>
             ))}
           </div>
         </div>
 
         {/* Quick actions */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:16 }}>
-          {([
-            { label:'Send',    href:'/village/bank/move',    d:'M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z' },
-            { label:'Receive', href:'/village/bank/move',    d:'M12 2v20M2 12l10-10 10 10' },
-            { label:'Deposit', href:'/village/bank/move',    d:'M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3' },
-            { label:'Finance', href:'/village/bank/finance', d:'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM12 8v4l3 3' },
-          ] as { label:string; href:string; d:string }[]).map(a=>(
-            <Link key={a.label} href={a.href} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, textDecoration:'none' }}>
-              <div style={{ width:52, height:52, borderRadius:'50%', background:c.action, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={a.d}/></svg>
-              </div>
-              <span style={{ fontSize:11, color:c.textSec, fontWeight:600 }}>{a.label}</span>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr 1fr', gap:8, marginBottom:16 }}>
+          {[
+            { label:'Send', icon:'M5 12h14M12 5l7 7-7 7', href:'/village/bank/move' },
+            { label:'Receive', icon:'M19 12H5M12 19l-7-7 7-7', href:'/village/bank/receive' },
+            { label:'Invest', icon:'M23 6l-9.5 9.5-5-5L1 18', href:'/village/bank/invest' },
+            { label:'More', icon:'M5 12h.01M12 12h.01M19 12h.01', href:'/village/bank/more' },
+          ].map(btn => (
+            <Link key={btn.label} href={btn.href} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:6, background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:'14px 0', textDecoration:'none' }}>
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={c.action} strokeWidth={2} strokeLinecap="round"><path d={btn.icon}/></svg>
+              <span style={{ fontSize:11, fontWeight:700, color:c.text }}>{btn.label}</span>
             </Link>
           ))}
         </div>
 
-        {/* AI insight */}
-        <Link href="/village/bank/advisor" style={{ textDecoration:'none', display:'block' }}>
-          <div style={{ background:'#EAF3DE', border:'1px solid #B4D88A', borderRadius:16, padding:16, marginBottom:16 }}>
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:8 }}>
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z"/></svg>
-                <span style={{ fontSize:10, fontWeight:800, color:'#27500A', letterSpacing:0.8, textTransform:'uppercase' }}>AI Insight</span>
-              </div>
-              <span style={{ fontSize:11, color:'#27500A', fontWeight:600, opacity:0.7 }}>Ask more →</span>
+        {/* AI Insight */}
+        {aiInsight && (
+          <Link href="/village/bank/advisor" style={{ display:'block', textDecoration:'none', background:'#EAF3DE', border:'1px solid #639922', borderRadius:14, padding:14, marginBottom:16 }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
+              <svg width={14} height={14} viewBox="0 0 24 24" fill="#27500A"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+              <span style={{ fontSize:10, fontWeight:900, color:'#27500A', letterSpacing:'0.06em' }}>AI INSIGHT</span>
             </div>
-            {insightLoading ? (
-              <div style={{ display:'flex', flexDirection:'column', gap:7 }}>
-                {[80, 60, 45].map((w, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      height:11, borderRadius:6, background:'#B4D88A',
-                      width:`${w}%`,
-                      animation:'bankInsightPulse 1.4s ease-in-out infinite',
-                      animationDelay:`${i*0.12}s`,
-                    }}
-                  />
-                ))}
-                <style>{`
-                  @keyframes bankInsightPulse {
-                    0%,100% { opacity:0.4; } 50% { opacity:0.9; }
-                  }
-                `}</style>
-              </div>
-            ) : (
-              <p style={{ fontSize:13, color:'#27500A', lineHeight:1.6, margin:0 }}>
-                {aiInsight ?? 'Your spending is 12% lower than last month — great discipline. Your savings rate is 18%, putting you on track to hit your Home Down Payment goal 3 months early. Tap to chat with your AI advisor.'}
-              </p>
-            )}
-          </div>
-        </Link>
+            <p style={{ fontSize:13, color:'#27500A', lineHeight:1.5, margin:0 }}>{aiInsight}</p>
+            <p style={{ fontSize:11, color:'#639922', fontWeight:700, marginTop:6 }}>Ask more →</p>
+          </Link>
+        )}
 
-        {/* Spending snapshot */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:16, marginBottom:16 }}>
-          <p style={{ fontWeight:700, fontSize:14, color:c.text, marginBottom:12 }}>Spending Snapshot — May</p>
-          {SPEND.map(cat=>(
-            <div key={cat.name} style={{ marginBottom:10 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                <span style={{ fontSize:12, color:c.textSec }}>{cat.name}</span>
-                <span style={{ fontSize:12, fontWeight:600, color:c.text }}>${cat.amount.toLocaleString()}</span>
+        {/* Accounts list */}
+        <p style={{ fontSize:10, fontWeight:900, color:c.textTer, letterSpacing:'0.06em', marginBottom:10 }}>ACCOUNTS</p>
+        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, overflow:'hidden', marginBottom:16 }}>
+          {loading ? (
+            <div style={{ padding:16, color:c.textTer, fontSize:13 }}>Loading accounts…</div>
+          ) : accounts.length === 0 ? (
+            <div style={{ padding:16, color:c.textTer, fontSize:13 }}>No accounts yet.</div>
+          ) : accounts.map((a, i) => (
+            <div key={a.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderBottom: i < accounts.length-1 ? `1px solid ${c.border}` : 'none' }}>
+              <div style={{ width:40, height:40, borderRadius:20, background:`${ACCOUNT_COLORS[a.account_type] ?? '#0A5F8A'}20`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={ACCOUNT_COLORS[a.account_type] ?? '#0A5F8A'} strokeWidth={2} strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
               </div>
-              <div style={{ height:6, background:isNight?'#1A3040':'#DDE9F0', borderRadius:3 }}>
-                <div style={{ width:`${cat.pct}%`, height:'100%', background:cat.color, borderRadius:3 }}/>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:13, fontWeight:700, color:c.text, margin:0 }}>{a.account_name}</p>
+                <p style={{ fontSize:11, color:c.textTer, margin:0 }}>••••{a.account_number?.slice(-4) ?? '0000'} · FDIC insured via Unit</p>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:14, fontWeight:700, color: a.balance < 0 ? '#A32D2D' : '#0F6E56', margin:0 }}>{fmtCurrency(a.balance)}</p>
+                <p style={{ fontSize:10, color:c.textTer, margin:0 }}>Available {fmtCurrency(a.available_balance)}</p>
               </div>
             </div>
           ))}
+          <Link href="/village/bank/move" style={{ display:'block', padding:'12px 16px', borderTop:`1px solid ${c.border}`, color:c.action, fontSize:12, fontWeight:700, textDecoration:'none', textAlign:'center' }}>
+            + Connect a bank or card
+          </Link>
         </div>
 
-        {/* Accounts */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, marginBottom:16, overflow:'hidden' }}>
-          <div style={{ padding:'14px 16px', borderBottom:`1px solid ${c.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <p style={{ fontWeight:700, fontSize:14, color:c.text, margin:0 }}>Accounts</p>
-            <span style={{ fontSize:12, color:c.action, fontWeight:600, cursor:'pointer' }}>Manage</span>
-          </div>
-          {ACCOUNTS.map((acct,i)=>(
-            <div key={acct.id} style={{ padding:'12px 16px', borderBottom:i<ACCOUNTS.length-1?`1px solid ${c.border}`:'none', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:36, height:36, borderRadius:10, background:isNight?'#1A3040':'#E8F3FA', display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c.action} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
-                </div>
-                <div>
-                  <p style={{ fontSize:13, fontWeight:600, color:c.text, margin:0 }}>{acct.label}</p>
-                  <p style={{ fontSize:11, color:c.textTer, margin:0 }}>Village Bank</p>
-                </div>
-              </div>
-              <span style={{ fontWeight:700, fontSize:14, color:acct.amount<0?'#A32D2D':c.text }}>
-                {acct.amount<0?'-':''}${Math.abs(acct.amount).toLocaleString('en-US',{minimumFractionDigits:2})}
-              </span>
+        {/* Recent transactions */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:10 }}>
+          <p style={{ fontSize:10, fontWeight:900, color:c.textTer, letterSpacing:'0.06em', margin:0 }}>RECENT TRANSACTIONS</p>
+          <Link href="/village/bank/statements" style={{ fontSize:11, color:c.action, fontWeight:700, textDecoration:'none' }}>View all</Link>
+        </div>
+        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, overflow:'hidden', marginBottom:16 }}>
+          {loading ? (
+            <div style={{ padding:16, color:c.textTer, fontSize:13 }}>Loading transactions…</div>
+          ) : transactions.length === 0 ? (
+            <div style={{ padding:16, color:c.textTer, fontSize:13, textAlign:'center' }}>
+              <p style={{ margin:'0 0 6px', fontSize:24 }}>💳</p>
+              <p style={{ margin:0 }}>No transactions yet. Send or receive money to get started.</p>
             </div>
-          ))}
-        </div>
-
-        {/* Transactions */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, marginBottom:16, overflow:'hidden' }}>
-          <div style={{ padding:'14px 16px', borderBottom:`1px solid ${c.border}`, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <p style={{ fontWeight:700, fontSize:14, color:c.text, margin:0 }}>Recent Transactions</p>
-            <span style={{ fontSize:12, color:c.action, fontWeight:600, cursor:'pointer' }}>See all</span>
-          </div>
-          {TXNS.map((tx,i)=>(
-            <div key={tx.id} style={{ padding:'11px 16px', borderBottom:i<TXNS.length-1?`1px solid ${c.border}`:'none', display:'flex', alignItems:'center', gap:12 }}>
-              <div style={{ width:38, height:38, borderRadius:'50%', background:isNight?'#1A3040':'#E8F3FA', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, color:c.action }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d={TX_ICON[tx.category]??'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z'}/>
+          ) : transactions.slice(0, 8).map((tx, i) => (
+            <div key={tx.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', borderBottom: i < Math.min(7, transactions.length-1) ? `1px solid ${c.border}` : 'none' }}>
+              <div style={{ width:36, height:36, borderRadius:18, background:`${c.action}15`, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke={c.action} strokeWidth={2} strokeLinecap="round">
+                  <path d={CATEGORY_ICONS[tx.category] ?? CATEGORY_ICONS.Other}/>
                 </svg>
               </div>
               <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:13, fontWeight:600, color:c.text, margin:0, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{tx.merchant}</p>
-                <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{tx.date} · {tx.category}</p>
+                <p style={{ fontSize:13, fontWeight:600, color:c.text, margin:0, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{tx.merchant_name ?? tx.description ?? 'Transaction'}</p>
+                <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{tx.category} · {fmtDate(tx.created_at)}</p>
               </div>
-              <span style={{ fontWeight:700, fontSize:13, color:tx.amount>=0?'#0F6E56':'#A32D2D', whiteSpace:'nowrap' }}>
-                {tx.amount>=0?'+':'-'}${Math.abs(tx.amount).toFixed(2)}
-              </span>
+              <p style={{ fontSize:13, fontWeight:700, color: tx.direction === 'credit' ? '#0F6E56' : '#A32D2D', margin:0, flexShrink:0 }}>
+                {tx.direction === 'credit' ? '+' : '-'}{fmtCurrency(Math.abs(tx.amount))}
+              </p>
             </div>
           ))}
         </div>
-
-        {/* Network */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:16, marginBottom:8 }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-            <p style={{ fontWeight:700, fontSize:14, color:c.text, margin:0 }}>Financial Network</p>
-            <span style={{ fontSize:12, color:c.action, fontWeight:600, cursor:'pointer' }}>View all</span>
-          </div>
-          <div style={{ display:'flex', gap:20 }}>
-            {NETWORK.map(n=>(
-              <div key={n.name} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
-                <div style={{ width:48, height:48, borderRadius:'50%', background:c.action, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:14 }}>{n.initials}</div>
-                <span style={{ fontSize:11, color:c.text, fontWeight:600 }}>{n.name}</span>
-                <span style={{ fontSize:10, color:c.action, fontWeight:700, background:isNight?'#1A3040':'#E8F3FA', borderRadius:20, padding:'2px 8px' }}>{n.credential}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
-      <BankBottomNav active="/village/bank"/>
+
+      <BankBottomNav active="/village/bank" />
     </div>
   );
 }

@@ -60,21 +60,37 @@ export default function OfficePage() {
   const muted = 'var(--v-text-muted)';
   const sub   = 'var(--v-text-sub)';
 
-  function openThread(t:any) {
-    setThread(t);
-    // Derive context_label: use thread's context_label field, fall back to context, then null
+  async function openThread(t:any) {
     const label = t.context_label ?? t.context ?? null;
     setThread({ ...t, context_label: label });
-    setMessages([
-      { role:'them', text:t.preview, ts: t.ts },
-    ]);
+    // Load real messages from API
+    try {
+      const res = await fetch(`/api/office/messages?thread_id=${t.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        const msgs = (data.messages ?? []).map((m: any) => ({
+          role: m.sender_id === t._currentUserId ? 'me' : 'them' as 'me'|'them',
+          text: m.content,
+          ts: m.created_at,
+        }));
+        setMessages(msgs.length > 0 ? msgs : [{ role: 'them' as const, text: t.last_message_preview ?? t.preview ?? 'Start a conversation', ts: t.last_message_at ?? new Date().toISOString() }]);
+      }
+    } catch {
+      setMessages([{ role: 'them' as const, text: t.last_message_preview ?? t.preview ?? '', ts: new Date().toISOString() }]);
+    }
   }
 
-  function send() {
-    if (!input.trim()) return;
-    setMessages(m=>[...m,{role:'me',text:input.trim(),ts:new Date().toISOString()}]);
+  async function send() {
+    if (!input.trim() || !activeThread) return;
+    const text = input.trim();
     setInput('');
-    setTimeout(()=>bottomRef.current?.scrollIntoView({behavior:'smooth'}),50);
+    setMessages(m => [...m, { role:'me' as const, text, ts: new Date().toISOString() }]);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior:'smooth' }), 50);
+    // Persist to DB
+    fetch('/api/office/messages', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ thread_id: activeThread.id, content: text }),
+    }).catch(() => {});
   }
 
   if (activeThread) {

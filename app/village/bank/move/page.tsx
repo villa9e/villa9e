@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BankBottomNav } from '@/components/bank/BankBottomNav';
@@ -9,178 +9,142 @@ const B = {
   night: { bg:'#060F18', card:'#0E1E2E', border:'#1A3040', text:'#EEF4F8', textSec:'#8EB4CC', textTer:'#4A7A96', action:'#2A9FCC' },
 };
 
-const CONTACTS = [
-  { name:'Nia J.',    initials:'NJ', handle:'@niaj' },
-  { name:'Marcus T.', initials:'MT', handle:'@marcust' },
-  { name:'Deja R.',   initials:'DR', handle:'@dejar' },
-];
-
-const CURRENCIES = ['USD','BTC','ETH','MATIC'];
-
 export default function MovePage() {
   const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
-  const c = isNight ? B.night : B.day;
-  const [amount, setAmount] = useState('0');
-  const [currency, setCurrency] = useState('USD');
-  const [speed, setSpeed] = useState<'standard'|'instant'>('standard');
-  const [step, setStep] = useState<'entry'|'review'>('entry');
+  const c = theme === 'night' ? B.night : B.day;
   const [recipient, setRecipient] = useState('');
+  const [amount, setAmount] = useState('');
+  const [note, setNote] = useState('');
+  const [speed, setSpeed] = useState<'standard'|'instant'>('standard');
+  const [step, setStep] = useState<'recipient'|'amount'|'review'|'done'>('recipient');
+  const [recipientProfile, setRecipientProfile] = useState<any>(null);
+  const [searching, setSearching] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const [txResult, setTxResult] = useState<any>(null);
+  const [balance, setBalance] = useState(0);
 
-  function handleNum(n: string) {
-    setAmount(prev => {
-      if (n === '.' && prev.includes('.')) return prev;
-      if (prev === '0' && n !== '.') return n;
-      return prev + n;
-    });
-  }
-  function handleDel() {
-    setAmount(prev => prev.length <= 1 ? '0' : prev.slice(0, -1));
+  useEffect(() => {
+    fetch('/api/bank/accounts').then(r => r.json()).then(d => {
+      const primary = (d.accounts ?? []).find((a: any) => a.is_primary);
+      setBalance(primary?.balance ?? 0);
+    }).catch(() => {});
+  }, []);
+
+  async function searchRecipient() {
+    if (!recipient.trim()) return;
+    setSearching(true); setError('');
+    try {
+      const r = await fetch(`/api/check-username?handle=${encodeURIComponent(recipient.replace('@',''))}`);
+      if (!r.ok) throw new Error('Network error');
+      // Username exists if available=false (means it's taken = user exists)
+      const data = await r.json();
+      if (data.available === false && !data.error) {
+        // Search profiles
+        const res = await fetch(`/api/discover/search?q=${encodeURIComponent(recipient.replace('@',''))}`);
+        const sd = await res.json();
+        const user = sd.results?.find((x: any) => x.type === 'user');
+        if (user) { setRecipientProfile({ username: user.title, display_name: user.title }); setStep('amount'); }
+        else setError('User not found.');
+      } else {
+        setError('User not found. Check the username and try again.');
+      }
+    } catch { setError('Could not search. Try again.'); }
+    setSearching(false);
   }
 
-  const keys = ['1','2','3','4','5','6','7','8','9','.','0','DEL'];
-
-  if (step === 'review') {
-    return (
-      <div style={{ background:c.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:88 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 20px 12px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
-          <button onClick={()=>setStep('entry')} style={{ background:'none', border:'none', cursor:'pointer', color:c.action, padding:0 }}>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          </button>
-          <span style={{ fontWeight:800, fontSize:17, color:c.text }}>Review Transfer</span>
-        </div>
-        <div style={{ padding:16 }}>
-          <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:20, marginBottom:16 }}>
-            <div style={{ textAlign:'center', marginBottom:20 }}>
-              <p style={{ fontSize:13, color:c.textTer, marginBottom:4 }}>Sending</p>
-              <p style={{ fontSize:36, fontWeight:800, color:c.text, letterSpacing:-1 }}>{currency === 'USD' ? '$' : ''}{amount} <span style={{ fontSize:18, color:c.textSec }}>{currency}</span></p>
-            </div>
-            {[
-              { label:'To',      value:recipient || '@recipient' },
-              { label:'Speed',   value:speed === 'standard' ? 'Standard ACH (1-3 days)' : 'Instant RTP (seconds)' },
-              { label:'Fee',     value:speed === 'standard' ? 'Free' : '$0.25' },
-              { label:'From',    value:'Village Checking ···8240' },
-              { label:'Arrives', value:speed === 'standard' ? '2-3 business days' : 'Within seconds' },
-            ].map(row=>(
-              <div key={row.label} style={{ display:'flex', justifyContent:'space-between', paddingTop:12, paddingBottom:12, borderTop:`1px solid ${c.border}` }}>
-                <span style={{ fontSize:13, color:c.textSec }}>{row.label}</span>
-                <span style={{ fontSize:13, fontWeight:600, color:c.text }}>{row.value}</span>
-              </div>
-            ))}
-          </div>
-          <button style={{ width:'100%', background:c.action, color:'#fff', border:'none', borderRadius:14, padding:'16px', fontSize:15, fontWeight:700, cursor:'pointer', marginBottom:12 }}>
-            Confirm Send
-          </button>
-          <p style={{ fontSize:11, color:c.textTer, textAlign:'center', lineHeight:1.5 }}>
-            By confirming you agree to Village Bank transfer terms. ACH transfers are processed by Unit Financial Inc.
-          </p>
-        </div>
-        <BankBottomNav active="/village/bank/move"/>
-      </div>
-    );
+  async function send() {
+    setSending(true); setError('');
+    try {
+      const res = await fetch('/api/bank/transfer', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to_username: recipientProfile.username, amount: parseFloat(amount), note, speed }),
+      });
+      const data = await res.json();
+      if (res.ok) { setTxResult(data); setStep('done'); }
+      else setError(data.error ?? 'Transfer failed');
+    } catch { setError('Transfer failed. Try again.'); }
+    setSending(false);
   }
+
+  function fmt(n: number) { return new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(n); }
 
   return (
-    <div style={{ background:c.bg, minHeight:'100vh', maxWidth:480, margin:'0 auto', paddingBottom:88 }}>
-      {/* Top bar */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'16px 20px 12px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
-        <Link href="/village/bank" style={{ color:c.action, lineHeight:0 }}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    <div style={{ minHeight:'100vh', background:c.bg, paddingBottom:80 }}>
+      <div style={{ position:'sticky', top:0, zIndex:20, display:'flex', alignItems:'center', padding:'14px 16px', background:c.card, borderBottom:`1px solid ${c.border}` }}>
+        <Link href="/village/bank" style={{ display:'flex', alignItems:'center', gap:4, color:c.action, fontWeight:800, fontSize:14, textDecoration:'none' }}>
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg> Bank
         </Link>
-        <span style={{ fontWeight:800, fontSize:17, color:c.text }}>Send Money</span>
+        <p style={{ flex:1, textAlign:'center', fontSize:17, fontWeight:900, color:c.text }}>Send Money</p>
+        <div style={{ width:60 }}/>
       </div>
 
-      <div style={{ padding:16 }}>
-        {/* Compliance banner */}
-        <div style={{ background:'#EAF3DE', border:'1px solid #639922', borderRadius:12, padding:'10px 14px', marginBottom:16, display:'flex', alignItems:'flex-start', gap:8 }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#27500A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginTop:1, flexShrink:0 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <p style={{ fontSize:11, color:'#27500A', margin:0, lineHeight:1.5 }}>
-            <strong>FDIC insured</strong> up to $250,000 · ACH via Unit Financial (FinCEN registered MSB) · RTP instant payments compliant
-          </p>
-        </div>
+      <div style={{ background:'#EAF3DE', borderBottom:'1px solid #639922', padding:'10px 16px', display:'flex', gap:8 }}>
+        <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#27500A" strokeWidth={2} strokeLinecap="round" style={{ flexShrink:0, marginTop:1 }}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <p style={{ fontSize:11, color:'#27500A', margin:0 }}>Transfers powered by Village Bank · FDIC insured · All 50 states</p>
+      </div>
 
-        {/* Recipient search */}
-        <div style={{ position:'relative', marginBottom:16 }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={c.textTer} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)' }}><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input
-            value={recipient}
-            onChange={e=>setRecipient(e.target.value)}
-            placeholder="Search name, @handle, phone, or routing #"
-            style={{ width:'100%', boxSizing:'border-box', paddingLeft:36, paddingRight:12, paddingTop:12, paddingBottom:12, borderRadius:12, border:`1px solid ${c.border}`, background:c.card, color:c.text, fontSize:13, outline:'none' }}
-          />
-        </div>
-
-        {/* Recent contacts */}
-        <p style={{ fontSize:12, color:c.textTer, fontWeight:600, marginBottom:10 }}>Recent</p>
-        <div style={{ display:'flex', gap:16, marginBottom:20, overflowX:'auto', paddingBottom:4 }}>
-          {CONTACTS.map(co=>(
-            <button key={co.name} onClick={()=>setRecipient(co.handle)} style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5, background:'none', border:'none', cursor:'pointer', flexShrink:0 }}>
-              <div style={{ width:48, height:48, borderRadius:'50%', background:c.action, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:700, fontSize:14 }}>{co.initials}</div>
-              <span style={{ fontSize:11, color:c.text, fontWeight:600 }}>{co.name}</span>
-              <span style={{ fontSize:10, color:c.textTer }}>{co.handle}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Amount display */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, padding:'20px 16px', marginBottom:16, textAlign:'center' }}>
-          <p style={{ fontSize:44, fontWeight:800, color:c.text, letterSpacing:-1, margin:'0 0 4px' }}>
-            {currency === 'USD' ? '$' : ''}{amount}
-            <span style={{ fontSize:20, color:c.textSec, marginLeft:4 }}>{currency !== 'USD' ? currency : ''}</span>
-          </p>
-          {/* Currency toggle */}
-          <div style={{ display:'flex', gap:6, justifyContent:'center', marginTop:8 }}>
-            {CURRENCIES.map(cur=>(
-              <button key={cur} onClick={()=>setCurrency(cur)} style={{ padding:'4px 10px', borderRadius:20, border:`1px solid ${currency===cur?c.action:c.border}`, background:currency===cur?c.action:'transparent', color:currency===cur?'#fff':c.textSec, fontSize:11, fontWeight:700, cursor:'pointer' }}>
-                {cur}
-              </button>
-            ))}
+      <div style={{ padding:'20px 16px' }}>
+        {step === 'done' && txResult ? (
+          <div style={{ textAlign:'center', padding:'40px 0' }}>
+            <div style={{ width:80, height:80, borderRadius:40, background:'#E1F5EE', display:'flex', alignItems:'center', justifyContent:'center', margin:'0 auto 16px' }}>
+              <svg width={36} height={36} viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth={2.5} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <p style={{ fontSize:22, fontWeight:900, color:c.text, marginBottom:4 }}>Money sent!</p>
+            <p style={{ fontSize:14, color:c.textSec, marginBottom:4 }}>{fmt(parseFloat(amount))} sent to @{recipientProfile?.username}</p>
+            <p style={{ fontSize:11, color:c.textTer, marginBottom:24 }}>{txResult.status === 'posted' ? 'Delivered instantly' : 'Processing (1-3 business days)'}</p>
+            <Link href="/village/bank" style={{ display:'inline-block', background:c.action, color:'#fff', borderRadius:14, padding:'12px 32px', fontSize:14, fontWeight:900, textDecoration:'none' }}>Back to Bank</Link>
           </div>
-        </div>
-
-        {/* Numpad */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:16 }}>
-          {keys.map(k=>(
-            <button key={k} onClick={()=>k==='DEL'?handleDel():handleNum(k)}
-              style={{ padding:'16px 0', borderRadius:14, border:`1px solid ${c.border}`, background:c.card, color:k==='DEL'?c.action:c.text, fontSize:k==='DEL'?13:20, fontWeight:k==='DEL'?700:500, cursor:'pointer' }}>
-              {k === 'DEL' ? (
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ margin:'0 auto', display:'block' }}><path d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2zM18 9l-6 6M12 9l6 6"/></svg>
-              ) : k}
-            </button>
-          ))}
-        </div>
-
-        {/* Speed selector */}
-        <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, overflow:'hidden', marginBottom:16 }}>
-          <p style={{ fontSize:12, color:c.textTer, fontWeight:600, padding:'12px 16px 8px' }}>Speed</p>
-          {([
-            { id:'standard', label:'Standard', desc:'ACH · 1-3 business days', fee:'Free' },
-            { id:'instant',  label:'Instant',  desc:'RTP · Arrives in seconds',  fee:'$0.25' },
-          ] as { id:'standard'|'instant'; label:string; desc:string; fee:string }[]).map((opt,i)=>(
-            <button key={opt.id} onClick={()=>setSpeed(opt.id)}
-              style={{ width:'100%', display:'flex', alignItems:'center', justifyContent:'space-between', padding:'12px 16px', background:'transparent', border:'none', borderTop:i>0?`1px solid ${c.border}`:'none', cursor:'pointer' }}>
-              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <div style={{ width:18, height:18, borderRadius:'50%', border:`2px solid ${speed===opt.id?c.action:c.border}`, display:'flex', alignItems:'center', justifyContent:'center' }}>
-                  {speed===opt.id && <div style={{ width:8, height:8, borderRadius:'50%', background:c.action }}/>}
+        ) : step === 'recipient' ? (
+          <>
+            <p style={{ fontSize:14, fontWeight:700, color:c.text, marginBottom:14 }}>Who are you sending to?</p>
+            <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+              <input value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="@username" onKeyDown={e=>e.key==='Enter'&&searchRecipient()}
+                style={{ flex:1, background:c.card, border:`1px solid ${c.border}`, borderRadius:12, padding:'12px 14px', fontSize:14, color:c.text, outline:'none' }} />
+              <button onClick={searchRecipient} disabled={searching||!recipient.trim()} style={{ background:c.action, color:'#fff', border:'none', borderRadius:12, padding:'12px 20px', fontSize:14, fontWeight:900, cursor:'pointer', opacity:searching||!recipient.trim()?0.5:1 }}>
+                {searching?'…':'Find'}
+              </button>
+            </div>
+            {error&&<p style={{ fontSize:12, color:'#D63B3B' }}>{error}</p>}
+          </>
+        ) : step === 'amount' ? (
+          <>
+            <div style={{ display:'flex', alignItems:'center', gap:10, background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:14, marginBottom:16 }}>
+              <div style={{ width:44, height:44, borderRadius:22, background:c.action, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontWeight:900, fontSize:18 }}>{(recipientProfile?.display_name??recipientProfile?.username??'U').slice(0,1).toUpperCase()}</div>
+              <div><p style={{ fontSize:14, fontWeight:700, color:c.text, margin:0 }}>{recipientProfile?.display_name??recipientProfile?.username}</p><p style={{ fontSize:12, color:c.textTer, margin:0 }}>@{recipientProfile?.username}</p></div>
+            </div>
+            <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" style={{ width:'100%', background:c.card, border:`1px solid ${c.border}`, borderRadius:12, padding:'14px', fontSize:28, fontWeight:700, color:c.text, outline:'none', boxSizing:'border-box', marginBottom:8 }} />
+            <p style={{ fontSize:11, color:c.textTer, marginBottom:14 }}>Available: {fmt(balance)}</p>
+            <input value={note} onChange={e=>setNote(e.target.value)} placeholder="What's this for? (optional)" style={{ width:'100%', background:c.card, border:`1px solid ${c.border}`, borderRadius:12, padding:'12px', fontSize:13, color:c.text, outline:'none', boxSizing:'border-box', marginBottom:14 }} />
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:16 }}>
+              {(['standard','instant'] as const).map(s=>(
+                <button key={s} onClick={()=>setSpeed(s)} style={{ padding:'12px', borderRadius:12, border:`2px solid ${speed===s?c.action:c.border}`, background:speed===s?`${c.action}15`:c.card, cursor:'pointer' }}>
+                  <p style={{ fontSize:13, fontWeight:800, color:speed===s?c.action:c.text, margin:'0 0 2px' }}>{s==='standard'?'Standard':'Instant'}</p>
+                  <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{s==='standard'?'Free · 1-3 days':'$0.25 · Seconds'}</p>
+                </button>
+              ))}
+            </div>
+            {error&&<p style={{ fontSize:12, color:'#D63B3B', marginBottom:10 }}>{error}</p>}
+            <button onClick={()=>parseFloat(amount)>0&&setStep('review')} disabled={!amount||parseFloat(amount)<=0} style={{ width:'100%', background:c.action, color:'#fff', border:'none', borderRadius:14, padding:'14px', fontSize:15, fontWeight:900, cursor:'pointer', opacity:!amount||parseFloat(amount)<=0?0.5:1 }}>Review →</button>
+          </>
+        ) : (
+          <>
+            <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:16, marginBottom:16 }}>
+              {[['To',`@${recipientProfile?.username}`],['Amount',fmt(parseFloat(amount||'0'))],['Fee',speed==='instant'?'$0.25':'Free'],['Total',fmt(parseFloat(amount||'0')+(speed==='instant'?0.25:0))],['Note',note||'—']].map(([k,v])=>(
+                <div key={k} style={{ display:'flex', justifyContent:'space-between', padding:'9px 0', borderBottom:`1px solid ${c.border}` }}>
+                  <span style={{ fontSize:13, color:c.textSec }}>{k}</span><span style={{ fontSize:13, fontWeight:700, color:c.text }}>{v}</span>
                 </div>
-                <div style={{ textAlign:'left' }}>
-                  <p style={{ fontSize:13, fontWeight:600, color:c.text, margin:0 }}>{opt.label}</p>
-                  <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{opt.desc}</p>
-                </div>
-              </div>
-              <span style={{ fontSize:12, fontWeight:700, color:opt.fee==='Free'?'#0F6E56':c.text }}>{opt.fee}</span>
-            </button>
-          ))}
-        </div>
-
-        <button
-          onClick={()=>setStep('review')}
-          disabled={amount==='0'}
-          style={{ width:'100%', background:amount==='0'?c.border:c.action, color:'#fff', border:'none', borderRadius:14, padding:'16px', fontSize:15, fontWeight:700, cursor:amount==='0'?'not-allowed':'pointer' }}>
-          Review Transfer
-        </button>
+              ))}
+            </div>
+            {error&&<p style={{ fontSize:12, color:'#D63B3B', marginBottom:10 }}>{error}</p>}
+            <div style={{ display:'flex', gap:10 }}>
+              <button onClick={()=>setStep('amount')} style={{ flex:1, padding:'14px', border:`1px solid ${c.border}`, borderRadius:14, background:'transparent', color:c.textSec, fontSize:14, fontWeight:700, cursor:'pointer' }}>Edit</button>
+              <button onClick={send} disabled={sending} style={{ flex:2, background:c.action, color:'#fff', border:'none', borderRadius:14, padding:'14px', fontSize:15, fontWeight:900, cursor:'pointer', opacity:sending?0.6:1 }}>{sending?'Sending…':'Confirm & Send'}</button>
+            </div>
+          </>
+        )}
       </div>
-      <BankBottomNav active="/village/bank/move"/>
+      <BankBottomNav active="/village/bank/move" />
     </div>
   );
 }
