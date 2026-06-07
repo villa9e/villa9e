@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BankBottomNav } from '@/components/bank/BankBottomNav';
-import { createClient } from '@/lib/supabase/client';
 
 const B = {
   day:   { bg:'#F2F7FA', card:'#FFFFFF', border:'#C8DCE8', text:'#0A1F2E', textSec:'#3A5A6E', textTer:'#7A9AAE', action:'#0A5F8A' },
@@ -28,20 +27,14 @@ const ACCOUNT_COLORS: Record<string,string> = {
 export default function BankHome() {
   const { theme } = useVillageTheme();
   const c = theme === 'night' ? B.night : B.day;
-  const supabase = createClient();
 
   const [accounts, setAccounts] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState('');
 
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
-
       const [accountsRes, txnsRes, insightRes] = await Promise.allSettled([
         fetch('/api/bank/accounts').then(r => r.json()),
         fetch('/api/bank/transactions?limit=10').then(r => r.json()),
