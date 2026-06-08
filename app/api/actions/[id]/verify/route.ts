@@ -161,8 +161,7 @@ export async function POST(
   await admin
     .from('sprint_actions')
     .update({
-      status:      'complete',
-      verified_at: new Date().toISOString(),
+      completed:    true,
       completed_at: new Date().toISOString(),
     })
     .eq('id', action_id);
@@ -170,13 +169,13 @@ export async function POST(
   // ── Check if all actions in sprint are complete ──────────────────────────────
   const { data: allActions } = await admin
     .from('sprint_actions')
-    .select('id, status')
+    .select('id, completed')
     .eq('sprint_id', action.sprint_id);
 
   const updatedActions = (allActions ?? []).map((a: any) =>
-    a.id === action_id ? { ...a, status: 'complete' } : a
+    a.id === action_id ? { ...a, completed: true } : a
   );
-  const sprintCompleted = updatedActions.every((a: any) => a.status === 'complete');
+  const sprintCompleted = updatedActions.every((a: any) => a.completed === true);
 
   if (sprintCompleted) {
     await admin

@@ -51,15 +51,15 @@ export async function POST(req: NextRequest) {
     .from('merchant_accounts')
     .insert({
       user_id:              user.id,
-      store_name:           businessName,
+      business_name:        businessName,
       business_type:        businessType,
       category:             category,
-      has_physical_location: hasPhysicalLocation ?? false,
+      location_type:        hasPhysicalLocation ? 'physical' : 'online',
       address:              address ?? null,
       payout_preference:    payoutPreference ?? 'hold',
       estore_id:            estoreId ?? null,
       merchant_handle:      merchantHandle,
-      is_active:            true,
+      status:               'active',
       is_verified:          false,
       created_at:           new Date().toISOString(),
     })

@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
   // Resolve merchant account
   const { data: merchant } = await supabase
     .from('merchant_accounts')
-    .select('id, store_name, payout_preference, is_verified, is_active')
+    .select('id, business_name, payout_preference, is_verified, status')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -83,7 +83,7 @@ export async function GET(req: NextRequest) {
         system:     `You are Spirit — the AI companion of villa9e. You give brief, practical merchant insights. Be warm, specific, and action-oriented. No generic advice. 2-3 sentences max. Return plain text (no JSON).`,
         messages: [{
           role: 'user',
-          content: `Merchant: ${merchant.store_name}. Period: ${period}. Stats: ${completed.length} completed sales, $${totalRevenue.toFixed(2)} revenue, ${totalVicoVolume} VICO exchanged. ${stats.pendingCount} pending transactions. Give them 2-3 sentences of Spirit merchant insight and a clear next action.`,
+          content: `Merchant: ${merchant.business_name}. Period: ${period}. Stats: ${completed.length} completed sales, $${totalRevenue.toFixed(2)} revenue, ${totalVicoVolume} VICO exchanged. ${stats.pendingCount} pending transactions. Give them 2-3 sentences of Spirit merchant insight and a clear next action.`,
         }],
       });
       aiInsights = message.content[0].type === 'text' ? message.content[0].text : '';
@@ -101,9 +101,9 @@ export async function GET(req: NextRequest) {
     aiInsights,
     merchant: {
       id:          merchant.id,
-      storeName:   merchant.store_name,
+      storeName:   merchant.business_name,
       isVerified:  merchant.is_verified,
-      isActive:    merchant.is_active,
+      isActive:    merchant.status === 'active',
     },
   });
 }

@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   // Look up merchant by handle
   const { data: merchant } = await supabase
     .from('merchant_accounts')
-    .select('id, store_name, is_active, is_verified, user_id')
+    .select('id, business_name, status, is_verified, user_id')
     .ilike('merchant_handle', merchantHandle)
     .maybeSingle();
 
@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
   }
 
-  if (!merchant.is_active) {
+  if (merchant.status !== 'active') {
     return NextResponse.json({ error: 'Merchant account is not active' }, { status: 400 });
   }
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     paymentSessionId: tx.id,
     vicoAmount,
-    merchantName:     merchant.store_name,
+    merchantName:     merchant.business_name,
     merchantVerified: merchant.is_verified,
   });
 }

@@ -18,7 +18,7 @@ export async function POST(
   // Fetch the pending transaction
   const { data: tx } = await supabase
     .from('merchant_transactions')
-    .select('id, merchant_id, amount, currency, vico_amount, status, merchant_accounts(payout_preference, user_id, store_name)')
+    .select('id, merchant_id, amount, currency, vico_amount, status, merchant_accounts(payout_preference, user_id, business_name)')
     .eq('id', sessionId)
     .maybeSingle();
 

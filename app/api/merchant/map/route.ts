@@ -33,9 +33,9 @@ export async function GET(req: NextRequest) {
   // Build query — only active merchants with a physical location
   let query = supabase
     .from('merchant_accounts')
-    .select('id, store_name, category, latitude, longitude, is_verified, business_hours, address, merchant_handle')
-    .eq('is_active', true)
-    .eq('has_physical_location', true);
+    .select('id, business_name, category, lat, lng, is_verified, business_hours, address, merchant_handle')
+    .eq('status', 'active')
+    .eq('location_type', 'physical');
 
   if (category) {
     query = query.eq('category', category);
@@ -58,8 +58,8 @@ export async function GET(req: NextRequest) {
   if (userLat !== null && userLng !== null && !isNaN(userLat) && !isNaN(userLng)) {
     result = result
       .filter((m: any) => {
-        if (m.latitude == null || m.longitude == null) return false;
-        const dist = haversineKm(userLat, userLng, m.latitude, m.longitude);
+        if (m.lat == null || m.lng == null) return false;
+        const dist = haversineKm(userLat, userLng, m.lat, m.lng);
         m._distanceKm = parseFloat(dist.toFixed(2));
         return dist <= radiusKm;
       })
@@ -69,10 +69,10 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     merchants: result.map((m: any) => ({
       id:             m.id,
-      store_name:     m.store_name,
+      store_name:     m.business_name,
       category:       m.category,
-      latitude:       m.latitude,
-      longitude:      m.longitude,
+      latitude:       m.lat,
+      longitude:      m.lng,
       is_verified:    m.is_verified,
       business_hours: m.business_hours,
       address:        m.address,
