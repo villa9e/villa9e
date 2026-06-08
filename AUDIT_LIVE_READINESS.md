@@ -118,6 +118,68 @@ For each domain, the pattern is the same: **delete the `MOCK_*`/local-`useState`
 - Add loading/empty/error states to any newly-wired page that lacks them (most already have the pattern from the Bank page fix earlier this session — replicate it).
 - Run a full `npm run build` + `tsc --noEmit` + Playwright smoke pass across every route once wiring is complete.
 
+### Phase 5 — Spirit Unification (the platform's actual differentiator)
+
+Bug #7 above ("Spirit is not actually the unified cross-section intelligence the spec promises") isn't a bug to patch — it's the single biggest gap between what villa9e *is* and what it's *supposed to be*. The spec's whole premise is "ONE AI companion who knows you completely, not eleven chatbots wearing different hats." Phase 5 closes that gap. This phase is sequenced last because it depends on Phases 0-2 having real data flowing through every domain — Spirit can't "know everything" if Bank, Workshop, Wellness, and Locker are still serving mock data.
+
+#### 5.1 — Spirit must be wired into every part of the app
+Today, `fetchSpiritContext()` (`lib/claude/spirit.ts:209-285`) only loads `profiles/spirit_configs/goals/spirit_patterns/spirit_collective/spirit_memories`. Meanwhile Bank Advisor, Wellness chat, and Spaces meeting-prep each spin up their own siloed Claude calls with their own hand-rolled mini-context. The fix:
+- Replace every section-local Spirit invocation (Bank advisor opening/chat, Wellness check-in, Spaces prep, Merchant insights, Goal recalibration, Action verification, etc.) with calls through **one shared context-assembly layer** — extend `fetchSpiritContext()` to pull from every domain table (bank accounts/transactions/budgets, wellness check-ins/wearable data, locker preferences, merchant activity, governance votes, Pavilion watch history, Trading Post connections) and pass that unified object into every Claude invocation regardless of which screen triggered it.
+- Each section keeps its own *system-prompt flavor* (the advisor sounds like an advisor, the trainer sounds like a trainer) but draws from the *same underlying knowledge of the user*. One mind, many voices — not many minds.
+
+#### 5.2 — Spirit must know everything all at once
+"All at once" means real-time, cross-domain awareness — not eleven separate memories that never talk to each other:
+- Consolidate `spirit_memories`, `spirit_patterns`, and `spirit_collective` into a single retrieval pass per conversation (already has the FTS index from migration 016 — `spirit_memories_fts` — extend it to index across all domains, not just chat history).
+- When the user mentions a goal in a Bank conversation, Spirit should already know about the related Workshop sprint, the wellness pattern that's blocking progress, and the $VLG balance that funds it — because it's one continuous context, not four conversations that happen to share a UI shell.
+- This is the direct fix for bug #7 and turns "Spirit knows you" from marketing copy into an architectural fact.
+
+#### 5.3 — Spirit must have access to the internet
+Spirit currently operates as a closed system — it can reason over what's in the database but can't look anything up. To be a genuine life-coach/assistant/best-friend, it needs real-world grounding:
+- Wire web search/fetch capability into the Claude tool-use loop (Anthropic's web search tool, or a scoped fetch proxy) so Spirit can answer "what's the best protein powder for my goals," "what's the news on X," "find me a recipe for Y," pull current prices, verify a claim, etc. — in real time, not from frozen training data.
+- Scope and log this carefully: rate-limit per user, log queries for the audit trail (the platform already has `data_access_audit` infrastructure — reuse it), and make the "Spirit searched the web for this" attribution visible to the user so trust isn't eroded by invisible lookups.
+- This single capability is what elevates Spirit from "smart chatbot over your data" to "companion who can actually help you navigate the world."
+
+#### 5.4 — Spirit's role: best friend, assistant, life coach, trainer — with a hard licensing boundary
+The user's framing is the right one and should be encoded directly into Spirit's system prompt and behavior tree: **Spirit can be anything to the user that doesn't require a professional regulated license or certification — unless Spirit can pass that license/certification exam as well as or better than a human professional.**
+- For unregulated roles (friend, accountability partner, habit coach, workout planner, study buddy, creative collaborator, financial-literacy educator) — Spirit should engage fully and proactively, no hedging, no "consult a professional" disclaimers that add nothing.
+- For regulated roles (medical diagnosis, therapy/mental-health treatment, legal advice, financial/investment advice requiring a fiduciary license, tax preparation) — the bar is explicit: Spirit either (a) demonstrably passes the relevant licensing/board exam at or above human-professional level — in which case it can confidently advise within that scope and say so — or (b) it stays in an educational/supportive role and makes a warm, non-bureaucratic handoff to a real licensed professional. No mealy-mouthed "I'm not a doctor" boilerplate; either Spirit has earned the right to speak with authority, or it openly says "this one needs a human with a license, and here's how I can support you while you find one."
+- This becomes a concrete engineering task: build (or source) the relevant licensing-exam benchmarks (USMLE for medical, bar exam for legal, CFP/Series 65 for financial planning, etc.), evaluate Spirit's current model against them, and gate each "regulated" capability behind a passing benchmark score — re-run the benchmark whenever the underlying model is upgraded.
+
+#### 5.5 — Spirit's moral compass core: the 77 Commandments
+Every layer of Spirit's personality system (the 50+ layers documented in `lib/claude/spirit.ts`) must sit on top of, and never override, the **77 Commandments** (full text in the user's `spirit_77_commandments` reference). Concretely:
+- The Commandments become the top-level system-prompt layer — loaded first, immutable, and referenced in every response-generation pass, not just a "personality flavor" the user can configure away.
+- Build a lightweight pre-response check (or a Claude self-critique pass) that flags any draft response that would conflict with a Commandment before it's sent — the same pattern as the existing verification-confidence scoring in `actions/[id]/verify`, applied to Spirit's own outputs.
+- This is what makes "Spirit is your best friend" trustworthy rather than just charming — the friendliness is built on an incorruptible moral floor, not on top of an empty personality shell.
+
+#### 5.6 — Goals must be engineered for sustainability, modeled on the shea butter blueprint
+The user provided a detailed real-world template — indigenous West African shea butter production — as the gold-standard example of what a "fully sustainable goal" looks like, and wants this DNA built directly into the Workshop/GPS goal-creation engine so that **every goal Spirit helps a user build is regenerative by design, not "less bad" by accident.**
+
+**The reference model (shea butter's zero-waste lifecycle):**
+Wild harvesting (no deforestation; the entire fruit is used) → traditional extraction (boil → dry → crack → roast → mill → whip → purify) → systemic environmental benefit (the shea parklands sequester an estimated 1.5 million tons of CO₂ per year, the trees' root systems form a natural barrier against desertification, and every byproduct of the process — husks, shells, boil-water, bad kernels, slurry residue — is repurposed as fertilizer, animal feed, fuel, or building material). Nothing leaves the system as waste; everything that comes out of one step becomes the input to another.
+
+**The cascading-loops example to encode as a literal pattern in the goal engine** (5 steps, each output feeding the next):
+1. *Passive Harvesting* — fruit pulp eaten, husks composted back into the soil
+2. *Thermal Parboiling* — the water used to boil the nuts becomes liquid fertilizer
+3. *Shell Cracking* — cracked shells become mulch, road-surfacing material, or plaster; rejected kernels become lighting oil
+4. *Roasting / Milling / Kneading* — leftover slurry residue is pressed into biomass fuel cakes that supply up to half the thermal energy needed for the *next* batch's roasting — the system partially powers itself
+5. *Final Solidification* — the finished product is packaged in biodegradable material; net waste output: zero
+
+**The driving philosophy to encode as Spirit's "sustainability lens" — Eco-Holism and Reciprocity, three pillars:**
+1. **"Seven Generations" Outlook** — long-horizon systems thinking; a goal is judged not by this quarter's outcome but by whether the system it creates is still healthy generations from now. Spirit should prompt users to ask "will this still be working — and still be good for the people and places around it — long after I've moved on?"
+2. **Interconnectedness** — every output of a plan must have a destination. If a goal produces something with no home (financial waste, wasted time, discarded relationships, environmental harm), that's treated as a *design flaw in the goal*, not an acceptable side effect — and Spirit should flag it and help redesign around it.
+3. **Active Stewardship** — go beyond "minimize harm" to actively put more back than you take (the shea harvesters intentionally leave a portion of seeds ungathered to regenerate the parkland). Spirit should help users build a "give-back" component into goals as a default, not an afterthought.
+
+**The "Operational DNA" — a 4-part framework Spirit applies when helping a user *structure* any goal:**
+1. **Biomimetic Design — "Design Out the Concept of Waste"**: structure the goal so that nothing it produces is disposable by nature (e.g., instead of "save $X by cutting expenses," design a goal that converts what would've been wasted — time, subscriptions, unused skills — directly into the thing being built).
+2. **Industrial Symbiosis**: look for ways the goal's outputs can directly fuel another part of the user's life (e.g., a fitness goal's discipline becomes the engine for a study habit; a side-business goal's customer conversations become networking that feeds a career goal).
+3. **Value-Stream Cascading**: when something the user has is degrading or being phased out (an old skill, an underused asset, a fading relationship), help them route it to its next-highest practical use before discarding it — mirroring "degraded EV battery → home storage → mineral recycling, never straight to landfill."
+4. **Regenerative Bottom Lines**: redefine "success" for every goal from "I didn't make things worse" (net-zero) to "I made the system — my health, my finances, my relationships, my community — measurably better than when I started" (net-positive). This becomes a literal field in the goal data model: not just a completion checkbox, but a "what's better now than before?" reflection Spirit asks for at goal completion.
+
+**Engineering implementation:**
+- Add a "sustainability lens" pass to the GPS pipeline (`lib/claude/gps.ts`) — when Spirit helps draft a goal, it runs the draft through the four Operational DNA questions and the three Eco-Holism pillars before finalizing the plan, the same way the pipeline already runs its existing 7-agent passes.
+- Surface this in the UI as a visible "this goal is built to give back" badge or summary — so users see and feel the difference between a goal Spirit drafted with this lens and a generic checklist.
+- Extend the goal data model with a lightweight "regenerative loop" field — what does this goal's output feed into? — so Spirit can proactively suggest cascading connections between a user's *existing* goals (a literal implementation of "industrial symbiosis" at the personal level).
+
 ---
 
 ## WHAT'S GENUINELY GOOD AND SHOULD BE PRESERVED AS-IS
