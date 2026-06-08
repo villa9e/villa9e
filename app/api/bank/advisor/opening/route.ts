@@ -4,20 +4,60 @@ import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
 
 export const maxDuration = 30;
 
-// Mock financial summary — replace with real Supabase/Unit queries when live
-function getMockFinancialSummary() {
+// Real financial summary — pulled live from the user's Supabase bank data
+async function getFinancialSummary(supabase: any, userId: string) {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [accountsRes, txRes, investmentsRes, goalsRes] = await Promise.all([
+    supabase.from('bank_accounts').select('account_type, balance').eq('user_id', userId),
+    supabase.from('bank_transactions').select('amount, direction, transaction_type, created_at')
+      .eq('user_id', userId).gte('created_at', monthStart.toISOString()),
+    supabase.from('investments').select('quantity, avg_cost, current_price').eq('user_id', userId),
+    supabase.from('financial_goals').select('id, current_amount, target_amount, monthly_contribution, target_date').eq('user_id', userId).eq('status', 'active'),
+  ]);
+
+  const accounts = accountsRes.data ?? [];
+  const checkingBalance = accounts.filter((a: any) => a.account_type === 'checking').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+  const savingsBalance  = accounts.filter((a: any) => a.account_type === 'savings').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+  const creditCardBalance = accounts.filter((a: any) => a.account_type === 'credit').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+  const totalBalance = accounts.reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+
+  const transactions = txRes.data ?? [];
+  const monthlySpend = transactions
+    .filter((t: any) => t.direction === 'debit')
+    .reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0);
+
+  const investments = investmentsRes.data ?? [];
+  const portfolioValue = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.current_price) || 0), 0);
+  const portfolioCost  = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.avg_cost) || 0), 0);
+  const portfolioChange = portfolioCost > 0 ? Math.round(((portfolioValue - portfolioCost) / portfolioCost) * 1000) / 10 : 0;
+
+  const goals = goalsRes.data ?? [];
+  const goalsOnTrack = goals.filter((g: any) => {
+    if (!g.target_date) return true;
+    const monthsLeft = Math.max(1, (new Date(g.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30));
+    const remaining = (parseFloat(g.target_amount) || 0) - (parseFloat(g.current_amount) || 0);
+    return remaining <= (parseFloat(g.monthly_contribution) || 0) * monthsLeft;
+  }).length;
+
+  // No dedicated budgets table yet — estimate a budget as last month's spend rounded up
+  const monthlyBudget = monthlySpend > 0 ? Math.ceil(monthlySpend * 1.15 / 100) * 100 : 0;
+  const budgetPctUsed = monthlyBudget > 0 ? Math.round((monthlySpend / monthlyBudget) * 100) : 0;
+
   return {
-    totalBalance:   24487,
-    checkingBalance: 8240,
-    savingsBalance:  4607,
-    portfolioValue:  12840,
-    monthlySpend:    3715,
-    monthlyBudget:   4200,
-    budgetPctUsed:   Math.round((3715 / 4200) * 100),
-    portfolioChange: 3.4,   // % change this month
-    activeGoals:     3,
-    goalsOnTrack:    2,
-    creditCardBalance: 1200,
+    totalBalance,
+    checkingBalance,
+    savingsBalance,
+    portfolioValue,
+    monthlySpend,
+    monthlyBudget,
+    budgetPctUsed,
+    portfolioChange,
+    activeGoals:  goals.length,
+    goalsOnTrack,
+    creditCardBalance,
   };
 }
 
@@ -54,7 +94,7 @@ export async function GET(req: NextRequest) {
       .single();
 
     const displayName = profile?.display_name || profile?.full_name?.split(' ')[0] || 'there';
-    const fin = getMockFinancialSummary();
+    const fin = await getFinancialSummary(supabase, user.id);
 
     const prompt = `Generate a personalized financial advisor opening message for ${displayName}.
 
@@ -94,8 +134,9 @@ Return JSON only: { "message": "...", "suggestedQuestions": ["...", "...", "..."
     }
 
     return NextResponse.json({
-      message:           parsed.message,
+      message:            parsed.message,
       suggestedQuestions: parsed.suggestedQuestions ?? [],
+      summary:            fin,
     });
   } catch (err: any) {
     console.error('[Bank Advisor Opening] Error:', err?.message);

@@ -1,11 +1,14 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
-export default function MessagesPage() {
+function MessagesPageInner() {
+  const searchParams = useSearchParams();
+  const withUserId = searchParams.get('with');
   const [conversations, setConversations] = useState<any[]>([]);
   const [active, setActive] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
@@ -25,11 +28,35 @@ export default function MessagesPage() {
   const inputBg = isNight ? '#1F2937' : '#F0F4FF';
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       setUserId(user?.id ?? null);
-      if (user) loadConversations(user.id);
+      if (!user) return;
+      await loadConversations(user.id);
+      if (withUserId && withUserId !== user.id) {
+        await openOrCreateConversation(user.id, withUserId);
+      }
     });
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function openOrCreateConversation(uid: string, otherId: string) {
+    const { data: existing } = await (supabase as any)
+      .from('conversations')
+      .select('*')
+      .contains('participant_ids', [uid, otherId])
+      .eq('conversation_type', 'direct')
+      .maybeSingle();
+    if (existing) { setActive(existing); return; }
+
+    const { data: created } = await (supabase as any)
+      .from('conversations')
+      .insert({ participant_ids: [uid, otherId], conversation_type: 'direct' })
+      .select()
+      .single();
+    if (created) {
+      setConversations(prev => [created, ...prev]);
+      setActive(created);
+    }
+  }
 
   useEffect(() => {
     if (!active) return;
@@ -207,5 +234,13 @@ export default function MessagesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function MessagesPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" style={{ background: '#F8F9FF' }} />}>
+      <MessagesPageInner />
+    </Suspense>
   );
 }

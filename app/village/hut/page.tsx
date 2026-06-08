@@ -1,6 +1,6 @@
 'use client';
-import { useEffect, useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -566,11 +566,17 @@ function PillSheet({ type, onClose }: { type: PillType; onClose: () => void }) {
 type ContentTab = 'grid' | 'repost' | 'oowop';
 
 // ── Main page ─────────────────────────────────────────────────────
-export default function HutPage() {
+function HutPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
+  const viewedUserId = searchParams.get('userId');
+
   const [uid, setUid] = useState<string | null>(null);
+  const [isOwnProfile, setIsOwnProfile] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<'none' | 'pending' | 'accepted' | 'self'>('self');
+  const [followLoading, setFollowLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [stats, setStats] = useState({
     following: 0,
@@ -608,12 +614,16 @@ export default function HutPage() {
     return () => window.removeEventListener('keydown', handleKey);
   }, [router]);
 
-  useEffect(() => { loadAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadAll(); }, [viewedUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadAll() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { router.push('/login'); return; }
     setUid(user.id);
+
+    const targetUserId = viewedUserId || user.id;
+    const ownProfile = targetUserId === user.id;
+    setIsOwnProfile(ownProfile);
 
     const [
       profRes,
@@ -629,39 +639,56 @@ export default function HutPage() {
       highlightsRes,
       draftsRes,
       storiesRes,
+      connRes,
     ] = await Promise.allSettled([
       // profiles — include is_live and is_online for ring color
-      (supabase as any).from('profiles').select('*, is_live, is_online').eq('id', user.id).single(),
+      (supabase as any).from('profiles').select('*, is_live, is_online').eq('id', targetUserId).single(),
       // following count (requester)
-      (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('requester_id', user.id).eq('status', 'accepted'),
+      (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('requester_id', targetUserId).eq('status', 'accepted'),
       // tribe/followers count (addressee)
-      (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('addressee_id', user.id).eq('status', 'accepted'),
+      (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('addressee_id', targetUserId).eq('status', 'accepted'),
       // total oowops received
-      (supabase as any).from('oowops').select('id', { count: 'exact', head: true }).eq('receiver_id', user.id),
+      (supabase as any).from('oowops').select('id', { count: 'exact', head: true }).eq('receiver_id', targetUserId),
       // goals → sprints completed
-      (supabase as any).from('goals').select('id, goal_steps(id,status)').eq('user_id', user.id),
+      (supabase as any).from('goals').select('id, goal_steps(id,status)').eq('user_id', targetUserId),
       // trading post store
-      (supabase as any).from('trading_post_listings').select('id').eq('user_id', user.id).eq('is_active', true).limit(1),
+      (supabase as any).from('trading_post_listings').select('id').eq('user_id', targetUserId).eq('is_active', true).limit(1),
       // deals
-      (supabase as any).from('deals').select('id', { count: 'exact', head: true }).or(`requester_id.eq.${user.id},provider_id.eq.${user.id}`).in('status', ['active', 'completed']),
+      (supabase as any).from('deals').select('id', { count: 'exact', head: true }).or(`requester_id.eq.${targetUserId},provider_id.eq.${targetUserId}`).in('status', ['active', 'completed']),
       // testimonials
-      (supabase as any).from('testimonials').select('id', { count: 'exact', head: true }).eq('receiver_id', user.id),
+      (supabase as any).from('testimonials').select('id', { count: 'exact', head: true }).eq('receiver_id', targetUserId),
       // public posts
-      (supabase as any).from('dream_line_posts').select('id,content,media_urls,media_types,view_count,is_pinned,created_at').eq('user_id', user.id).eq('visibility', 'public').order('created_at', { ascending: false }).limit(30),
+      (supabase as any).from('dream_line_posts').select('id,content,media_urls,media_types,view_count,is_pinned,created_at').eq('user_id', targetUserId).eq('visibility', 'public').order('created_at', { ascending: false }).limit(30),
       // pinned posts
-      (supabase as any).from('dream_line_posts').select('id,content,media_urls,view_count,is_pinned').eq('user_id', user.id).eq('is_pinned', true).limit(3),
+      (supabase as any).from('dream_line_posts').select('id,content,media_urls,view_count,is_pinned').eq('user_id', targetUserId).eq('is_pinned', true).limit(3),
       // highlights
-      (supabase as any).from('profile_highlights').select('*').eq('user_id', user.id).order('display_order'),
-      // drafts existence check
-      (supabase as any).from('dream_line_posts').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'draft'),
+      (supabase as any).from('profile_highlights').select('*').eq('user_id', targetUserId).order('display_order'),
+      // drafts existence check — own profile only (private)
+      ownProfile
+        ? (supabase as any).from('dream_line_posts').select('id', { count: 'exact', head: true }).eq('user_id', targetUserId).eq('status', 'draft')
+        : Promise.resolve({ count: 0 }),
       // active stories (24h expiry)
-      (supabase as any).from('stories').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      (supabase as any).from('stories').select('id', { count: 'exact', head: true }).eq('user_id', targetUserId).gt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+      // connection status with the viewed user — only when viewing someone else
+      ownProfile
+        ? Promise.resolve({ data: null })
+        : (supabase as any).from('connections').select('id, status, requester_id')
+            .or(`and(requester_id.eq.${user.id},addressee_id.eq.${targetUserId}),and(requester_id.eq.${targetUserId},addressee_id.eq.${user.id})`)
+            .maybeSingle(),
     ]);
 
     if (profRes.status === 'fulfilled') {
       setProfile(profRes.value.data);
-      const bal = parseFloat(profRes.value.data?.vlg_balance ?? '0') || 0;
-      setVlgBalance(bal);
+      if (ownProfile) {
+        const bal = parseFloat(profRes.value.data?.vlg_balance ?? '0') || 0;
+        setVlgBalance(bal);
+      }
+    }
+    if (connRes.status === 'fulfilled' && !ownProfile) {
+      const conn = (connRes.value as any)?.data;
+      setConnectionStatus(conn?.status === 'accepted' ? 'accepted' : conn?.status === 'pending' ? 'pending' : 'none');
+    } else if (ownProfile) {
+      setConnectionStatus('self');
     }
     if (postsRes.status === 'fulfilled') setPosts(postsRes.value.data ?? []);
     if (pinnedRes.status === 'fulfilled') setPinnedPosts(pinnedRes.value.data ?? []);
@@ -700,10 +727,11 @@ export default function HutPage() {
   async function loadOowopedPosts() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    const targetUserId = viewedUserId || user.id;
     const { data: ows } = await (supabase as any)
       .from('oowops')
       .select('post_id, dream_line_posts(id,content,media_urls,view_count,created_at)')
-      .eq('giver_id', user.id)
+      .eq('giver_id', targetUserId)
       .order('created_at', { ascending: false })
       .limit(18);
     setOowopedPosts((ows ?? []).map((o: any) => o.dream_line_posts).filter(Boolean));
@@ -712,6 +740,28 @@ export default function HutPage() {
   useEffect(() => {
     if (tab === 'oowop') loadOowopedPosts();
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Connect / Message (other users' profiles) ──────────────────
+  async function handleFollow() {
+    if (!viewedUserId || followLoading || connectionStatus === 'accepted') return;
+    setFollowLoading(true);
+    try {
+      const res = await fetch('/api/connections/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addressee_id: viewedUserId }),
+      }).then(r => r.json()).catch(() => ({}));
+      if (res?.exists) setConnectionStatus(res.status === 'accepted' ? 'accepted' : 'pending');
+      else if (res?.ok) setConnectionStatus('pending');
+    } finally {
+      setFollowLoading(false);
+    }
+  }
+
+  function handleMessage() {
+    if (!viewedUserId) return;
+    router.push(`/messages?with=${viewedUserId}`);
+  }
 
   // ── Touch swipe ────────────────────────────────────────────────
   function onTouchStart(e: React.TouchEvent) {
@@ -811,10 +861,12 @@ export default function HutPage() {
 
         {/* Right icon cluster */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {/* Add Friend */}
-          <IconBtn>
-            <IconAddFriend />
-          </IconBtn>
+          {/* Add Friend — only when viewing someone else */}
+          {!isOwnProfile && (
+            <IconBtn onPress={handleFollow}>
+              <IconAddFriend />
+            </IconBtn>
+          )}
           {/* Health shortcut — green heart */}
           <IconBtn href="/village/hospital">
             <IconHeart color="#1D9E75" />
@@ -884,25 +936,27 @@ export default function HutPage() {
               </div>
             )}
           </div>
-          {/* Avatar edit button */}
-          <Link
-            href="/village/hut/avatar"
-            style={{
-              display: 'block',
-              textAlign: 'center',
-              background: 'rgba(255,255,255,0.07)',
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderRadius: 8,
-              padding: '3px 10px',
-              fontSize: 10,
-              fontWeight: 800,
-              color: 'rgba(255,255,255,0.65)',
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            + Avatar
-          </Link>
+          {/* Avatar edit button — own profile only */}
+          {isOwnProfile && (
+            <Link
+              href="/village/hut/avatar"
+              style={{
+                display: 'block',
+                textAlign: 'center',
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 8,
+                padding: '3px 10px',
+                fontSize: 10,
+                fontWeight: 800,
+                color: 'rgba(255,255,255,0.65)',
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              + Avatar
+            </Link>
+          )}
         </div>
 
         {/* Stats row */}
@@ -913,7 +967,8 @@ export default function HutPage() {
         </div>
       </div>
 
-      {/* $VLG balance pill */}
+      {/* $VLG balance pill — own profile only (private balance) */}
+      {isOwnProfile && (
       <div style={{ padding: '0 16px 10px' }}>
         <Link
           href="/village/hut/vlg-wallet"
@@ -937,6 +992,7 @@ export default function HutPage() {
           </span>
         </Link>
       </div>
+      )}
 
       {/* ── Bio + Counts ────────────────────────────────────────── */}
       <div style={{ padding: '0 16px 14px' }}>
@@ -1012,26 +1068,70 @@ export default function HutPage() {
 
       {/* ── Action Buttons ──────────────────────────────────────── */}
       <div style={{ padding: '0 16px 16px', display: 'flex', gap: 8 }}>
-        {/* Own profile: Edit Profile */}
-        <Link
-          href="/village/hut/settings"
-          style={{
-            flex: 1,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '10px 0',
-            borderRadius: 10,
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.12)',
-            fontSize: 14,
-            fontWeight: 800,
-            color: '#F0F4FF',
-            textDecoration: 'none',
-          }}
-        >
-          Edit Profile
-        </Link>
+        {isOwnProfile ? (
+          <Link
+            href="/village/hut/settings"
+            style={{
+              flex: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '10px 0',
+              borderRadius: 10,
+              background: 'rgba(255,255,255,0.07)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              fontSize: 14,
+              fontWeight: 800,
+              color: '#F0F4FF',
+              textDecoration: 'none',
+            }}
+          >
+            Edit Profile
+          </Link>
+        ) : (
+          <>
+            <button
+              onClick={handleFollow}
+              disabled={followLoading || connectionStatus === 'accepted'}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '10px 0',
+                borderRadius: 10,
+                background: connectionStatus === 'accepted' ? 'rgba(255,255,255,0.07)' : '#4D72FF',
+                border: connectionStatus === 'accepted' ? '1px solid rgba(255,255,255,0.12)' : 'none',
+                fontSize: 14,
+                fontWeight: 800,
+                color: '#F0F4FF',
+                cursor: followLoading || connectionStatus === 'accepted' ? 'default' : 'pointer',
+                opacity: followLoading ? 0.6 : 1,
+              }}
+            >
+              {connectionStatus === 'accepted' ? 'Connected' : connectionStatus === 'pending' ? 'Pending' : 'Add Friend'}
+            </button>
+            <button
+              onClick={handleMessage}
+              style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '10px 0',
+                borderRadius: 10,
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                fontSize: 14,
+                fontWeight: 800,
+                color: '#F0F4FF',
+                cursor: 'pointer',
+              }}
+            >
+              Message
+            </button>
+          </>
+        )}
       </div>
 
       {/* ── Highlights / Playlists ──────────────────────────────── */}
@@ -1230,5 +1330,15 @@ export default function HutPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function HutPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ background: '#080E24', minHeight: '100vh' }} />
+    }>
+      <HutPageInner />
+    </Suspense>
   );
 }

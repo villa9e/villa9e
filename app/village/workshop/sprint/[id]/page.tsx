@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -286,30 +287,21 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
   const sprintNumber = sprint?.sprint_number ?? 0;
   const badge = getBadgeConfig(sprintNumber, total);
 
-  // Unlock badge in DB on mount
-  useEffect(() => {
-    const milestones = [1, 5, 10, 25];
-    const isLastSprint = sprintNumber > 0 && sprintNumber === total;
-    if (milestones.includes(sprintNumber) || isLastSprint) {
-      fetch('/api/badges/unlock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ badge_id: badge.id, sprint_id: sprint?.id }),
-      }).catch(() => {});
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Badge awarding happens server-side in PATCH /api/sprints via checkAndAwardAchievements —
+  // no separate unlock call needed here.
 
   async function startNextSprint() {
     try {
-      const res = await fetch('/api/sprints/next', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ current_sprint_id: sprint.id }),
-      }).then(r => r.json()).catch(() => ({}));
+      const supabase = createClient();
+      const { data: nextSprint } = await supabase
+        .from('sprints')
+        .select('id')
+        .eq('goal_id', sprint.goal_id)
+        .eq('sprint_number', (sprint.sprint_number ?? 0) + 1)
+        .maybeSingle();
 
-      if (res.next_sprint_id) {
-        router.push(`/village/workshop/sprint/${res.next_sprint_id}`);
+      if (nextSprint?.id) {
+        router.push(`/village/workshop/sprint/${nextSprint.id}`);
       } else {
         router.push(sprint.goal_id ? `/village/workshop/goal/${sprint.goal_id}` : '/village/workshop');
       }
@@ -325,11 +317,17 @@ function SprintCelebration({ sprint, done, total, onClose }: SprintCelebrationPr
       const goalTitle = sprint.goal_title ?? sprint.title ?? 'my goal';
       const sprintNum = sprint.sprint_number ?? '';
       const content   = `I just completed Sprint ${sprintNum} of ${goalTitle}!`;
-      await fetch('/api/posts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, post_type: 'sprint_complete', source_id: sprint.id }),
-      }).catch(() => {});
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await (supabase as any).from('dream_line_posts').insert({
+          user_id:         user.id,
+          content,
+          visibility:      'public',
+          post_label:      'sprint_complete',
+          dreamline_label: 'sprint_complete',
+        });
+      }
     } finally {
       setSharing(false);
     }

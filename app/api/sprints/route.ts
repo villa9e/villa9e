@@ -124,7 +124,7 @@ export async function PATCH(req: NextRequest) {
           .update({ status: 'completed', completed_at: new Date().toISOString() })
           .eq('id', actionRow.sprint_id);
         await supabase.rpc('award_village_score', {
-          p_user_id: user.id, p_points: 50, p_vlg: 0,
+          p_user_id: user.id, p_points: 50, p_vlg: 50,
           p_reason: 'Sprint completed', p_reference_id: actionRow.sprint_id,
         });
         const newBadges = await checkAndAwardAchievements(user.id);
@@ -142,7 +142,7 @@ export async function PATCH(req: NextRequest) {
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', body.sprint_id).eq('user_id', user.id);
     await supabase.rpc('award_village_score', {
-      p_user_id: user.id, p_points: 50, p_vlg: 0,
+      p_user_id: user.id, p_points: 50, p_vlg: 50,
       p_reason: 'Sprint completed', p_reference_id: body.sprint_id,
     });
     const newBadges = await checkAndAwardAchievements(user.id);
