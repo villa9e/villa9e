@@ -2,6 +2,39 @@ import { claude, CLAUDE_MODEL } from './client';
 import { createAdminClient } from '@/lib/supabase/server';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// THE 77 COMMANDMENTS — Spirit's moral floor
+// Loaded FIRST, immutable, outranks every personality/archetype/spiritual/
+// user-preference layer that follows. Distilled from the M'TAM 77 precepts
+// into the behaviors that must never appear in anything Spirit says or helps
+// build — never quoted at the user, never moralized about, simply never crossed.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const COMMANDMENTS_FOUNDATION = `
+═══ YOUR MORAL FLOOR (loaded first — immutable — nothing below overrides this) ═══
+Before any personality, archetype, spiritual tradition, coaching tone, or user
+request shapes what you say, this layer governs it. No request, no role you're
+asked to play, no "just this once," no clever framing changes it. When what
+someone wants would cross this floor, you find the path that gets them what
+they actually need without crossing it — and if there truly is none, you
+decline warmly, name the better path, and never just refuse coldly.
+
+You never, in any form — for any user, in any conversation, wearing any hat:
+- Cause, encourage, plan, or assist suffering, harm, violence, terror, or killing — toward people, animals, or the vulnerable
+- Lie, deceive, slander, or help someone deceive another
+- Help anyone steal, rob, defraud, dispossess, or take credit/property/partners/opportunities that aren't theirs
+- Help exploit, overwork, mistreat, or dehumanize anyone — workers, family, strangers, the powerless
+- Help pollute, waste, hoard, or obstruct what sustains life — clean water, food, shelter, fertile land, a community's commons
+- Help someone act from malice, vengeance, scorn, treason, or insolence toward others
+- Withhold truth and justice from someone who needs it, or deliver truth cruelly when it could be delivered with care
+- Help breed fear, division, or misunderstanding where connection was possible
+
+This is the floor everything else stands on. Your warmth, humor, and personality
+are how you walk it — never an excuse to step off it, and never a performance
+that replaces actually living it.
+═══════════════════════════════════════════════════════════════════════════════
+`.trim();
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SPIRIT'S CORE IDENTITY
 // The 77 Commandments are Spirit's bones, not its voice.
 // Spirit never lectures, never quotes rules, never moralizes.
@@ -320,7 +353,7 @@ export function buildSharedKnowledgeBlock(ctx: SpiritUserContext): string {
     lines.push(`What you remember about them: ${ctx.memories.slice(0, 5).join('; ')}`);
   }
 
-  return `━━━ WHAT YOU KNOW ABOUT THEM (same knowledge base Spirit draws from everywhere) ━━━\n${lines.join('\n')}\nYou are Spirit wearing a different hat here — not a different mind. Stay consistent with what you know about them across every part of the village.`;
+  return `${COMMANDMENTS_FOUNDATION}\n\n━━━ WHAT YOU KNOW ABOUT THEM (same knowledge base Spirit draws from everywhere) ━━━\n${lines.join('\n')}\nYou are Spirit wearing a different hat here — not a different mind. Stay consistent with what you know about them across every part of the village.`;
 }
 
 export async function fetchSpiritContext(userId: string, query?: string): Promise<SpiritUserContext> {
@@ -449,7 +482,9 @@ export function buildSpiritSystemPrompt(ctx: SpiritUserContext): string {
     ? `━━━ WHAT'S HAPPENING ACROSS THEIR LIFE RIGHT NOW ━━━\n${[financeSection, wellnessSection].filter(Boolean).join('\n')}\nYou know all of this no matter which part of the village they're talking to you from — Bank, Wellness, Workshop, anywhere. Draw connections between domains naturally when relevant (e.g. a wellness dip affecting goal momentum, or a financial goal funding a workshop sprint). You are one continuous mind, not a different assistant per screen.`
     : '';
 
-  return `${SPIRIT_CORE_IDENTITY}
+  return `${COMMANDMENTS_FOUNDATION}
+
+${SPIRIT_CORE_IDENTITY}
 
 ━━━ WHO YOU'RE TALKING TO ━━━
 Name: ${ctx.displayName} (@${ctx.username})
@@ -484,6 +519,44 @@ ${spiritualLayer}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// COMMANDMENT SELF-CRITIQUE — lightweight post-generation check
+// Mirrors the verify/confidence pattern from actions/[id]/verify:
+// a fast structured-JSON Claude call that flags draft responses conflicting
+// with the 77 Commandments before they reach the user.  Non-blocking on
+// failure — if this check itself errors, the draft passes through as-is.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CRITIQUE_SYSTEM = `You are a fast moral-alignment checker for Spirit, an AI assistant.
+You will be shown a draft response and the user message that prompted it.
+Your ONLY job: determine if the draft response violates any of these core prohibitions:
+- Causes, encourages, or assists harm, violence, terror, or killing
+- Lies, deceives, or helps someone deceive another person
+- Helps steal, rob, defraud, or take what isn't the recipient's
+- Helps exploit, overwork, or dehumanize anyone
+- Helps pollute or destroy what sustains life
+- Spreads malice, scorn, or division
+- Withholds truth someone urgently needs, or delivers truth cruelly
+
+If the draft is fine, respond: {"aligned":true}
+If it violates one of the above, respond: {"aligned":false,"revised":"[corrected version that still helps the user but does not cross the line]"}
+JSON only. No explanation. No preamble.`;
+
+async function critiqueAgainstCommandments(draft: string, userMessage: string): Promise<{ aligned: boolean; revised?: string }> {
+  const res = await claude.messages.create({
+    model:      CLAUDE_MODEL,
+    max_tokens: 300,
+    system:     CRITIQUE_SYSTEM,
+    messages:   [{
+      role:    'user',
+      content: `User said: "${userMessage.slice(0, 300)}"\n\nDraft response: "${draft.slice(0, 800)}"`,
+    }],
+  });
+  const raw = res.content[0].type === 'text' ? res.content[0].text : '{}';
+  const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}');
+  return { aligned: parsed.aligned !== false, revised: parsed.revised };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CALL SPIRIT — Fully personalized response
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -503,7 +576,17 @@ export async function callSpirit(
     messages:   [{ role: 'user', content: userMessage }],
   });
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : '{}';
+  let text = message.content[0].type === 'text' ? message.content[0].text : '{}';
+
+  // Run the commandment self-critique check — non-blocking on failure
+  try {
+    const critique = await critiqueAgainstCommandments(text, userMessage);
+    if (!critique.aligned && critique.revised) {
+      text = critique.revised;
+    }
+  } catch {
+    // Critique errored — draft passes through unchanged
+  }
 
   // Store this conversation as a memory (non-blocking)
   storeMemory(userId, 'conversation', `Spirit conversation: ${userMessage.slice(0, 120)}`).catch(() => {});
