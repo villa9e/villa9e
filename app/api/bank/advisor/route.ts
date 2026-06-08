@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
+import { fetchSpiritContext, buildSharedKnowledgeBlock } from '@/lib/claude/spirit';
 
 export const maxDuration = 45;
 
@@ -29,13 +30,6 @@ Always close financial recommendations with a light reminder: "For personalized 
 
 Keep responses concise — 3-6 sentences unless the user asks for detail. This is a chat, not a report.`;
 
-interface AdvisorContext {
-  totalBalance?: number;
-  monthlySpend?: number;
-  portfolioValue?: number;
-  activeGoals?: number;
-}
-
 export async function POST(req: NextRequest) {
   try {
     const supabase = createServerClient();
@@ -49,9 +43,9 @@ export async function POST(req: NextRequest) {
     }
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const { message, context, history } = await req.json() as {
+    const { message, history } = await req.json() as {
       message: string;
-      context: AdvisorContext;
+      context?: any; // legacy client-supplied snapshot — superseded by the unified Spirit context below
       history?: { role: 'user' | 'assistant'; content: string }[];
     };
 
@@ -59,17 +53,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message required' }, { status: 400 });
     }
 
-    // Build context snippet for system prompt
-    const ctxLines: string[] = [];
-    if (context?.totalBalance !== undefined) ctxLines.push(`Total balance: $${context.totalBalance.toLocaleString()}`);
-    if (context?.monthlySpend !== undefined) ctxLines.push(`Monthly spend: $${context.monthlySpend.toLocaleString()}`);
-    if (context?.portfolioValue !== undefined) ctxLines.push(`Portfolio value: $${context.portfolioValue.toLocaleString()}`);
-    if (context?.activeGoals !== undefined) ctxLines.push(`Active savings goals: ${context.activeGoals}`);
-    const ctxBlock = ctxLines.length > 0
-      ? `\n\nUSER'S CURRENT FINANCIAL SNAPSHOT:\n${ctxLines.join('\n')}`
-      : '';
-
-    const systemPrompt = ADVISOR_SYSTEM + ctxBlock;
+    // Draw from the same unified Spirit knowledge base every surface uses —
+    // not a hand-rolled mini-context. Advisor keeps its own voice (ADVISOR_SYSTEM)
+    // layered on top of that shared knowledge.
+    const ctx = await fetchSpiritContext(user.id, message);
+    const systemPrompt = `${ADVISOR_SYSTEM}\n\n${buildSharedKnowledgeBlock(ctx)}`;
 
     // Build message array — prior history + current message
     const prior = (history ?? []).slice(-10); // cap at last 10 messages

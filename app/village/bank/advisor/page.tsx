@@ -8,13 +8,6 @@ const B = {
   night: { bg:'#060F18', card:'#0E1E2E', border:'#1A3040', text:'#EEF4F8', textSec:'#8EB4CC', textTer:'#4A7A96', action:'#2A9FCC' },
 };
 
-interface FinancialContext {
-  totalBalance:   number;
-  monthlySpend:   number;
-  portfolioValue: number;
-  activeGoals:    number;
-}
-
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -81,7 +74,6 @@ export default function AdvisorPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [openingLoading, setOpeningLoading] = useState(true);
-  const [financialContext, setFinancialContext] = useState<FinancialContext | null>(null);
 
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -101,14 +93,6 @@ export default function AdvisorPage() {
           const data = await res.json();
           setMessages([{ role: 'assistant', content: data.message }]);
           setSuggestedQuestions(data.suggestedQuestions ?? []);
-          if (data.summary) {
-            setFinancialContext({
-              totalBalance:   data.summary.totalBalance,
-              monthlySpend:   data.summary.monthlySpend,
-              portfolioValue: data.summary.portfolioValue,
-              activeGoals:    data.summary.activeGoals,
-            });
-          }
         }
       } catch {
         setMessages([{ role: 'assistant', content: 'Welcome to Village Bank Financial Advisor. How can I help you with your finances today?' }]);
@@ -137,7 +121,6 @@ export default function AdvisorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: msg,
-          context: financialContext ?? {},
           history: messages, // send prior history for context
         }),
       });
@@ -148,7 +131,7 @@ export default function AdvisorPage() {
     } finally {
       setLoading(false);
     }
-  }, [messages, loading, financialContext]);
+  }, [messages, loading]);
 
   const handleSend = () => sendMessage(input);
 

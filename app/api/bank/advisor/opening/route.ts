@@ -1,64 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
+import { fetchSpiritContext } from '@/lib/claude/spirit';
 
 export const maxDuration = 30;
 
-// Real financial summary — pulled live from the user's Supabase bank data
-async function getFinancialSummary(supabase: any, userId: string) {
+// Account/credit-card breakdown and budget estimate aren't part of the shared
+// Spirit finance snapshot (those are Bank-specific framing, not cross-domain
+// knowledge) — pulled directly here, layered on top of the shared snapshot.
+async function getAccountBreakdown(supabase: any, userId: string) {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
 
-  const [accountsRes, txRes, investmentsRes, goalsRes] = await Promise.all([
+  const [accountsRes, txRes] = await Promise.all([
     supabase.from('bank_accounts').select('account_type, balance').eq('user_id', userId),
-    supabase.from('bank_transactions').select('amount, direction, transaction_type, created_at')
+    supabase.from('bank_transactions').select('amount, direction')
       .eq('user_id', userId).gte('created_at', monthStart.toISOString()),
-    supabase.from('investments').select('quantity, avg_cost, current_price').eq('user_id', userId),
-    supabase.from('financial_goals').select('id, current_amount, target_amount, monthly_contribution, target_date').eq('user_id', userId).eq('status', 'active'),
   ]);
 
   const accounts = accountsRes.data ?? [];
-  const checkingBalance = accounts.filter((a: any) => a.account_type === 'checking').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
-  const savingsBalance  = accounts.filter((a: any) => a.account_type === 'savings').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+  const checkingBalance   = accounts.filter((a: any) => a.account_type === 'checking').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+  const savingsBalance    = accounts.filter((a: any) => a.account_type === 'savings').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
   const creditCardBalance = accounts.filter((a: any) => a.account_type === 'credit').reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
-  const totalBalance = accounts.reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
 
   const transactions = txRes.data ?? [];
   const monthlySpend = transactions
     .filter((t: any) => t.direction === 'debit')
     .reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0);
 
-  const investments = investmentsRes.data ?? [];
-  const portfolioValue = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.current_price) || 0), 0);
-  const portfolioCost  = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.avg_cost) || 0), 0);
-  const portfolioChange = portfolioCost > 0 ? Math.round(((portfolioValue - portfolioCost) / portfolioCost) * 1000) / 10 : 0;
-
-  const goals = goalsRes.data ?? [];
-  const goalsOnTrack = goals.filter((g: any) => {
-    if (!g.target_date) return true;
-    const monthsLeft = Math.max(1, (new Date(g.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30));
-    const remaining = (parseFloat(g.target_amount) || 0) - (parseFloat(g.current_amount) || 0);
-    return remaining <= (parseFloat(g.monthly_contribution) || 0) * monthsLeft;
-  }).length;
-
-  // No dedicated budgets table yet — estimate a budget as last month's spend rounded up
+  // No dedicated budgets table yet — estimate a budget as spend rounded up
   const monthlyBudget = monthlySpend > 0 ? Math.ceil(monthlySpend * 1.15 / 100) * 100 : 0;
   const budgetPctUsed = monthlyBudget > 0 ? Math.round((monthlySpend / monthlyBudget) * 100) : 0;
 
-  return {
-    totalBalance,
-    checkingBalance,
-    savingsBalance,
-    portfolioValue,
-    monthlySpend,
-    monthlyBudget,
-    budgetPctUsed,
-    portfolioChange,
-    activeGoals:  goals.length,
-    goalsOnTrack,
-    creditCardBalance,
-  };
+  return { checkingBalance, savingsBalance, creditCardBalance, monthlyBudget, budgetPctUsed };
 }
 
 const OPENING_SYSTEM = `You are Spirit, Village Bank's AI financial advisor. NOT a licensed financial advisor — educational purposes only.
@@ -86,25 +61,24 @@ export async function GET(req: NextRequest) {
     }
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Load user display name
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('display_name, full_name, vlg_balance')
-      .eq('id', user.id)
-      .single();
-
-    const displayName = profile?.display_name || profile?.full_name?.split(' ')[0] || 'there';
-    const fin = await getFinancialSummary(supabase, user.id);
+    // Pull the same unified Spirit context every surface draws from, plus
+    // the Bank-specific account breakdown layered on top of it.
+    const [ctx, breakdown] = await Promise.all([
+      fetchSpiritContext(user.id),
+      getAccountBreakdown(supabase, user.id),
+    ]);
+    const fin = ctx.finance;
+    const displayName = ctx.displayName;
 
     const prompt = `Generate a personalized financial advisor opening message for ${displayName}.
 
 Their financial data:
 - Total balance: $${fin.totalBalance.toLocaleString()}
-- Checking: $${fin.checkingBalance.toLocaleString()}, Savings: $${fin.savingsBalance.toLocaleString()}, Portfolio: $${fin.portfolioValue.toLocaleString()}
-- Monthly spend: $${fin.monthlySpend.toLocaleString()} of $${fin.monthlyBudget.toLocaleString()} budget (${fin.budgetPctUsed}% used)
+- Checking: $${breakdown.checkingBalance.toLocaleString()}, Savings: $${breakdown.savingsBalance.toLocaleString()}, Portfolio: $${fin.portfolioValue.toLocaleString()}
+- Monthly spend: $${fin.monthlySpend.toLocaleString()} of $${breakdown.monthlyBudget.toLocaleString()} budget (${breakdown.budgetPctUsed}% used)
 - Portfolio this month: ${fin.portfolioChange > 0 ? '+' : ''}${fin.portfolioChange}%
 - Active goals: ${fin.activeGoals} (${fin.goalsOnTrack} on track)
-- Credit card balance: $${fin.creditCardBalance.toLocaleString()}
+- Credit card balance: $${breakdown.creditCardBalance.toLocaleString()}
 
 Return JSON only: { "message": "...", "suggestedQuestions": ["...", "...", "..."] }`;
 
@@ -124,7 +98,7 @@ Return JSON only: { "message": "...", "suggestedQuestions": ["...", "...", "..."
       parsed = JSON.parse(clean);
     } catch {
       parsed = {
-        message: `Your total balance is $${fin.totalBalance.toLocaleString()} across all accounts. Budget is ${fin.budgetPctUsed}% used this month and your portfolio is ${fin.portfolioChange > 0 ? 'up' : 'down'} ${Math.abs(fin.portfolioChange)}%. What would you like to dig into?`,
+        message: `Your total balance is $${fin.totalBalance.toLocaleString()} across all accounts. Budget is ${breakdown.budgetPctUsed}% used this month and your portfolio is ${fin.portfolioChange > 0 ? 'up' : 'down'} ${Math.abs(fin.portfolioChange)}%. What would you like to dig into?`,
         suggestedQuestions: [
           'How can I pay off my credit card faster?',
           'Am I on track for my savings goals?',
@@ -136,7 +110,7 @@ Return JSON only: { "message": "...", "suggestedQuestions": ["...", "...", "..."
     return NextResponse.json({
       message:            parsed.message,
       suggestedQuestions: parsed.suggestedQuestions ?? [],
-      summary:            fin,
+      summary:            { ...fin, ...breakdown },
     });
   } catch (err: any) {
     console.error('[Bank Advisor Opening] Error:', err?.message);

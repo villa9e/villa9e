@@ -204,6 +204,123 @@ export interface SpiritUserContext {
   scoreTier:           string;
   streakDays:          number;
   collectiveWisdom:    string[];         // relevant collective insights
+  finance:             FinanceSnapshot;   // cross-domain: Bank
+  wellness:            WellnessSnapshot;  // cross-domain: Wellness
+}
+
+export interface FinanceSnapshot {
+  totalBalance:    number;
+  monthlySpend:    number;
+  portfolioValue:  number;
+  portfolioChange: number;
+  activeGoals:     number;
+  goalsOnTrack:    number;
+}
+
+export interface WellnessSnapshot {
+  readiness: number | null;
+  mood:      string | null;
+  energy:    number | null;
+  stress:    number | null;
+  focus:     number | null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CROSS-DOMAIN SNAPSHOTS — shared by every Spirit-powered surface
+// (Bank Advisor, Wellness, Spaces prep, etc.) so they all draw from the
+// same live data instead of hand-rolling their own mini-context.
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function getFinanceSnapshot(admin: any, userId: string): Promise<FinanceSnapshot> {
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+
+  const [accountsRes, txRes, investmentsRes, goalsRes] = await Promise.allSettled([
+    admin.from('bank_accounts').select('balance').eq('user_id', userId),
+    admin.from('bank_transactions').select('amount, direction')
+      .eq('user_id', userId).gte('created_at', monthStart.toISOString()),
+    admin.from('investments').select('quantity, avg_cost, current_price').eq('user_id', userId),
+    admin.from('financial_goals').select('current_amount, target_amount, monthly_contribution, target_date')
+      .eq('user_id', userId).eq('status', 'active'),
+  ]);
+
+  const accounts = accountsRes.status === 'fulfilled' ? (accountsRes.value.data ?? []) : [];
+  const totalBalance = accounts.reduce((s: number, a: any) => s + (parseFloat(a.balance) || 0), 0);
+
+  const transactions = txRes.status === 'fulfilled' ? (txRes.value.data ?? []) : [];
+  const monthlySpend = transactions
+    .filter((t: any) => t.direction === 'debit')
+    .reduce((s: number, t: any) => s + (parseFloat(t.amount) || 0), 0);
+
+  const investments = investmentsRes.status === 'fulfilled' ? (investmentsRes.value.data ?? []) : [];
+  const portfolioValue = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.current_price) || 0), 0);
+  const portfolioCost  = investments.reduce((s: number, i: any) => s + (parseFloat(i.quantity) || 0) * (parseFloat(i.avg_cost) || 0), 0);
+  const portfolioChange = portfolioCost > 0 ? Math.round(((portfolioValue - portfolioCost) / portfolioCost) * 1000) / 10 : 0;
+
+  const goals = goalsRes.status === 'fulfilled' ? (goalsRes.value.data ?? []) : [];
+  const goalsOnTrack = goals.filter((g: any) => {
+    if (!g.target_date) return true;
+    const monthsLeft = Math.max(1, (new Date(g.target_date).getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30));
+    const remaining = (parseFloat(g.target_amount) || 0) - (parseFloat(g.current_amount) || 0);
+    return remaining <= (parseFloat(g.monthly_contribution) || 0) * monthsLeft;
+  }).length;
+
+  return { totalBalance, monthlySpend, portfolioValue, portfolioChange, activeGoals: goals.length, goalsOnTrack };
+}
+
+async function getWellnessSnapshot(admin: any, userId: string): Promise<WellnessSnapshot> {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: log } = await admin
+    .from('wellness_logs')
+    .select('readiness, mood, energy, stress, focus')
+    .eq('user_id', userId)
+    .eq('log_date', today)
+    .maybeSingle();
+
+  return {
+    readiness: log?.readiness ?? null,
+    mood:      log?.mood ?? null,
+    energy:    log?.energy ?? null,
+    stress:    log?.stress ?? null,
+    focus:     log?.focus ?? null,
+  };
+}
+
+export function formatFinanceSnapshot(f: FinanceSnapshot): string {
+  if (!f || (!f.totalBalance && !f.monthlySpend && !f.portfolioValue && !f.activeGoals)) return '';
+  return `Bank: $${f.totalBalance.toLocaleString()} total balance, $${f.monthlySpend.toLocaleString()} spent this month, $${f.portfolioValue.toLocaleString()} portfolio (${f.portfolioChange > 0 ? '+' : ''}${f.portfolioChange}% this month), ${f.activeGoals} active savings goals (${f.goalsOnTrack} on track).`;
+}
+
+export function formatWellnessSnapshot(w: WellnessSnapshot): string {
+  if (!w || (w.readiness === null && w.mood === null && w.energy === null)) return '';
+  return `Wellness today: ${w.readiness !== null ? `readiness ${w.readiness}/10, ` : ''}${w.mood ? `mood "${w.mood}", ` : ''}${w.energy !== null ? `energy ${w.energy}/5, ` : ''}${w.stress !== null ? `stress ${w.stress}/5, ` : ''}${w.focus !== null ? `focus ${w.focus}/5` : ''}`.replace(/,\s*$/, '.');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHARED KNOWLEDGE BLOCK — for siloed surfaces (Bank Advisor, Wellness, Spaces)
+// that keep their own system-prompt voice but must draw from the exact same
+// underlying knowledge of the user as Spirit's main conversation does.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function buildSharedKnowledgeBlock(ctx: SpiritUserContext): string {
+  const lines: string[] = [];
+  lines.push(`USER: ${ctx.displayName} (@${ctx.username}) — Village Score ${ctx.villageScore} (${ctx.scoreTier} tier)${ctx.streakDays > 0 ? `, ${ctx.streakDays}-day streak` : ''}`);
+
+  if (ctx.activeGoals.length > 0) {
+    lines.push(`Active goals: ${ctx.activeGoals.map(g => `"${g.title}" (${g.progress}% complete, ${g.steps_done}/${g.steps_total} steps)`).join('; ')}`);
+  }
+
+  const finance  = formatFinanceSnapshot(ctx.finance);
+  const wellness = formatWellnessSnapshot(ctx.wellness);
+  if (finance)  lines.push(finance);
+  if (wellness) lines.push(wellness);
+
+  if (ctx.memories.length > 0) {
+    lines.push(`What you remember about them: ${ctx.memories.slice(0, 5).join('; ')}`);
+  }
+
+  return `━━━ WHAT YOU KNOW ABOUT THEM (same knowledge base Spirit draws from everywhere) ━━━\n${lines.join('\n')}\nYou are Spirit wearing a different hat here — not a different mind. Stay consistent with what you know about them across every part of the village.`;
 }
 
 export async function fetchSpiritContext(userId: string, query?: string): Promise<SpiritUserContext> {
@@ -243,6 +360,14 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
           .limit(10),
   ]);
 
+  // Cross-domain snapshots — fetched in parallel, never block the core context
+  const [financeRes, wellnessRes] = await Promise.allSettled([
+    getFinanceSnapshot(admin, userId),
+    getWellnessSnapshot(admin, userId),
+  ]);
+  const finance:  FinanceSnapshot  = financeRes.status  === 'fulfilled' ? financeRes.value  : { totalBalance: 0, monthlySpend: 0, portfolioValue: 0, portfolioChange: 0, activeGoals: 0, goalsOnTrack: 0 };
+  const wellness: WellnessSnapshot = wellnessRes.status === 'fulfilled' ? wellnessRes.value : { readiness: null, mood: null, energy: null, stress: null, focus: null };
+
   // Safely extract data from allSettled results — missing tables return null
   const profile   = profileRes.status   === 'fulfilled' ? profileRes.value.data   : null;
   const spirit    = spiritRes.status    === 'fulfilled' ? spiritRes.value.data    : null;
@@ -281,6 +406,8 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
     scoreTier:          profile?.score_tier ?? 'seedling',
     streakDays:         profile?.streak_days ?? 0,
     collectiveWisdom:   ((collective ?? []) as any[]).map((c: any) => c.insight),
+    finance,
+    wellness,
   };
 }
 
@@ -315,6 +442,13 @@ export function buildSpiritSystemPrompt(ctx: SpiritUserContext): string {
     ? `Their patterns: ${ctx.patterns.goals_completed ?? 0} goals completed, ${ctx.patterns.streak_days ?? 0}-day streak, avg morning mood ${ctx.patterns.avg_morning_mood ?? 0}/10`
     : '';
 
+  const financeSection  = formatFinanceSnapshot(ctx.finance);
+  const wellnessSection = formatWellnessSnapshot(ctx.wellness);
+
+  const crossDomainSection = (financeSection || wellnessSection)
+    ? `━━━ WHAT'S HAPPENING ACROSS THEIR LIFE RIGHT NOW ━━━\n${[financeSection, wellnessSection].filter(Boolean).join('\n')}\nYou know all of this no matter which part of the village they're talking to you from — Bank, Wellness, Workshop, anywhere. Draw connections between domains naturally when relevant (e.g. a wellness dip affecting goal momentum, or a financial goal funding a workshop sprint). You are one continuous mind, not a different assistant per screen.`
+    : '';
+
   return `${SPIRIT_CORE_IDENTITY}
 
 ━━━ WHO YOU'RE TALKING TO ━━━
@@ -328,6 +462,8 @@ ${ctx.topics.length ? `They care about: ${ctx.topics.join(', ')}.` : ''}
 
 ━━━ THEIR GOALS ━━━
 ${goalsSection}
+
+${crossDomainSection}
 
 ${memoriesSection ? `━━━ YOUR MEMORY ━━━\n${memoriesSection}` : ''}
 ${patternSection ? `━━━ THEIR PATTERNS ━━━\n${patternSection}` : ''}
