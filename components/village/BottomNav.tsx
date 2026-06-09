@@ -354,7 +354,7 @@ function BottomNavInner() {
         )}
       </AnimatePresence>
 
-      {/* Horizontal icon row — slides up above the button when open */}
+      {/* Horizontal icon row — centered, no background, slides up above the button when open */}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -365,22 +365,15 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 340, damping: 28 }}
             style={{
               position: 'fixed',
-              bottom: `calc(${24 + ICON_SZ + 16}px + env(safe-area-inset-bottom, 0px))`,
+              bottom: `calc(${24 + ICON_SZ + 20}px + env(safe-area-inset-bottom, 0px))`,
               left: '50%',
               transform: 'translateX(-50%)',
               zIndex: 52,
               display: 'flex',
               flexDirection: 'row',
-              alignItems: 'flex-end',
-              gap: 10,
-              padding: '12px 16px',
-              background: 'rgba(8,10,20,0.88)',
-              backdropFilter: 'blur(24px)',
-              WebkitBackdropFilter: 'blur(24px)',
-              borderRadius: 28,
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 8px 40px rgba(0,0,0,0.6)',
-              maxWidth: 'calc(100vw - 32px)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 24,
             }}
           >
             {ITEMS.map((item, idx) => (
@@ -393,28 +386,19 @@ function BottomNavInner() {
                 <Link
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textDecoration: 'none' }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, textDecoration: 'none' }}
                 >
-                  <div style={{
-                    width: ICON_SZ,
-                    height: ICON_SZ,
-                    borderRadius: ICON_SZ / 2,
-                    background: 'rgba(255,255,255,0.08)',
-                    border: '1.5px solid rgba(255,255,255,0.2)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <svg width={20} height={20} viewBox="0 0 24 24"
-                      fill="none" stroke="#ffffff" strokeWidth="1.8"
-                      strokeLinecap="round" strokeLinejoin="round">
-                      <path d={item.path} />
-                    </svg>
-                  </div>
+                  <svg width={24} height={24} viewBox="0 0 24 24"
+                    fill="none" stroke="#ffffff" strokeWidth="1.8"
+                    strokeLinecap="round" strokeLinejoin="round">
+                    <path d={item.path} />
+                  </svg>
                   <span style={{
-                    color: 'rgba(255,255,255,0.75)',
-                    fontSize: 8,
+                    color: 'rgba(255,255,255,0.85)',
+                    fontSize: 9,
                     fontWeight: 800,
                     letterSpacing: '0.03em',
-                    textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                    textShadow: '0 1px 6px rgba(0,0,0,0.9)',
                     whiteSpace: 'nowrap',
                     userSelect: 'none',
                   }}>

@@ -45,7 +45,7 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   const [feed, setFeed]               = useState<any[]>([]);
   const [feedIdx, setFeedIdx]         = useState(0);
   const [loadingFeed, setLoadingFeed] = useState(false);
-  const [videoPaused, setVideoPaused] = useState(false);
+  const [videoPaused, setVideoPaused] = useState(true);
   const [showOoWopAnim, setShowOoWopAnim] = useState(false);
   const [videoOoWops, setVideoOoWops] = useState<Record<string, number>>({});
   const [videoFavorites, setVideoFavorites] = useState<Set<string>>(new Set());
@@ -205,8 +205,8 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
   }
 
   function handleFeedSwipe(_: any, info: PanInfo) {
-    if (info.offset.y < -60 && feedIdx < feed.length - 1) setFeedIdx(i => i + 1);
-    else if (info.offset.y > 60 && feedIdx > 0) setFeedIdx(i => i - 1);
+    if (info.offset.y < -60 && feedIdx < feed.length - 1) { setFeedIdx(i => i + 1); setVideoPaused(true); }
+    else if (info.offset.y > 60 && feedIdx > 0) { setFeedIdx(i => i - 1); setVideoPaused(true); }
   }
 
   // ─── GPS recalibrate ──────────────────────────────────────────────────────
@@ -1375,12 +1375,6 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                               </div>
                             </div>
                           </div>
-                        )}
-
-                        {/* Tap-to-pause overlay for iframe (double-tap still fires OoWop) */}
-                        {currentVideo.source === 'youtube' && !videoPaused && (
-                          <div className="absolute inset-0" onClick={handleVideoTap}
-                            style={{ cursor: 'pointer', zIndex: 2, background: 'transparent' }} />
                         )}
 
                         {/* OoWop fly-up animation */}
