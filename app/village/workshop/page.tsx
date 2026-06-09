@@ -6,12 +6,13 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
+import { TikTokFeedCard } from '@/components/village/TikTokFeedCard';
 
-type CardType = 'template' | 'video' | 'sprint' | 'achievement' | 'goal' | 'guide';
+type CardType = 'template' | 'video' | 'tiktok' | 'sprint' | 'achievement' | 'goal' | 'guide';
 interface FeedCard {
   id: string; type: CardType; title: string; subtitle: string; content: string;
   author: { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
-  media?: { videoId?: string; thumbnail?: string; url?: string };
+  media?: { videoId?: string; thumbnail?: string; url?: string; embedHtml?: string };
   color: string; accent: string; data?: any; oowops?: number;
 }
 interface Comment {
@@ -241,7 +242,7 @@ function MoreDrawer({ open, onClose, card }: { open: boolean; onClose: () => voi
   );
 }
 
-// ── Video Card ────────────────────────────────────────────────────────────────
+// ── Video Card (YouTube) ──────────────────────────────────────────────────────
 function VideoCard({ card, iframeRef }: {
   card: FeedCard;
   iframeRef: React.RefObject<HTMLIFrameElement>;
@@ -650,7 +651,7 @@ export default function WorkshopPage() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const [templatesRes, goalsRes, videosRes, ytRes] = await Promise.all([
+      const [templatesRes, goalsRes, videosRes, ytRes, curatedRes] = await Promise.all([
         (supabase as any).from('goal_templates')
           .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
           .eq('is_public', true).order('clone_count', { ascending: false }).limit(10)
@@ -668,11 +669,16 @@ export default function WorkshopPage() {
         fetch('/api/gps/action-content', {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
         }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
+        // Curated feed: TikTok oEmbed + manually pinned YouTube
+        fetch('/api/admin/curated-feed')
+          .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
       ]);
 
       const templates: any[] = templatesRes.data ?? [];
       const goals:     any[] = goalsRes.data     ?? [];
       const videos:    any[] = videosRes.data    ?? [];
+      const curated:   any[] = curatedRes?.items  ?? [];
+
       if (user && goals.length) {
         setActiveGoals(goals);
         fetch('/api/sprints').then(r => r.ok ? r.json() : []).then(data => {
@@ -698,7 +704,29 @@ export default function WorkshopPage() {
         .filter((v: any) => v.id && !v.id.startsWith('fb')).slice(0, 8)
         .map((v: any) => ({ id: `yt-${v.id}`, type: 'video', title: v.title, subtitle: v.channel ?? 'YouTube', content: '', author: { username: v.channel ?? 'YouTube' }, media: { videoId: v.id, thumbnail: v.thumbnail }, color: '#FF0000', accent: '#FF6B2B' }));
 
-      const videoCards    = [...studioCards.filter(c => c.media?.videoId), ...ytCards];
+      // Curated items: TikTok oEmbed cards + pinned YouTube — same video-first position as YT
+      const curatedCards: FeedCard[] = curated.map((c: any) => {
+        if (c.source_type === 'tiktok') {
+          return {
+            id: `tt-${c.id}`, type: 'tiktok' as CardType,
+            title: c.title ?? 'TikTok', subtitle: c.author_name ?? 'TikTok Creator', content: '',
+            author: { username: c.author_name ?? 'tiktok' },
+            media: { embedHtml: c.embed_html, thumbnail: c.thumbnail_url },
+            color: '#010101', accent: '#69C9D0',
+          };
+        }
+        // Pinned YouTube
+        return {
+          id: `cur-${c.id}`, type: 'video' as CardType,
+          title: c.title ?? 'Video', subtitle: c.author_name ?? 'Curated', content: '',
+          author: { username: c.author_name ?? 'curator' },
+          media: { videoId: c.video_id, thumbnail: c.thumbnail_url },
+          color: '#FF0000', accent: '#FF6B2B',
+        };
+      });
+
+      // All video-type cards go first (YouTube + TikTok + studio), sorted for variety
+      const videoCards    = [...studioCards.filter(c => c.media?.videoId), ...curatedCards, ...ytCards];
       const nonVideoCards = [...goalCards, ...templateCards, ...studioCards.filter(c => !c.media?.videoId)];
       const guideCard: FeedCard = { id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' };
       const shuffled: FeedCard[] = videoCards.length > 0 ? [...videoCards, ...nonVideoCards] : goals.length ? [...nonVideoCards, guideCard] : [guideCard, ...nonVideoCards];
@@ -891,18 +919,19 @@ export default function WorkshopPage() {
               className="absolute inset-0">
 
               {card?.type === 'video'    && <VideoCard card={card} iframeRef={iframeRef} />}
+              {card?.type === 'tiktok'   && <TikTokFeedCard embedHtml={card.media?.embedHtml ?? ''} thumbnail={card.media?.thumbnail ?? ''} isActive={true} title={card.title} author={card.author.username} />}
               {card?.type === 'template' && <TemplateCard card={card} />}
               {card?.type === 'goal'     && <GoalCard card={card} />}
               {card?.type === 'guide'    && <GuideCard />}
 
-              {/* Bottom gradient (video only) */}
-              {card?.type === 'video' && (
+              {/* Bottom gradient (video + tiktok) */}
+              {(card?.type === 'video' || card?.type === 'tiktok') && (
                 <div className="absolute inset-x-0 bottom-0 pointer-events-none"
                   style={{ height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }} />
               )}
 
-              {/* Bottom text info (video only, auto-hides) */}
-              {card?.type === 'video' && (
+              {/* Bottom text info (video + tiktok, auto-hides) */}
+              {(card?.type === 'video' || card?.type === 'tiktok') && (
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 72, padding: '0 16px 110px', zIndex: 10, opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: 'none' }}>
                   <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
                     {card.subtitle || 'Training'}
