@@ -224,7 +224,6 @@ function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount
   card: FeedCard; onOoWop: () => void; onSkip: () => void; onSave: () => void;
   owopped: boolean; saved: boolean; oowopCount: number;
 }) {
-  const [following, setFollowing] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const SaveSvg     = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
   const ThumbDown   = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
@@ -239,34 +238,6 @@ function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount
 
   return (
     <div style={{ position: 'absolute', right: 8, bottom: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, zIndex: 20 }}>
-      {/* Creator avatar + follow button */}
-      <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-        <div style={{ width: 38, height: 38, borderRadius: 19, overflow: 'hidden', border: '1.5px solid white', position: 'relative', flexShrink: 0 }}>
-          {card.author.avatar_url
-            ? <img src={card.author.avatar_url} alt={username} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            : <div style={{ width: '100%', height: '100%', background: avatarColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 900, color: '#fff' }}>{initials}</div>
-          }
-        </div>
-        {/* Follow toggle (+/check) overlapping bottom of avatar */}
-        <motion.button
-          whileTap={{ scale: 0.85 }}
-          onClick={() => setFollowing(f => !f)}
-          style={{
-            position: 'absolute', bottom: -7, left: '50%', transform: 'translateX(-50%)',
-            width: 16, height: 16, borderRadius: 8,
-            background: following ? '#0D9488' : '#7C3AED',
-            border: '1.5px solid white',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer',
-          }}
-        >
-          {following
-            ? <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
-            : <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          }
-        </motion.button>
-      </div>
-
       {/* OoWop */}
       <motion.button whileTap={{ scale: 0.85 }} onClick={onOoWop}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
@@ -507,57 +478,57 @@ export default function WorkshopPage() {
       const hasGoals = goals.length > 0;
 
       const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
-      const feed: FeedCard[] = [];
 
-      // User's active goals
-      goals.forEach((g: any, i: number) => {
+      // ── Build typed arrays first, then put videos at top ──────────────────
+      const goalCards: FeedCard[] = goals.map((g: any, i: number) => {
         const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
         const total = g.goal_steps?.length ?? 1;
-        feed.push({
-          id: `goal-${i}`, type: 'goal', title: g.title,
+        return {
+          id: `goal-${g.id ?? i}`, type: 'goal' as CardType, title: g.title,
           subtitle: `${done}/${total} steps · ${g.category ?? 'personal'}`,
           content: g.description ?? '',
           author: { username: 'You' },
           color: COLORS[i % COLORS.length], accent: COLORS[i % COLORS.length],
-          data: { progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
-        });
+          data: { goalId: g.id, progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
+        };
       });
 
-      // Public templates
-      templates.forEach((t: any, i: number) => {
-        feed.push({
-          id: t.id, type: 'template', title: t.title,
-          subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
-          content: t.description ?? '',
-          author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
-          color: COLORS[(i + 2) % COLORS.length], accent: COLORS[(i + 2) % COLORS.length],
-          data: { steps: t.steps ?? [] }, oowops: t.oowop_count ?? 0,
-        });
-      });
+      const templateCards: FeedCard[] = templates.map((t: any, i: number) => ({
+        id: t.id, type: 'template' as CardType, title: t.title,
+        subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
+        content: t.description ?? '',
+        author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
+        color: COLORS[(i + 2) % COLORS.length], accent: COLORS[(i + 2) % COLORS.length],
+        data: { steps: t.steps ?? [] }, oowops: t.oowop_count ?? 0,
+      }));
 
-      // Studio videos
-      videos.forEach((v: any) => {
-        feed.push({
-          id: v.id, type: 'video', title: v.title,
-          subtitle: v.category ?? 'Training', content: v.description ?? '',
-          author: { username: v.profiles?.username ?? 'creator' },
-          media: { videoId: v.video_url?.includes('youtube') ? v.video_url.split('v=')[1] : undefined, thumbnail: v.thumbnail_url },
-          color: '#FF6B2B', accent: '#FF6B2B',
+      const studioCards: FeedCard[] = videos
+        .filter((v: any) => v.video_url || v.thumbnail_url)
+        .map((v: any) => {
+          const rawId = v.video_url?.includes('v=') ? v.video_url.split('v=')[1]?.split('&')[0] : undefined;
+          return {
+            id: v.id, type: 'video' as CardType, title: v.title,
+            subtitle: v.category ?? 'Training', content: v.description ?? '',
+            author: { username: v.profiles?.username ?? 'creator' },
+            media: { videoId: rawId, thumbnail: v.thumbnail_url },
+            color: '#FF6B2B', accent: '#FF6B2B',
+          };
         });
-      });
 
-      // YouTube videos from action-content API
-      const ytVideos: any[] = ytRes?.feed ?? [];
-      ytVideos.slice(0, 6).forEach((v: any) => {
-        if (!v.id) return;
-        feed.push({
+      const ytCards: FeedCard[] = (ytRes?.feed ?? [])
+        .filter((v: any) => v.id && !v.id.startsWith('fb'))  // skip fake fallback IDs
+        .slice(0, 8)
+        .map((v: any) => ({
           id: `yt-${v.id}`, type: 'video' as CardType, title: v.title,
           subtitle: v.channel ?? 'YouTube', content: '',
           author: { username: v.channel ?? 'YouTube' },
           media: { videoId: v.id, thumbnail: v.thumbnail },
           color: '#FF0000', accent: '#FF6B2B',
-        });
-      });
+        }));
+
+      // Videos first (TikTok behaviour), then goals/templates below
+      const videoCards = [...studioCards.filter(c => c.media?.videoId), ...ytCards];
+      const nonVideoCards = [...goalCards, ...templateCards, ...studioCards.filter(c => !c.media?.videoId)];
 
       const guideCard: FeedCard = {
         id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
@@ -565,9 +536,11 @@ export default function WorkshopPage() {
         author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
       };
 
-      const shuffled: FeedCard[] = !hasGoals
-        ? [guideCard, ...feed]
-        : feed.length > 0 ? feed : [guideCard];
+      const shuffled: FeedCard[] = videoCards.length > 0
+        ? [...videoCards, ...nonVideoCards]
+        : hasGoals
+          ? [...nonVideoCards, guideCard]
+          : [guideCard, ...nonVideoCards];
 
       setCards(shuffled);
       if (shuffled[0]) speak(shuffled[0].title, 'casual');
@@ -893,7 +866,7 @@ export default function WorkshopPage() {
               <FistAnimation show={showFist} />
             </div>
 
-            {card && card.type !== 'guide' && <AuthorBar card={card} />}
+            {card && card.type !== 'guide' && card.type !== 'video' && <AuthorBar card={card} />}
             {card && card.type !== 'goal' && card.type !== 'guide' && (
               <SideActions
                 card={card}

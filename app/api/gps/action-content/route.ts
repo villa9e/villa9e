@@ -53,12 +53,10 @@ const GENERAL_QUERIES = [
 export async function POST(req: NextRequest) {
   const supabase = createServerClient() as any;
   const admin    = createAdminClient() as any;
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { action_title, goal_title, goal_category, goal_id } = await req.json();
 
-  // No goal selected — return general motivational/wellness content
+  // No goal context — return general motivational content (no auth needed, public YouTube)
   if (!goal_id && !action_title) {
     const q = GENERAL_QUERIES[Math.floor(Math.random() * GENERAL_QUERIES.length)];
     const [yt1, yt2] = await Promise.all([
@@ -70,6 +68,10 @@ export async function POST(req: NextRequest) {
     const feed = ytFeed.length > 0 ? ytFeed : FALLBACK_CONTENT;
     return NextResponse.json({ feed, preferredFormat: 'long', actionTitle: null, totalResults: feed.length, isGeneral: true });
   }
+
+  // Goal-specific: require auth
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Load user format preferences + studio content in parallel
   const [prefRes, studioRes] = await Promise.allSettled([
