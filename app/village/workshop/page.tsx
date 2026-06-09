@@ -7,88 +7,255 @@ import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 
-// ── Card types ────────────────────────────────────────────────────────────────
 type CardType = 'template' | 'video' | 'sprint' | 'achievement' | 'goal' | 'guide';
-
 interface FeedCard {
-  id:       string;
-  type:     CardType;
-  title:    string;
-  subtitle: string;
-  content:  string;
-  author:   { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
-  media?:   { videoId?: string; thumbnail?: string; url?: string };
-  color:    string;
-  accent:   string;
-  data?:    any;
-  oowops?:  number;
+  id: string; type: CardType; title: string; subtitle: string; content: string;
+  author: { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
+  media?: { videoId?: string; thumbnail?: string; url?: string };
+  color: string; accent: string; data?: any; oowops?: number;
+}
+interface Comment {
+  id: string; username: string; avatar?: string;
+  text: string; isOoWop: boolean; timestamp: string;
 }
 
-// ── Icon SVGs (monotone) ─────────────────────────────────────────────────────
-const HeartSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>;
-const OoWopSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>;
-const ShareSvg    = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>;
-const PlaySvg     = () => <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>;
+// ── Icons ────────────────────────────────────────────────────────────────────
+const FistSvg = ({ size = 24 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
+    <path d="M9 2c-.6 0-1 .4-1 1v6H7V4c0-.6-.4-1-1-1s-1 .4-1 1v8H4c-.6 0-1 .4-1 1v1c0 3.9 3.1 7 7 7h2c3.9 0 7-3.1 7-7V9c0-.6-.4-1-1-1h-1V4c0-.6-.4-1-1-1s-1 .4-1 1v5h-1V3c0-.6-.4-1-1-1H9z"/>
+  </svg>
+);
+const ShareSvg  = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="white"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>;
+const SaveSvg   = ({ active }: { active?: boolean }) => <svg width={22} height={22} viewBox="0 0 24 24" fill={active ? 'white' : 'none'} stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
+const CommentSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
+const MoreSvg   = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="white"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>;
+const PlaySvg   = () => <svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>;
+const PauseSvg  = () => <svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>;
 
-// ── Card components ───────────────────────────────────────────────────────────
-function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () => void; owopped: boolean }) {
-  const steps = card.data?.steps ?? [];
+// ── Comments Drawer ──────────────────────────────────────────────────────────
+function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
+  open: boolean; onClose: () => void; card: FeedCard; onOoWop: () => void; owopped: boolean;
+}) {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [input, setInput] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
+  }, [open, comments.length]);
+
+  function submit() {
+    if (!input.trim()) return;
+    setComments(prev => [...prev, {
+      id: Date.now().toString(), username: 'you', text: input.trim(),
+      isOoWop: false, timestamp: 'just now',
+    }]);
+    setInput('');
+  }
+
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, var(--v-bg) 60%)` }}>
-      {/* Gradient overlay */}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)' }} />
-
-      {/* Header badge */}
-      <div className="relative z-10 px-5 pt-14 flex items-center gap-2">
-        <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: card.accent + '33', color: card.accent, border: `1px solid ${card.accent}55` }}>
-          📋 Goal Template
-        </span>
-        <span className="text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>{steps.length} steps</span>
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
-        <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
-        <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>{card.subtitle}</p>
-
-        {/* First 3 steps preview */}
-        <div className="space-y-2 mb-4">
-          {steps.slice(0, 3).map((s: any, i: number) => (
-            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
-              <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
-                style={{ background: card.accent + '33', color: card.accent }}>{i + 1}</div>
-              {s.title}
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="cd-bg" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.55)' }} />
+          <motion.div key="cd-sheet"
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 71,
+              background: 'rgba(8,10,24,0.98)', backdropFilter: 'blur(28px)',
+              borderRadius: '24px 24px 0 0', maxHeight: '78vh', display: 'flex', flexDirection: 'column' }}
+          >
+            {/* Handle + header */}
+            <div style={{ padding: '10px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2, margin: '0 auto 10px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>
+                  Comments · {comments.length}
+                </span>
+                <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
             </div>
-          ))}
-          {steps.length > 3 && <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>+{steps.length - 3} more steps</p>}
-        </div>
 
-        {/* Clone button */}
-        <Link href={`/village/workshop/chat?template=${card.id}`}
-          className="w-full py-3.5 rounded-2xl text-sm font-black text-white text-center"
-          style={{ background: `linear-gradient(135deg, ${card.accent}, #1877F2)`, boxShadow: `0 4px 20px ${card.accent}55` }}>
-          Clone This Plan
-        </Link>
-      </div>
-    </div>
+            {/* Feed */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+              {comments.length === 0 && (
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
+                  No comments yet — be the first!
+                </div>
+              )}
+              {comments.map(c => (
+                <div key={c.id} style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 18, background: c.isOoWop ? 'rgba(239,159,39,0.3)' : '#1877F2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {c.isOoWop ? <FistSvg size={18} /> : <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{c.username[0].toUpperCase()}</span>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>@{c.username}</span>
+                      {c.isOoWop && <span style={{ fontSize: 9, fontWeight: 900, color: '#EF9F27', background: 'rgba(239,159,39,0.15)', padding: '1px 6px', borderRadius: 6 }}>OoWop</span>}
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)' }}>{c.timestamp}</span>
+                    </div>
+                    <p style={{ fontSize: 14, color: '#fff', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
+                  </div>
+                </div>
+              ))}
+              <div ref={bottomRef} />
+            </div>
+
+            {/* OoWop row + input */}
+            <div style={{ flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.07)', padding: '10px 16px', paddingBottom: 'max(16px, env(safe-area-inset-bottom, 16px))' }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <motion.button whileTap={{ scale: 0.88 }} onClick={() => {
+                  onOoWop();
+                  setComments(prev => [...prev, { id: Date.now().toString(), username: 'you', text: '', isOoWop: true, timestamp: 'just now' }]);
+                }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: owopped ? 'rgba(239,159,39,0.2)' : 'rgba(255,255,255,0.08)', border: `1px solid ${owopped ? 'rgba(239,159,39,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 20, padding: '8px 14px', cursor: 'pointer' }}>
+                  <FistSvg size={18} />
+                  <span style={{ fontSize: 12, fontWeight: 900, color: owopped ? '#EF9F27' : '#fff' }}>OoWop</span>
+                </motion.button>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()}
+                  placeholder="Add a comment…"
+                  style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 22, padding: '11px 16px', color: '#fff', fontSize: 14, outline: 'none' }} />
+                <motion.button whileTap={{ scale: 0.92 }} onClick={submit}
+                  style={{ background: '#4D72FF', border: 'none', borderRadius: 22, padding: '11px 18px', color: '#fff', fontWeight: 900, fontSize: 13, cursor: 'pointer' }}>
+                  Post
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
-function VideoCard({ card, onOoWop, owopped, activeGoal }: {
-  card: FeedCard; onOoWop: () => void; owopped: boolean;
-  activeGoal?: { id: string; title: string; probability_score?: number } | null;
+// ── More Drawer ──────────────────────────────────────────────────────────────
+const SHARE_OPTS = [
+  { icon: '↩', label: 'Repost',    action: () => {} },
+  { icon: '💬', label: 'SMS',       action: (t: string) => window.open(`sms:?body=${encodeURIComponent(t)}`) },
+  { icon: '🟢', label: 'WhatsApp', action: (t: string) => window.open(`https://wa.me/?text=${encodeURIComponent(t)}`) },
+  { icon: '🔗', label: 'Copy Link', action: () => navigator.clipboard?.writeText(window.location.href) },
+  { icon: '📘', label: 'Messenger', action: () => {} },
+  { icon: '✈️', label: 'Telegram',  action: (t: string) => window.open(`https://t.me/share/url?url=${encodeURIComponent(window.location.href)}&text=${encodeURIComponent(t)}`) },
+  { icon: '📘', label: 'Facebook',  action: (t: string) => window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`) },
+  { icon: '📧', label: 'Email',     action: (t: string) => window.open(`mailto:?subject=${encodeURIComponent(t)}&body=${encodeURIComponent(window.location.href)}`) },
+  { icon: '📸', label: 'Instagram', action: () => {} },
+  { icon: '•••', label: 'More',    action: (_: string, title: string) => { if (navigator.share) navigator.share({ title, url: window.location.href }); } },
+];
+const MORE_OPTS = [
+  { icon: '⚑',  label: 'Report' }, { icon: '✕', label: 'Not interested' },
+  { icon: '⬇',  label: 'Download' }, { icon: '📖', label: 'Add to Story' },
+  { icon: '📢', label: 'Promote' }, { icon: '📺', label: 'Cast' },
+  { icon: '?',  label: 'Why this' }, { icon: 'CC', label: 'Captions' },
+  { icon: '🎬', label: 'Remake' }, { icon: '⏩', label: 'Speed' },
+  { icon: 'GIF', label: 'Share GIF' },
+];
+
+function MoreDrawer({ open, onClose, card }: { open: boolean; onClose: () => void; card: FeedCard }) {
+  const FAKE_USERS = ['Alex','Jordan','Sam','Morgan','Taylor','Casey','Riley','Drew','Chris','Avery','Blake','Quinn'];
+  const COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E','#0D9488','#BE185D','#D97706'];
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div key="md-bg" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.55)' }} />
+          <motion.div key="md-sheet"
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 320, damping: 34 }}
+            style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 71,
+              background: 'rgba(8,10,24,0.98)', backdropFilter: 'blur(28px)',
+              borderRadius: '24px 24px 0 0', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
+          >
+            {/* Handle + header row */}
+            <div style={{ flexShrink: 0, padding: '10px 16px 10px' }}>
+              <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2, margin: '0 auto 10px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                </button>
+                <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'max(20px, env(safe-area-inset-bottom, 20px))' }}>
+              {/* Section 1: Send to */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', marginBottom: 12 }}>SEND TO</p>
+                <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as any }}>
+                  {FAKE_USERS.map((name, i) => (
+                    <motion.button whileTap={{ scale: 0.9 }} key={name}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', width: 56 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 26, background: COLORS[i % COLORS.length], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>{name[0]}</span>
+                      </div>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textAlign: 'center' }}>{name}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 16px 16px' }} />
+
+              {/* Section 2: Share */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', marginBottom: 12 }}>SHARE</p>
+                <div style={{ display: 'flex', gap: 14, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as any }}>
+                  {SHARE_OPTS.map(opt => (
+                    <motion.button whileTap={{ scale: 0.9 }} key={opt.label}
+                      onClick={() => { (opt.action as any)(card.title, card.title); onClose(); }}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, width: 60 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>
+                        {opt.icon}
+                      </div>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>{opt.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 16px 16px' }} />
+
+              {/* Section 3: More options */}
+              <div style={{ padding: '0 16px 16px' }}>
+                <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as any }}>
+                  {MORE_OPTS.map(opt => (
+                    <motion.button whileTap={{ scale: 0.9 }} key={opt.label} onClick={onClose}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, width: 62 }}>
+                      <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff', fontWeight: 900 }}>
+                        {opt.icon}
+                      </div>
+                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>{opt.label}</span>
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── Video Card ────────────────────────────────────────────────────────────────
+function VideoCard({ card, iframeRef }: {
+  card: FeedCard;
+  iframeRef: React.RefObject<HTMLIFrameElement>;
 }) {
-  const [showGoalInfo, setShowGoalInfo] = useState(false);
-  const thumb = card.media?.thumbnail
-    || (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
+  const thumb = card.media?.thumbnail ||
+    (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
 
   return (
     <div className="absolute inset-0" style={{ background: '#000' }}>
-      {/* TikTok-style: iframe loads immediately and autoplays */}
       {card.media?.videoId ? (
         <iframe
+          ref={iframeRef}
           key={card.media.videoId}
-          src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&controls=1`}
+          src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
           className="absolute inset-0 w-full h-full"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
@@ -99,281 +266,89 @@ function VideoCard({ card, onOoWop, owopped, activeGoal }: {
       ) : (
         <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#0c1828,#1a2448)' }} />
       )}
+    </div>
+  );
+}
 
-      {/* Bottom gradient — keeps text readable */}
-      <div className="absolute inset-x-0 bottom-0 h-56 pointer-events-none"
-        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)' }} />
-
-      {/* Small flashing goal icon — top left */}
-      {activeGoal && (
-        <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 15 }}>
-          <motion.button
-            animate={{ opacity: [1, 0.28, 1] }}
-            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
-            onClick={e => { e.stopPropagation(); setShowGoalInfo(p => !p); }}
-            style={{
-              width: 28, height: 28, borderRadius: 8,
-              background: 'rgba(77,114,255,0.85)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer',
-            }}
-            aria-label="View goal"
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10"/>
-              <circle cx="12" cy="12" r="6"/>
-              <circle cx="12" cy="12" r="2" fill="white" stroke="none"/>
-            </svg>
-          </motion.button>
-
-          <AnimatePresence>
-            {showGoalInfo && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.88, y: 6 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.88, y: 6 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-                style={{
-                  position: 'absolute', top: 34, left: 0,
-                  background: 'rgba(8,10,28,0.95)',
-                  backdropFilter: 'blur(20px)',
-                  borderRadius: 14, padding: '12px 14px',
-                  width: 205, border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-                }}
-              >
-                <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', margin: '0 0 6px 0' }}>GOAL</p>
-                <Link
-                  href={`/village/workshop/goal/${activeGoal.id}`}
-                  onClick={() => setShowGoalInfo(false)}
-                  style={{ color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'block', lineHeight: 1.4 }}
-                >
-                  {activeGoal.title}
-                  <span style={{ color: '#4D72FF', marginLeft: 4 }}>→</span>
-                </Link>
-                {(activeGoal.probability_score ?? 0) > 0 && (
-                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', margin: '6px 0 0 0' }}>
-                    {activeGoal.probability_score}% GPS probability
-                  </p>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {/* Bottom info */}
-      <div className="absolute bottom-0 left-0 right-20 px-4 pb-28" style={{ zIndex: 10, pointerEvents: 'none' }}>
-        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block"
-          style={{ background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
-          Training
+// ── Template Card ─────────────────────────────────────────────────────────────
+function TemplateCard({ card }: { card: FeedCard }) {
+  const steps = card.data?.steps ?? [];
+  return (
+    <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}22, var(--v-bg) 60%)` }}>
+      <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 55%)' }} />
+      <div className="relative z-10 px-5 pb-28 flex flex-col justify-end flex-1" style={{ paddingTop: 'max(80px, env(safe-area-inset-top, 80px))' }}>
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block" style={{ background: card.accent + '33', color: card.accent, border: `1px solid ${card.accent}55` }}>
+          Goal Template · {steps.length} steps
         </span>
-        <h2 className="text-lg font-black text-white leading-tight mt-1">{card.title}</h2>
-        <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.5)' }}>{card.subtitle}</p>
+        <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
+        <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.6)' }}>{card.subtitle}</p>
+        <div className="space-y-2 mb-4">
+          {steps.slice(0, 3).map((s: any, i: number) => (
+            <div key={i} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.75)' }}>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
+                style={{ background: card.accent + '33', color: card.accent }}>{i + 1}</div>
+              {s.title}
+            </div>
+          ))}
+        </div>
+        <Link href={`/village/workshop/chat?template=${card.id}`}
+          className="w-full py-3.5 rounded-2xl text-sm font-black text-white text-center"
+          style={{ background: `linear-gradient(135deg, ${card.accent}, #1877F2)`, boxShadow: `0 4px 20px ${card.accent}55` }}>
+          Clone This Plan
+        </Link>
       </div>
     </div>
   );
 }
 
+// ── Goal Card ─────────────────────────────────────────────────────────────────
 function GoalCard({ card }: { card: FeedCard }) {
   const progress = card.data?.progress ?? 0;
   const probability = card.data?.probability ?? 0;
   return (
     <div className="absolute inset-0 flex flex-col" style={{ background: `linear-gradient(160deg, ${card.color}18, var(--v-bg) 70%)` }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
-
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
         <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
         <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{card.subtitle}</p>
-
-        {/* Progress bar */}
         <div className="rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.1)', height: 6 }}>
           <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: card.accent }} />
         </div>
         <div className="flex justify-between text-xs" style={{ color: 'rgba(255,255,255,0.4)' }}>
-          <span>{progress}% complete</span>
-          <span>{probability}% probability</span>
+          <span>{progress}% complete</span><span>{probability}% probability</span>
         </div>
       </div>
     </div>
   );
 }
 
-// ── Fist fly-up OoWop animation ─────────────────────────────────────────────
-function FistAnimation({ show }: { show: boolean }) {
-  return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          initial={{ opacity: 1, scale: 0.6, y: 0 }}
-          animate={{ opacity: 0, scale: 1.8, y: -180 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut' }}
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50 }}>
-          <OoWopSvg />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
-}
-
-// ── Sidebar action buttons ─────────────────────────────────────────────────────
-function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount }: {
-  card: FeedCard; onOoWop: () => void; onSkip: () => void; onSave: () => void;
-  owopped: boolean; saved: boolean; oowopCount: number;
-}) {
-  const [showMore, setShowMore] = useState(false);
-  const SaveSvg     = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
-  const ThumbDown   = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
-  const CommentSvg  = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
-  const MoreSvg     = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>;
-
-  // Derive consistent color initials avatar when no avatar_url
-  const AVATAR_COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E'];
-  const username = card.author.username || '?';
-  const avatarColor = AVATAR_COLORS[username.charCodeAt(0) % AVATAR_COLORS.length];
-  const initials = username.slice(0, 1).toUpperCase();
-
-  return (
-    <div style={{ position: 'absolute', right: 8, bottom: 96, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, zIndex: 20 }}>
-      {/* OoWop */}
-      <motion.button whileTap={{ scale: 0.85 }} onClick={onOoWop}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owopped ? 'rgba(239,159,39,0.3)' : 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: owopped ? '#EF9F27' : 'white' }}>
-          <OoWopSvg />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>{oowopCount > 0 ? oowopCount.toLocaleString() : 'OoWop'}</span>
-      </motion.button>
-
-      {/* Skip */}
-      <motion.button whileTap={{ scale: 0.85 }} onClick={onSkip}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'rgba(255,255,255,0.6)' }}>
-          <ThumbDown />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.45)' }}>Skip</span>
-      </motion.button>
-
-      {/* Share */}
-      <motion.button whileTap={{ scale: 0.85 }}
-        onClick={() => { if (navigator.share) navigator.share({ title: card.title, url: window.location.href }); }}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
-          <ShareSvg />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Share</span>
-      </motion.button>
-
-      {/* Save */}
-      <motion.button whileTap={{ scale: 0.85 }} onClick={onSave}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: saved ? 'rgba(0,51,204,0.3)' : 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: saved ? '#4D72FF' : 'white' }}>
-          <SaveSvg />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Save</span>
-      </motion.button>
-
-      {/* Comment */}
-      <motion.button whileTap={{ scale: 0.85 }}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
-          <CommentSvg />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Comment</span>
-      </motion.button>
-
-      {/* More options */}
-      <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMore(p => !p)}
-        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative' }}>
-        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
-          <MoreSvg />
-        </div>
-        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>More</span>
-        <AnimatePresence>
-          {showMore && (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.85, x: 10 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.85, x: 10 }}
-              style={{ position: 'absolute', right: 52, bottom: 0, background: 'rgba(10,12,28,0.95)', backdropFilter: 'blur(20px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)', padding: '8px 0', minWidth: 160, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 50 }}
-              onClick={e => e.stopPropagation()}
-            >
-              {[
-                { label: 'Report', icon: '⚑' },
-                { label: 'Not interested', icon: '✕' },
-                { label: 'Copy link', icon: '⎘', action: () => { if (navigator.clipboard) navigator.clipboard.writeText(window.location.href); } },
-              ].map(item => (
-                <button key={item.label} onClick={() => { item.action?.(); setShowMore(false); }}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'left' }}>
-                  <span style={{ fontSize: 15 }}>{item.icon}</span>{item.label}
-                </button>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.button>
-    </div>
-  );
-}
-
-// ── Author bar ─────────────────────────────────────────────────────────────────
-function AuthorBar({ card }: { card: FeedCard }) {
-  return (
-    <div className="absolute bottom-20 left-5 right-20 z-20 flex items-center gap-2.5">
-      <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden" style={{ border: '2px solid white' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={card.author.avatar_url || '/default-avatar.png'} alt="" className="w-full h-full object-cover" />
-      </div>
-      <div>
-        <p className="text-sm font-bold text-white">@{card.author.username}</p>
-        {card.author.score_tier && (
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>{card.author.score_tier}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Guide card — shown when user has no goals ─────────────────────────────────
+// ── Guide Card ────────────────────────────────────────────────────────────────
 function GuideCard() {
   const STEPS = [
-    { n: 1, icon: '🌀', title: 'Open Spirit', desc: 'Tap "New Goal" above. Spirit will ask you questions to understand your goal.' },
-    { n: 2, icon: '🗺️', title: 'Build Your GPS', desc: 'Spirit creates your full GPS plan — sprint by sprint, action by action.' },
-    { n: 3, icon: '🔍', title: 'Assess & Activate', desc: 'Spirit scores your probability of success and activates your sprint schedule.' },
-    { n: 4, icon: '📈', title: 'Execute Daily', desc: 'Open Instructions each day for step-by-step guidance on your current action.' },
-    { n: 5, icon: '✊', title: 'Get OoWops', desc: 'Share progress to the Dreamline. Your village validates your wins with OoWops.' },
+    { n: 1, title: 'Open Spirit', desc: 'Tap "New Goal". Spirit will understand your goal.' },
+    { n: 2, title: 'Build Your GPS', desc: 'Spirit creates your full GPS plan — sprint by sprint.' },
+    { n: 3, title: 'Assess & Activate', desc: 'Spirit scores your probability and activates your plan.' },
+    { n: 4, title: 'Execute Daily', desc: 'Open Instructions each day for step-by-step guidance.' },
+    { n: 5, title: 'Get OoWops', desc: 'Share progress. Your village validates your wins.' },
   ];
-
   return (
     <div className="absolute inset-0 flex flex-col" style={{ background: 'linear-gradient(160deg, #7C3AED22, var(--v-bg) 60%)' }}>
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.88) 0%, transparent 40%)' }} />
-
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28 pt-20">
-        <span className="px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block" style={{ background: 'rgba(124,58,237,0.25)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.5)' }}>
-          🚀 Getting Started
-        </span>
         <h2 className="text-2xl font-black text-white leading-tight mb-1">How to use the Workshop</h2>
-        <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          It takes a village — but it starts with your Goal GPS.
-        </p>
-
+        <p className="text-sm mb-5" style={{ color: 'rgba(255,255,255,0.5)' }}>It takes a village — but it starts with your Goal GPS.</p>
         <div className="space-y-3">
           {STEPS.map(s => (
             <div key={s.n} className="flex items-start gap-3">
               <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-black flex-shrink-0"
-                style={{ background: 'rgba(124,58,237,0.35)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.5)' }}>
-                {s.n}
-              </div>
+                style={{ background: 'rgba(124,58,237,0.35)', color: '#A78BFA', border: '1px solid rgba(124,58,237,0.5)' }}>{s.n}</div>
               <div>
-                <p className="text-sm font-bold text-white">{s.icon} {s.title}</p>
+                <p className="text-sm font-bold text-white">{s.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.desc}</p>
               </div>
             </div>
           ))}
         </div>
-
         <Link href="/village/workshop/chat"
           className="mt-6 block w-full py-4 rounded-2xl text-sm font-black text-white text-center"
           style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '0 4px 20px rgba(124,58,237,0.5)' }}>
@@ -384,61 +359,297 @@ function GuideCard() {
   );
 }
 
-// ── Tab bar ────────────────────────────────────────────────────────────────────
+// ── Side Actions ──────────────────────────────────────────────────────────────
+function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, onSave, saved, uiVisible }: {
+  card: FeedCard; onOoWop: () => void; owopped: boolean; oowopCount: number;
+  onComment: () => void; onMore: () => void; onSave: () => void; saved: boolean; uiVisible: boolean;
+}) {
+  const AVATAR_COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E'];
+  const username = card.author.username || '?';
+  const avatarColor = AVATAR_COLORS[username.charCodeAt(0) % AVATAR_COLORS.length];
+
+  return (
+    <div style={{
+      position: 'absolute', right: 6, bottom: 100,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 20,
+      opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: uiVisible ? 'auto' : 'none',
+    }}>
+      {/* Creator avatar */}
+      <div style={{ position: 'relative', marginBottom: 2 }}>
+        <div style={{ width: 38, height: 38, borderRadius: 19, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={card.author.avatar_url || card.author.avatar || '/default-avatar.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </div>
+        <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 16, height: 16, borderRadius: 8, background: '#4D72FF', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+          <svg width={7} height={7} viewBox="0 0 24 24" fill="white"><path d="M12 5v14M5 12h14"/></svg>
+        </div>
+      </div>
+
+      {/* OoWop (fist) */}
+      <motion.button whileTap={{ scale: 0.82 }} onClick={onOoWop}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 6 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owopped ? 'rgba(239,159,39,0.3)' : 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <FistSvg size={19} />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: owopped ? '#EF9F27' : 'rgba(255,255,255,0.75)' }}>
+          {oowopCount > 0 ? oowopCount.toLocaleString() : 'OoWop'}
+        </span>
+      </motion.button>
+
+      {/* Comment */}
+      <motion.button whileTap={{ scale: 0.82 }} onClick={onComment}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <CommentSvg />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>Comment</span>
+      </motion.button>
+
+      {/* Share */}
+      <motion.button whileTap={{ scale: 0.82 }}
+        onClick={() => { if (navigator.share) navigator.share({ title: card.title, url: window.location.href }); }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <ShareSvg />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>Share</span>
+      </motion.button>
+
+      {/* Save */}
+      <motion.button whileTap={{ scale: 0.82 }} onClick={onSave}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: saved ? 'rgba(77,114,255,0.3)' : 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <SaveSvg active={saved} />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: saved ? '#4D72FF' : 'rgba(255,255,255,0.75)' }}>Save</span>
+      </motion.button>
+
+      {/* More */}
+      <motion.button whileTap={{ scale: 0.82 }} onClick={onMore}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <MoreSvg />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>More</span>
+      </motion.button>
+    </div>
+  );
+}
+
+// ── Goal Popup ────────────────────────────────────────────────────────────────
+function GoalPopup({ open, onClose, activeGoal, isGeneral }: {
+  open: boolean; onClose: () => void;
+  activeGoal?: { id: string; title: string; probability_score?: number } | null;
+  isGeneral: boolean;
+}) {
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.88, y: -8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.88, y: -8 }}
+          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+          style={{
+            position: 'fixed', top: 'max(80px, calc(env(safe-area-inset-top, 48px) + 56px))', left: 12, zIndex: 50,
+            background: 'rgba(8,10,28,0.96)', backdropFilter: 'blur(24px)',
+            borderRadius: 16, padding: '14px 16px', width: 220,
+            border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+            <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', margin: 0 }}>
+              {activeGoal ? 'ACTIVE GOAL' : 'CONTENT CATEGORY'}
+            </p>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
+          </div>
+
+          {activeGoal ? (
+            <>
+              <Link href={`/village/workshop/goal/${activeGoal.id}`} onClick={onClose}
+                style={{ color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'block', lineHeight: 1.4, marginBottom: 8 }}>
+                {activeGoal.title} <span style={{ color: '#4D72FF' }}>→</span>
+              </Link>
+              {(activeGoal.probability_score ?? 0) > 0 && (
+                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', margin: '0 0 10px' }}>
+                  {activeGoal.probability_score}% GPS probability
+                </p>
+              )}
+            </>
+          ) : (
+            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: '0 0 10px', lineHeight: 1.5 }}>
+              Showing motivational, spiritual, wealth & coaching content.
+            </p>
+          )}
+
+          <Link href="/village/workshop/chat" onClick={onClose}
+            style={{ display: 'block', background: '#4D72FF', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12, fontWeight: 900, textDecoration: 'none', textAlign: 'center' }}>
+            + New Goal
+          </Link>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── Fist fly-up animation ─────────────────────────────────────────────────────
+function FistAnimation({ show }: { show: boolean }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 1, scale: 0.7, y: 0 }}
+          animate={{ opacity: 0, scale: 2, y: -200 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.65, ease: 'easeOut' }}
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50 }}>
+          <FistSvg size={48} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ── Tab types ─────────────────────────────────────────────────────────────────
 const TABS = ['Goals', 'Workshop', 'GPS'] as const;
 type Tab = typeof TABS[number];
 
-// ── Main Workshop Page ─────────────────────────────────────────────────────────
+// ── Main Page ─────────────────────────────────────────────────────────────────
 export default function WorkshopPage() {
   const router   = useRouter();
   const supabase = createClient();
-  const { theme } = useVillageTheme();
   const { speak } = useSpiritVoice();
-  const isNight = theme === 'night';
 
-  const [tab,          setTab]          = useState<Tab>('Workshop');
-  const [cards,        setCards]        = useState<FeedCard[]>([]);
-  const [current,      setCurrent]      = useState(0);
-  const [owopped,      setOwopped]      = useState<Set<string>>(new Set());
-  const [saved,        setSaved]        = useState<Set<string>>(new Set());
-  const [skipped,      setSkipped]      = useState<Set<string>>(new Set());
-  const [showFist,     setShowFist]     = useState(false);
-  const [loading,      setLoading]      = useState(true);
-  const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
-  const [activeSprints,setActiveSprints]= useState<any[]>([]);
-  const [showNudge,    setShowNudge]    = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const touchStartY  = useRef(0);
-  const touchStartX  = useRef(0);
-  const mouseStartY  = useRef(0);
-  const mouseStartX  = useRef(0);
-  const isDragging   = useRef(false);
-  const hasGoals     = activeGoals.length > 0;
+  const [tab,           setTab]           = useState<Tab>('Workshop');
+  const [cards,         setCards]         = useState<FeedCard[]>([]);
+  const [current,       setCurrent]       = useState(0);
+  const [owopped,       setOwopped]       = useState<Set<string>>(new Set());
+  const [saved,         setSaved]         = useState<Set<string>>(new Set());
+  const [showFist,      setShowFist]      = useState(false);
+  const [loading,       setLoading]       = useState(true);
+  const [activeGoals,   setActiveGoals]   = useState<any[]>([]);
+  const [activeSprints, setActiveSprints] = useState<any[]>([]);
+  const [uiVisible,     setUiVisible]     = useState(true);
+  const [isPaused,      setIsPaused]      = useState(false);
+  const [showPauseInd,  setShowPauseInd]  = useState(false);
+  const [showComments,  setShowComments]  = useState(false);
+  const [showMore,      setShowMore]      = useState(false);
+  const [showGoalPopup, setShowGoalPopup] = useState(false);
+
+  const iframeRef  = useRef<HTMLIFrameElement>(null);
+  const uiTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tapCount   = useRef(0);
+  const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ptDown     = useRef({ x: 0, y: 0, time: 0 });
+  const isDragging = useRef(false);
+
+  const hasGoals = activeGoals.length > 0;
+  const card = cards[current];
+  const isGoalAligned = hasGoals && card?.type === 'video';
+
+  // Auto-hide UI after 3s on card change
+  useEffect(() => {
+    triggerUIShow();
+    setIsPaused(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
+
+  function triggerUIShow() {
+    setUiVisible(true);
+    if (uiTimer.current) clearTimeout(uiTimer.current);
+    uiTimer.current = setTimeout(() => setUiVisible(false), 3000);
+  }
+
+  function togglePause() {
+    const win = iframeRef.current?.contentWindow;
+    const newPaused = !isPaused;
+    setIsPaused(newPaused);
+    if (win) {
+      const fn = newPaused ? 'pauseVideo' : 'playVideo';
+      win.postMessage(`{"event":"command","func":"${fn}","args":""}`, '*');
+    }
+    setShowPauseInd(true);
+    setTimeout(() => setShowPauseInd(false), 700);
+  }
+
+  function handleTap() {
+    tapCount.current += 1;
+    if (tapCount.current === 1) {
+      tapTimer.current = setTimeout(() => {
+        tapCount.current = 0;
+        triggerUIShow();
+        if (card?.type === 'video') togglePause();
+      }, 280);
+    } else if (tapCount.current >= 2) {
+      if (tapTimer.current) clearTimeout(tapTimer.current);
+      tapCount.current = 0;
+      if (card) { handleOoWop(card.id); triggerUIShow(); }
+    }
+  }
+
+  function handleGesture(dx: number, dy: number, dt: number) {
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < 14 && dt < 380) { handleTap(); return; }
+
+    // Horizontal swipe → tab navigation
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
+      if (dx > 0) { // swipe right
+        if (tab === 'Workshop') setTab('Goals');
+        else if (tab === 'GPS') setTab('Workshop');
+      } else { // swipe left
+        if (tab === 'Workshop') setTab('GPS');
+        else if (tab === 'Goals') setTab('Workshop');
+      }
+      triggerUIShow();
+      return;
+    }
+
+    // Vertical swipe → content navigation (Workshop only)
+    if (tab !== 'Workshop') return;
+    if (Math.abs(dy) > 55) {
+      if (dy < 0 && current < cards.length - 1) {
+        const next = current + 1;
+        setCurrent(next);
+        if (cards[next]) speak(cards[next].title, 'casual');
+      }
+      if (dy > 0 && current > 0) {
+        const prev = current - 1;
+        setCurrent(prev);
+        if (cards[prev]) speak(cards[prev].title, 'casual');
+      }
+    }
+  }
+
+  function onTouchStart(e: React.TouchEvent) {
+    ptDown.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, time: Date.now() };
+  }
+  function onTouchEnd(e: React.TouchEvent) {
+    const t = e.changedTouches[0];
+    handleGesture(t.clientX - ptDown.current.x, t.clientY - ptDown.current.y, Date.now() - ptDown.current.time);
+  }
+  function onMouseDown(e: React.MouseEvent) {
+    ptDown.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    isDragging.current = true;
+  }
+  function onMouseMove(e: React.MouseEvent) { if (isDragging.current) e.preventDefault(); }
+  function onMouseUp(e: React.MouseEvent) {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    handleGesture(e.clientX - ptDown.current.x, e.clientY - ptDown.current.y, Date.now() - ptDown.current.time);
+  }
+  function onWheel(e: React.WheelEvent) {
+    if (tab !== 'Workshop') return;
+    if (e.deltaY > 50 && current < cards.length - 1) setCurrent(c => c + 1);
+    if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
+  }
 
   useEffect(() => { loadFeed(); }, []);
-
-  // Show nudge on first load (no goals) and every 3 cards thereafter
-  useEffect(() => {
-    if (!hasGoals && !loading) {
-      setShowNudge(true);
-      const t = setTimeout(() => setShowNudge(false), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [hasGoals, loading]);
-
-  useEffect(() => {
-    if (!hasGoals && current > 0 && current % 3 === 0) {
-      setShowNudge(true);
-      const t = setTimeout(() => setShowNudge(false), 4000);
-      return () => clearTimeout(t);
-    }
-  }, [current, hasGoals]);
 
   async function loadFeed() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       const [templatesRes, goalsRes, videosRes, ytRes] = await Promise.all([
         (supabase as any).from('goal_templates')
           .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
@@ -455,180 +666,50 @@ export default function WorkshopPage() {
           .eq('is_published', true).order('watch_count', { ascending: false }).limit(10)
           .then((r: any) => r).catch(() => ({ data: [] })),
         fetch('/api/gps/action-content', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
         }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
       ]);
 
       const templates: any[] = templatesRes.data ?? [];
       const goals:     any[] = goalsRes.data     ?? [];
       const videos:    any[] = videosRes.data    ?? [];
-
       if (user && goals.length) {
         setActiveGoals(goals);
-        // Load active sprints for GPS tab + action context banner
         fetch('/api/sprints').then(r => r.ok ? r.json() : []).then(data => {
           if (!Array.isArray(data)) return;
-          const active = data.filter((s:any) => s.status === 'active');
-          setActiveSprints(active);
+          setActiveSprints(data.filter((s: any) => s.status === 'active'));
         }).catch(() => {});
       }
 
-      const hasGoals = goals.length > 0;
-
-      const COLORS = ['#E8770A', '#7C3AED', '#059669', '#D97706', '#BE185D', '#0D9488', '#1877F2'];
-
-      // ── Build typed arrays first, then put videos at top ──────────────────
+      const COLORS = ['#E8770A','#7C3AED','#059669','#D97706','#BE185D','#0D9488','#1877F2'];
       const goalCards: FeedCard[] = goals.map((g: any, i: number) => {
-        const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
+        const done = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
         const total = g.goal_steps?.length ?? 1;
-        return {
-          id: `goal-${g.id ?? i}`, type: 'goal' as CardType, title: g.title,
-          subtitle: `${done}/${total} steps · ${g.category ?? 'personal'}`,
-          content: g.description ?? '',
-          author: { username: 'You' },
-          color: COLORS[i % COLORS.length], accent: COLORS[i % COLORS.length],
-          data: { goalId: g.id, progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 },
-        };
+        return { id: `goal-${g.id ?? i}`, type: 'goal', title: g.title, subtitle: `${done}/${total} steps · ${g.category ?? 'personal'}`, content: g.description ?? '', author: { username: 'You' }, color: COLORS[i % COLORS.length], accent: COLORS[i % COLORS.length], data: { goalId: g.id, progress: g.progress_percentage ?? 0, probability: g.probability_score ?? 0 } };
       });
-
       const templateCards: FeedCard[] = templates.map((t: any, i: number) => ({
-        id: t.id, type: 'template' as CardType, title: t.title,
-        subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`,
-        content: t.description ?? '',
-        author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier },
-        color: COLORS[(i + 2) % COLORS.length], accent: COLORS[(i + 2) % COLORS.length],
-        data: { steps: t.steps ?? [] }, oowops: t.oowop_count ?? 0,
+        id: t.id, type: 'template', title: t.title, subtitle: `${t.estimated_weeks ?? 0}wk plan · ${t.clone_count ?? 0} clones`, content: t.description ?? '', author: { username: t.profiles?.username ?? 'villager', score_tier: t.profiles?.score_tier }, color: COLORS[(i + 2) % COLORS.length], accent: COLORS[(i + 2) % COLORS.length], data: { steps: t.steps ?? [] }, oowops: t.oowop_count ?? 0,
       }));
-
-      const studioCards: FeedCard[] = videos
-        .filter((v: any) => v.video_url || v.thumbnail_url)
-        .map((v: any) => {
-          const rawId = v.video_url?.includes('v=') ? v.video_url.split('v=')[1]?.split('&')[0] : undefined;
-          return {
-            id: v.id, type: 'video' as CardType, title: v.title,
-            subtitle: v.category ?? 'Training', content: v.description ?? '',
-            author: { username: v.profiles?.username ?? 'creator' },
-            media: { videoId: rawId, thumbnail: v.thumbnail_url },
-            color: '#FF6B2B', accent: '#FF6B2B',
-          };
-        });
-
+      const studioCards: FeedCard[] = videos.filter((v: any) => v.video_url || v.thumbnail_url).map((v: any) => {
+        const rawId = v.video_url?.includes('v=') ? v.video_url.split('v=')[1]?.split('&')[0] : undefined;
+        return { id: v.id, type: 'video', title: v.title, subtitle: v.category ?? 'Training', content: v.description ?? '', author: { username: v.profiles?.username ?? 'creator' }, media: { videoId: rawId, thumbnail: v.thumbnail_url }, color: '#FF6B2B', accent: '#FF6B2B' };
+      });
       const ytCards: FeedCard[] = (ytRes?.feed ?? [])
-        .filter((v: any) => v.id && !v.id.startsWith('fb'))  // skip fake fallback IDs
-        .slice(0, 8)
-        .map((v: any) => ({
-          id: `yt-${v.id}`, type: 'video' as CardType, title: v.title,
-          subtitle: v.channel ?? 'YouTube', content: '',
-          author: { username: v.channel ?? 'YouTube' },
-          media: { videoId: v.id, thumbnail: v.thumbnail },
-          color: '#FF0000', accent: '#FF6B2B',
-        }));
+        .filter((v: any) => v.id && !v.id.startsWith('fb')).slice(0, 8)
+        .map((v: any) => ({ id: `yt-${v.id}`, type: 'video', title: v.title, subtitle: v.channel ?? 'YouTube', content: '', author: { username: v.channel ?? 'YouTube' }, media: { videoId: v.id, thumbnail: v.thumbnail }, color: '#FF0000', accent: '#FF6B2B' }));
 
-      // Videos first (TikTok behaviour), then goals/templates below
-      const videoCards = [...studioCards.filter(c => c.media?.videoId), ...ytCards];
+      const videoCards    = [...studioCards.filter(c => c.media?.videoId), ...ytCards];
       const nonVideoCards = [...goalCards, ...templateCards, ...studioCards.filter(c => !c.media?.videoId)];
-
-      const guideCard: FeedCard = {
-        id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
-        subtitle: 'Start with your Goal GPS', content: '',
-        author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
-      };
-
-      const shuffled: FeedCard[] = videoCards.length > 0
-        ? [...videoCards, ...nonVideoCards]
-        : hasGoals
-          ? [...nonVideoCards, guideCard]
-          : [guideCard, ...nonVideoCards];
-
+      const guideCard: FeedCard = { id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' };
+      const shuffled: FeedCard[] = videoCards.length > 0 ? [...videoCards, ...nonVideoCards] : goals.length ? [...nonVideoCards, guideCard] : [guideCard, ...nonVideoCards];
       setCards(shuffled);
       if (shuffled[0]) speak(shuffled[0].title, 'casual');
     } catch {
-      // Always show guide card on any error so the page isn't stuck
-      setCards([{
-        id: 'guide', type: 'guide' as CardType, title: 'How to use the Workshop',
-        subtitle: 'Start with your Goal GPS', content: '',
-        author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED',
-      }]);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  // Swipe up/down navigation; swipe right → create goal (when no goals)
-  function onTouchStart(e: React.TouchEvent) {
-    touchStartY.current = e.touches[0].clientY;
-    touchStartX.current = e.touches[0].clientX;
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    const dy = touchStartY.current - e.changedTouches[0].clientY;
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-
-    if (Math.abs(dx) > 80 && Math.abs(dy) < 60) {
-      if (dx > 0) {
-        // Swipe right: Goals ← Workshop → (nothing) / Workshop ← GPS → (nothing)
-        if (tab === 'Workshop') router.push('/village/workshop/chat');
-        if (tab === 'GPS') setTab('Workshop');
-        if (tab === 'Goals') setTab('Workshop');
-      } else {
-        // Swipe left: Goals → Workshop → GPS
-        if (tab === 'Goals') setTab('Workshop');
-        else if (tab === 'Workshop') setTab('GPS');
-      }
-      return;
-    }
-
-    if (tab !== 'Workshop') return;
-    if (dy > 60 && current < cards.length - 1) {
-      const next = current + 1;
-      setCurrent(next);
-      if (cards[next]) speak(cards[next].title, 'casual');
-    }
-    if (dy < -60 && current > 0) {
-      const prev = current - 1;
-      setCurrent(prev);
-      if (cards[prev]) speak(cards[prev].title, 'casual');
-    }
-  }
-
-  function onWheel(e: React.WheelEvent) {
-    if (e.deltaY > 50 && current < cards.length - 1) setCurrent(c => c + 1);
-    if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
-  }
-
-  function onMouseDown(e: React.MouseEvent) {
-    mouseStartY.current = e.clientY;
-    mouseStartX.current = e.clientX;
-    isDragging.current = true;
-  }
-  function onMouseMove(e: React.MouseEvent) {
-    if (isDragging.current) e.preventDefault();
-  }
-  function onMouseUp(e: React.MouseEvent) {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    const dy = mouseStartY.current - e.clientY;
-    const dx = e.clientX - mouseStartX.current;
-    if (Math.abs(dx) > 80 && Math.abs(dy) < 60) {
-      if (dx > 0) {
-        if (tab === 'Workshop') router.push('/village/workshop/chat');
-        else setTab('Workshop');
-      } else {
-        if (tab === 'Goals') setTab('Workshop');
-        else if (tab === 'Workshop') setTab('GPS');
-      }
-      return;
-    }
-    if (tab !== 'Workshop') return;
-    if (Math.abs(dy) > 60) {
-      if (dy > 0 && current < cards.length - 1) { const next = current + 1; setCurrent(next); if (cards[next]) speak(cards[next].title, 'casual'); }
-      if (dy < 0 && current > 0) { const prev = current - 1; setCurrent(prev); if (cards[prev]) speak(cards[prev].title, 'casual'); }
-    }
+      setCards([{ id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' }]);
+    } finally { setLoading(false); }
   }
 
   async function handleOoWop(cardId: string) {
-    // Toggle — un-OoWop if already owopped
     if (owopped.has(cardId)) {
       setOwopped(prev => { const n = new Set(prev); n.delete(cardId); return n; });
       setCards(prev => prev.map(c => c.id === cardId ? { ...c, oowops: Math.max(0, (c.oowops ?? 1) - 1) } : c));
@@ -640,96 +721,76 @@ export default function WorkshopPage() {
     setCards(prev => prev.map(c => c.id === cardId ? { ...c, oowops: (c.oowops ?? 0) + 1 } : c));
     setShowFist(true);
     setTimeout(() => setShowFist(false), 800);
-    const card = cards.find(c => c.id === cardId);
-    if (!card) return;
-    if (card.type === 'template') {
-      (supabase as any).from('goal_templates').update({ oowop_count: (card.oowops ?? 0) + 1 }).eq('id', cardId).catch(() => {});
-    } else if (card.type === 'video') {
-      (supabase as any).from('studio_videos').update({ oowop_count: (card.oowops ?? 0) + 1 }).eq('id', cardId).catch(() => {});
-    }
-    // Award 1 $VLG for first-time OoWop (fire-and-forget)
-    fetch('/api/vlg/earn', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ reason: 'oowop_earned', amount: 1, source_id: cardId }),
-    }).catch(() => {});
-  }
-
-  function handleSkip(cardId: string) {
-    setSkipped(prev => { const n = new Set(prev); n.add(cardId); return n; });
-    // Advance to next card
-    if (current < cards.length - 1) setCurrent(c => c + 1);
+    fetch('/api/vlg/earn', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: 'oowop_earned', amount: 1, source_id: cardId }) }).catch(() => {});
   }
 
   function handleSave(cardId: string) {
-    setSaved(prev => {
-      const n = new Set(prev);
-      if (n.has(cardId)) n.delete(cardId); else n.add(cardId);
-      return n;
-    });
+    setSaved(prev => { const n = new Set(prev); if (n.has(cardId)) n.delete(cardId); else n.add(cardId); return n; });
   }
 
   if (loading) {
     return (
       <div style={{ background: '#080E24', minHeight: '100dvh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <video
-          autoPlay muted loop playsInline
-          style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 24 }}
-          src="/loading.mp4"
-        />
+        <video autoPlay muted loop playsInline style={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 24 }} src="/loading.mp4" />
         <p style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.12em' }}>WORKSHOP</p>
       </div>
     );
   }
 
-  const card = cards[current];
+  // ── Shared header (floats transparently over all tabs) ─────────────────────
+  const safeTop = 'max(44px, env(safe-area-inset-top, 44px))';
 
   return (
     <div style={{ background: '#080E24', minHeight: '100dvh' }}>
-      {/* Top bar + tab bar — transparent over full-screen feed */}
-      <div className="sticky top-0 z-30"
-        style={{ background: 'transparent', borderBottom: 'none' }}>
-        <div className="flex items-center justify-between px-5 pt-12 pb-1">
-          <span className="text-base font-black text-white">Workshop</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Notification bell — inline so it never overlaps New Goal */}
-            <Link href="/village/notifications"
-              style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0, position: 'relative' }}>
-              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+      {/* Floating header */}
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 30, background: 'transparent' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `calc(${safeTop} + 6px) 12px 4px` }}>
+          {/* Dual-function target button */}
+          <div style={{ position: 'relative' }}>
+            <motion.button
+              onClick={() => setShowGoalPopup(p => !p)}
+              animate={isGoalAligned ? { scale: [1, 1.18, 1] } : {}}
+              transition={isGoalAligned ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } : {}}
+              style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: isGoalAligned ? '1.5px solid rgba(77,114,255,0.7)' : '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            >
+              <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.2} strokeLinecap="round">
+                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="white" stroke="none"/>
               </svg>
-            </Link>
-            <Link href="/village/workshop/chat"
-              style={{ background: '#4D72FF', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, textDecoration: 'none' }}>
-              + New Goal
-            </Link>
+            </motion.button>
+            <GoalPopup open={showGoalPopup} onClose={() => setShowGoalPopup(false)}
+              activeGoal={activeGoals[0] ? { id: activeGoals[0].id, title: activeGoals[0].title, probability_score: activeGoals[0].probability_score } : null}
+              isGeneral={!hasGoals} />
           </div>
+
+          {/* Notification bell */}
+          <Link href="/village/notifications"
+            style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0 }}>
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round">
+              <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+            </svg>
+          </Link>
         </div>
+
         {/* Tab bar */}
-        <div style={{ display: 'flex', padding: '0 16px 0' }}>
+        <div style={{ display: 'flex', padding: '0 12px' }}>
           {TABS.map(t => (
             <button key={t} onClick={() => setTab(t)}
-              style={{ flex: 1, padding: '10px 0', fontSize: 13, fontWeight: tab === t ? 900 : 600, color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4D72FF' : '2px solid transparent', transition: 'all 0.15s' }}>
+              style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: tab === t ? 900 : 600, color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4D72FF' : '2px solid transparent', transition: 'all 0.15s' }}>
               {t}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── GOALS TAB ──────────────────────────────────────────────────────────── */}
+      {/* ── GOALS TAB ─────────────────────────────────────────────────────────── */}
       {tab === 'Goals' && (
-        <div style={{ padding: '16px', overflowY: 'auto', paddingBottom: 100 }}>
+        <div style={{ paddingTop: `calc(${safeTop} + 80px)`, padding: `calc(${safeTop} + 80px) 16px 120px` }}>
           {activeGoals.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <p style={{ fontSize: 40, marginBottom: 12 }}>🎯</p>
               <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 8 }}>No active goals yet</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 1.6 }}>
-                Talk to Spirit to create your first goal and GPS plan.
-              </p>
-              <Link href="/village/workshop/chat"
-                style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
-                Create My First Goal →
-              </Link>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 1.6 }}>Talk to Spirit to create your first goal and GPS plan.</p>
+              <Link href="/village/workshop/chat" style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>Create My First Goal →</Link>
             </div>
           ) : (
             <>
@@ -746,22 +807,18 @@ export default function WorkshopPage() {
                     style={{ display: 'block', textDecoration: 'none', background: '#0E1630', border: `1px solid ${color}33`, borderRadius: 16, padding: 16, marginBottom: 10 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
                       <p style={{ fontSize: 15, fontWeight: 900, color: '#fff', flex: 1, marginRight: 10, lineHeight: 1.3 }}>{g.title}</p>
-                      <span style={{ background: prob >= 70 ? 'rgba(29,158,117,0.2)' : 'rgba(77,114,255,0.2)', color: prob >= 70 ? '#1D9E75' : '#4D72FF', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap', flexShrink: 0 }}>
-                        {prob}%
-                      </span>
+                      <span style={{ background: prob >= 70 ? 'rgba(29,158,117,0.2)' : 'rgba(77,114,255,0.2)', color: prob >= 70 ? '#1D9E75' : '#4D72FF', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }}>{prob}%</span>
                     </div>
                     <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2, transition: 'width 0.5s' }} />
+                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2 }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                      <span>{pct}% complete</span>
-                      <span>{g.category ?? 'Personal'} · {g.estimated_weeks ?? '?'}w plan</span>
+                      <span>{pct}% complete</span><span>{g.category ?? 'Personal'} · {g.estimated_weeks ?? '?'}w</span>
                     </div>
                   </Link>
                 );
               })}
-              <Link href="/village/workshop/templates"
-                style={{ display: 'block', textDecoration: 'none', background: 'rgba(77,114,255,0.08)', border: '1px dashed rgba(77,114,255,0.3)', borderRadius: 16, padding: 16, textAlign: 'center', marginTop: 8 }}>
+              <Link href="/village/workshop/templates" style={{ display: 'block', textDecoration: 'none', background: 'rgba(77,114,255,0.08)', border: '1px dashed rgba(77,114,255,0.3)', borderRadius: 16, padding: 16, textAlign: 'center', marginTop: 8 }}>
                 <p style={{ fontSize: 13, fontWeight: 700, color: '#4D72FF' }}>Browse Goal DNA Templates →</p>
               </Link>
             </>
@@ -769,9 +826,9 @@ export default function WorkshopPage() {
         </div>
       )}
 
-      {/* ── GPS TAB ─────────────────────────────────────────────────────────────── */}
+      {/* ── GPS TAB ───────────────────────────────────────────────────────────── */}
       {tab === 'GPS' && (
-        <div style={{ padding: '16px', overflowY: 'auto', paddingBottom: 100 }}>
+        <div style={{ paddingTop: `calc(${safeTop} + 80px)`, padding: `calc(${safeTop} + 80px) 16px 120px` }}>
           {activeSprints.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px' }}>
               <p style={{ fontSize: 40, marginBottom: 12 }}>🗺️</p>
@@ -779,17 +836,10 @@ export default function WorkshopPage() {
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
                 {hasGoals ? 'Activate your GPS to generate a sprint plan.' : 'Create a goal first, then activate your GPS.'}
               </p>
-              {hasGoals ? (
-                <Link href={`/village/workshop/goal/${activeGoals[0]?.id}`}
-                  style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
-                  View GPS →
-                </Link>
-              ) : (
-                <Link href="/village/workshop/chat"
-                  style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
-                  Create a Goal →
-                </Link>
-              )}
+              <Link href={hasGoals ? `/village/workshop/goal/${activeGoals[0]?.id}` : '/village/workshop/chat'}
+                style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
+                {hasGoals ? 'View GPS →' : 'Create a Goal →'}
+              </Link>
             </div>
           ) : (
             <>
@@ -810,124 +860,113 @@ export default function WorkshopPage() {
                         <p style={{ fontSize: 13, color: action.completed ? 'rgba(255,255,255,0.4)' : '#fff', textDecoration: action.completed ? 'line-through' : 'none', flex: 1 }}>{action.title}</p>
                       </div>
                     ))}
-                    <Link href={`/village/workshop/sprint/${sprint.id}`}
-                      style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#4D72FF', color: '#fff', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
+                    <Link href={`/village/workshop/sprint/${sprint.id}`} style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#4D72FF', color: '#fff', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
                       Open Full Sprint →
                     </Link>
                   </div>
                 </div>
               ))}
-              <Link href="/village/workshop/skill-stream"
-                style={{ display: 'block', textDecoration: 'none', background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.2)', borderRadius: 16, padding: 14, textAlign: 'center' }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#1D9E75' }}>Skill Stream — Learn what your goals require →</p>
-              </Link>
             </>
           )}
         </div>
       )}
 
-      {/* ── WORKSHOP TAB — true full-screen TikTok/Reels feed ───────────────── */}
+      {/* ── WORKSHOP TAB — full-screen TikTok feed ───────────────────────────── */}
       {tab === 'Workshop' && (
-      <div
-        ref={containerRef}
-        className="select-none"
-        style={{
-          position: 'fixed', inset: 0, zIndex: 1,
-          background: '#000',
-          touchAction: 'pan-y',
-          cursor: isDragging.current ? 'grabbing' : 'grab',
-          overflow: 'hidden',
-        }}
-        onTouchStart={onTouchStart}
-        onTouchEnd={onTouchEnd}
-        onWheel={onWheel}
-        onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
-        onMouseUp={onMouseUp}
-        onMouseLeave={() => { isDragging.current = false; }}
-      >
-        {/* Current card */}
-        <AnimatePresence mode="wait">
-          <motion.div key={card?.id}
-            initial={{ y: '100%', opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: '-100%', opacity: 0 }}
-            transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-            className="absolute inset-0"
-          >
-            {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} activeGoal={activeGoals[0] ? { id: activeGoals[0].id, title: activeGoals[0].title, probability_score: activeGoals[0].probability_score } : null} />}
-            {card?.type === 'goal'        && <GoalCard card={card} />}
-            {card?.type === 'achievement' && <GoalCard card={card} />}
-            {card?.type === 'guide'       && <GuideCard />}
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 1, background: '#000', overflow: 'hidden', touchAction: 'none', cursor: isDragging.current ? 'grabbing' : 'default' }}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+          onWheel={onWheel}
+          onMouseDown={onMouseDown}
+          onMouseMove={onMouseMove}
+          onMouseUp={onMouseUp}
+          onMouseLeave={() => { isDragging.current = false; }}
+        >
+          {/* Card */}
+          <AnimatePresence mode="wait">
+            <motion.div key={card?.id}
+              initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '-100%', opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
+              className="absolute inset-0">
 
-            {/* Fist fly-up animation on OoWop */}
-            <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40, color: '#EF9F27' }}>
-              <FistAnimation show={showFist} />
-            </div>
+              {card?.type === 'video'    && <VideoCard card={card} iframeRef={iframeRef} />}
+              {card?.type === 'template' && <TemplateCard card={card} />}
+              {card?.type === 'goal'     && <GoalCard card={card} />}
+              {card?.type === 'guide'    && <GuideCard />}
 
-            {card && card.type !== 'guide' && card.type !== 'video' && <AuthorBar card={card} />}
-            {card && card.type !== 'goal' && card.type !== 'guide' && (
-              <SideActions
-                card={card}
-                onOoWop={() => handleOoWop(card.id)}
-                onSkip={() => handleSkip(card.id)}
-                onSave={() => handleSave(card.id)}
-                owopped={owopped.has(card.id)}
-                saved={saved.has(card.id)}
-                oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)}
-              />
-            )}
-          </motion.div>
-        </AnimatePresence>
+              {/* Bottom gradient (video only) */}
+              {card?.type === 'video' && (
+                <div className="absolute inset-x-0 bottom-0 pointer-events-none"
+                  style={{ height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }} />
+              )}
 
-        {/* Progress dots */}
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-1.5">
-          {cards.slice(0, 8).map((_, i) => (
-            <div key={i} className="rounded-full transition-all"
-              style={{ width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.25)' }} />
-          ))}
-        </div>
-
-        {/* Swipe hint */}
-        {current === 0 && cards.length > 1 && (
-          <motion.div
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1"
-            initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -6, 0] }}
-            transition={{ delay: 2, duration: 1.5, repeat: 3 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="rgba(255,255,255,0.4)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.35)' }}>Swipe up</p>
-          </motion.div>
-        )}
-
-        {/* Swipe-right nudge — only on Workshop tab */}
-        <AnimatePresence>
-          {showNudge && !hasGoals && tab === 'Workshop' && (
-            <motion.div
-              initial={{ x: -120, opacity: 0 }}
-              animate={{ x: [0, 14, 0, 14, 0], opacity: 1 }}
-              exit={{ x: -120, opacity: 0 }}
-              transition={{ x: { duration: 1.4, repeat: 1, repeatDelay: 0.8, ease: 'easeInOut' }, opacity: { duration: 0.3 } }}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-40 flex items-center"
-              onClick={() => router.push('/village/workshop/chat')}
-            >
-              <div className="flex items-center gap-3 pl-4 pr-5 py-4 rounded-r-2xl cursor-pointer"
-                style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)', boxShadow: '4px 0 24px rgba(124,58,237,0.5)' }}>
-                <div className="flex flex-col">
-                  <span className="text-xs font-black text-white leading-tight">Swipe right</span>
-                  <span className="text-[10px] text-white/70 leading-tight">to create your first goal</span>
+              {/* Bottom text info (video only, auto-hides) */}
+              {card?.type === 'video' && (
+                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 72, padding: '0 16px 110px', zIndex: 10, opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: 'none' }}>
+                  <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
+                    {card.subtitle || 'Training'}
+                  </span>
+                  <h2 style={{ fontSize: 16, fontWeight: 900, color: '#fff', lineHeight: 1.3, margin: '0 0 4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{card.title}</h2>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>@{card.author.username}</p>
                 </div>
-                <motion.span
-                  animate={{ x: [0, 6, 0] }}
-                  transition={{ duration: 0.7, repeat: Infinity, ease: 'easeInOut' }}
-                  className="text-white text-lg"
-                >→</motion.span>
+              )}
+
+              {/* Pause/play indicator */}
+              <AnimatePresence>
+                {showPauseInd && (
+                  <motion.div initial={{ opacity: 1, scale: 0.7 }} animate={{ opacity: 0, scale: 1.1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
+                    style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 30 }}>
+                    <div style={{ width: 72, height: 72, borderRadius: 36, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {isPaused ? <PauseSvg /> : <PlaySvg />}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Fist OoWop fly-up */}
+              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
+                <FistAnimation show={showFist} />
               </div>
+
+              {/* Side actions (video + template cards) */}
+              {card && card.type !== 'goal' && card.type !== 'guide' && (
+                <SideActions
+                  card={card}
+                  onOoWop={() => handleOoWop(card.id)}
+                  owopped={owopped.has(card.id)}
+                  oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)}
+                  onComment={() => setShowComments(true)}
+                  onMore={() => setShowMore(true)}
+                  onSave={() => handleSave(card.id)}
+                  saved={saved.has(card.id)}
+                  uiVisible={uiVisible}
+                />
+              )}
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Progress dots */}
+          <div style={{ position: 'absolute', right: 3, top: '50%', transform: 'translateY(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {cards.slice(0, 10).map((_, i) => (
+              <div key={i} style={{ borderRadius: 3, width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.22)', transition: 'height 0.2s' }} />
+            ))}
+          </div>
+
+          {/* Swipe-up hint */}
+          {current === 0 && cards.length > 1 && (
+            <motion.div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -8, 0] }} transition={{ delay: 2.5, duration: 1.4, repeat: 3 }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="rgba(255,255,255,0.35)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
+              <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Swipe up</p>
             </motion.div>
           )}
-        </AnimatePresence>
-      </div>
+        </div>
       )}
+
+      {/* Drawers */}
+      {card && <CommentsDrawer open={showComments} onClose={() => setShowComments(false)} card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
+      {card && <MoreDrawer open={showMore} onClose={() => setShowMore(false)} card={card} />}
     </div>
   );
 }
