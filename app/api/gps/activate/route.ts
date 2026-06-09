@@ -110,11 +110,12 @@ export async function POST(req: NextRequest) {
 
   const validSprints = sprintInserts.filter(Boolean);
 
-  // Update goal to active GPS stage
+  // Update goal to active GPS stage, persist sustainability lens
   await admin.from('goals').update({
-    gps_stage:       'active',
-    estimated_weeks: plan.totalWeeks,
-    gps_plan:        { ...goal.gps_plan, sprints: plan.sprints, criticalPath: plan.criticalPath },
+    gps_stage:        'active',
+    estimated_weeks:  plan.totalWeeks,
+    gps_plan:         { ...goal.gps_plan, sprints: plan.sprints, criticalPath: plan.criticalPath },
+    regenerative_loop: plan.sustainabilityLens,
   }).eq('id', goal_id);
 
   // Award village score for activating GPS

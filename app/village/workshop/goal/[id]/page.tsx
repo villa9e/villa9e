@@ -583,6 +583,25 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
 
+              {/* Sustainability badge */}
+              {goal.regenerative_loop?.badge && (() => {
+                const lens = goal.regenerative_loop;
+                const badgeColor = lens.badge === 'regenerative' ? '#059669' : lens.badge === 'sustainable' ? '#0284C7' : '#6B7280';
+                const badgeBg    = lens.badge === 'regenerative' ? '#D1FAE5' : lens.badge === 'sustainable' ? '#DBEAFE' : '#F3F4F6';
+                const badgeLabel = lens.badge === 'regenerative' ? 'Regenerative' : lens.badge === 'sustainable' ? 'Sustainable' : 'Standard';
+                return (
+                  <div className="px-4 py-3 border-b" style={{ borderColor: border }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: badgeBg, color: badgeColor }}>
+                        {badgeLabel}
+                      </span>
+                      <span className="text-xs" style={{ color: muted }}>Score: {lens.regenerativeScore}/100</span>
+                    </div>
+                    {lens.giveBack && <p className="text-xs leading-relaxed" style={{ color: muted }}>{lens.giveBack}</p>}
+                  </div>
+                );
+              })()}
+
               {/* Actions */}
               {isOwner && (
                 <div className="px-4 py-3 space-y-1 border-b" style={{ borderColor: border }}>

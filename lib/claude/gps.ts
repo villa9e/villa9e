@@ -181,6 +181,16 @@ export interface GPSPlan {
     ifTeamMemberJoins: string;
     ifSkillGapFilled: string;
   };
+  sustainabilityLens: SustainabilityLens;
+}
+
+export interface SustainabilityLens {
+  giveBack:             string;     // what this goal feeds back into the system / community
+  wasteOutputs:         string[];   // things produced with no current home — design flaws
+  cascadeConnections:   string[];   // how outputs could fuel the user's other goals
+  sevenGenerations:     string;     // long-horizon ripple — is this still healthy 7 gen from now?
+  regenerativeScore:    number;     // 0–100
+  badge:                'regenerative' | 'sustainable' | 'standard';
 }
 
 export interface RecalibrationEvent {
@@ -237,6 +247,15 @@ const defaultProbability = (): GPSProbability => ({
   score: 50, meetsThreshold: false, delta: 0,
   factors: { skillsScore: 50, fundingScore: 50, teamScore: 50, timeScore: 50, aiBoost: 0, momentumScore: 50, historicalCompletionRate: 50 },
   reasoning: 'Circumstances assessed.', keyRisk: 'Unknown risk.', pathTo95: 'Fill identified gaps.',
+});
+
+const defaultSustainabilityLens = (): SustainabilityLens => ({
+  giveBack:           'Analysis unavailable — run the goal again for a full sustainability assessment.',
+  wasteOutputs:       [],
+  cascadeConnections: [],
+  sevenGenerations:   'Long-horizon impact could not be assessed.',
+  regenerativeScore:  0,
+  badge:              'standard',
 });
 
 function parseJSON<T>(text: string, fallback: T): T {
@@ -596,6 +615,65 @@ Rules: max 5 sprints, 3–6 actions each. Be realistic about hours. Mark paralle
   return parseJSON(txt, { sprints: [], totalWeeks: c.time.realisticTimelineWeeks, criticalPath: [] });
 }
 
+// ─── Sustainability Lens Agent ────────────────────────────────────────────────
+
+async function runSustainabilityAgent(goal: GoalInput, c: GoalCircumstances): Promise<SustainabilityLens> {
+  const msg = await claude.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: 600,
+    messages: [{
+    role: 'user',
+    content: `You are the Sustainability Lens Agent in a multi-agent GPS goal planning system.
+
+GOAL: "${goal.title}"
+Category: ${goal.category}
+${goal.description ? `Description: ${goal.description}` : ''}
+Estimated timeline: ${c.time.realisticTimelineWeeks} weeks
+Funding needed: $${c.funding.totalEstimated.toLocaleString()}
+
+Your job: apply the Eco-Holism sustainability lens to this goal.
+
+THE FOUR OPERATIONAL DNA QUESTIONS:
+1. Biomimetic Design — does this goal produce anything wasteful by nature? What could be redesigned so outputs feed back in?
+2. Industrial Symbiosis — how could this goal's outputs (skills, connections, assets, habits) fuel another area of the person's life?
+3. Value-Stream Cascading — is there something currently degrading in the person's life that this goal could repurpose before it's lost?
+4. Regenerative Bottom Lines — what makes the system (the person, their community, the planet) measurably better after this goal — not just "unchanged"?
+
+THE THREE ECO-HOLISM PILLARS:
+A. Seven Generations Outlook — will the system this goal creates still be healthy generations from now? What about its supply chain, community effects, and environment?
+B. Interconnectedness — does every output of this plan have a destination? Flag anything produced with no home as a design flaw.
+C. Active Stewardship — where does this goal give back more than it takes?
+
+Scoring guide for regenerativeScore (0–100):
+- 0–40: outputs have no home, no give-back, closed system → badge: "standard"
+- 41–70: some outputs recycled, some give-back, but significant waste → badge: "sustainable"
+- 71–100: cascading loops, active community benefit, no orphaned outputs → badge: "regenerative"
+
+Respond ONLY with this exact JSON (no extra keys, no markdown fences):
+{
+  "giveBack": "1-2 sentences on what this goal feeds back into the system or community",
+  "wasteOutputs": ["list", "of", "things produced with no current home — design flaws to address"],
+  "cascadeConnections": ["how output X could fuel goal Y", "how skill Z transfers to area W"],
+  "sevenGenerations": "1 sentence: is this system still healthy 7 generations from now?",
+  "regenerativeScore": 65,
+  "badge": "sustainable"
+}`,
+    }],
+  });
+  const txt = msg.content[0].type === 'text' ? msg.content[0].text : '{}';
+  const parsed = parseJSON<Partial<SustainabilityLens>>(txt, {});
+  const score = typeof parsed.regenerativeScore === 'number' ? Math.min(100, Math.max(0, parsed.regenerativeScore)) : 0;
+  const badge: SustainabilityLens['badge'] = score >= 71 ? 'regenerative' : score >= 41 ? 'sustainable' : 'standard';
+  return {
+    giveBack:           parsed.giveBack ?? 'No give-back identified yet — consider how this goal could benefit others.',
+    wasteOutputs:       Array.isArray(parsed.wasteOutputs) ? parsed.wasteOutputs : [],
+    cascadeConnections: Array.isArray(parsed.cascadeConnections) ? parsed.cascadeConnections : [],
+    sevenGenerations:   parsed.sevenGenerations ?? 'Long-horizon impact not yet assessed.',
+    regenerativeScore:  score,
+    badge,
+  };
+}
+
 // ─── Recalibration Engine ─────────────────────────────────────────────────────
 
 export async function runRecalibration(
@@ -715,14 +793,16 @@ export async function runGPSPipeline(
     aiResources: aiRes.status === 'fulfilled' ? aiRes.value : defaultAI(),
   };
 
-  // Wave 2: Gap analysis + Probability in parallel
-  const [gapRes, probRes] = await Promise.allSettled([
+  // Wave 2: Gap analysis + Probability + Sustainability Lens in parallel
+  const [gapRes, probRes, sustainRes] = await Promise.allSettled([
     analyzeGaps(goal, circumstances),
     calculateProbability(goal, circumstances, defaultGapAnalysis(), profile),
+    runSustainabilityAgent(goal, circumstances),
   ]);
 
-  const gapAnalysis = gapRes.status === 'fulfilled' ? gapRes.value : defaultGapAnalysis();
-  const probability  = probRes.status === 'fulfilled' ? probRes.value : defaultProbability();
+  const gapAnalysis        = gapRes.status     === 'fulfilled' ? gapRes.value     : defaultGapAnalysis();
+  const probability        = probRes.status    === 'fulfilled' ? probRes.value    : defaultProbability();
+  const sustainabilityLens = sustainRes.status === 'fulfilled' ? sustainRes.value : defaultSustainabilityLens();
 
   // Wave 3: Sprints only if probability >= 95% and caller requests it
   let sprints: GPSSprint[] = [];
@@ -754,5 +834,6 @@ export async function runGPSPipeline(
         ? `Closing skill gaps (${circumstances.skills.gap.slice(0, 2).join(', ')}) adds ${gapAnalysis.gaps.find(g => g.dimension === 'skills')?.probabilityImpact ?? 10}% to probability.`
         : 'Skills are aligned — no major gaps to close.',
     },
+    sustainabilityLens,
   };
 }

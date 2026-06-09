@@ -122,13 +122,14 @@ export async function POST(req: NextRequest) {
     await admin.from('goal_gap_analysis').insert(gapData);
   }
 
-  // Update goal
+  // Update goal — persist sustainability lens alongside plan
   await admin.from('goals').update({
     gps_stage:              newStage,
     circumstances_assessed: true,
     probability_score:      plan.probability.score,
     estimated_weeks:        plan.totalWeeks,
     gps_plan:               plan,
+    regenerative_loop:      plan.sustainabilityLens,
   }).eq('id', goal_id);
 
   // Log probability
@@ -151,12 +152,13 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    stage:         newStage,
-    probability:   plan.probability,
-    circumstances: plan.circumstances,
-    gapAnalysis:   plan.gapAnalysis,
-    scenarioImpacts: plan.scenarioImpacts,
-    totalWeeks:    plan.totalWeeks,
+    stage:              newStage,
+    probability:        plan.probability,
+    circumstances:      plan.circumstances,
+    gapAnalysis:        plan.gapAnalysis,
+    scenarioImpacts:    plan.scenarioImpacts,
+    totalWeeks:         plan.totalWeeks,
+    sustainabilityLens: plan.sustainabilityLens,
   });
   } catch (err: any) {
     const msg = err?.message ?? '';
