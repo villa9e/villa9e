@@ -411,8 +411,8 @@ function BottomNavInner() {
         )}
       </AnimatePresence>
 
-      {/* Notification bell — fixed top right, always visible */}
-      <Link
+      {/* Notification bell — hidden on /village/workshop since that page has its own bell */}
+      {path !== '/village/workshop' && <Link
         href="/village/notifications"
         style={{
           position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', right: 16,
@@ -439,7 +439,7 @@ function BottomNavInner() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </Link>
+      </Link>}
 
       {/* Main trigger button — center bottom */}
       <div style={{
@@ -480,7 +480,7 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 380, damping: 24 }}
           >
             <Image
-              src="/menu-logo.png"
+              src="/village-icon-white.png"
               width={40}
               height={40}
               alt="The Village"

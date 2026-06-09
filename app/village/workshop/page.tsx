@@ -74,65 +74,100 @@ function TemplateCard({ card, onOoWop, owopped }: { card: FeedCard; onOoWop: () 
   );
 }
 
-function VideoCard({ card, onOoWop, owopped, activeAction }: {
+function VideoCard({ card, onOoWop, owopped, activeGoal }: {
   card: FeedCard; onOoWop: () => void; owopped: boolean;
-  activeAction?: { sprintNum: number; actionNum: number; actionTotal: number; title: string } | null;
+  activeGoal?: { id: string; title: string; probability_score?: number } | null;
 }) {
-  const [playing, setPlaying] = useState(false);
-  const { speak } = useSpiritVoice();
-  const thumb = card.media?.thumbnail || (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
+  const [showGoalInfo, setShowGoalInfo] = useState(false);
+  const thumb = card.media?.thumbnail
+    || (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
 
   return (
-    <div className="absolute inset-0 flex flex-col" style={{ background: '#0c1828' }}>
-      {/* Action context banner — the core differentiator */}
-      {activeAction && (
-        <div style={{
-          position: 'absolute', top: 56, left: 12, right: 64, zIndex: 15,
-          background: 'rgba(83,74,183,0.88)', borderRadius: 8,
-          padding: '7px 12px', display: 'flex', alignItems: 'center', gap: 8,
-          backdropFilter: 'blur(8px)',
-        }}>
-          <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#AFA9EC" strokeWidth={2} strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          <div>
-            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.55)', margin: 0, letterSpacing: '0.04em' }}>
-              SPRINT {activeAction.sprintNum} · ACTION {activeAction.actionNum} OF {activeAction.actionTotal}
-            </p>
-            <p style={{ fontSize: 12, color: '#fff', fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
-              {activeAction.title}
-            </p>
-          </div>
+    <div className="absolute inset-0" style={{ background: '#000' }}>
+      {/* TikTok-style: iframe loads immediately and autoplays */}
+      {card.media?.videoId ? (
+        <iframe
+          key={card.media.videoId}
+          src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&rel=0&modestbranding=1&playsinline=1&controls=1`}
+          className="absolute inset-0 w-full h-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          style={{ border: 'none' }}
+        />
+      ) : thumb ? (
+        <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
+      ) : (
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#0c1828,#1a2448)' }} />
+      )}
+
+      {/* Bottom gradient — keeps text readable */}
+      <div className="absolute inset-x-0 bottom-0 h-56 pointer-events-none"
+        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%)' }} />
+
+      {/* Small flashing goal icon — top left */}
+      {activeGoal && (
+        <div style={{ position: 'absolute', top: 60, left: 12, zIndex: 15 }}>
+          <motion.button
+            animate={{ opacity: [1, 0.28, 1] }}
+            transition={{ repeat: Infinity, duration: 2.4, ease: 'easeInOut' }}
+            onClick={e => { e.stopPropagation(); setShowGoalInfo(p => !p); }}
+            style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'rgba(77,114,255,0.85)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              cursor: 'pointer',
+            }}
+            aria-label="View goal"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10"/>
+              <circle cx="12" cy="12" r="6"/>
+              <circle cx="12" cy="12" r="2" fill="white" stroke="none"/>
+            </svg>
+          </motion.button>
+
+          <AnimatePresence>
+            {showGoalInfo && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.88, y: 6 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.88, y: 6 }}
+                transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+                style={{
+                  position: 'absolute', top: 34, left: 0,
+                  background: 'rgba(8,10,28,0.95)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 14, padding: '12px 14px',
+                  width: 205, border: '1px solid rgba(255,255,255,0.1)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+                }}
+              >
+                <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', margin: '0 0 6px 0' }}>GOAL</p>
+                <Link
+                  href={`/village/workshop/goal/${activeGoal.id}`}
+                  onClick={() => setShowGoalInfo(false)}
+                  style={{ color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'block', lineHeight: 1.4 }}
+                >
+                  {activeGoal.title}
+                  <span style={{ color: '#4D72FF', marginLeft: 4 }}>→</span>
+                </Link>
+                {(activeGoal.probability_score ?? 0) > 0 && (
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', margin: '6px 0 0 0' }}>
+                    {activeGoal.probability_score}% GPS probability
+                  </p>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
-      {/* Video / thumbnail */}
-      <div className="flex-1 relative">
-        {playing && card.media?.videoId ? (
-          <iframe
-            src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&controls=1`}
-            className="absolute inset-0 w-full h-full"
-            allow="autoplay; fullscreen"
-            allowFullScreen
-          />
-        ) : (
-          <>
-            {thumb
-              ? <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
-              : <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,#0c1828,#1a2448)' }} />
-            }
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)' }} />
-            <button onClick={() => { setPlaying(true); speak(card.title, 'casual'); }}
-              className="absolute inset-0 flex items-center justify-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)' }}>
-                <PlaySvg />
-              </div>
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* Info overlay */}
-      <div className="absolute bottom-0 left-0 right-0 px-4 pb-28">
-        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block" style={{ background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
+      {/* Bottom info */}
+      <div className="absolute bottom-0 left-0 right-20 px-4 pb-28" style={{ zIndex: 10, pointerEvents: 'none' }}>
+        <span className="px-3 py-1 rounded-full text-xs font-bold mb-2 inline-block"
+          style={{ background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
           Training
         </span>
         <h2 className="text-lg font-black text-white leading-tight mt-1">{card.title}</h2>
@@ -150,9 +185,6 @@ function GoalCard({ card }: { card: FeedCard }) {
       <div className="absolute inset-0" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 50%)' }} />
 
       <div className="relative z-10 flex-1 flex flex-col justify-end px-5 pb-28">
-        <span className="px-3 py-1 rounded-full text-xs font-bold mb-3 inline-block" style={{ background: `${card.accent}22`, color: card.accent, border: `1px solid ${card.accent}44` }}>
-          🎯 Active Goal
-        </span>
         <h2 className="text-2xl font-black text-white leading-tight mb-2">{card.title}</h2>
         <p className="text-sm mb-4" style={{ color: 'rgba(255,255,255,0.5)' }}>{card.subtitle}</p>
 
@@ -193,8 +225,11 @@ function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount
   owopped: boolean; saved: boolean; oowopCount: number;
 }) {
   const [following, setFollowing] = useState(false);
-  const SaveSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
-  const ThumbDown = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
+  const [showMore, setShowMore] = useState(false);
+  const SaveSvg     = () => <svg width={22} height={22} viewBox="0 0 24 24" fill={saved ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
+  const ThumbDown   = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M10 15v4a3 3 0 003 3l4-9V2H5.72a2 2 0 00-2 1.7l-1.38 9a2 2 0 002 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0122 4v7a2.31 2.31 0 01-2.33 2H17"/></svg>;
+  const CommentSvg  = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
+  const MoreSvg     = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>;
 
   // Derive consistent color initials avatar when no avatar_url
   const AVATAR_COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E'];
@@ -267,6 +302,46 @@ function SideActions({ card, onOoWop, onSkip, onSave, owopped, saved, oowopCount
           <SaveSvg />
         </div>
         <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Save</span>
+      </motion.button>
+
+      {/* Comment */}
+      <motion.button whileTap={{ scale: 0.85 }}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
+          <CommentSvg />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>Comment</span>
+      </motion.button>
+
+      {/* More options */}
+      <motion.button whileTap={{ scale: 0.85 }} onClick={() => setShowMore(p => !p)}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, background: 'transparent', border: 'none', cursor: 'pointer', position: 'relative' }}>
+        <div style={{ width: 44, height: 44, borderRadius: 22, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', color: 'white' }}>
+          <MoreSvg />
+        </div>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)' }}>More</span>
+        <AnimatePresence>
+          {showMore && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.85, x: 10 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.85, x: 10 }}
+              style={{ position: 'absolute', right: 52, bottom: 0, background: 'rgba(10,12,28,0.95)', backdropFilter: 'blur(20px)', borderRadius: 14, border: '1px solid rgba(255,255,255,0.1)', padding: '8px 0', minWidth: 160, boxShadow: '0 8px 32px rgba(0,0,0,0.6)', zIndex: 50 }}
+              onClick={e => e.stopPropagation()}
+            >
+              {[
+                { label: 'Report', icon: '⚑' },
+                { label: 'Not interested', icon: '✕' },
+                { label: 'Copy link', icon: '⎘', action: () => { if (navigator.clipboard) navigator.clipboard.writeText(window.location.href); } },
+              ].map(item => (
+                <button key={item.label} onClick={() => { item.action?.(); setShowMore(false); }}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 13, fontWeight: 600, textAlign: 'left' }}>
+                  <span style={{ fontSize: 15 }}>{item.icon}</span>{item.label}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.button>
     </div>
   );
@@ -360,7 +435,6 @@ export default function WorkshopPage() {
   const [loading,      setLoading]      = useState(true);
   const [activeGoals,  setActiveGoals]  = useState<any[]>([]);
   const [activeSprints,setActiveSprints]= useState<any[]>([]);
-  const [activeAction, setActiveAction] = useState<{ sprintNum: number; actionNum: number; actionTotal: number; title: string } | null>(null);
   const [showNudge,    setShowNudge]    = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY  = useRef(0);
@@ -401,7 +475,7 @@ export default function WorkshopPage() {
           .then((r: any) => r).catch(() => ({ data: [] })),
         user
           ? (supabase as any).from('goals')
-              .select('title, description, category, progress_percentage, probability_score, goal_steps(status)')
+              .select('id, title, description, category, progress_percentage, probability_score, goal_steps(status)')
               .eq('user_id', user.id).eq('status', 'active').limit(5)
               .then((r: any) => r).catch(() => ({ data: [] }))
           : Promise.resolve({ data: [] }),
@@ -427,22 +501,6 @@ export default function WorkshopPage() {
           if (!Array.isArray(data)) return;
           const active = data.filter((s:any) => s.status === 'active');
           setActiveSprints(active);
-          // Extract the first pending action for the context banner
-          const sprint = active[0];
-          if (sprint?.sprint_actions?.length) {
-            const pendingActions = sprint.sprint_actions
-              .filter((a:any) => !a.completed)
-              .sort((a:any,b:any) => a.order_index - b.order_index);
-            const action = pendingActions[0];
-            if (action) {
-              setActiveAction({
-                sprintNum:   sprint.sprint_number ?? 1,
-                actionNum:   (action.order_index ?? 0) + 1,
-                actionTotal: sprint.sprint_actions.length,
-                title:       action.title,
-              });
-            }
-          }
         }).catch(() => {});
       }
 
@@ -652,19 +710,27 @@ export default function WorkshopPage() {
   }
 
   const card = cards[current];
-  const CARD_H = 'calc(100dvh - 80px)';
 
   return (
     <div style={{ background: '#080E24', minHeight: '100dvh' }}>
-      {/* Top bar + tab bar */}
+      {/* Top bar + tab bar — transparent over full-screen feed */}
       <div className="sticky top-0 z-30"
-        style={{ background: 'rgba(8,14,36,0.97)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        style={{ background: 'transparent', borderBottom: 'none' }}>
         <div className="flex items-center justify-between px-5 pt-12 pb-1">
           <span className="text-base font-black text-white">Workshop</span>
-          <Link href="/village/workshop/chat"
-            style={{ background: '#4D72FF', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, textDecoration: 'none' }}>
-            + New Goal
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Notification bell — inline so it never overlaps New Goal */}
+            <Link href="/village/notifications"
+              style={{ width: 34, height: 34, borderRadius: 17, background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(12px)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', flexShrink: 0, position: 'relative' }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round">
+                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+              </svg>
+            </Link>
+            <Link href="/village/workshop/chat"
+              style={{ background: '#4D72FF', color: '#fff', borderRadius: 20, padding: '6px 14px', fontSize: 12, fontWeight: 900, textDecoration: 'none' }}>
+              + New Goal
+            </Link>
+          </div>
         </div>
         {/* Tab bar */}
         <div style={{ display: 'flex', padding: '0 16px 0' }}>
@@ -787,12 +853,18 @@ export default function WorkshopPage() {
         </div>
       )}
 
-      {/* ── WORKSHOP TAB (swipe feed) ─────────────────────────────────────────── */}
+      {/* ── WORKSHOP TAB — true full-screen TikTok/Reels feed ───────────────── */}
       {tab === 'Workshop' && (
       <div
         ref={containerRef}
-        className="relative overflow-hidden select-none"
-        style={{ height: CARD_H, marginTop: '-60px', touchAction: 'pan-y', cursor: isDragging.current ? 'grabbing' : 'grab' }}
+        className="select-none"
+        style={{
+          position: 'fixed', inset: 0, zIndex: 1,
+          background: '#000',
+          touchAction: 'pan-y',
+          cursor: isDragging.current ? 'grabbing' : 'grab',
+          overflow: 'hidden',
+        }}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
         onWheel={onWheel}
@@ -811,7 +883,7 @@ export default function WorkshopPage() {
             className="absolute inset-0"
           >
             {card?.type === 'template'    && <TemplateCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} activeAction={activeAction} />}
+            {card?.type === 'video'       && <VideoCard card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} activeGoal={activeGoals[0] ? { id: activeGoals[0].id, title: activeGoals[0].title, probability_score: activeGoals[0].probability_score } : null} />}
             {card?.type === 'goal'        && <GoalCard card={card} />}
             {card?.type === 'achievement' && <GoalCard card={card} />}
             {card?.type === 'guide'       && <GuideCard />}
