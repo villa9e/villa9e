@@ -22,23 +22,15 @@ CREATE POLICY "curated_feed_public_read"
   ON curated_feed_items FOR SELECT
   USING (is_active = true);
 
--- Admins can do everything
+-- Admins can do everything (is_super_admin only — profiles has no role column)
 CREATE POLICY "curated_feed_admin_all"
   ON curated_feed_items FOR ALL
   TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid()
-        AND (is_super_admin = true OR role = 'admin')
-    )
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_super_admin = true)
   )
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE id = auth.uid()
-        AND (is_super_admin = true OR role = 'admin')
-    )
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND is_super_admin = true)
   );
 
 CREATE INDEX IF NOT EXISTS curated_feed_sort_idx ON curated_feed_items (sort_order, created_at DESC);

@@ -38,8 +38,8 @@ async function fetchTikTokOEmbed(url: string) {
 async function isAdmin(supabase: any): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  const { data } = await supabase.from('profiles').select('is_super_admin, role').eq('id', user.id).single();
-  return data?.is_super_admin === true || data?.role === 'admin';
+  const { data } = await supabase.from('profiles').select('is_super_admin').eq('id', user.id).single();
+  return data?.is_super_admin === true;
 }
 
 // ── GET: list curated items ──────────────────────────────────────────────────

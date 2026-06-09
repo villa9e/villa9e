@@ -8,10 +8,11 @@ interface CuratedItem {
 }
 
 export default function CuratedFeedAdmin() {
-  const [url, setUrl]       = useState('');
-  const [items, setItems]   = useState<CuratedItem[]>([]);
+  const [url, setUrl]         = useState('');
+  const [items, setItems]     = useState<CuratedItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [seeding, setSeeding] = useState(false);
+  const [status, setStatus]   = useState<{ msg: string; ok: boolean } | null>(null);
 
   useEffect(() => { fetchItems(); }, []);
 
@@ -23,8 +24,7 @@ export default function CuratedFeedAdmin() {
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!url.trim()) return;
-    setLoading(true);
-    setStatus(null);
+    setLoading(true); setStatus(null);
     try {
       const res = await fetch('/api/admin/curated-feed', {
         method: 'POST',
@@ -34,8 +34,7 @@ export default function CuratedFeedAdmin() {
       const data = await res.json();
       if (res.ok) {
         setStatus({ msg: `Added: ${data.item?.title ?? url}`, ok: true });
-        setUrl('');
-        fetchItems();
+        setUrl(''); fetchItems();
       } else {
         setStatus({ msg: data.error ?? 'Failed', ok: false });
       }
@@ -43,26 +42,68 @@ export default function CuratedFeedAdmin() {
     finally { setLoading(false); }
   }
 
+  async function handleSeed() {
+    setSeeding(true); setStatus(null);
+    try {
+      const res = await fetch('/api/admin/seed-feed', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setStatus({ msg: `Seeded ${data.inserted} new videos (${data.goalQueriesRan} goal queries ran)`, ok: true });
+        fetchItems();
+      } else {
+        setStatus({ msg: data.error ?? 'Seed failed', ok: false });
+      }
+    } catch { setStatus({ msg: 'Network error', ok: false }); }
+    finally { setSeeding(false); }
+  }
+
   async function handleRemove(id: string) {
-    await fetch('/api/admin/curated-feed', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    await fetch('/api/admin/curated-feed', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
     fetchItems();
   }
 
   const SOURCE_COLOR: Record<string, string> = { tiktok: '#69C9D0', youtube: '#FF0000' };
+  const ytCount = items.filter(i => i.source_type === 'youtube').length;
+  const ttCount = items.filter(i => i.source_type === 'tiktok').length;
 
   return (
     <div style={{ minHeight: '100vh', background: '#080E24', padding: '24px 16px', paddingBottom: 120 }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <h1 style={{ fontSize: 22, fontWeight: 900, color: '#fff', marginBottom: 4 }}>Curated Feed</h1>
-        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24 }}>
-          Paste a TikTok or YouTube URL — the embed is fetched and added to the Workshop feed instantly.
+        <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 16 }}>
+          Auto-seeds from YouTube via goal context + 6 theme buckets. Daily cron at 3 AM. Run manually below.
         </p>
 
-        {/* Add form */}
+        {/* Stats bar */}
+        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+          {[
+            { label: 'Total', val: items.length, color: '#4D72FF' },
+            { label: 'YouTube', val: ytCount, color: '#FF0000' },
+            { label: 'TikTok', val: ttCount, color: '#69C9D0' },
+          ].map(s => (
+            <div key={s.label} style={{ flex: 1, background: '#0E1630', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 12, padding: '10px 14px' }}>
+              <div style={{ fontSize: 20, fontWeight: 900, color: s.color }}>{s.val}</div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Auto-seed button */}
+        <button
+          onClick={handleSeed} disabled={seeding}
+          style={{ width: '100%', background: seeding ? 'rgba(77,114,255,0.4)' : '#4D72FF', border: 'none', borderRadius: 12, padding: '14px', color: '#fff', fontWeight: 900, fontSize: 15, cursor: seeding ? 'default' : 'pointer', marginBottom: 16, letterSpacing: '0.02em' }}>
+          {seeding ? 'Seeding YouTube…' : 'Auto-Seed from YouTube'}
+        </button>
+
+        {/* Manual URL add */}
         <form onSubmit={handleAdd} style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
           <input
             value={url} onChange={e => setUrl(e.target.value)} disabled={loading}
-            placeholder="https://tiktok.com/@creator/video/... or youtube.com/watch?v=..."
+            placeholder="Or paste a TikTok / YouTube URL manually…"
             style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 12, padding: '12px 14px', color: '#fff', fontSize: 14, outline: 'none' }}
           />
           <button type="submit" disabled={loading || !url.trim()}
@@ -81,7 +122,7 @@ export default function CuratedFeedAdmin() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: 'rgba(255,255,255,0.3)', fontSize: 13 }}>
-              No curated items yet. Add a TikTok or YouTube URL above.
+              No curated items yet. Hit Auto-Seed above.
             </div>
           )}
           {items.map(item => (
