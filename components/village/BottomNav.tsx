@@ -480,7 +480,7 @@ function BottomNavInner() {
             transition={{ type: 'spring', stiffness: 380, damping: 24 }}
           >
             <Image
-              src="/village-icon-white.png"
+              src="/village-icon-circle-transparent.png"
               width={40}
               height={40}
               alt="The Village"
