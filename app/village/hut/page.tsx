@@ -171,6 +171,14 @@ function IconShare() {
     </svg>
   );
 }
+function IconSpirit() {
+  return (
+    <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2l1.5 4.5H18l-3.75 2.75 1.5 4.5L12 11l-3.75 2.75 1.5-4.5L6 6.5h4.5L12 2z" />
+      <path d="M12 15v7M8 19h8" />
+    </svg>
+  );
+}
 function IconQR() {
   return (
     <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -865,6 +873,12 @@ function HutPageInner() {
           {!isOwnProfile && (
             <IconBtn onPress={handleFollow}>
               <IconAddFriend />
+            </IconBtn>
+          )}
+          {/* Ask Spirit — web-aware AI chat */}
+          {isOwnProfile && (
+            <IconBtn href="/village/spirit/ask">
+              <IconSpirit />
             </IconBtn>
           )}
           {/* Health shortcut — green heart */}
