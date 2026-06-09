@@ -1345,23 +1345,42 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                       <motion.div key={feedIdx} initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -40 }}
                         className="absolute inset-0">
 
-                        {/* Full-screen thumbnail — tap to pause, double-tap to OoWop */}
-                        <div className="absolute inset-0" onClick={handleVideoTap} style={{ cursor: 'pointer' }}>
-                          {currentVideo.thumbnail && (
-                            <img src={currentVideo.thumbnail} alt={currentVideo.title}
-                              className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover' }} />
-                          )}
-                          {/* Gradient: dark at top + bottom, clear in middle */}
-                          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.85) 100%)' }} />
-                        </div>
-
-                        {/* Pause indicator */}
-                        {videoPaused && (
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                        {/* Video area — YouTube iframe when playing, thumbnail cover when not */}
+                        {currentVideo.source === 'youtube' && !videoPaused ? (
+                          <div className="absolute inset-0">
+                            <iframe
+                              key={`yt-${currentVideo.id}`}
+                              src={`https://www.youtube.com/embed/${currentVideo.id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
+                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                              allowFullScreen
+                              className="absolute inset-0 w-full h-full"
+                              style={{ border: 'none' }}
+                            />
+                            {/* Thin gradient at bottom only so action rail stays readable */}
+                            <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
+                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' }} />
+                          </div>
+                        ) : (
+                          /* Thumbnail cover — shown before first tap or when paused */
+                          <div className="absolute inset-0" onClick={handleVideoTap} style={{ cursor: 'pointer' }}>
+                            {currentVideo.thumbnail && (
+                              <img src={currentVideo.thumbnail} alt={currentVideo.title}
+                                className="absolute inset-0 w-full h-full" style={{ objectFit: 'cover' }} />
+                            )}
+                            <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 35%, transparent 55%, rgba(0,0,0,0.85) 100%)' }} />
+                            {/* Play button overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+                              </div>
                             </div>
                           </div>
+                        )}
+
+                        {/* Tap-to-pause overlay for iframe (double-tap still fires OoWop) */}
+                        {currentVideo.source === 'youtube' && !videoPaused && (
+                          <div className="absolute inset-0" onClick={handleVideoTap}
+                            style={{ cursor: 'pointer', zIndex: 2, background: 'transparent' }} />
                         )}
 
                         {/* OoWop fly-up animation */}
