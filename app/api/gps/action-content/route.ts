@@ -42,13 +42,46 @@ async function searchYouTube(query: string, maxResults = 6, preferShort = false)
   } catch { return []; }
 }
 
-const GENERAL_QUERIES = [
-  'motivation inspiration success mindset',
-  'habits productivity self improvement',
-  'goal setting achievement success',
-  'personal development growth mindset',
-  'morning routine success habits',
-];
+// Thematic buckets aligned with villa9e: village, purpose, wealth, spirit, growth
+const THEME_BUCKETS: Record<string, string[]> = {
+  motivation: [
+    'motivation success mindset powerful speech',
+    'daily motivation discipline focus winners mentality',
+    'overcome adversity mental strength resilience champions',
+  ],
+  spiritual: [
+    'spiritual growth purpose driven life awakening',
+    'faith purpose destiny fulfillment divine calling',
+    'finding your calling spiritual journey transformation',
+  ],
+  wealth: [
+    'building generational wealth financial freedom mindset',
+    'wealth consciousness abundance prosperity money mindset',
+    'investing for beginners build wealth from nothing',
+  ],
+  business: [
+    'entrepreneurship build business from scratch success story',
+    'black entrepreneurship business success community wealth',
+    'startup founder hustle build empire entrepreneur mindset',
+  ],
+  coaching: [
+    'life coaching transformation personal power breakthrough',
+    'how to change your life mindset shift life coach',
+    'peak performance habits high achievers life mastery',
+  ],
+  community: [
+    'community growth collective success village mentality',
+    'brotherhood sisterhood loyalty support success together',
+    'legacy building family community purpose impact generational',
+  ],
+};
+
+function pickGeneralQueries(): [string, string] {
+  const buckets = Object.values(THEME_BUCKETS);
+  const shuffled = [...buckets].sort(() => Math.random() - 0.5);
+  const pick = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
+  return [pick(shuffled[0]), pick(shuffled[1])];
+}
 
 export async function POST(req: NextRequest) {
   const supabase = createServerClient() as any;
@@ -56,12 +89,12 @@ export async function POST(req: NextRequest) {
 
   const { action_title, goal_title, goal_category, goal_id } = await req.json();
 
-  // No goal context — return general motivational content (no auth needed, public YouTube)
+  // No goal context — return themed content (no auth needed, public YouTube)
   if (!goal_id && !action_title) {
-    const q = GENERAL_QUERIES[Math.floor(Math.random() * GENERAL_QUERIES.length)];
+    const [q1, q2] = pickGeneralQueries();
     const [yt1, yt2] = await Promise.all([
-      searchYouTube(q, 5, false),
-      searchYouTube('wellness wellbeing mental health growth', 4, true),
+      searchYouTube(q1, 5, false),
+      searchYouTube(q2, 5, false),
     ]);
     const seen = new Set<string>();
     const ytFeed = [...yt1, ...yt2].filter(v => { if (seen.has(v.id)) return false; seen.add(v.id); return true; });
