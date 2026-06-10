@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { BackButton } from '@/components/village/BackButton';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 // ── Conversion constants ──────────────────────────────────────────────────────
 const VLG_PER_VICO = 10_000; // 10,000 VLG = 1 VICO (mock Phase 1)
@@ -378,7 +379,13 @@ export default function BlockchainPage() {
                 background: filter === ev ? '#1877F2' : (isNight ? 'rgba(255,255,255,0.06)' : '#EEF2FF'),
                 color:      filter === ev ? '#fff' : muted,
               }}>
-              {ev === 'ALL' ? 'All Events' : EVENT_CONFIG[ev]?.icon + ' ' + EVENT_CONFIG[ev]?.label}
+              {ev === 'ALL' ? 'All Events' : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {EVENT_CONFIG[ev]?.icon === '✊'
+                    ? <OoWopIcon size={12} invert={filter !== ev && !isNight} />
+                    : EVENT_CONFIG[ev]?.icon} {EVENT_CONFIG[ev]?.label}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -401,7 +408,7 @@ export default function BlockchainPage() {
                   style={{ background: cardBg, border: `1px solid ${border}` }}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-base">{ec.icon}</span>
+                    <span className="text-base">{ec.icon === '✊' ? <OoWopIcon size={16} invert={!isNight} /> : ec.icon}</span>
                     <span className="text-xs font-bold flex-1" style={{ color: ec.color }}>{ec.label}</span>
                     {entry.amount_vlg > 0 && (
                       <span className="text-xs font-black" style={{ color: '#F59E0B' }}>+{entry.amount_vlg} VLG</span>

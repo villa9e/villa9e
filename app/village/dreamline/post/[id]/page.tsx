@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 import { awardScore } from '@/lib/village/score';
 import { getScoreTier } from '@/lib/village/score';
 
@@ -159,7 +160,7 @@ export default function PostDetailPage({ params }: { params: { id: string } }) {
               />
             ) : (
               <div className="flex items-center gap-2 text-gray-500 text-sm">
-                <span>✊</span>
+                <OoWopIcon size={14} invert />
                 <span>{post.oowop_count ?? 0} OoWops received</span>
               </div>
             )}

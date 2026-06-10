@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { BackButton } from '@/components/village/BackButton';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 const MAZE_QUESTIONS = [
   {
@@ -202,7 +203,11 @@ export default function PersonalityPage() {
 
                 <motion.button whileTap={{ scale: 0.97 }} onClick={() => saveResult(result)} disabled={saving}
                   style={{ width: '100%', padding: '16px 0', borderRadius: 16, background: `linear-gradient(135deg,${resultData.color},#7C3AED)`, color: '#fff', fontWeight: 900, fontSize: 15, border: 'none', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
-                  {saving ? 'Saving…' : '✊ Save My Archetype'}
+                  {saving ? 'Saving…' : (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <OoWopIcon size={16} /> Save My Archetype
+                    </span>
+                  )}
                 </motion.button>
               </div>
             </motion.div>

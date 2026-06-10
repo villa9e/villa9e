@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { SpiritAvatarStatic } from '@/components/spirit/SpiritAvatarStatic';
 import { VillageLogo } from '@/components/brand/VillageLogo';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 
 const CINEMATIC_STEPS = [
@@ -158,7 +159,7 @@ export default function OnboardingWelcomePage() {
                     className="flex items-center gap-3 rounded-2xl px-4 py-3 text-left"
                     style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
                   >
-                    <span className="text-2xl">{f.emoji}</span>
+                    <span className="text-2xl">{f.emoji === '✊' ? <OoWopIcon size={24} /> : f.emoji}</span>
                     <p className="text-sm text-white font-medium">{f.text}</p>
                   </motion.div>
                 ))}

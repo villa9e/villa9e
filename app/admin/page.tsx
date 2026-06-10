@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 const ADMIN_EMAILS = ['elitehousemusic@gmail.com', 'admin@villa9e.app'];
 
@@ -117,7 +118,7 @@ export default function AdminPage() {
           {statCards.map((s, i) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
               className={`rounded-2xl bg-gradient-to-br ${s.color} text-white p-4`}>
-              <p className="text-2xl mb-1">{s.icon}</p>
+              <p className="text-2xl mb-1">{s.icon === '✊' ? <OoWopIcon size={24} /> : s.icon}</p>
               <p className="text-3xl font-bold">{s.value.toLocaleString()}</p>
               <p className="text-white/70 text-xs">{s.label}</p>
             </motion.div>

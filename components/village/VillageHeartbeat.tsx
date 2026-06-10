@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useWeather, WEATHER_PALETTES } from '@/lib/theme/useWeather';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { OoWopIcon } from './OoWopIcon';
 
 interface HeartbeatStats {
   postsToday:   number;
@@ -14,7 +15,7 @@ interface HeartbeatStats {
 // Floats at the bottom of the village map — shows the village is alive
 export function VillageHeartbeat() {
   const [stats, setStats]       = useState<HeartbeatStats>({ postsToday: 0, oowopsToday: 0, activeNow: 0 });
-  const [newActivity, setNewActivity] = useState<string | null>(null);
+  const [newActivity, setNewActivity] = useState<React.ReactNode | null>(null);
   const { mood, temp, city, loaded } = useWeather();
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
@@ -32,7 +33,7 @@ export function VillageHeartbeat() {
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'oowops' }, () => {
         setStats(s => ({ ...s, oowopsToday: s.oowopsToday + 1 }));
-        setNewActivity('✊ OoWop given!');
+        setNewActivity(<span className="flex items-center gap-1.5"><OoWopIcon size={14} invert={!isNight} /> OoWop given!</span>);
         setTimeout(() => setNewActivity(null), 3000);
       })
       .subscribe();
@@ -96,8 +97,8 @@ export function VillageHeartbeat() {
 
         <div style={{ color: isNight ? '#4A4F72' : '#9CA3AF' }}>·</div>
 
-        <span style={{ color: isNight ? '#7A7FA8' : '#6B7280' }}>
-          ✊ {stats.oowopsToday} OoWops
+        <span style={{ color: isNight ? '#7A7FA8' : '#6B7280', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <OoWopIcon size={13} invert={!isNight} /> {stats.oowopsToday} OoWops
         </span>
       </div>
     </div>

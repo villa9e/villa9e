@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { VillageSound } from '@/lib/sounds/village';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { OoWopIcon } from './OoWopIcon';
 
 interface OoWopButtonProps {
   count:        number;
@@ -28,9 +29,9 @@ export function OoWopButton({
   const isNight   = theme === 'night';
 
   const sizes = {
-    sm: { btn: 'text-sm px-2.5 py-1', icon: 'text-base' },
-    md: { btn: 'text-sm px-3 py-1.5', icon: 'text-xl' },
-    lg: { btn: 'text-base px-4 py-2',  icon: 'text-2xl' },
+    sm: { btn: 'text-sm px-2.5 py-1', icon: 16 },
+    md: { btn: 'text-sm px-3 py-1.5', icon: 20 },
+    lg: { btn: 'text-base px-4 py-2',  icon: 24 },
   };
 
   async function handleClick() {
@@ -70,11 +71,11 @@ export function OoWopButton({
       >
         {/* Fist */}
         <motion.span
-          className={sizes[size].icon}
+          style={{ display: 'inline-flex' }}
           animate={burst ? { scale: [1, 1.6, 0.9, 1.1, 1], rotate: [0, -20, 20, -10, 0] } : {}}
           transition={{ duration: 0.45, ease: 'easeOut' }}
         >
-          ✊
+          <OoWopIcon size={sizes[size].icon} invert={!isNight} />
         </motion.span>
         <span>{loading ? '…' : given ? "OoWop'd!" : 'OoWop'}</span>
 
@@ -183,9 +184,10 @@ export function OoWopValidationCelebration({ onDismiss }: { onDismiss: () => voi
         <motion.div
           animate={{ rotate: [0, -15, 15, -10, 10, 0], scale: [1, 1.2, 1] }}
           transition={{ duration: 0.6, delay: 0.2 }}
-          className="text-7xl mb-4"
+          className="mb-4"
+          style={{ display: 'flex', justifyContent: 'center' }}
         >
-          ✊
+          <OoWopIcon size={72} />
         </motion.div>
 
         <h2 className="text-2xl font-black mb-2" style={{ color: isNight ? '#FFB84D' : '#D97706' }}>

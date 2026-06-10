@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { createServerClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { VillageLogo } from '@/components/brand/VillageLogo';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 import { getAppConfig, cfg } from '@/lib/admin/getAppConfig';
 
 export default async function Home() {
@@ -165,7 +166,7 @@ export default async function Home() {
               <div key={i} className="group flex gap-5 bg-white/[0.03] hover:bg-white/[0.05] border border-white/5 rounded-2xl p-6 transition-all">
                 <div className="flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
                   style={{ background: `${item.color}20`, border: `1px solid ${item.color}30` }}>
-                  {item.icon}
+                  {item.icon === '✊' ? <OoWopIcon size={24} /> : item.icon}
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1">

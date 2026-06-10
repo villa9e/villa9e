@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 import { TikTokFeedCard } from '@/components/village/TikTokFeedCard';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 type CardType = 'template' | 'video' | 'tiktok' | 'sprint' | 'achievement' | 'goal' | 'guide';
 interface FeedCard {
@@ -21,11 +22,6 @@ interface Comment {
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
-const FistSvg = ({ size = 24 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="white">
-    <path d="M9 2c-.6 0-1 .4-1 1v6H7V4c0-.6-.4-1-1-1s-1 .4-1 1v8H4c-.6 0-1 .4-1 1v1c0 3.9 3.1 7 7 7h2c3.9 0 7-3.1 7-7V9c0-.6-.4-1-1-1h-1V4c0-.6-.4-1-1-1s-1 .4-1 1v5h-1V3c0-.6-.4-1-1-1H9z"/>
-  </svg>
-);
 const ShareSvg  = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="white"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>;
 const SaveSvg   = ({ active }: { active?: boolean }) => <svg width={22} height={22} viewBox="0 0 24 24" fill={active ? 'white' : 'none'} stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
 const CommentSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
@@ -88,7 +84,7 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
               {comments.map(c => (
                 <div key={c.id} style={{ display: 'flex', gap: 10 }}>
                   <div style={{ width: 36, height: 36, borderRadius: 18, background: c.isOoWop ? 'rgba(239,159,39,0.3)' : '#1877F2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {c.isOoWop ? <FistSvg size={18} /> : <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{c.username[0].toUpperCase()}</span>}
+                    {c.isOoWop ? <OoWopIcon size={18} /> : <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{c.username[0].toUpperCase()}</span>}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
@@ -111,7 +107,7 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
                   setComments(prev => [...prev, { id: Date.now().toString(), username: 'you', text: '', isOoWop: true, timestamp: 'just now' }]);
                 }}
                   style={{ display: 'flex', alignItems: 'center', gap: 6, background: owopped ? 'rgba(239,159,39,0.2)' : 'rgba(255,255,255,0.08)', border: `1px solid ${owopped ? 'rgba(239,159,39,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: 20, padding: '8px 14px', cursor: 'pointer' }}>
-                  <FistSvg size={18} />
+                  <OoWopIcon size={18} />
                   <span style={{ fontSize: 12, fontWeight: 900, color: owopped ? '#EF9F27' : '#fff' }}>OoWop</span>
                 </motion.button>
               </div>
@@ -257,15 +253,17 @@ function VideoCard({ card, iframeRef }: {
           <iframe
             ref={iframeRef}
             key={card.media.videoId}
-            src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&iv_load_policy=3`}
+            src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&iv_load_policy=3&loop=1&playlist=${card.media.videoId}&fs=0&disablekb=1`}
             className="absolute inset-0 w-full h-full"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            style={{ border: 'none' }}
+            style={{ border: 'none', pointerEvents: 'none' }}
           />
           {/* Mask YouTube's native title/channel overlay — title only shows in bottom info */}
           <div className="absolute inset-x-0 top-0 pointer-events-none"
             style={{ height: 110, background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, transparent 100%)', zIndex: 2 }} />
+          {/* Transparent capture layer — blocks all YouTube UI (share, playlist, watch-on-YouTube,
+              end-screen suggestions) from ever receiving a tap; gestures bubble to the feed handler */}
+          <div className="absolute inset-0" style={{ zIndex: 3, background: 'transparent' }} />
         </>
       ) : thumb ? (
         <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -395,7 +393,7 @@ function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, on
       <motion.button whileTap={{ scale: 0.82 }} onClick={onOoWop}
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer', marginTop: 6 }}>
         <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: owopped ? 'rgba(239,159,39,0.3)' : 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
-          <FistSvg size={19} />
+          <OoWopIcon size={19} />
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, color: owopped ? '#EF9F27' : 'rgba(255,255,255,0.75)' }}>
           {oowopCount > 0 ? oowopCount.toLocaleString() : 'OoWop'}
@@ -510,7 +508,7 @@ function FistAnimation({ show }: { show: boolean }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.65, ease: 'easeOut' }}
           style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50 }}>
-          <FistSvg size={48} />
+          <OoWopIcon size={48} />
         </motion.div>
       )}
     </AnimatePresence>

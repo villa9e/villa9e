@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { VillageSound } from '@/lib/sounds/village';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 const TYPE_CONFIG: Record<string, { emoji: string; color: string; href: (ref: string) => string }> = {
   oowop:              { emoji: '✊',  color: '#FFD700', href: ()    => '/village/dreamline' },
@@ -138,7 +139,7 @@ export default function NotificationsPage() {
                       }}>
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
                         style={{ background: cfg.color + '20' }}>
-                        {cfg.emoji}
+                        {n.type === 'oowop' ? <OoWopIcon size={20} invert /> : cfg.emoji}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm" style={{ color: textMain }}>{n.title}</p>

@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 // ── Transaction label formatter ───────────────────────────────────────────────
 function formatTxnLabel(t: any): string {
@@ -244,7 +245,7 @@ export default function VLGWalletPage() {
               { icon: '🥇', action: 'Earn Platinum tier',        vlg: '+500'},
             ].map(item => (
               <div key={item.action} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-                <span style={{ fontSize: 16 }}>{item.icon}</span>
+                <span style={{ fontSize: 16, display: 'inline-flex' }}>{item.icon === '✊' ? <OoWopIcon size={16} /> : item.icon}</span>
                 <p style={{ flex: 1, fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{item.action}</p>
                 <span style={{ fontSize: 11, fontWeight: 900, color: '#22C55E' }}>{item.vlg}</span>
               </div>
@@ -279,7 +280,9 @@ export default function VLGWalletPage() {
                     borderBottom: i < txns.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none',
                   }}
                 >
-                  <span style={{ fontSize: 20, flexShrink: 0 }}>{txnIcon(t)}</span>
+                  <span style={{ fontSize: 20, flexShrink: 0, display: 'inline-flex' }}>
+                    {txnIcon(t) === '✊' ? <OoWopIcon size={20} /> : txnIcon(t)}
+                  </span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', lineHeight: 1.3 }}>
                       {formatTxnLabel(t)}

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import { VillageLogo } from '@/components/brand/VillageLogo';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 const FEATURES = [
   { emoji: '🗺️', title: 'Goal GPS',      desc: 'Spirit AI builds your full goal roadmap — steps, probability score, timeline.' },
@@ -158,7 +159,7 @@ export default function ReferralPage({ params }: { params: { username: string } 
               className="flex items-start gap-3 rounded-2xl p-4"
               style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
             >
-              <span className="text-2xl flex-shrink-0">{f.emoji}</span>
+              <span className="text-2xl flex-shrink-0">{f.emoji === '✊' ? <OoWopIcon size={24} /> : f.emoji}</span>
               <div>
                 <p className="font-bold text-sm text-white">{f.title}</p>
                 <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{f.desc}</p>

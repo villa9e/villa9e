@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 export default function ReferralsPage() {
   const [profile, setProfile]   = useState<any>(null);
@@ -126,7 +127,7 @@ export default function ReferralsPage() {
             ].map((s, i) => (
               <motion.div key={s.title} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: i * 0.07 }} className="flex items-start gap-3">
-                <span className="text-xl flex-shrink-0">{s.icon}</span>
+                <span className="text-xl flex-shrink-0" style={{ display: 'inline-flex' }}>{s.icon === '✊' ? <OoWopIcon size={20} invert={!isNight} /> : s.icon}</span>
                 <div>
                   <p className="font-semibold text-sm" style={{ color: text }}>{s.title}</p>
                   <p className="text-xs mt-0.5" style={{ color: muted }}>{s.desc}</p>

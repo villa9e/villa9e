@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopButton, OoWopValidationCelebration } from '@/components/village/OoWopButton';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 import { PostActionsMenu } from '@/components/studio/PostActionsMenu';
 import { awardScore } from '@/lib/village/score';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
@@ -637,10 +638,10 @@ function PostCard({
                     whileHover={{ scale: 1.35 }}
                     whileTap={{ scale: 0.9 }}
                     title={r.label}
-                    style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: 0 }}
+                    style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
                     onClick={() => { setShowReactions(false); if (navigator.vibrate) navigator.vibrate(8); }}
                   >
-                    {r.emoji}
+                    {r.id === 'oowop' ? <OoWopIcon size={20} invert={!isNight} /> : r.emoji}
                   </motion.button>
                 ))}
               </motion.div>
@@ -1231,7 +1232,7 @@ export default function DreamLinePage() {
         {discoverSteps.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10, color: isNight ? '#3A3F62' : '#9CA3AF', display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span>✊</span> Validate Their Wins
+              <OoWopIcon size={12} invert={!isNight} /> Validate Their Wins
             </p>
             <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 6, scrollbarWidth: 'none', margin: '0 -12px', padding: '0 12px 6px' }}>
               {discoverSteps.map((step: any) => {
@@ -1267,9 +1268,10 @@ export default function DreamLinePage() {
                           padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800, border: 'none', cursor: given ? 'default' : 'pointer',
                           background: given ? (isNight ? '#1A3D2F' : '#DCFCE7') : accent,
                           color: given ? '#4ADE80' : '#fff',
+                          display: 'flex', alignItems: 'center', gap: 5,
                         }}
                       >
-                        {given ? '✓ OoWop\'d' : '✊ OoWop'}
+                        {given ? "✓ OoWop'd" : <><OoWopIcon size={13} /> OoWop</>}
                       </motion.button>
                     </div>
                   </motion.div>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { OoWopIcon } from '@/components/village/OoWopIcon';
 
 const MOCK_CAMPAIGNS = [
   {
@@ -131,7 +132,7 @@ export default function CrowdfundingPage() {
               className="bg-white rounded-3xl w-full max-w-sm p-6 space-y-4">
               {contributed ? (
                 <div className="text-center py-6 space-y-3">
-                  <div className="text-6xl animate-float">✊</div>
+                  <div className="flex justify-center animate-float"><OoWopIcon size={64} invert /></div>
                   <h2 className="text-xl font-bold text-blue-600">OoWop! Contribution sent.</h2>
                   <p className="text-sm text-gray-500">You backed {contributing.creator ?? contributing.profiles?.username}. You both earn +15 $VLG.</p>
                 </div>
