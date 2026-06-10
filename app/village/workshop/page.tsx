@@ -608,11 +608,10 @@ export default function WorkshopPage() {
     // Horizontal swipe → tab navigation
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
       if (dx > 0) { // swipe right
-        if (tab === 'Workshop') setTab('Goals');
+        if (tab === 'Workshop') router.push('/village/workshop/chat');
         else if (tab === 'GPS') setTab('Workshop');
       } else { // swipe left
         if (tab === 'Workshop') setTab('GPS');
-        else if (tab === 'Goals') setTab('Workshop');
       }
       triggerUIShow();
       return;
@@ -818,7 +817,12 @@ export default function WorkshopPage() {
 
         {/* Tab bar */}
         <div style={{ display: 'flex', padding: '0 12px' }}>
-          {TABS.map(t => (
+          {TABS.map(t => t === 'Goals' ? (
+            <Link key={t} href="/village/workshop/chat"
+              style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: '2px solid transparent', transition: 'all 0.15s', textAlign: 'center', textDecoration: 'none' }}>
+              {t}
+            </Link>
+          ) : (
             <button key={t} onClick={() => setTab(t)}
               style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: tab === t ? 900 : 600, color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4D72FF' : '2px solid transparent', transition: 'all 0.15s' }}>
               {t}
@@ -826,50 +830,6 @@ export default function WorkshopPage() {
           ))}
         </div>
       </div>
-
-      {/* ── GOALS TAB ─────────────────────────────────────────────────────────── */}
-      {tab === 'Goals' && (
-        <div style={{ paddingTop: `calc(${safeTop} + 80px)`, padding: `calc(${safeTop} + 80px) 16px 120px` }}>
-          {activeGoals.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <p style={{ fontSize: 40, marginBottom: 12 }}>🎯</p>
-              <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 8 }}>No active goals yet</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', marginBottom: 24, lineHeight: 1.6 }}>Talk to Spirit to create your first goal and GPS plan.</p>
-              <Link href="/village/workshop/chat" style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>Create My First Goal →</Link>
-            </div>
-          ) : (
-            <>
-              <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 12 }}>ACTIVE GOALS</p>
-              {activeGoals.map((g: any, i: number) => {
-                const COLORS = ['#4D72FF','#1D9E75','#D4A030','#D4537E','#7C3AED'];
-                const color = COLORS[i % COLORS.length];
-                const done  = g.goal_steps?.filter((s: any) => s.status === 'completed').length ?? 0;
-                const total = g.goal_steps?.length ?? 0;
-                const pct   = total ? Math.round((done / total) * 100) : g.progress_percentage ?? 0;
-                const prob  = g.probability_score ?? 0;
-                return (
-                  <Link key={g.id || i} href={g.id ? `/village/workshop/goal/${g.id}` : '/village/workshop'}
-                    style={{ display: 'block', textDecoration: 'none', background: '#0E1630', border: `1px solid ${color}33`, borderRadius: 16, padding: 16, marginBottom: 10 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <p style={{ fontSize: 15, fontWeight: 900, color: '#fff', flex: 1, marginRight: 10, lineHeight: 1.3 }}>{g.title}</p>
-                      <span style={{ background: prob >= 70 ? 'rgba(29,158,117,0.2)' : 'rgba(77,114,255,0.2)', color: prob >= 70 ? '#1D9E75' : '#4D72FF', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 900, whiteSpace: 'nowrap' }}>{prob}%</span>
-                    </div>
-                    <div style={{ height: 4, background: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden', marginBottom: 6 }}>
-                      <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 2 }} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'rgba(255,255,255,0.35)' }}>
-                      <span>{pct}% complete</span><span>{g.category ?? 'Personal'} · {g.estimated_weeks ?? '?'}w</span>
-                    </div>
-                  </Link>
-                );
-              })}
-              <Link href="/village/workshop/templates" style={{ display: 'block', textDecoration: 'none', background: 'rgba(77,114,255,0.08)', border: '1px dashed rgba(77,114,255,0.3)', borderRadius: 16, padding: 16, textAlign: 'center', marginTop: 8 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: '#4D72FF' }}>Browse Goal DNA Templates →</p>
-              </Link>
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── GPS TAB ───────────────────────────────────────────────────────────── */}
       {tab === 'GPS' && (

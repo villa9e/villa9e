@@ -681,8 +681,29 @@ export default function GoalChatPage() {
 
   // ── Load user name, existing goals, and start conversation ────────────────
   useEffect(() => {
+    let resolved = false;
+    let fallbackTimer: ReturnType<typeof setTimeout>;
+
+    function showGreeting(name: string) {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(fallbackTimer);
+      setUserName(name);
+      const greeting = `Hey ${name}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nTell me your goal.`;
+      const greetingMsg: ChatMessage = {
+        id: spiritId(), role: 'spirit', content: greeting, timestamp: new Date(),
+      };
+      setMessages([greetingMsg]);
+      setChatItems([{ kind: 'message', msg: greetingMsg }]);
+      sessionStorage.setItem('spirit_pending_speak', greeting.split('\n')[0]);
+    }
+
+    // Never leave the chat blank — if auth/profile lookups stall or fail, show the
+    // greeting anyway so the user isn't stuck on an empty loading screen.
+    fallbackTimer = setTimeout(() => showGreeting('Villager'), 4000);
+
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
+      if (!user) { showGreeting('Villager'); return; }
 
       // Load profile + existing goals in parallel
       Promise.all([
@@ -691,21 +712,16 @@ export default function GoalChatPage() {
       ]).then(([profileRes, goalsRes]) => {
         const data = profileRes.data as any;
         const name = data?.display_name || data?.username || 'Villager';
-        setUserName(name);
 
         if (goalsRes.data) {
           setExistingGoals((goalsRes.data as any[]).map((g: any) => ({ id: g.id, title: g.title })));
         }
 
-        const greeting = `Hey ${name}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nTell me your goal.`;
-        const greetingMsg: ChatMessage = {
-          id: spiritId(), role: 'spirit', content: greeting, timestamp: new Date(),
-        };
-        setMessages([greetingMsg]);
-        setChatItems([{ kind: 'message', msg: greetingMsg }]);
-        sessionStorage.setItem('spirit_pending_speak', greeting.split('\n')[0]);
-      });
-    });
+        showGreeting(name);
+      }).catch(() => showGreeting('Villager'));
+    }).catch(() => showGreeting('Villager'));
+
+    return () => clearTimeout(fallbackTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
