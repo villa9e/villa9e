@@ -239,9 +239,10 @@ function MoreDrawer({ open, onClose, card }: { open: boolean; onClose: () => voi
 }
 
 // ── Video Card (YouTube) ──────────────────────────────────────────────────────
-function VideoCard({ card, iframeRef }: {
+function VideoCard({ card, iframeRef, isPaused }: {
   card: FeedCard;
   iframeRef: React.RefObject<HTMLIFrameElement>;
+  isPaused: boolean;
 }) {
   const thumb = card.media?.thumbnail ||
     (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
@@ -258,12 +259,20 @@ function VideoCard({ card, iframeRef }: {
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             style={{ border: 'none', pointerEvents: 'none' }}
           />
-          {/* Mask YouTube's native title/channel overlay — title only shows in bottom info */}
+          {/* Mask YouTube's native title/channel/share bar — title only shows in bottom info */}
           <div className="absolute inset-x-0 top-0 pointer-events-none"
-            style={{ height: 110, background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, transparent 100%)', zIndex: 2 }} />
+            style={{ height: 130, background: 'linear-gradient(to bottom, #000 0%, #000 55%, transparent 100%)', zIndex: 2 }} />
           {/* Transparent capture layer — blocks all YouTube UI (share, playlist, watch-on-YouTube,
               end-screen suggestions) from ever receiving a tap; gestures bubble to the feed handler */}
           <div className="absolute inset-0" style={{ zIndex: 3, background: 'transparent' }} />
+          {/* Full cover while paused — YouTube renders a large branded overlay (title, channel,
+              share, related videos) on pause that can't be removed cross-origin, so hide it entirely */}
+          {isPaused && (
+            <div className="absolute inset-0" style={{ zIndex: 4, background: '#000' }}>
+              {thumb && <img src={thumb} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: 0.85 }} />}
+              <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.35)' }} />
+            </div>
+          )}
         </>
       ) : thumb ? (
         <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
@@ -926,7 +935,7 @@ export default function WorkshopPage() {
               transition={{ type: 'spring', damping: 28, stiffness: 260 }}
               className="absolute inset-0">
 
-              {card?.type === 'video'    && <VideoCard card={card} iframeRef={iframeRef} />}
+              {card?.type === 'video'    && <VideoCard card={card} iframeRef={iframeRef} isPaused={isPaused} />}
               {card?.type === 'tiktok'   && <TikTokFeedCard embedHtml={card.media?.embedHtml ?? ''} thumbnail={card.media?.thumbnail ?? ''} isActive={true} title={card.title} author={card.author.username} />}
               {card?.type === 'template' && <TemplateCard card={card} />}
               {card?.type === 'goal'     && <GoalCard card={card} />}
