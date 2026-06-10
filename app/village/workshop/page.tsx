@@ -253,15 +253,20 @@ function VideoCard({ card, iframeRef }: {
   return (
     <div className="absolute inset-0" style={{ background: '#000' }}>
       {card.media?.videoId ? (
-        <iframe
-          ref={iframeRef}
-          key={card.media.videoId}
-          src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1`}
-          className="absolute inset-0 w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          style={{ border: 'none' }}
-        />
+        <>
+          <iframe
+            ref={iframeRef}
+            key={card.media.videoId}
+            src={`https://www.youtube.com/embed/${card.media.videoId}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&iv_load_policy=3`}
+            className="absolute inset-0 w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            style={{ border: 'none' }}
+          />
+          {/* Mask YouTube's native title/channel overlay — title only shows in bottom info */}
+          <div className="absolute inset-x-0 top-0 pointer-events-none"
+            style={{ height: 110, background: 'linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.35) 55%, transparent 100%)', zIndex: 2 }} />
+        </>
       ) : thumb ? (
         <img src={thumb} alt={card.title} className="absolute inset-0 w-full h-full object-cover" />
       ) : (
@@ -772,8 +777,13 @@ export default function WorkshopPage() {
     <div style={{ background: '#080E24', minHeight: '100dvh' }}>
       {/* Floating header */}
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 30, background: 'transparent' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `calc(${safeTop} + 6px) 12px 4px` }}>
-          {/* Dual-function target button */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `calc(${safeTop} + 6px) 12px 4px`,
+          opacity: tab === 'Workshop' && !uiVisible && !showGoalPopup ? 0 : 1,
+          pointerEvents: tab === 'Workshop' && !uiVisible && !showGoalPopup ? 'none' : 'auto',
+          transition: 'opacity 0.5s ease',
+        }}>
+          {/* Dual-function target button (content type / goal alignment) */}
           <div style={{ position: 'relative' }}>
             <motion.button
               onClick={() => setShowGoalPopup(p => !p)}
@@ -924,10 +934,10 @@ export default function WorkshopPage() {
               {card?.type === 'goal'     && <GoalCard card={card} />}
               {card?.type === 'guide'    && <GuideCard />}
 
-              {/* Bottom gradient (video + tiktok) */}
+              {/* Bottom gradient (video + tiktok, auto-hides) */}
               {(card?.type === 'video' || card?.type === 'tiktok') && (
                 <div className="absolute inset-x-0 bottom-0 pointer-events-none"
-                  style={{ height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)' }} />
+                  style={{ height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)', opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease' }} />
               )}
 
               {/* Bottom text info (video + tiktok, auto-hides) */}
