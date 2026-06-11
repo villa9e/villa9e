@@ -87,6 +87,45 @@ relevant surface:
 
 ---
 
+## Coverage map — every section of the app
+
+Tracks which surfaces have a written vision spec. Legaci is feeding each missing
+one; mark `[x]` + link the spec as they're captured.
+
+**Spec'd:**
+- [x] workshop — `WORKSHOP_SPEC.md` + `GOAL_GPS_MAPS_SPEC.md`
+- [x] bank — `BANK_SPEC.md`
+- [x] ads — `ADS_MANAGER_SPEC.md`
+- [x] studio — `AVATAR_STUDIO_SPEC.md`
+- [x] blockchain — `CHAIN_EXPLORER_SPEC.md`
+- [x] locker — `DATA_LOCKER_SPEC.md`
+- [x] merchant — `MERCHANT_NETWORK_SPEC.md`
+- [x] pavilion — `PAVILION_SPEC.md`
+- [x] vico — `VICO_GOVERNANCE_SPEC.md`
+- [x] _(platform-wide)_ — `PLATFORM_SPEC.md`
+
+**Not yet captured (awaiting Legaci's description):**
+- [ ] create
+- [ ] discover
+- [ ] dreamline
+- [ ] hospital
+- [ ] hut
+- [ ] live
+- [ ] map
+- [ ] personality-maze
+- [ ] spaces
+- [ ] spirit
+- [ ] stories
+- [ ] tribes
+- [ ] wellness
+- [ ] zen
+- [ ] trading-post
+- [ ] notifications
+- [ ] onboarding
+- [ ] profile (`[username]`)
+
+---
+
 ### How to use this log
 
 1. New vision described by the user → append a dated entry at the top.
