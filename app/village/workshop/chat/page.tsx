@@ -1188,12 +1188,12 @@ export default function GoalChatPage() {
     const needsBudgetSetup = localStorage.getItem('villa9e_needs_budget_setup') === '1';
     if (needsTradingTour) {
       localStorage.removeItem('villa9e_needs_trading_tour');
-      router.push('/village/workshop/goal/' + goalId + '?tour=trading');
+      router.push('/village/workshop/gps/' + goalId + '?tour=trading');
     } else if (needsBudgetSetup) {
       localStorage.removeItem('villa9e_needs_budget_setup');
-      router.push('/village/workshop/goal/' + goalId + '?tour=budget');
+      router.push('/village/workshop/gps/' + goalId + '?tour=budget');
     } else {
-      router.push('/village/workshop/goal/' + goalId);
+      router.push('/village/workshop/gps/' + goalId);
     }
   }
 

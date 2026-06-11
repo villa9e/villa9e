@@ -480,7 +480,7 @@ function GoalPopup({ open, onClose, activeGoal, isGeneral }: {
 
           {activeGoal ? (
             <>
-              <Link href={`/village/workshop/goal/${activeGoal.id}`} onClick={onClose}
+              <Link href={`/village/workshop/gps/${activeGoal.id}`} onClick={onClose}
                 style={{ color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'block', lineHeight: 1.4, marginBottom: 8 }}>
                 {activeGoal.title} <span style={{ color: '#4D72FF' }}>→</span>
               </Link>
@@ -841,7 +841,7 @@ export default function WorkshopPage() {
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
                 {hasGoals ? 'Activate your GPS to generate a sprint plan.' : 'Create a goal first, then activate your GPS.'}
               </p>
-              <Link href={hasGoals ? `/village/workshop/goal/${activeGoals[0]?.id}` : '/village/workshop/chat'}
+              <Link href={hasGoals ? `/village/workshop/gps/${activeGoals[0]?.id}` : '/village/workshop/chat'}
                 style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
                 {hasGoals ? 'View GPS →' : 'Create a Goal →'}
               </Link>
