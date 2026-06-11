@@ -152,14 +152,17 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
       const videos = await searchYouTube(`${step.searchQuery || step.title} tutorial`, 3);
 
       // Find app content first (prioritize over YouTube)
-      const { data: appVideos } = await admin
-        .from('studio_videos')
-        .select('id, title, thumbnail_url, video_url, watch_count, likes, is_affiliate')
-        .ilike('title', `%${step.title.split(' ')[0]}%`)
-        .order('is_affiliate', { ascending: false })
-        .order('watch_count', { ascending: false })
-        .limit(2)
-        .catch(() => ({ data: [] }));
+      let appVideos: any[] = [];
+      try {
+        const { data } = await admin
+          .from('studio_videos')
+          .select('id, title, thumbnail_url, video_url, watch_count, likes, is_affiliate')
+          .ilike('title', `%${step.title.split(' ')[0]}%`)
+          .order('is_affiliate', { ascending: false })
+          .order('watch_count', { ascending: false })
+          .limit(2);
+        appVideos = data ?? [];
+      } catch { /* non-blocking */ }
 
       return {
         goal_id:       goal.id,
@@ -179,7 +182,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   );
 
   if (stepInserts.length > 0) {
-    await admin.from('goal_steps').insert(stepInserts).catch(() => {});
+    try { await admin.from('goal_steps').insert(stepInserts); } catch { /* non-blocking */ }
   }
 
   // ── 4. Find affiliate products for this goal ──────────────────────────────
@@ -187,41 +190,49 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
 
   // ── 5. Create tribe-matching request (Trading Post) ───────────────────────
   if (gpsData.requiresTradeSkills && plan.tribeRequirements?.length > 0) {
-    await admin.from('tribe_requests').insert({
-      user_id:      user.id,
-      goal_id:      goal.id,
-      skills_needed: plan.tribeRequirements,
-      goal_title:   gpsData.goalTitle,
-      status:       'open',
-    }).catch(() => {});
+    try {
+      await admin.from('tribe_requests').insert({
+        user_id:      user.id,
+        goal_id:      goal.id,
+        skills_needed: plan.tribeRequirements,
+        goal_title:   gpsData.goalTitle,
+        status:       'open',
+      });
+    } catch { /* non-blocking */ }
   }
 
   // ── 6. Create mentor-matching request (Dreamline) ─────────────────────────
-  await admin.from('mentor_requests').insert({
-    user_id:        user.id,
-    goal_id:        goal.id,
-    category:       gpsData.category,
-    mentor_profile: plan.mentorProfile,
-    status:         'seeking',
-  }).catch(() => {});
+  try {
+    await admin.from('mentor_requests').insert({
+      user_id:        user.id,
+      goal_id:        goal.id,
+      category:       gpsData.category,
+      mentor_profile: plan.mentorProfile,
+      status:         'seeking',
+    });
+  } catch { /* non-blocking */ }
 
   // ── 7. Award village score for goal creation ──────────────────────────────
-  await admin.rpc('award_village_score', {
-    p_user_id:      user.id,
-    p_points:       25,
-    p_vlg:          10,
-    p_reason:       'CREATE_GOAL_GPS',
-    p_reference_id: goal.id,
-  }).catch(() => {});
+  try {
+    await admin.rpc('award_village_score', {
+      p_user_id:      user.id,
+      p_points:       25,
+      p_vlg:          10,
+      p_reason:       'CREATE_GOAL_GPS',
+      p_reference_id: goal.id,
+    });
+  } catch { /* non-blocking */ }
 
   // ── 8. Save Spirit memory about this goal ────────────────────────────────
-  await admin.from('spirit_memories').insert({
-    user_id:     user.id,
-    content:     `Started goal: "${gpsData.goalTitle}". ${conversationSummary}`,
-    memory_type: 'goal_created',
-    importance:  8,
-    goal_id:     goal.id,
-  }).catch(() => {});
+  try {
+    await admin.from('spirit_memories').insert({
+      user_id:     user.id,
+      content:     `Started goal: "${gpsData.goalTitle}". ${conversationSummary}`,
+      memory_type: 'goal_created',
+      importance:  8,
+      goal_id:     goal.id,
+    });
+  } catch { /* non-blocking */ }
 
   // ── 9. First-time checks ─────────────────────────────────────────────────
   const { count: goalCount } = await admin
