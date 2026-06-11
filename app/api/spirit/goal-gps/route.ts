@@ -27,7 +27,17 @@ async function searchYouTube(query: string, maxResults = 3): Promise<{ title: st
 export async function POST(req: NextRequest) {
   const supabase = createServerClient() as any;
   const admin    = createAdminClient() as any;
-  const { data: { user } } = await supabase.auth.getUser();
+
+  // Auth: cookie session first, then Authorization: Bearer token fallback
+  // (the browser may not always send a readable session cookie to the route).
+  let { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      const { data: { user: tokenUser } } = await supabase.auth.getUser(authHeader.slice(7));
+      user = tokenUser;
+    }
+  }
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { gpsData, conversationSummary } = await req.json() as {
@@ -104,7 +114,9 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   } catch { /* use fallback empty plan */ }
 
   // ── 2. Save goal to database ──────────────────────────────────────────────
-  const { data: goal, error: goalErr } = await supabase.from('goals').insert({
+  // Use the admin client for writes so the insert succeeds regardless of how
+  // the user was authenticated (cookie vs Bearer token) — user_id is explicit.
+  const { data: goal, error: goalErr } = await admin.from('goals').insert({
     user_id:            user.id,
     title:              gpsData.goalTitle,
     description:        gpsData.goalDescription,
@@ -140,7 +152,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
       const videos = await searchYouTube(`${step.searchQuery || step.title} tutorial`, 3);
 
       // Find app content first (prioritize over YouTube)
-      const { data: appVideos } = await supabase
+      const { data: appVideos } = await admin
         .from('studio_videos')
         .select('id, title, thumbnail_url, video_url, watch_count, likes, is_affiliate')
         .ilike('title', `%${step.title.split(' ')[0]}%`)
@@ -167,7 +179,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   );
 
   if (stepInserts.length > 0) {
-    await supabase.from('goal_steps').insert(stepInserts).catch(() => {});
+    await admin.from('goal_steps').insert(stepInserts).catch(() => {});
   }
 
   // ── 4. Find affiliate products for this goal ──────────────────────────────
@@ -175,7 +187,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
 
   // ── 5. Create tribe-matching request (Trading Post) ───────────────────────
   if (gpsData.requiresTradeSkills && plan.tribeRequirements?.length > 0) {
-    await supabase.from('tribe_requests').insert({
+    await admin.from('tribe_requests').insert({
       user_id:      user.id,
       goal_id:      goal.id,
       skills_needed: plan.tribeRequirements,
@@ -185,7 +197,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   }
 
   // ── 6. Create mentor-matching request (Dreamline) ─────────────────────────
-  await supabase.from('mentor_requests').insert({
+  await admin.from('mentor_requests').insert({
     user_id:        user.id,
     goal_id:        goal.id,
     category:       gpsData.category,
@@ -203,7 +215,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   }).catch(() => {});
 
   // ── 8. Save Spirit memory about this goal ────────────────────────────────
-  await supabase.from('spirit_memories').insert({
+  await admin.from('spirit_memories').insert({
     user_id:     user.id,
     content:     `Started goal: "${gpsData.goalTitle}". ${conversationSummary}`,
     memory_type: 'goal_created',
@@ -212,7 +224,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
   }).catch(() => {});
 
   // ── 9. First-time checks ─────────────────────────────────────────────────
-  const { count: goalCount } = await supabase
+  const { count: goalCount } = await admin
     .from('goals').select('id', { count: 'exact', head: true }).eq('user_id', user.id);
 
   return NextResponse.json({

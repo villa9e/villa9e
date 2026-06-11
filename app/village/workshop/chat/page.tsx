@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
+import { SpiritVoiceCall } from '@/components/village/SpiritVoiceCall';
+import { useSpeechRecognition } from '@/lib/hooks/useSpeechRecognition';
+import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 import type { AffiliateProduct } from '@/lib/affiliate/products';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -23,6 +26,14 @@ type ChatItem =
   | { kind: 'duplicate_alert'; id: string; existingTitle: string; existingGoalId: string };
 
 type Phase = 'discovery' | 'success' | 'proximity' | 'resources' | 'generating' | 'ready' | 'launched';
+
+// Free-form saved conversation thread (history list item)
+interface ThreadSummary {
+  id:              string;
+  title:           string;
+  goal_id:         string | null;
+  last_message_at: string;
+}
 
 // ── Agent wave loading types ─────────────────────────────────────────────────
 type AgentStatus = 'pending' | 'running' | 'done';
@@ -676,8 +687,30 @@ export default function GoalChatPage() {
   const [actionLevel,         setActionLevel]         = useState<1 | 2 | 3 | null>(null);
   const [actionLevelShown,    setActionLevelShown]    = useState(false);
 
+  // ── Voice conversation state ──────────────────────────────────────────────
+  const [spiritVariant,       setSpiritVariant]       = useState<SpiritVariantId>('blue');
+  const [voiceCallOpen,       setVoiceCallOpen]       = useState(false);
+
+  // ── Thread history state ──────────────────────────────────────────────────
+  const [threadId,   setThreadId]   = useState<string | null>(null);
+  const [threads,    setThreads]    = useState<ThreadSummary[]>([]);
+  const [historyOpen,setHistoryOpen]= useState(false);
+
   const scrollRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const sendWithContentRef = useRef<((content: string) => void) | null>(null);
+  const threadIdRef        = useRef<string | null>(null);
+  const persistTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  threadIdRef.current = threadId;
+
+  // Latest Spirit message — spoken aloud in voice-call mode
+  const lastSpiritMessage = [...messages].reverse().find(m => m.role === 'spirit')?.content ?? '';
+
+  // ── Chat-bar microphone (push-to-talk → transcribe → send) ────────────────
+  const chatMic = useSpeechRecognition({
+    silenceMs: 1400,
+    onResult: (text) => { if (text.trim()) sendWithContentRef.current?.(text.trim()); },
+  });
 
   // ── Load user name, existing goals, and start conversation ────────────────
   useEffect(() => {
@@ -705,17 +738,26 @@ export default function GoalChatPage() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) { showGreeting('Villager'); return; }
 
-      // Load profile + existing goals in parallel
+      // Load profile + existing goals + saved threads in parallel
       Promise.all([
-        supabase.from('profiles').select('display_name, username').eq('id', user.id).single(),
+        supabase.from('profiles').select('display_name, username, avatar_config').eq('id', user.id).single(),
         supabase.from('goals').select('id, title').eq('user_id', user.id).eq('status', 'active').limit(10),
-      ]).then(([profileRes, goalsRes]) => {
+        (supabase as any).from('spirit_chat_threads')
+          .select('id, title, goal_id, last_message_at')
+          .eq('user_id', user.id).order('last_message_at', { ascending: false }).limit(40)
+          .then((r: any) => r).catch(() => ({ data: [] })),
+      ]).then(([profileRes, goalsRes, threadsRes]: any[]) => {
         const data = profileRes.data as any;
         const name = data?.display_name || data?.username || 'Villager';
+
+        const variant = data?.avatar_config?.spirit_variant as SpiritVariantId | undefined;
+        if (variant) setSpiritVariant(variant);
 
         if (goalsRes.data) {
           setExistingGoals((goalsRes.data as any[]).map((g: any) => ({ id: g.id, title: g.title })));
         }
+
+        if (threadsRes?.data) setThreads(threadsRes.data as ThreadSummary[]);
 
         showGreeting(name);
       }).catch(() => showGreeting('Villager'));
@@ -729,6 +771,128 @@ export default function GoalChatPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [chatItems, typing]);
+
+  // ── Thread persistence ──────────────────────────────────────────────────────
+  // Debounced save of the conversation to spirit_chat_threads so users can
+  // resume later. Creates the thread row on the first real exchange.
+  useEffect(() => {
+    // Only persist once there's a real exchange (greeting + at least one user msg)
+    const hasUserMsg = messages.some(m => m.role === 'user');
+    if (!hasUserMsg) return;
+
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(() => { persistThread(); }, 800);
+    return () => { if (persistTimer.current) clearTimeout(persistTimer.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, phase, goalId]);
+
+  async function persistThread() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const firstUser = messages.find(m => m.role === 'user')?.content ?? '';
+    const title = (firstUser.slice(0, 60) || 'New chat').trim();
+    const payload = {
+      user_id:         user.id,
+      title,
+      goal_id:         goalId,
+      phase,
+      messages:        messages.map(m => ({ role: m.role, content: m.content, ts: m.timestamp })),
+      last_message_at: new Date().toISOString(),
+    };
+
+    const id = threadIdRef.current;
+    if (id) {
+      await (supabase as any).from('spirit_chat_threads').update(payload).eq('id', id);
+    } else {
+      const { data } = await (supabase as any)
+        .from('spirit_chat_threads').insert(payload).select('id').single();
+      if (data?.id) {
+        setThreadId(data.id);
+        threadIdRef.current = data.id;
+      }
+    }
+    // Refresh the history list (title / ordering may have changed)
+    refreshThreads(user.id);
+  }
+
+  async function refreshThreads(uid?: string) {
+    let id = uid;
+    if (!id) { const { data: { user } } = await supabase.auth.getUser(); id = user?.id; }
+    if (!id) return;
+    const { data } = await (supabase as any)
+      .from('spirit_chat_threads')
+      .select('id, title, goal_id, last_message_at')
+      .eq('user_id', id).order('last_message_at', { ascending: false }).limit(40);
+    if (data) setThreads(data as ThreadSummary[]);
+  }
+
+  // Start a brand-new conversation
+  function startNewChat() {
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    setThreadId(null);
+    threadIdRef.current = null;
+    setGoalId(null);
+    setGpsData(null);
+    setGpsSteps([]);
+    setAffiliates([]);
+    setPhase('discovery');
+    setDiscoveryTurn(0);
+    setDiscoveryComplete(false);
+    setDuplicateChecked(false);
+    setDuplicateResolved(false);
+    setAwaitingCommitment(false);
+    setCommitmentCleared(false);
+    setActionLevel(null);
+    setActionLevelShown(false);
+    setShowPathTo95(false);
+    setPathTo95Accepted(false);
+    setHistoryOpen(false);
+
+    const greeting = `Hey ${userName || 'Villager'}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nTell me your goal.`;
+    const greetingMsg: ChatMessage = { id: spiritId(), role: 'spirit', content: greeting, timestamp: new Date() };
+    setMessages([greetingMsg]);
+    setChatItems([{ kind: 'message', msg: greetingMsg }]);
+  }
+
+  // Resume a saved thread
+  async function openThread(id: string) {
+    setHistoryOpen(false);
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    const { data } = await (supabase as any)
+      .from('spirit_chat_threads').select('*').eq('id', id).single();
+    if (!data) return;
+
+    const restored: ChatMessage[] = (data.messages ?? []).map((m: any, i: number) => ({
+      id:        `${m.role}-restored-${i}`,
+      role:      m.role as 'spirit' | 'user',
+      content:   m.content,
+      timestamp: m.ts ? new Date(m.ts) : new Date(),
+    }));
+
+    setThreadId(data.id);
+    threadIdRef.current = data.id;
+    setMessages(restored);
+    setChatItems(restored.map(msg => ({ kind: 'message' as const, msg })));
+    setGoalId(data.goal_id ?? null);
+
+    // Resume in a state where new input flows straight to Spirit (it has the
+    // full transcript as context), skipping the scripted discovery questions.
+    setPhase((data.phase as Phase) ?? 'success');
+    setDiscoveryComplete(true);
+    setDiscoveryTurn(99);
+    setDuplicateChecked(true);
+    setDuplicateResolved(true);
+    setCommitmentCleared(true);
+    setAwaitingCommitment(false);
+  }
+
+  async function deleteThread(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    await (supabase as any).from('spirit_chat_threads').delete().eq('id', id);
+    setThreads(prev => prev.filter(t => t.id !== id));
+    if (threadIdRef.current === id) startNewChat();
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -943,24 +1107,36 @@ export default function GoalChatPage() {
   }, [messages, phase, discoveryTurn, discoveryComplete, duplicateChecked, duplicateResolved,
       awaitingCommitment, commitmentCleared, actionLevel, actionLevelShown, gpsData, typing, generating]);
 
+  // Keep the mic callback pointed at the latest sendWithContent
+  useEffect(() => { sendWithContentRef.current = sendWithContent; }, [sendWithContent]);
+
   async function generateGPS(gps: any, summary: string) {
     setGenerating(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
       const res = await fetch('/api/spirit/goal-gps', {
         method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body:    JSON.stringify({ gpsData: gps, conversationSummary: summary }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.goalId) {
+        setGenerating(false);
+        addSpiritMessage(
+          'I built your plan but hit a snag saving it. Tap the 🎤 or send any message and I\'ll try again — your answers are safe.'
+        );
+        return;
+      }
+
       if (data.goalId) {
         setGoalId(data.goalId);
         setGpsSteps(data.steps ?? []);
         setAffiliates(data.affiliateProducts ?? []);
-        // pathTo95: show gap guidance if probability < 70
-        const probScore = gps?.probabilityScore ?? 0;
-        if (probScore > 0 && probScore < 70) {
-          setShowPathTo95(true);
-        }
 
         if (data.firstTimeFeatures?.needsTradingPostTour) {
           localStorage.setItem('villa9e_needs_trading_tour', '1');
@@ -968,22 +1144,43 @@ export default function GoalChatPage() {
         if (data.firstTimeFeatures?.needsBudgetSetup) {
           localStorage.setItem('villa9e_needs_budget_setup', '1');
         }
+
+        // pathTo95: if probability < 70, show gap guidance first and wait for
+        // the user. Otherwise the GPS is ready — automatically take them to it.
+        const probScore = gps?.probabilityScore ?? 0;
+        if (probScore > 0 && probScore < 70) {
+          setShowPathTo95(true);
+          setGenerating(false);
+          return;
+        }
+        setGenerating(false);
+        setCountdown(true);            // brief transition, then route to GPS page
+        speak('Your GPS is ready. Taking you there now.', 'serious');
+        return;
       }
     } catch { /* non-blocking */ }
     setGenerating(false);
   }
+
+  // When the user accepts a below-threshold plan, proceed to the GPS page too.
+  useEffect(() => {
+    if (pathTo95Accepted && goalId) {
+      setCountdown(true);
+      speak('Your GPS is ready. Taking you there now.', 'serious');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathTo95Accepted]);
 
   function handleStart() {
     setCountdown(true);
     speak('GPS activated. Your journey starts now.', 'serious');
   }
 
+  // GPS created → countdown finishes → go straight to the goal's GPS page.
   function handleCountdownComplete() {
     setCountdown(false);
     setPhase('launched');
-    setShowTemplatePrompt(true);
-    const prompt = `Your GPS is live! Before you head in — would you like to share this goal plan as a template? Other villagers working toward the same thing can clone it and get a headstart.`;
-    speak(prompt, 'casual');
+    navigateToGoal();
   }
 
   function navigateToGoal() {
@@ -1038,22 +1235,44 @@ export default function GoalChatPage() {
           style={{ background: 'rgba(124,58,237,0.12)', color: '#7C3AED' }}>
           ←
         </Link>
-        <div className="flex-1">
-          <p className="text-sm font-black" style={{ color: text }}>Spirit Goal GPS</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-black truncate" style={{ color: text }}>Spirit Goal GPS</p>
           <p className="text-[10px]" style={{ color: muted }}>Conversational goal building</p>
         </div>
-        {/* Phase progress dots */}
-        <div className="flex items-center gap-1">
-          {PHASES.slice(0, 5).map((p, i) => (
-            <div key={p.key}
-              className="rounded-full transition-all duration-500"
-              style={{
-                width:      i <= phaseIdx ? 16 : 6,
-                height:     6,
-                background: i <= phaseIdx ? '#7C3AED' : isNight ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-              }} />
-          ))}
-        </div>
+
+        {/* History */}
+        <button
+          onClick={() => setHistoryOpen(true)}
+          aria-label="Chat history"
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(124,58,237,0.12)', color: '#7C3AED' }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+          </svg>
+        </button>
+
+        {/* New chat */}
+        <button
+          onClick={startNewChat}
+          aria-label="New chat"
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(124,58,237,0.12)', color: '#7C3AED' }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+
+        {/* Voice call */}
+        <button
+          onClick={() => setVoiceCallOpen(true)}
+          aria-label="Talk to Spirit"
+          className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 text-white"
+          style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)' }}>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+            <rect x="9" y="3" width="6" height="11" rx="3" fill="#fff" />
+            <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
       </div>
 
       {/* ── Chat items ──────────────────────────────────────────────── */}
@@ -1186,15 +1405,16 @@ export default function GoalChatPage() {
           <div className="flex items-end gap-2">
             <textarea
               ref={inputRef}
-              value={input}
+              value={chatMic.listening ? chatMic.transcript : input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Tell Spirit…"
+              placeholder={chatMic.listening ? 'Listening…' : 'Tell Spirit…'}
               rows={1}
+              readOnly={chatMic.listening}
               className="flex-1 resize-none rounded-3xl text-sm px-4 py-3 focus:outline-none"
               style={{
                 background: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                border:     `1.5px solid ${border}`,
+                border:     `1.5px solid ${chatMic.listening ? '#7C3AED' : border}`,
                 color:      text,
                 minHeight:  44,
                 maxHeight:  120,
@@ -1205,6 +1425,30 @@ export default function GoalChatPage() {
                 t.style.height = Math.min(t.scrollHeight, 120) + 'px';
               }}
             />
+
+            {/* Microphone — push to talk, auto-sends on pause */}
+            {chatMic.supported && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => { if (chatMic.listening) chatMic.stop(); else { chatMic.reset(); chatMic.start(); } }}
+                disabled={typing || generating}
+                aria-label={chatMic.listening ? 'Stop listening' : 'Speak to Spirit'}
+                className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-30 relative"
+                style={{ background: chatMic.listening ? '#EF4444' : 'rgba(124,58,237,0.15)' }}
+              >
+                {chatMic.listening && (
+                  <motion.span className="absolute inset-0 rounded-full"
+                    style={{ border: '2px solid #EF4444' }}
+                    animate={{ scale: [1, 1.45], opacity: [0.6, 0] }}
+                    transition={{ duration: 1.1, repeat: Infinity }} />
+                )}
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <rect x="9" y="3" width="6" height="11" rx="3" fill={chatMic.listening ? '#fff' : '#7C3AED'} />
+                  <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke={chatMic.listening ? '#fff' : '#7C3AED'} strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </motion.button>
+            )}
+
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={sendMessage}
@@ -1217,7 +1461,9 @@ export default function GoalChatPage() {
               </svg>
             </motion.button>
           </div>
-          <p className="text-center text-[10px] mt-1.5" style={{ color: muted }}>Press Enter to send · Shift+Enter for new line</p>
+          <p className="text-center text-[10px] mt-1.5" style={{ color: muted }}>
+            {chatMic.supported ? 'Type, or tap 🎤 to talk · Enter to send' : 'Press Enter to send · Shift+Enter for new line'}
+          </p>
         </div>
       )}
 
@@ -1297,6 +1543,76 @@ export default function GoalChatPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Chat history drawer ─────────────────────────────────────── */}
+      <AnimatePresence>
+        {historyOpen && (
+          <motion.div
+            className="fixed inset-0 z-[110] flex"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.5)' }} onClick={() => setHistoryOpen(false)} />
+            <motion.div
+              initial={{ x: -340 }} animate={{ x: 0 }} exit={{ x: -340 }}
+              transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+              className="relative w-[300px] max-w-[82%] h-full flex flex-col"
+              style={{ background: isNight ? '#080A14' : '#FFFFFF', borderRight: `1px solid ${border}` }}
+            >
+              <div className="flex items-center justify-between px-4 py-4" style={{ borderBottom: `1px solid ${border}` }}>
+                <p className="text-sm font-black" style={{ color: text }}>Your chats</p>
+                <button onClick={() => setHistoryOpen(false)} className="text-lg" style={{ color: muted }}>✕</button>
+              </div>
+
+              <button
+                onClick={startNewChat}
+                className="mx-3 mt-3 mb-1 py-3 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 text-white flex-shrink-0"
+                style={{ background: 'linear-gradient(135deg,#7C3AED,#1877F2)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                New chat
+              </button>
+
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
+                {threads.length === 0 && (
+                  <p className="text-xs text-center mt-6" style={{ color: muted }}>No saved chats yet. Start talking to Spirit and your conversations will appear here.</p>
+                )}
+                {threads.map(t => {
+                  const active = t.id === threadId;
+                  return (
+                    <div key={t.id}
+                      onClick={() => openThread(t.id)}
+                      className="group flex items-center gap-2 px-3 py-2.5 rounded-2xl cursor-pointer transition-all"
+                      style={{
+                        background: active ? 'rgba(124,58,237,0.15)' : 'transparent',
+                        border: `1px solid ${active ? 'rgba(124,58,237,0.4)' : 'transparent'}`,
+                      }}>
+                      <span className="text-sm flex-shrink-0">{t.goal_id ? '🎯' : '💬'}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold truncate" style={{ color: text }}>{t.title || 'New chat'}</p>
+                        <p className="text-[10px]" style={{ color: muted }}>
+                          {new Date(t.last_message_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </p>
+                      </div>
+                      <button onClick={(e) => deleteThread(t.id, e)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-1.5"
+                        style={{ color: '#EF4444' }} aria-label="Delete chat">🗑</button>
+                    </div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Immersive voice call ────────────────────────────────────── */}
+      <SpiritVoiceCall
+        open={voiceCallOpen}
+        variant={spiritVariant}
+        lastSpiritMessage={lastSpiritMessage}
+        thinking={typing || generating}
+        onSend={(t) => sendWithContentRef.current?.(t)}
+        onClose={() => setVoiceCallOpen(false)}
+      />
     </div>
   );
 }

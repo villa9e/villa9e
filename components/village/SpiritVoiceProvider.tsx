@@ -50,7 +50,42 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
       audioRef.current.currentTime = 0;
       audioRef.current = null;
     }
+    // Also cancel any browser-synth fallback that might be playing
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
     setSpeaking(false);
+  }, []);
+
+  // Browser-native TTS fallback — used when ElevenLabs is unavailable
+  // (e.g. quota exceeded). Free, offline, always available in modern browsers.
+  const speakWithBrowser = useCallback((text: string, gender: VoiceGender) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      setSpeaking(false);
+      return;
+    }
+    try {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      // Prefer a natural English voice matching the chosen gender
+      const femaleHints = ['samantha', 'female', 'victoria', 'karen', 'moira', 'tessa', 'zira'];
+      const maleHints   = ['daniel', 'male', 'alex', 'fred', 'rishi', 'aaron'];
+      const hints = gender === 'male' ? maleHints : femaleHints;
+      const en = voices.filter(v => v.lang.startsWith('en'));
+      const match =
+        en.find(v => hints.some(h => v.name.toLowerCase().includes(h))) ??
+        en[0] ?? voices[0];
+      if (match) utter.voice = match;
+      utter.rate  = 1.02;
+      utter.pitch = gender === 'male' ? 0.92 : 1.05;
+      utter.onend   = () => setSpeaking(false);
+      utter.onerror = () => setSpeaking(false);
+      setSpeaking(true);
+      window.speechSynthesis.speak(utter);
+    } catch {
+      setSpeaking(false);
+    }
   }, []);
 
   const speak = useCallback(async (text: string, tone?: VoiceTone) => {
@@ -74,9 +109,12 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
         signal:  ctrl.signal,
       });
 
-      if (!res.ok || ctrl.signal.aborted) {
-        setSpeaking(false);
-        if (!res.ok) console.warn(`Spirit voice API error ${res.status} — check ELEVENLABS_API_KEY in Vercel env vars`);
+      if (ctrl.signal.aborted) { setSpeaking(false); return; }
+
+      // ElevenLabs unavailable (e.g. quota exceeded) — fall back to browser TTS
+      if (!res.ok) {
+        console.warn(`Spirit voice API error ${res.status} — falling back to browser voice`);
+        speakWithBrowser(text, gender);
         return;
       }
 
@@ -94,17 +132,17 @@ export function SpiritVoiceProvider({ children }: { children: React.ReactNode })
       // Caller is responsible for ensuring this runs after a user gesture
       await audio.play();
     } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        // NotAllowedError = browser blocked autoplay; user must interact first
-        if (e.name === 'NotAllowedError') {
-          console.warn('Spirit voice blocked — needs user interaction first');
-        } else {
-          console.error('Spirit voice error:', e.message);
-        }
+      if (e.name === 'AbortError') { setSpeaking(false); return; }
+      // Network/other failure — try the browser voice before giving up
+      if (e.name === 'NotAllowedError') {
+        console.warn('Spirit voice blocked — needs user interaction first');
+        setSpeaking(false);
+      } else {
+        console.warn('Spirit voice error, falling back to browser voice:', e.message);
+        speakWithBrowser(text, gender);
       }
-      setSpeaking(false);
     }
-  }, [stop]);
+  }, [stop, speakWithBrowser]);
 
   const toggleVoice = useCallback(() => {
     _setVoiceEnabled(prev => {
