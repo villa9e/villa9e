@@ -21,7 +21,7 @@ const C = {
 } as const;
 
 const VB_W = 360;
-const VB_H = 620;
+const VB_H = 720;
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ActionRow { id: string; title: string; completed: boolean; order_index: number }
@@ -32,7 +32,9 @@ interface SprintRow {
 
 // ── Geometry ─────────────────────────────────────────────────────────────────
 function layoutWaypoints(n: number): { x: number; y: number }[] {
-  const top = 80, bottom = 90, usable = VB_H - top - bottom;
+  // Keep the whole route in the top ~470px of the viewBox so it stays visible
+  // above the floating bottom sheet (extra viewBox height below is hidden by it).
+  const top = 120, bottom = VB_H - 470, usable = VB_H - top - bottom;
   const pts: { x: number; y: number }[] = [];
   for (let i = 0; i < n; i++) {
     const t = n === 1 ? 0 : i / (n - 1);          // 0 = start (bottom), 1 = goal (top)
@@ -213,7 +215,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const sheetHeight = sheetSnap === 'peek' ? 120 : sheetSnap === 'expanded' ? '78%' : 320;
+  const sheetPx = sheetSnap === 'peek' ? 120 : sheetSnap === 'expanded' ? 600 : 320;
   const inspect = sprints[inspectIdx];
 
   return (
@@ -247,7 +249,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
       {/* ── Map canvas ────────────────────────────────────────────────────── */}
       <div style={{ position: 'absolute', inset: 0, top: 0, zIndex: 0, background: C.map }}>
-        <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style={{ display: 'block' }}>
+        <svg viewBox={`0 0 ${VB_W} ${VB_H}`} width="100%" height="100%" preserveAspectRatio="xMidYMin slice" style={{ display: 'block' }}>
           {/* Streets */}
           {STREETS.map((d, i) => (
             <path key={i} d={d} stroke={C.street} strokeWidth={i < 3 ? 11 : 9} fill="none" strokeLinecap="round" />
@@ -295,9 +297,10 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
               {/* You-are-here marker */}
               <g transform={`translate(${youPoint.x}, ${youPoint.y})`} style={{ transition: 'transform 1.2s cubic-bezier(0.19,1,0.22,1)' }}>
-                <motion.circle r={12} fill={C.active}
-                  animate={{ r: [12, 22, 12], opacity: [0.35, 0.05, 0.35] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} />
+                <motion.circle r={12} cx={0} cy={0} fill={C.active}
+                  animate={{ scale: [1, 1.85, 1], opacity: [0.35, 0.05, 0.35] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                  style={{ transformOrigin: 'center' }} />
                 <path d="M0,-9 L6,7 L0,3 L-6,7 Z" fill={C.arrow} stroke={C.textHi} strokeWidth={1} />
               </g>
             </>
@@ -325,7 +328,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       )}
 
       {/* ── Floating action buttons ───────────────────────────────────────── */}
-      <div style={{ position: 'absolute', right: 10, bottom: `calc(${typeof sheetHeight === 'number' ? sheetHeight + 12 : '78% + 12px'})`, zIndex: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ position: 'absolute', right: 10, bottom: sheetPx + 12, zIndex: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {[
           { key: 'recenter', icon: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>, onClick: () => setSheetSnap('default') },
           { key: 'reroute', icon: <><circle cx="6" cy="19" r="3" /><circle cx="18" cy="5" r="3" /><path d="M9 19h6a3 3 0 003-3V8" /></>, onClick: () => reroute() },
@@ -341,7 +344,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       <AnimatePresence>
         {toast && (
           <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: `calc(${typeof sheetHeight === 'number' ? sheetHeight + 14 : '78% + 14px'})`, zIndex: 5,
+            style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: sheetPx + 14, zIndex: 5,
               background: C.building, border: `0.5px solid ${C.borderDim}`, borderRadius: 20, padding: '6px 14px' }}>
             <p style={{ fontSize: 11, color: C.textBody, margin: 0, whiteSpace: 'nowrap' }}>{toast}</p>
           </motion.div>
@@ -350,7 +353,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
       {/* ── Bottom sheet ──────────────────────────────────────────────────── */}
       <motion.div
-        animate={{ height: sheetHeight }}
+        animate={{ height: sheetPx }}
         transition={{ type: 'spring', damping: 22, stiffness: 200 }}
         style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 6,
           background: '#0e1828', borderTop: `0.5px solid #1e2a3e`, borderRadius: '18px 18px 0 0',
