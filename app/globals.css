@@ -252,7 +252,7 @@ button, a, [role="button"] {
     min-height: 100vh;
     background: var(--v-bg-2);
   }
-  body > * {
+  body > *:not(next-route-announcer) {
     width: 100%;
     max-width: 480px;
     min-height: 100vh;
@@ -266,6 +266,23 @@ button, a, [role="button"] {
     left: 50% !important;
     transform: translateX(-50%) !important;
   }
+}
+
+/* Next.js route announcer (a11y live region) — must stay invisible and
+   non-interactive. Without this it inherits `body > *` sizing above and
+   becomes a full-viewport opaque layer that blocks the entire app. */
+next-route-announcer {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 /* ── Touch / Pointer: swipe cards work with both touch and mouse ── */
