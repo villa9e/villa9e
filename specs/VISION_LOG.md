@@ -10,6 +10,36 @@ full spec when one exists.
 
 ---
 
+## 2026-06-10 — ViCo coin economics, on-chain verification & GVS (major dump)
+
+The full token economy, captured across several new specs:
+- **ViCo coin** — 33M fixed supply, 4 conversion phases (halving), staking tiers
+  (Proof-of-Stake Access not subscriptions), 20% revenue buyback-burn, Polygon→Village
+  Chain, 15 resolved design answers, smart contracts, $VLG earning table. One sentence:
+  "the first currency you mine with your own progress." → `VICO_COIN_SPEC.md`
+- **Proof of Growth + GVS** — every verified action writes an on-chain Growth Receipt;
+  goal completion issues an Achievement Credential (the on-chain resume for Trading Post);
+  and the **Goal Value Score** scales $VLG to a goal's real difficulty (5 dimensions:
+  complexity, effort, verification rigor, impact, completion rarity) so a SaaS launch
+  earns far more than "drink more water." → `GROWTH_VERIFICATION_GVS_SPEC.md`
+- **Investor path / founder scenarios / disruption & moonshot thesis** →
+  `VICO_INVESTOR_ECONOMICS.md`
+
+## 2026-06-10 — DreamLine, Super Admin, Spirit Tours (new section specs)
+
+- **DreamLine** — goal-aware social feed (NOT TikTok): 5 audience tiers (mentor/alumni/
+  protégé/tribe/discovery), eye-tracking engagement (on-device, consented), progress-as-
+  content, mentorship comments. → `DREAMLINE_SPEC.md`
+- **Super Admin dashboard** — Spirit AI as the org's chief-of-staff intelligence layer
+  (persistent briefing panel, executive summaries, fraud detection, economy simulation).
+  → `SUPER_ADMIN_SPEC.md`
+- **Spirit-guided section tours** — personalized interactive walkthroughs for every
+  section, with a hands-on moment each. → `SPIRIT_TOURS_SPEC.md`
+
+> Note: the same dump also re-stated the full **Data Locker, Pavilion, ViCo Governance,
+> Ads Manager, and Avatar Studio** specs — those already have files (see below). The
+> pasted versions are the fuller canonical detail; refresh those files with it on request.
+
 ## 2026-06-10 — Goal GPS as a Google Maps–style map (signature surface)
 
 **The GPS tab of the Workshop becomes a literal map.** The goal is the destination
@@ -92,29 +122,37 @@ relevant surface:
 Tracks which surfaces have a written vision spec. Legaci is feeding each missing
 one; mark `[x]` + link the spec as they're captured.
 
+> **IMPORTANT — reconciliation needed:** Legaci has given more specific specs in the
+> *past 7 days* (in chat) that OVERRIDE some of these files. Before building any surface,
+> check the recent conversation history for a newer spec and treat the most recent as
+> canonical. When found, update the corresponding file + log entry and note it here.
+
 **Spec'd:**
 - [x] workshop — `WORKSHOP_SPEC.md` + `GOAL_GPS_MAPS_SPEC.md`
 - [x] bank — `BANK_SPEC.md`
 - [x] ads — `ADS_MANAGER_SPEC.md`
-- [x] studio — `AVATAR_STUDIO_SPEC.md`
-- [x] blockchain — `CHAIN_EXPLORER_SPEC.md`
+- [x] studio (avatar) — `AVATAR_STUDIO_SPEC.md`
+- [x] blockchain — `CHAIN_EXPLORER_SPEC.md` + `GROWTH_VERIFICATION_GVS_SPEC.md`
 - [x] locker — `DATA_LOCKER_SPEC.md`
 - [x] merchant — `MERCHANT_NETWORK_SPEC.md`
 - [x] pavilion — `PAVILION_SPEC.md`
-- [x] vico — `VICO_GOVERNANCE_SPEC.md`
+- [x] vico (governance) — `VICO_GOVERNANCE_SPEC.md`
+- [x] vico (coin/economics) — `VICO_COIN_SPEC.md` + `VICO_INVESTOR_ECONOMICS.md`
+- [x] dreamline — `DREAMLINE_SPEC.md`
+- [x] admin — `SUPER_ADMIN_SPEC.md`
+- [x] (cross-cutting) section tours — `SPIRIT_TOURS_SPEC.md`
 - [x] _(platform-wide)_ — `PLATFORM_SPEC.md`
 
 **Not yet captured (awaiting Legaci's description):**
 - [ ] create
 - [ ] discover
-- [ ] dreamline
 - [ ] hospital
 - [ ] hut
 - [ ] live
-- [ ] map
+- [ ] map (3D village world)
 - [ ] personality-maze
 - [ ] spaces
-- [ ] spirit
+- [ ] spirit (companion/personality — partial in memory)
 - [ ] stories
 - [ ] tribes
 - [ ] wellness
@@ -122,7 +160,7 @@ one; mark `[x]` + link the spec as they're captured.
 - [ ] trading-post
 - [ ] notifications
 - [ ] onboarding
-- [ ] profile (`[username]`)
+- [ ] profile (`[username]` / hut)
 
 ---
 
