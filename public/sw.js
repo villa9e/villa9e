@@ -1,5 +1,5 @@
 // villa9e Service Worker — PWA offline support + smart caching
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const STATIC_CACHE  = `villa9e-static-${CACHE_VERSION}`;
 const API_CACHE     = `villa9e-api-${CACHE_VERSION}`;
 
