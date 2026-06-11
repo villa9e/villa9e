@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   try {
     const planResponse = await claude.messages.create({
       model:      CLAUDE_MODEL,
-      max_tokens: 2000,
+      max_tokens: 4096,
       messages: [{
         role:    'user',
         content: `Create a detailed goal action plan as JSON for this goal:
