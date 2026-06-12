@@ -72,23 +72,25 @@ export async function POST(req: NextRequest) {
   );
 
   // Save recalibration record
-  await (admin as any).from('goal_recalibrations').insert({
-    goal_id,
-    user_id:              user.id,
-    reason,
-    probability_before:   goal.probability_score,
-    probability_after:    recalibration.newProbability,
-    probability_delta:    recalibration.probabilityDelta,
-    timeline_weeks_before: goal.estimated_weeks,
-    timeline_weeks_after: recalibration.newTimelineWeeks,
-    timeline_delta_weeks: recalibration.timelineDeltaWeeks,
-    spirit_message:       recalibration.spiritMessage,
-    momentum_action:      recalibration.momentumAction,
-    recalibration_insight: recalibration.recalibrationInsight,
-    timeline_explainer:   recalibration.timelineDeltaExplainer,
-    probability_explainer: recalibration.probabilityExplainer,
-    is_on_track:          recalibration.isOnTrack,
-  }).catch(() => {});
+  try {
+    await (admin as any).from('goal_recalibrations').insert({
+      goal_id,
+      user_id:              user.id,
+      reason,
+      probability_before:   goal.probability_score,
+      probability_after:    recalibration.newProbability,
+      probability_delta:    recalibration.probabilityDelta,
+      timeline_weeks_before: goal.estimated_weeks,
+      timeline_weeks_after: recalibration.newTimelineWeeks,
+      timeline_delta_weeks: recalibration.timelineDeltaWeeks,
+      spirit_message:       recalibration.spiritMessage,
+      momentum_action:      recalibration.momentumAction,
+      recalibration_insight: recalibration.recalibrationInsight,
+      timeline_explainer:   recalibration.timelineDeltaExplainer,
+      probability_explainer: recalibration.probabilityExplainer,
+      is_on_track:          recalibration.isOnTrack,
+    });
+  } catch { /* non-blocking */ }
 
   // Update goal
   await (admin as any).from('goals').update({
@@ -98,20 +100,24 @@ export async function POST(req: NextRequest) {
     recalibration_count:  (goal.recalibration_count ?? 0) + 1,
   }).eq('id', goal_id);
 
-  storeMemory(
-    user.id, 'pattern',
-    `GPS recalibrated for "${goal.title}": ${recalibration.recalibrationInsight}`,
-    { goal_id, reason, new_probability: recalibration.newProbability }, 8
-  ).catch(() => {});
+  try {
+    await storeMemory(
+      user.id, 'pattern',
+      `GPS recalibrated for "${goal.title}": ${recalibration.recalibrationInsight}`,
+      { goal_id, reason, new_probability: recalibration.newProbability }, 8
+    );
+  } catch { /* non-blocking */ }
 
-  await (admin as any).from('notifications').insert({
-    user_id:        user.id,
-    type:           'goal_step',
-    title:          '🗺️ GPS Recalibrated',
-    body:           recalibration.momentumAction,
-    reference_id:   goal_id,
-    reference_type: 'goal',
-  }).catch(() => {});
+  try {
+    await (admin as any).from('notifications').insert({
+      user_id:        user.id,
+      type:           'goal_step',
+      title:          '🗺️ GPS Recalibrated',
+      body:           recalibration.momentumAction,
+      reference_id:   goal_id,
+      reference_type: 'goal',
+    });
+  } catch { /* non-blocking */ }
 
   // Return in both old format (backward compat) and new format
   return NextResponse.json({
