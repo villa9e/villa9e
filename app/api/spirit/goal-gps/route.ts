@@ -3,7 +3,7 @@ import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
 import { findProductsForGoal, findProductsForStep } from '@/lib/affiliate/products';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const YOUTUBE_KEY = process.env.YOUTUBE_API_KEY;
 
