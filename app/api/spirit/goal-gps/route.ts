@@ -230,7 +230,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
       content:     `Started goal: "${gpsData.goalTitle}". ${conversationSummary}`,
       memory_type: 'goal_created',
       importance:  8,
-      goal_id:     goal.id,
+      metadata:    { goal_id: goal.id },
     });
   } catch { /* non-blocking */ }
 
