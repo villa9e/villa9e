@@ -24,7 +24,10 @@ const VB_W = 360;
 const VB_H = 720;
 
 // ── Types ────────────────────────────────────────────────────────────────────
-interface ActionRow { id: string; title: string; completed: boolean; order_index: number; description?: string }
+interface ActionRow {
+  id: string; title: string; completed: boolean; order_index: number; description?: string;
+  canRunParallel: boolean; dependsOnActionIds: string[];
+}
 interface SprintRow {
   id: string; title: string; status: string; sprint_number: number;
   actions: ActionRow[]; waypoint: { x: number; y: number };
@@ -116,6 +119,37 @@ function findLegBoundaries(path: SVGPathElement, totalLen: number, pts: { x: num
   return bounds;
 }
 
+// Find the arc-length along `path` whose point is closest to `target` — used to
+// snap the draggable "you-are-here" marker onto the route while scrubbing.
+function nearestLenOnPath(path: SVGPathElement, totalLen: number, target: { x: number; y: number }): number {
+  const steps = 200;
+  let bestLen = 0, bestDist = Infinity;
+  for (let i = 0; i <= steps; i++) {
+    const l = (totalLen * i) / steps;
+    const p = path.getPointAtLength(l);
+    const d = (p.x - target.x) ** 2 + (p.y - target.y) ** 2;
+    if (d < bestDist) { bestDist = d; bestLen = l; }
+  }
+  const refineSpan = totalLen / steps;
+  for (let l = Math.max(0, bestLen - refineSpan); l <= Math.min(totalLen, bestLen + refineSpan); l += refineSpan / 8) {
+    const p = path.getPointAtLength(l);
+    const d = (p.x - target.x) ** 2 + (p.y - target.y) ** 2;
+    if (d < bestDist) { bestDist = d; bestLen = l; }
+  }
+  return bestLen;
+}
+
+// Which sprint's "leg" of the route contains arc-length `len` — mirrors the
+// leg-clamping used for action turn-markers below.
+function sprintIdxForLen(len: number, legBounds: number[], numSprints: number): number {
+  for (let i = 0; i < numSprints; i++) {
+    const legIdx = Math.min(i, Math.max(legBounds.length - 2, 0));
+    const hi = legBounds[legIdx + 1] ?? legBounds[legBounds.length - 1] ?? 0;
+    if (len <= hi) return i;
+  }
+  return Math.max(numSprints - 1, 0);
+}
+
 // Deterministic short hex "hash" for the chain visual (§9.2) — real on-chain
 // Growth Receipts are future work, so this just gives each block a stable label.
 function pseudoHash(id: string): string {
@@ -152,6 +186,21 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [gapAnalysis, setGapAnalysis] = useState<{ gaps: GapItem[]; can_reach_95: boolean | null } | null>(null);
   const [selectedGap, setSelectedGap] = useState<GapItem | null>(null);
 
+  // ── Marker drag-to-scrub (spec §4.6 amendment) ─────────────────────────────
+  const [scrubbing, setScrubbing] = useState(false);
+  const [scrubPoint, setScrubPoint] = useState<{ x: number; y: number } | null>(null);
+  const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
+  const [detailAction, setDetailAction] = useState<ActionRow | null>(null);
+
+  // ── Proof-of-completion sheet (spec amendment — real verification) ─────────
+  const [proofSheetOpen, setProofSheetOpen] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofNote, setProofNote] = useState('');
+  const [submittingProof, setSubmittingProof] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<{ postId: string; message: string } | null>(null);
+  const proofInputRef = useRef<HTMLInputElement>(null);
+
   const routeRef = useRef<SVGPathElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pinchRef = useRef<{ active: boolean; dist: number; mid: { x: number; y: number }; cam: Camera } | null>(null);
@@ -167,7 +216,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
     const { data: sp } = await (supabase as any)
       .from('sprints')
-      .select('id, title, status, week_start, created_at, sprint_actions(id, title, completed, order_index, goal_steps(description))')
+      .select('id, title, status, week_start, created_at, sprint_actions(id, title, description, completed, order_index, can_run_parallel, depends_on_action_ids, goal_steps(description))')
       .eq('goal_id', params.id)
       .order('created_at', { ascending: true });
 
@@ -175,14 +224,18 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       id: s.id, title: s.title, status: s.status, sprint_number: i + 1,
       actions: (s.sprint_actions ?? [])
         .sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-        .map((a: any) => ({ id: a.id, title: a.title, completed: a.completed, order_index: a.order_index, description: a.goal_steps?.description })),
+        .map((a: any) => ({
+          id: a.id, title: a.title, completed: a.completed, order_index: a.order_index,
+          description: a.description ?? a.goal_steps?.description,
+          canRunParallel: !!a.can_run_parallel, dependsOnActionIds: a.depends_on_action_ids ?? [],
+        })),
       waypoint: { x: 0, y: 0 },
     }));
 
     // Fallback: derive pseudo-sprints from goal_steps if no sprints exist yet
     if (rows.length === 0) {
       const { data: steps } = await (supabase as any)
-        .from('goal_steps').select('id, title, status, step_number, week_number, description')
+        .from('goal_steps').select('id, title, status, step_number, week_number, description, can_run_parallel, depends_on_step_ids')
         .eq('goal_id', params.id).order('step_number', { ascending: true });
       if (steps && steps.length) {
         const byWeek: Record<string, any[]> = {};
@@ -195,6 +248,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
             id: `week-${w}`, title: `Sprint ${i + 1}`, status: 'pending', sprint_number: i + 1,
             actions: byWeek[w].map((st: any, j: number) => ({
               id: st.id, title: st.title, completed: st.status === 'completed', order_index: j, description: st.description,
+              canRunParallel: !!st.can_run_parallel, dependsOnActionIds: st.depends_on_step_ids ?? [],
             })),
             waypoint: { x: 0, y: 0 },
           });
@@ -246,6 +300,30 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     [sprints, activeSprintIdx]
   );
 
+  // Actions a user may verify right now: the next-in-order action of the active
+  // sprint, plus any later incomplete action Spirit flagged canRunInParallel
+  // whose dependsOn actions are all already complete (spec amendment — actions
+  // run in order unless the goal generator marked them as parallel-eligible).
+  const availableActionIds = useMemo(() => {
+    const set = new Set<string>();
+    const active = sprints[activeSprintIdx];
+    if (!active) return set;
+    let seenIncomplete = false;
+    for (const a of active.actions) {
+      if (a.completed) continue;
+      if (!seenIncomplete) { set.add(a.id); seenIncomplete = true; continue; }
+      const depsOk = a.dependsOnActionIds.every(depId => allActions.find(x => x.id === depId)?.completed ?? true);
+      if (a.canRunParallel && depsOk) set.add(a.id);
+    }
+    return set;
+  }, [sprints, activeSprintIdx, allActions]);
+
+  const selectedAction = useMemo(
+    () => allActions.find(a => a.id === selectedActionId) ?? currentAction,
+    [allActions, selectedActionId, currentAction]
+  );
+
+  useEffect(() => { setSelectedActionId(currentAction?.id ?? null); }, [currentAction?.id]);
   useEffect(() => { setInspectIdx(activeSprintIdx); }, [activeSprintIdx]);
 
   // Measure route length once it's rendered
@@ -268,6 +346,34 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     const p = routeRef.current.getPointAtLength(routeLen * progress);
     return { x: p.x, y: p.y };
   }, [routeLen, progress, waypointPts]);
+
+  // Drag the avatar marker up/down the route to scrub through past (completed)
+  // and future (upcoming) sprints — the sheet's sprint inspector follows the
+  // scrub position via setInspectIdx, while actual progress stays unchanged.
+  useEffect(() => {
+    if (!scrubbing) return;
+    function move(e: PointerEvent) {
+      if (!routeRef.current || !routeLen || !svgRef.current) return;
+      const vp = clientToSvg(svgRef.current, e.clientX, e.clientY);
+      const world = { x: (vp.x - camera.x) / camera.scale, y: (vp.y - camera.y) / camera.scale };
+      const len = nearestLenOnPath(routeRef.current, routeLen, world);
+      const p = routeRef.current.getPointAtLength(len);
+      setScrubPoint({ x: p.x, y: p.y });
+      setInspectIdx(sprintIdxForLen(len, legBounds, sprints.length));
+    }
+    function up() { setScrubbing(false); setScrubPoint(null); }
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
+    return () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+    };
+  }, [scrubbing, camera, routeLen, legBounds, sprints.length]);
+
+  const markerPoint = scrubPoint ?? youPoint;
+  const isReviewing = inspectIdx !== activeSprintIdx;
 
   // Per-action "turn markers" along each sprint's leg — revealed at zoom ≥1.6 (§11)
   const actionMarkers = useMemo(() => {
@@ -374,18 +480,19 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
   const hasPlan = totalActions > 0;
 
-  // ── Verify (mine) the current action ───────────────────────────────────────
+  // ── Verify (mine) the selected action ────────────────────────────────────
   async function verifyCurrent() {
-    if (!currentAction || mining) return;
+    const action = selectedAction;
+    if (!action || mining) return;
     setMining(true);
     speak('Verifying your proof.', 'serious');
     // Persist completion (real sprint_actions only; pseudo week- ids are goal_steps)
     try {
       if (sprints[activeSprintIdx]?.id.startsWith('week-')) {
-        await (supabase as any).from('goal_steps').update({ status: 'completed' }).eq('id', currentAction.id);
+        await (supabase as any).from('goal_steps').update({ status: 'completed' }).eq('id', action.id);
       } else {
         await (supabase as any).from('sprint_actions')
-          .update({ completed: true, completed_at: new Date().toISOString() }).eq('id', currentAction.id);
+          .update({ completed: true, completed_at: new Date().toISOString() }).eq('id', action.id);
       }
     } catch { /* non-blocking */ }
 
@@ -395,12 +502,124 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     // Advance locally
     setSprints(prev => prev.map(s => ({
       ...s,
-      actions: s.actions.map(a => a.id === currentAction.id ? { ...a, completed: true } : a),
+      actions: s.actions.map(a => a.id === action.id ? { ...a, completed: true } : a),
     })));
     setMining(false);
     setToast('+25 $VLG mined · Growth Receipt written on-chain');
     speak('Verified. Twenty five V L G mined.', 'casual');
     setTimeout(() => setToast(null), 3200);
+  }
+
+  // ── Verify with real proof: photo/video → Spirit checks instantly, or it
+  // goes to the user's DreamLine for 3 villagers to co-sign (spec amendment) ──
+  function openVerifyFlow() {
+    if (!selectedAction || mining) return;
+    const ownerSprint = sprints.find(s => s.actions.some(a => a.id === selectedAction.id));
+    if (ownerSprint?.id.startsWith('week-')) {
+      // Pseudo-sprints (goals without real sprints yet) keep the simple flow
+      verifyCurrent();
+      return;
+    }
+    setPendingVerification(null);
+    setProofFile(null);
+    setProofPreview(null);
+    setProofNote('');
+    setProofSheetOpen(true);
+  }
+
+  function handleProofFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setProofFile(file);
+    setProofPreview(URL.createObjectURL(file));
+  }
+
+  function sharePending(postId: string) {
+    const url = `${window.location.origin}/village/dreamline/post/${postId}`;
+    if (typeof navigator.share === 'function') {
+      navigator.share({ title: 'Help verify my action', url }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(url);
+      setToast('Link copied — share it with friends!');
+      setTimeout(() => setToast(null), 2400);
+    }
+  }
+
+  async function submitProof() {
+    if (!selectedAction || !proofFile || submittingProof) return;
+    setSubmittingProof(true);
+    try {
+      const form = new FormData();
+      form.append('proof', proofFile);
+      if (proofNote) form.append('note', proofNote);
+      const res = await fetch(`/api/actions/${selectedAction.id}/submit-proof`, { method: 'POST', body: form });
+      const data = await res.json();
+      if (!res.ok) {
+        setToast(data.error ?? 'Could not submit proof.');
+        setTimeout(() => setToast(null), 3200);
+        return;
+      }
+      setProofSheetOpen(false);
+      if (data.status === 'verified') {
+        setMining(true);
+        speak('Verifying your proof.', 'serious');
+        await new Promise(r => setTimeout(r, 3600));
+        setSprints(prev => prev.map(s => ({
+          ...s,
+          actions: s.actions.map(a => a.id === selectedAction.id ? { ...a, completed: true } : a),
+        })));
+        setMining(false);
+        setToast(`+${data.vlgEarned} $VLG mined · Growth Receipt written on-chain`);
+        speak(`Verified. ${data.vlgEarned} V L G mined.`, 'casual');
+        setTimeout(() => setToast(null), 3200);
+      } else {
+        setPendingVerification({ postId: data.dreamlinePostId, message: data.message });
+        setToast(data.message ?? 'Shared to your DreamLine for verification.');
+        speak('Shared to your dream line. Ask three friends to confirm.', 'casual');
+        setTimeout(() => setToast(null), 4000);
+      }
+    } catch {
+      setToast('Could not submit proof.');
+      setTimeout(() => setToast(null), 3200);
+    } finally {
+      setSubmittingProof(false);
+      setProofFile(null);
+      setProofPreview(null);
+    }
+  }
+
+  // ── Swipe the actions panel left/right to browse sprints (spec amendment) ──
+  const actionSwipeRef = useRef<{ x: number; y: number } | null>(null);
+  function onActionsTouchStart(e: React.TouchEvent) {
+    actionSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onActionsTouchEnd(e: React.TouchEvent) {
+    const start = actionSwipeRef.current;
+    actionSwipeRef.current = null;
+    if (!start) return;
+    const dx = e.changedTouches[0].clientX - start.x;
+    const dy = e.changedTouches[0].clientY - start.y;
+    // Swipe up → open the detail drawer for the selected action's instructions
+    if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx) * 1.5) {
+      if (dy < 0 && selectedAction) { e.stopPropagation(); setDetailAction(selectedAction); }
+      return;
+    }
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    e.stopPropagation();
+    setInspectIdx(i => clamp(i + (dx < 0 ? 1 : -1), 0, sprints.length - 1));
+  }
+
+  // ── Swipe down on the detail drawer to dismiss it ──────────────────────────
+  const drawerSwipeRef = useRef<{ x: number; y: number } | null>(null);
+  function onDrawerTouchStart(e: React.TouchEvent) {
+    drawerSwipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }
+  function onDrawerTouchEnd(e: React.TouchEvent) {
+    const start = drawerSwipeRef.current;
+    drawerSwipeRef.current = null;
+    if (!start) return;
+    const dy = e.changedTouches[0].clientY - start.y;
+    if (dy > 40) { e.stopPropagation(); setDetailAction(null); }
   }
 
   // ── Swipe → Workshop / Goals (spec §10.1) ───────────────────────────────────
@@ -564,24 +783,33 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                 </g>
               ))}
 
-              {/* You-are-here marker */}
-              <g transform={`translate(${youPoint.x}, ${youPoint.y})`} style={{ transition: 'transform 1.2s cubic-bezier(0.19,1,0.22,1)' }}>
-                <motion.circle r={12} cx={0} cy={0} fill={C.active}
-                  animate={{ scale: [1, 1.85, 1], opacity: [0.35, 0.05, 0.35] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                  style={{ transformOrigin: 'center' }} />
-                {avatarUrl ? (
-                  <>
-                    <defs>
-                      <clipPath id="you-are-here-clip"><circle r={9} cx={0} cy={0} /></clipPath>
-                    </defs>
-                    <image href={avatarUrl} x={-9} y={-9} width={18} height={18}
-                      clipPath="url(#you-are-here-clip)" preserveAspectRatio="xMidYMid slice" />
-                    <circle r={9} cx={0} cy={0} fill="none" stroke={C.textHi} strokeWidth={1.5} />
-                  </>
-                ) : (
-                  <path d="M0,-9 L6,7 L0,3 L-6,7 Z" fill={C.arrow} stroke={C.textHi} strokeWidth={1} />
+              {/* You-are-here marker — your profile picture, draggable along the
+                  route to scrub through completed/upcoming sprints (spec §4.6) */}
+              <g transform={`translate(${markerPoint.x}, ${markerPoint.y})`}
+                style={{ transition: scrubbing ? 'none' : 'transform 1.2s cubic-bezier(0.19,1,0.22,1)', cursor: 'grab', touchAction: 'none' }}
+                onPointerDown={(e) => { e.stopPropagation(); (e.target as Element).setPointerCapture?.(e.pointerId); setScrubbing(true); }}>
+                {!scrubbing && (
+                  <motion.circle r={12} cx={0} cy={0} fill={C.active}
+                    animate={{ scale: [1, 1.85, 1], opacity: [0.35, 0.05, 0.35] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                    style={{ transformOrigin: 'center' }} />
                 )}
+                {/* Larger invisible hit-area so the marker is easy to grab */}
+                <circle r={16} cx={0} cy={0} fill="transparent" />
+                <defs>
+                  <clipPath id="you-are-here-clip"><circle r={9} cx={0} cy={0} /></clipPath>
+                </defs>
+                {avatarUrl ? (
+                  <image href={avatarUrl} x={-9} y={-9} width={18} height={18}
+                    clipPath="url(#you-are-here-clip)" preserveAspectRatio="xMidYMid slice" />
+                ) : (
+                  <g clipPath="url(#you-are-here-clip)">
+                    <circle r={9} cx={0} cy={0} fill={C.active} />
+                    <circle cx={0} cy={-2.5} r={3.4} fill={C.textHi} />
+                    <path d="M-6,9 C-6,3.5 -3.3,1 0,1 C3.3,1 6,3.5 6,9 Z" fill={C.textHi} />
+                  </g>
+                )}
+                <circle r={9} cx={0} cy={0} fill="none" stroke={scrubbing ? C.amberText : C.textHi} strokeWidth={scrubbing ? 2 : 1.5} />
               </g>
 
               {/* Action turn-markers — fade in 1.6→1.8 zoom (§11 Sprint view) */}
@@ -776,29 +1004,65 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
               </div>
             )}
 
-            {/* Sprint inspector */}
-            <p style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.4px', textTransform: 'uppercase', margin: '0 0 6px' }}>
-              Sprint {inspect?.sprint_number} — {inspect?.title}
-            </p>
-            <div style={{ marginBottom: 12 }}>
+            {/* Sprint inspector — drag the marker or swipe this panel left/right
+                to browse past (completed) and future (upcoming) sprints */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <p style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.4px', textTransform: 'uppercase', margin: 0 }}>
+                {isReviewing ? `Reviewing · Sprint ${inspect?.sprint_number} — ${inspect?.title}` : `Sprint ${inspect?.sprint_number} — ${inspect?.title}`}
+              </p>
+              {isReviewing && (
+                <button onClick={() => setInspectIdx(activeSprintIdx)}
+                  style={{ fontSize: 10, fontWeight: 500, color: C.amberText, background: 'none', border: 'none', cursor: 'pointer', padding: 0, whiteSpace: 'nowrap' }}>
+                  Back to current
+                </button>
+              )}
+            </div>
+            <div
+              onTouchStart={onActionsTouchStart}
+              onTouchEnd={onActionsTouchEnd}
+              style={{ marginBottom: 12, touchAction: 'pan-y' }}>
               {(inspect?.actions ?? []).map(a => {
-                const isCurrent = a.id === currentAction?.id;
+                const isSelected = !isReviewing && a.id === selectedAction?.id;
+                const isAvailable = !isReviewing && !a.completed && availableActionIds.has(a.id);
+                const isLocked = !isReviewing && !a.completed && !isAvailable;
                 return (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0' }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.completed ? C.check : isCurrent ? C.arrow : C.buildingLabel} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      {a.completed ? <path d="M20 6L9 17l-5-5" /> : isCurrent ? <path d="M3 11l19-9-9 19-2-8-8-2z" /> : <circle cx="12" cy="12" r="9" />}
+                  <div key={a.id}
+                    onClick={() => setDetailAction(a)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0', cursor: 'pointer', opacity: isLocked ? 0.55 : 1 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={a.completed ? C.check : isSelected ? C.arrow : isLocked ? C.buildingLabel : C.textBody} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      {a.completed ? <path d="M20 6L9 17l-5-5" />
+                        : isSelected ? <path d="M3 11l19-9-9 19-2-8-8-2z" />
+                        : isLocked ? <><rect x="5" y="11" width="14" height="9" rx="1.5" /><path d="M8 11V8a4 4 0 018 0v3" /></>
+                        : <circle cx="12" cy="12" r="9" />}
                     </svg>
-                    <span style={{ fontSize: 11, fontWeight: isCurrent ? 500 : 400, color: a.completed ? C.textMute : isCurrent ? '#EEEDFE' : C.textBody, textDecoration: a.completed ? 'line-through' : 'none' }}>{a.title}</span>
+                    <span style={{ fontSize: 11, fontWeight: isSelected ? 500 : 400, color: a.completed ? C.textMute : isSelected ? '#EEEDFE' : isLocked ? C.textMute : C.textBody, textDecoration: a.completed ? 'line-through' : 'none', flex: 1 }}>{a.title}</span>
+                    {isAvailable && !isSelected && (
+                      <span title="Can be done out of order" style={{ fontSize: 9, color: C.amberText, background: C.amberBg, borderRadius: 8, padding: '1px 6px', flexShrink: 0 }}>⇄</span>
+                    )}
                   </div>
                 );
               })}
             </div>
 
             {/* Verify button */}
-            <button onClick={verifyCurrent} disabled={!currentAction || mining}
-              style={{ width: '100%', background: mining ? C.wpDone : C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: currentAction && !mining ? 'pointer' : 'default', opacity: !currentAction ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {mining ? 'Mining…' : currentAction ? '⛏ Verify action · mine $VLG' : '✓ All actions complete'}
+            <button onClick={openVerifyFlow} disabled={!selectedAction || mining}
+              style={{ width: '100%', background: mining ? C.wpDone : C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: selectedAction && !mining ? 'pointer' : 'default', opacity: !selectedAction ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              {mining ? 'Mining…' : selectedAction ? '⛏ Verify action · mine $VLG' : '✓ All actions complete'}
             </button>
+
+            {/* Pending DreamLine co-sign — proof shared, waiting on 3 villagers */}
+            {pendingVerification && (
+              <div style={{ marginTop: 8, padding: '8px 10px', borderRadius: 10, background: C.amberBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <span style={{ fontSize: 11, color: C.amberText, fontWeight: 600 }}>Waiting on 3 friends to verify your proof</span>
+                <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
+                  <Link href={`/village/dreamline/post/${pendingVerification.postId}`} style={{ fontSize: 11, color: C.amberText, fontWeight: 700, textDecoration: 'underline' }}>View</Link>
+                  <button onClick={() => sharePending(pendingVerification.postId)}
+                    style={{ background: 'none', border: 'none', color: C.amberText, fontSize: 11, fontWeight: 700, cursor: 'pointer', textDecoration: 'underline', padding: 0 }}>
+                    Share & invite
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Mining sequence (simplified) */}
             <AnimatePresence>
@@ -830,7 +1094,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                         </g>
                       );
                     })}
-                    {currentAction && (() => {
+                    {selectedAction && (() => {
                       const x = 10 + existingBlocks.length * 50;
                       const prevEnd = existingBlocks.length > 0 ? 10 + (existingBlocks.length - 1) * 50 + 34 : x;
                       return (
@@ -841,7 +1105,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                           )}
                           <motion.g initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 2.4, duration: 0.6, ease: 'easeOut' }}>
                             <rect x={x} y={11} width={34} height={22} rx={4} fill={C.amberBg} stroke={C.gap} strokeWidth={1.5} />
-                            <text x={x + 17} y={25} textAnchor="middle" fontSize={7} fontFamily="monospace" fill={C.amberText}>{pseudoHash(currentAction.id)}</text>
+                            <text x={x + 17} y={25} textAnchor="middle" fontSize={7} fontFamily="monospace" fill={C.amberText}>{pseudoHash(selectedAction.id)}</text>
                           </motion.g>
                         </g>
                       );
@@ -853,6 +1117,110 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
           </>
         )}
       </motion.div>
+
+      {/* ── Action detail drawer — tap an action, or swipe up on the actions
+          panel, to slide up full instructions for that step ─────────────── */}
+      <AnimatePresence>
+        {detailAction && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setDetailAction(null)}
+              style={{ position: 'absolute', inset: 0, zIndex: 9, background: 'rgba(5,9,18,0.55)' }} />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              onTouchStart={onDrawerTouchStart} onTouchEnd={onDrawerTouchEnd}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 10, maxHeight: '70%',
+                background: '#0e1828', borderTop: `0.5px solid ${C.borderDim}`, borderRadius: '18px 18px 0 0',
+                padding: '8px 16px calc(28px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
+              <div onClick={() => setDetailAction(null)} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px', cursor: 'pointer' }}>
+                <div style={{ width: 34, height: 4, borderRadius: 2, background: C.borderDim }} />
+              </div>
+              <p style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.4px', textTransform: 'uppercase', margin: '0 0 6px' }}>
+                Sprint {inspect?.sprint_number} · action {(inspect?.actions.findIndex(a => a.id === detailAction.id) ?? 0) + 1} of {inspect?.actions.length}
+              </p>
+              <p style={{ fontSize: 16, fontWeight: 600, color: C.textHi, margin: '0 0 8px', lineHeight: 1.35 }}>{detailAction.title}</p>
+              <p style={{ fontSize: 13, color: C.textBody, margin: '0 0 16px', lineHeight: 1.55 }}>
+                {detailAction.description || 'No additional instructions for this action yet — Spirit will add detail as your plan evolves.'}
+              </p>
+
+              {detailAction.completed ? (
+                <span style={{ fontSize: 11, fontWeight: 500, color: C.wpDoneStroke, background: C.probBg, borderRadius: 12, padding: '4px 10px' }}>✓ Completed</span>
+              ) : detailAction.id === selectedAction?.id ? (
+                <button onClick={() => setDetailAction(null)}
+                  style={{ width: '100%', background: C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
+                  This is what I'm working on
+                </button>
+              ) : availableActionIds.has(detailAction.id) ? (
+                <button onClick={() => { setSelectedActionId(detailAction.id); setDetailAction(null); }}
+                  style={{ width: '100%', background: C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  ⇄ Work on this now
+                </button>
+              ) : (
+                <span style={{ fontSize: 11, color: C.textMute, background: C.completeBg, borderRadius: 12, padding: '4px 10px' }}>🔒 Complete earlier actions first</span>
+              )}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Proof-of-completion sheet — photo/video proof, Spirit checks it
+          instantly; if it can't confirm, this goes to the user's DreamLine for
+          3 villagers to co-sign before the action counts complete ─────────── */}
+      <AnimatePresence>
+        {proofSheetOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !submittingProof && setProofSheetOpen(false)}
+              style={{ position: 'absolute', inset: 0, zIndex: 11, background: 'rgba(5,9,18,0.6)' }} />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 12, maxHeight: '85%',
+                background: '#0e1828', borderTop: `0.5px solid ${C.borderDim}`, borderRadius: '18px 18px 0 0',
+                padding: '8px 16px calc(28px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
+              <div onClick={() => !submittingProof && setProofSheetOpen(false)} style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px', cursor: 'pointer' }}>
+                <div style={{ width: 34, height: 4, borderRadius: 2, background: C.borderDim }} />
+              </div>
+              <p style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.4px', textTransform: 'uppercase', margin: '0 0 6px' }}>Proof of completion</p>
+              <p style={{ fontSize: 14, fontWeight: 600, color: C.textHi, margin: '0 0 12px', lineHeight: 1.35 }}>{selectedAction?.title}</p>
+
+              {proofPreview ? (
+                proofFile?.type.startsWith('video') ? (
+                  <video src={proofPreview} controls playsInline style={{ width: '100%', maxHeight: 220, borderRadius: 10, marginBottom: 10, background: '#000' }} />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proofPreview} alt="proof preview" style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />
+                )
+              ) : (
+                <button onClick={() => proofInputRef.current?.click()}
+                  style={{ width: '100%', border: `1px dashed ${C.borderDim}`, borderRadius: 10, padding: '24px 10px', background: 'none', color: C.textMute, fontSize: 12, cursor: 'pointer', marginBottom: 10 }}>
+                  📷 Tap to add a photo or video as proof
+                </button>
+              )}
+              {proofPreview && (
+                <button onClick={() => proofInputRef.current?.click()}
+                  style={{ width: '100%', border: `1px solid ${C.borderDim}`, borderRadius: 8, padding: 8, background: 'none', color: C.textBody, fontSize: 11, cursor: 'pointer', marginBottom: 10 }}>
+                  Choose a different file
+                </button>
+              )}
+              <input ref={proofInputRef} type="file" accept="image/*,video/*" onChange={handleProofFile} style={{ display: 'none' }} />
+
+              <textarea value={proofNote} onChange={e => setProofNote(e.target.value)} placeholder="Add a note about what you did (optional)"
+                rows={2} style={{ width: '100%', resize: 'none', borderRadius: 10, border: `1px solid ${C.borderDim}`, background: 'transparent', color: C.textBody, fontSize: 12, padding: 8, marginBottom: 10, fontFamily: 'inherit' }} />
+
+              <p style={{ fontSize: 11, color: C.textMute, margin: '0 0 12px', lineHeight: 1.5 }}>
+                Spirit checks photos instantly. If it can&apos;t confirm right away — or you upload a video — this goes to your DreamLine where 3 villagers can verify it for you.
+              </p>
+
+              <button onClick={submitProof} disabled={!proofFile || submittingProof}
+                style={{ width: '100%', background: C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: proofFile && !submittingProof ? 'pointer' : 'default', opacity: !proofFile ? 0.4 : 1 }}>
+                {submittingProof ? 'Submitting…' : 'Submit proof'}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 

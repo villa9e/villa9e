@@ -609,8 +609,27 @@ function HutPageInner() {
   const [showQR, setShowQR] = useState(false);
   const [loading, setLoading] = useState(true);
   const [pillModal, setPillModal] = useState<PillType | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+
+  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarUploading(true);
+    try {
+      const form = new FormData();
+      form.append('avatar', file);
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setProfile((p: any) => ({ ...p, avatar_url: data.url }));
+      }
+    } catch { /* non-blocking */ }
+    setAvatarUploading(false);
+    e.target.value = '';
+  }
 
   // Desktop arrow-key navigation
   useEffect(() => {
@@ -911,6 +930,7 @@ function HutPageInner() {
             }}
           >
             <div
+              onClick={() => isOwnProfile && !avatarUploading && avatarFileRef.current?.click()}
               style={{
                 width: '100%',
                 height: '100%',
@@ -921,14 +941,41 @@ function HutPageInner() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                position: 'relative',
+                cursor: isOwnProfile ? 'pointer' : 'default',
               }}
             >
               <img
                 src={profile?.avatar_url || '/default-avatar.png'}
                 alt="Profile avatar"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: avatarUploading ? 0.4 : 1 }}
               />
+              {isOwnProfile && avatarUploading && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.35)' }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>Uploading…</span>
+                </div>
+              )}
             </div>
+            {isOwnProfile && (
+              <input ref={avatarFileRef} type="file" accept="image/*" onChange={uploadAvatar}
+                style={{ display: 'none' }} aria-label="Upload profile picture" />
+            )}
+            {/* Edit-photo badge — own profile only */}
+            {isOwnProfile && !avatarUploading && (
+              <button
+                onClick={() => avatarFileRef.current?.click()}
+                aria-label="Change profile picture"
+                style={{
+                  position: 'absolute', bottom: 0, left: 0, width: 24, height: 24, borderRadius: 12,
+                  background: '#2952E8', border: '2px solid #080E24', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', cursor: 'pointer', padding: 0,
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14.7 2.7a1 1 0 011.4 0l2.2 2.2a1 1 0 010 1.4L9 15.5 5 16.5l1-4L14.7 2.7z" />
+                </svg>
+              </button>
+            )}
             {/* Verified badge */}
             {profile?.is_verified && (
               <div

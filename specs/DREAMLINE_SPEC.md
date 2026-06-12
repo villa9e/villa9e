@@ -101,4 +101,15 @@ goals, wellness, content prefs simultaneously. Targets by current GPS action (co
 sprint 3 → mic/email tools; just completed "get a job in tech" → laptop, dev courses,
 financial planning). Reads entire profile, not just DreamLine activity.
 
+## Verification request posts (2026-06-12 amendment)
+
+`milestone_type: 'verification_request'` — created by
+`POST /api/actions/[id]/submit-proof` (GOAL_GPS_MAPS_SPEC.md §17.5) when a GPS
+action's photo/video proof can't be confidently verified by Spirit/Claude
+vision right away. `media_urls`/`media_types` hold the proof; `action_verifications`
++ `action_verification_votes` (migration `050_action_verifications.sql`) track
+the 3-vote co-sign. Rendered via `VerificationRequestCard` with Confirm/Reject
+buttons, an X/3 progress bar, and (for the owner) a Share & invite CTA — this is
+the app's primary "share proof, invite friends" surface.
+
 See [[project-villa9e-vision-log]], WORKSHOP_SPEC.md, PAVILION_SPEC.md.

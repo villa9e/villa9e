@@ -578,6 +578,84 @@ GET  /api/resources/{id}/recommend     → affiliate popover payload
 
 ---
 
+## 17. Amendments (2026-06-12) — marker, scrubbing, ordering, proof verification
+
+These amendments are implemented in `app/village/workshop/gps/[id]/page.tsx`.
+
+### 17.1 "You are here" marker = profile picture, not an arrow
+
+The marker is always the user's avatar (with a hand-drawn default silhouette if
+no `avatar_url`) — never an arrow shape, on the map and in any future GPS-style
+view. Clicking the user's avatar on `/village/hut` opens a file picker and
+uploads a new profile picture via `POST /api/profile/avatar` (existing route);
+the new `avatar_url` updates the marker everywhere immediately.
+
+### 17.2 Drag-to-scrub the timeline
+
+The avatar marker can be dragged up/down along the route (pointer events) to
+scrub through completed and upcoming sprints. Dragging snaps to the nearest
+point on the route path (`nearestLenOnPath`) and updates `inspectIdx` via
+`sprintIdxForLen` + `legBounds` — this is **view-only**: it changes which
+sprint's actions the bottom sheet shows, not the user's actual progress
+(`youPoint`/`progress` are unaffected). A "Back to current" control returns
+`inspectIdx` to `activeSprintIdx`.
+
+### 17.3 Sequential actions, with a parallel-action exception
+
+Actions within the active sprint must be completed in order **unless** Spirit
+(the GPS sprint generator, `lib/claude/gps.ts`) flagged a later action
+`canRunInParallel: true` with `dependsOn` referencing only already-complete
+actions. These flags persist as `sprint_actions.can_run_parallel` /
+`depends_on_action_ids` (migration `049_gps_action_ordering.sql`; temp ids like
+`"s1a2"` are resolved to real UUIDs in `app/api/gps/activate/route.ts`). The
+set of currently-workable actions is `availableActionIds`. The user picks among
+them via the action detail drawer's "⇄ Work on this now" button, which sets
+`selectedActionId` (distinct from `currentAction`, the strict next-in-order
+action).
+
+### 17.4 Swipe left/right on the actions panel; swipe up / tap for details
+
+Horizontal swipes on the bottom-sheet action list move `inspectIdx` to the
+adjacent sprint (past = completed, future = upcoming), independent of the
+marker drag in 17.2. A vertical swipe-up, or tapping any action row, opens a
+sliding detail drawer with that action's full title/description and a
+contextual control (✓ Completed / "This is what I'm working on" / "⇄ Work on
+this now" / 🔒 locked). Swiping down on the drawer dismisses it.
+
+### 17.5 Real verification: proof upload → AI check → DreamLine co-sign
+
+"⛏ Verify action · mine $VLG" no longer instantly completes the action. It
+opens a proof sheet requiring a photo or video of the completed action (plus
+an optional note):
+
+1. `POST /api/actions/[id]/submit-proof` uploads the file to the
+   `action-proofs` storage bucket.
+2. **Photos** are checked immediately by Claude vision. If confidence ≥ 75,
+   the action is marked complete, the sprint-completion cascade runs, and
+   $VLG is awarded — the existing mining animation/Village-chain visual plays.
+3. **Videos**, and photos Claude can't confidently verify, create a
+   `action_verifications` row (`status: 'pending'`, migration
+   `050_action_verifications.sql`) and a `dream_line_posts` entry
+   (`milestone_type: 'verification_request'`) with the proof attached. The
+   action stays incomplete.
+4. On the user's DreamLine, the post renders a "Verify this proof" card
+   (`VerificationRequestCard` in `app/village/dreamline/page.tsx`) showing the
+   media, an X/3 confirm progress bar, and Confirm/Reject buttons for other
+   villagers (`POST /api/dreamline/verifications/[id]/vote`). At 3 confirms
+   the action completes, the sprint cascade runs, and $VLG is awarded to the
+   owner (10) and each voter (1, as thanks). At 3 rejects the request closes
+   so the user can resubmit proof.
+5. The GPS page shows a "Waiting on 3 friends to verify your proof" banner
+   with **View** (link to the DreamLine post) and **Share & invite** (native
+   share sheet, falling back to copy-link) — this is the share/invite path
+   that also brings new people into the app.
+
+Pseudo-sprints (`goal_steps`-backed, ids prefixed `week-`, used before a goal
+has real GPS sprints) keep the older instant-complete verify flow — the proof/
+co-sign system applies to `sprint_actions` only.
+
+---
+
 ## Build status / relationship to current code
 
 - The current `app/village/workshop/goal/[id]/page.tsx` is the interim

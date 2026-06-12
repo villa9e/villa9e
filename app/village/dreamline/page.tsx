@@ -368,6 +368,130 @@ function SpiritInsightCard({ isNight }: { isNight: boolean }) {
   );
 }
 
+// ── Verification request card — proof submitted for an action that AI couldn't
+// confidently verify; needs 3 villagers to confirm before it counts complete ──
+function VerificationRequestCard({ post, currentUserId, isNight }: {
+  post: any; currentUserId: string | null; isNight: boolean;
+}) {
+  const [verification, setVerification] = useState<any>(null);
+  const [myVote, setMyVote] = useState<'confirm' | 'reject' | null>(null);
+  const [voting, setVoting] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function load() {
+      const { data: v } = await (supabase as any)
+        .from('action_verifications').select('*').eq('dreamline_post_id', post.id).maybeSingle();
+      setVerification(v);
+      if (v && currentUserId) {
+        const { data: myv } = await (supabase as any)
+          .from('action_verification_votes').select('vote')
+          .eq('verification_id', v.id).eq('voter_id', currentUserId).maybeSingle();
+        setMyVote(myv?.vote ?? null);
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.id, currentUserId]);
+
+  if (!verification) return null;
+
+  const proofUrl  = post.media_urls?.[0];
+  const proofType = post.media_types?.[0];
+  const isOwner   = currentUserId === post.user_id;
+  const text  = isNight ? '#E8E3F8' : '#1E1B4B';
+  const muted = isNight ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.38)';
+
+  async function castVote(vote: 'confirm' | 'reject') {
+    if (voting || myVote || isOwner) return;
+    setVoting(true);
+    const res = await fetch(`/api/dreamline/verifications/${verification.id}/vote`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vote }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setMyVote(vote);
+      setVerification((v: any) => ({ ...v, votes_confirm: data.votesConfirm, votes_reject: data.votesReject, status: data.status }));
+    }
+    setVoting(false);
+  }
+
+  async function share() {
+    const url = `${window.location.origin}/village/dreamline/post/${post.id}`;
+    if (navigator.share) {
+      navigator.share({ title: 'Help verify this action', url }).catch(() => {});
+    } else {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <div style={{
+      margin: '0 16px 12px', borderRadius: 14, overflow: 'hidden',
+      border: '1px solid rgba(245,158,11,0.3)',
+      background: isNight ? 'rgba(245,158,11,0.06)' : 'rgba(245,158,11,0.05)',
+    }}>
+      <div style={{ padding: '10px 14px 6px' }}>
+        <span style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Verify this proof
+        </span>
+      </div>
+      {proofUrl && proofType === 'image' && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={proofUrl} alt="proof" style={{ width: '100%', maxHeight: 360, objectFit: 'cover', display: 'block' }} />
+      )}
+      {proofUrl && proofType === 'video' && (
+        <video src={proofUrl} controls playsInline style={{ width: '100%', maxHeight: 360, display: 'block' }} />
+      )}
+      <div style={{ padding: '10px 14px' }}>
+        {verification.status === 'pending' ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <div style={{ flex: 1, height: 6, borderRadius: 3, background: isNight ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%',
+                  width: `${Math.min(100, (verification.votes_confirm / verification.votes_required) * 100)}%`,
+                  background: '#10B981', transition: 'width 0.3s',
+                }} />
+              </div>
+              <span style={{ fontSize: 11, color: muted, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                {verification.votes_confirm}/{verification.votes_required} confirmed
+              </span>
+            </div>
+            {isOwner ? (
+              <button onClick={share} style={{ width: '100%', background: '#F59E0B', border: 'none', borderRadius: 10, padding: 10, color: '#1E1B4B', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
+                {copied ? 'Link copied!' : '📤 Share & invite friends to verify'}
+              </button>
+            ) : myVote ? (
+              <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>
+                {myVote === 'confirm' ? '✓ You confirmed this' : '✕ You marked this as not done'}
+              </span>
+            ) : (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button onClick={() => castVote('confirm')} disabled={voting}
+                  style={{ flex: 1, background: '#10B981', border: 'none', borderRadius: 10, padding: 10, color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: voting ? 0.6 : 1 }}>
+                  ✓ Confirm
+                </button>
+                <button onClick={() => castVote('reject')} disabled={voting}
+                  style={{ flex: 1, background: 'transparent', border: `1px solid ${muted}`, borderRadius: 10, padding: 10, color: text, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: voting ? 0.6 : 1 }}>
+                  ✕ Not yet
+                </button>
+              </div>
+            )}
+          </>
+        ) : verification.status === 'verified' ? (
+          <span style={{ fontSize: 12, color: '#10B981', fontWeight: 800 }}>✓ Verified by the village · action complete</span>
+        ) : (
+          <span style={{ fontSize: 12, color: muted, fontWeight: 700 }}>This proof wasn&apos;t confirmed — try submitting new proof.</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Post type badge ───────────────────────────────────────────────────────────
 function PostTypeBadge({ label }: { label: DreamlineLabel }) {
   const cfg = DREAMLINE_LABELS[label];
@@ -598,6 +722,11 @@ function PostCard({
             </div>
           )}
         </div>
+      )}
+
+      {/* Verification request — proof needs 3 villagers to confirm (spec amendment) */}
+      {post.milestone_type === 'verification_request' && (
+        <VerificationRequestCard post={post} currentUserId={currentUserId} isNight={isNight} />
       )}
 
       {/* Action bar (bottom strip — kept for layout spacing) */}

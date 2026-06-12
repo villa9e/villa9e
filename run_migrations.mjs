@@ -3,8 +3,8 @@ const { Client } = pkg;
 import { readFileSync } from 'fs';
 
 const MIGRATIONS = [
-  '/Users/legacijackson/villa9e/supabase/migrations/035_messaging_journal_crowdfunding.sql',
-  '/Users/legacijackson/villa9e/supabase/migrations/036_village_platform.sql',
+  '/Users/legacijackson/villa9e/supabase/migrations/049_gps_action_ordering.sql',
+  '/Users/legacijackson/villa9e/supabase/migrations/050_action_verifications.sql',
 ];
 
 async function run() {

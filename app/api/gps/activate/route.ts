@@ -82,27 +82,38 @@ export async function POST(req: NextRequest) {
 
       if (error || !savedSprint) return null;
 
-      // Save sprint actions
+      // Save sprint actions, then resolve each action's `dependsOn` (Spirit's
+      // temp ids like "s1a2") into real sprint_actions.id values so the GPS
+      // page can enforce ordering — only actions flagged canRunInParallel
+      // with all dependencies complete may be tackled ahead of the queue.
       if (sprint.actions?.length) {
         try {
-          await admin.from('sprint_actions').insert(
+          const { data: savedActions } = await admin.from('sprint_actions').insert(
             sprint.actions.map((action, aIdx) => ({
-              sprint_id:   savedSprint.id,
-              title:       action.title,
-              description: action.description,
-              order_index: aIdx,
-              completed:   false,
-              metadata: {
-                estimatedHours:       action.estimatedHours,
-                resourceCategory:     action.resourceCategory,
-                canRunInParallel:     action.canRunInParallel,
-                dependsOn:            action.dependsOn,
-                villageResourceNeeded: action.villageResourceNeeded,
-                aiCanAssist:          action.aiCanAssist,
-                aiAssistanceNotes:    action.aiAssistanceNotes,
-              },
+              sprint_id:        savedSprint.id,
+              title:            action.title,
+              description:      action.description,
+              order_index:      aIdx,
+              completed:        false,
+              can_run_parallel: action.canRunInParallel,
             }))
-          );
+          ).select('id, order_index');
+
+          if (savedActions?.length) {
+            const dbIdByTempId = new Map<string, string>();
+            savedActions.forEach((row: any) => {
+              const tempId = sprint.actions[row.order_index]?.id;
+              if (tempId) dbIdByTempId.set(tempId, row.id);
+            });
+
+            await Promise.all(savedActions.map(async (row: any) => {
+              const tempDeps = sprint.actions[row.order_index]?.dependsOn ?? [];
+              const dbDeps = tempDeps.map((t: string) => dbIdByTempId.get(t)).filter((v: string | undefined): v is string => !!v);
+              if (dbDeps.length) {
+                await admin.from('sprint_actions').update({ depends_on_action_ids: dbDeps }).eq('id', row.id);
+              }
+            }));
+          }
         } catch { /* non-blocking */ }
       }
 
