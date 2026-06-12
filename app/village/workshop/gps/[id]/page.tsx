@@ -76,6 +76,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [mining, setMining] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [routeLen, setRouteLen] = useState(0);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const routeRef = useRef<SVGPathElement>(null);
   const touchStart = useRef({ x: 0, y: 0, t: 0 });
@@ -126,6 +127,13 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     rows.forEach((r, i) => { r.waypoint = pts[i] ?? pts[pts.length - 1]; });
     setSprints(rows);
     setLoading(false);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('avatar_url').eq('id', user.id).single();
+      if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+    }
   }, [params.id, supabase]);
 
   useEffect(() => { load(); }, [load]);
@@ -301,7 +309,18 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                   animate={{ scale: [1, 1.85, 1], opacity: [0.35, 0.05, 0.35] }}
                   transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                   style={{ transformOrigin: 'center' }} />
-                <path d="M0,-9 L6,7 L0,3 L-6,7 Z" fill={C.arrow} stroke={C.textHi} strokeWidth={1} />
+                {avatarUrl ? (
+                  <>
+                    <defs>
+                      <clipPath id="you-are-here-clip"><circle r={9} cx={0} cy={0} /></clipPath>
+                    </defs>
+                    <image href={avatarUrl} x={-9} y={-9} width={18} height={18}
+                      clipPath="url(#you-are-here-clip)" preserveAspectRatio="xMidYMid slice" />
+                    <circle r={9} cx={0} cy={0} fill="none" stroke={C.textHi} strokeWidth={1.5} />
+                  </>
+                ) : (
+                  <path d="M0,-9 L6,7 L0,3 L-6,7 Z" fill={C.arrow} stroke={C.textHi} strokeWidth={1} />
+                )}
               </g>
             </>
           )}
