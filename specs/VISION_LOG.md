@@ -62,7 +62,13 @@ sprint view → Wayfinder action instructions, like highway → street view).
 
 ---
 
-## 2026-06-10 — Workshop / goal navigation model
+## 2026-06-10 — Workshop / goal navigation model ✅ IMPLEMENTED (2026-06-11/12)
+
+> Done via commits `af86b47`, `4cf212e`, `93faf09`, `1dae769`, `24d59d8`. The Maps GPS page
+> is live, shares the Goals|Workshop|GPS tab bar (animated underline via shared
+> `WorkshopTabBar` component + framer-motion `layoutId`), left/right swipe nav works
+> across all three pages, the you-are-here marker uses the user's profile picture
+> (falls back to an arrow), and the old per-goal Spirit/Instructions tabs are removed.
 
 - The Workshop section has three top-level tabs everywhere: **Goals | Workshop | GPS**.
   - **Goals** → the Spirit goal-building chat (`/village/workshop/chat`).
@@ -77,7 +83,11 @@ sprint view → Wayfinder action instructions, like highway → street view).
 
 ---
 
-## 2026-06-10 — Spirit goal chat: voice + threads
+## 2026-06-10 — Spirit goal chat: voice + threads ✅ IMPLEMENTED
+
+> Confirmed live in `app/village/workshop/chat/page.tsx`: voice call (`SpiritVoiceCall`,
+> `useSpeechRecognition`), color/voice selection, and chat threads via
+> `spirit_chat_threads` (migration 048) with history + resume.
 
 - **Voice conversation.** Users can talk to Spirit hands-free: a mic button in the
   chat bar (push-to-talk → transcribe → auto-send) and an immersive full-screen
@@ -122,13 +132,18 @@ relevant surface:
 Tracks which surfaces have a written vision spec. Legaci is feeding each missing
 one; mark `[x]` + link the spec as they're captured.
 
-> **IMPORTANT — reconciliation needed:** Legaci has given more specific specs in the
-> *past 7 days* (in chat) that OVERRIDE some of these files. Before building any surface,
-> check the recent conversation history for a newer spec and treat the most recent as
-> canonical. When found, update the corresponding file + log entry and note it here.
+> **Reconciliation pass (2026-06-12):** Compared the 2026-06-10 "fuller restatement" of
+> Data Locker, Pavilion, ViCo Governance, Ads Manager, and Avatar Studio against the
+> existing 2026-06-03 spec files — **no material differences found** (same numbers,
+> mechanics, routes; the dump was just fuller prose). No file refresh needed; treating
+> as resolved. Going forward: before building any surface, still check recent
+> conversation history for a newer spec and treat the most recent as canonical.
 
 **Spec'd:**
-- [x] workshop — `WORKSHOP_SPEC.md` + `GOAL_GPS_MAPS_SPEC.md`
+- [x] workshop — `WORKSHOP_SPEC.md` + `GOAL_GPS_MAPS_SPEC.md` (GPS Maps page **built** 2026-06-11/12;
+  remaining gaps: §6 reroute FAB has no `/api/gps/recalibrate` endpoint, §6 recenter FAB
+  has no eased camera animation, §9.2 mining sequence has no real tx-hash/block-explorer
+  visual, §9.3 wallet doesn't animate to server-returned balance)
 - [x] bank — `BANK_SPEC.md`
 - [x] ads — `ADS_MANAGER_SPEC.md`
 - [x] studio (avatar) — `AVATAR_STUDIO_SPEC.md`
