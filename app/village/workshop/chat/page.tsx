@@ -10,6 +10,7 @@ import { SpiritVoiceCall } from '@/components/village/SpiritVoiceCall';
 import { useSpeechRecognition } from '@/lib/hooks/useSpeechRecognition';
 import type { SpiritVariantId } from '@/components/spirit/SpiritFigure';
 import type { AffiliateProduct } from '@/lib/affiliate/products';
+import WorkshopTabBar, { useWorkshopSwipeNav } from '@/components/village/WorkshopTabBar';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface ChatMessage {
@@ -1223,9 +1224,12 @@ export default function GoalChatPage() {
   }
 
   const phaseIdx = PHASES.findIndex(p => p.key === phase);
+  const gpsHref = existingGoals[0] ? `/village/workshop/gps/${existingGoals[0].id}` : undefined;
+  const { onTouchStart: onSwipeStart, onTouchEnd: onSwipeEnd } = useWorkshopSwipeNav('Goals', gpsHref);
 
   return (
-    <div className="flex flex-col" style={{ height: '100dvh', background: bg }}>
+    <div className="flex flex-col" style={{ height: '100dvh', background: bg }}
+      onTouchStart={onSwipeStart} onTouchEnd={onSwipeEnd}>
 
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex-shrink-0 flex items-center gap-3 px-4 py-3 z-10"
@@ -1237,7 +1241,6 @@ export default function GoalChatPage() {
         </Link>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-black truncate" style={{ color: text }}>Spirit Goal GPS</p>
-          <p className="text-[10px]" style={{ color: muted }}>Conversational goal building</p>
         </div>
 
         {/* History */}
@@ -1273,6 +1276,12 @@ export default function GoalChatPage() {
             <path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </button>
+      </div>
+
+      {/* ── Goals | Workshop | GPS tab bar ──────────────────────────── */}
+      <div className="flex-shrink-0" style={{ background: isNight ? 'rgba(6,8,14,0.92)' : 'rgba(248,245,255,0.92)', backdropFilter: 'blur(16px)', borderBottom: `1px solid ${border}` }}>
+        <WorkshopTabBar active="Goals" gpsHref={gpsHref}
+          activeColor={text} inactiveColor={muted} underlineColor={text} />
       </div>
 
       {/* ── Chat items ──────────────────────────────────────────────── */}

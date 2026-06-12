@@ -8,6 +8,7 @@ import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 import { TikTokFeedCard } from '@/components/village/TikTokFeedCard';
 import { OoWopIcon } from '@/components/village/OoWopIcon';
+import WorkshopTabBar from '@/components/village/WorkshopTabBar';
 
 type CardType = 'template' | 'video' | 'tiktok' | 'sprint' | 'achievement' | 'goal' | 'guide';
 interface FeedCard {
@@ -524,17 +525,13 @@ function FistAnimation({ show }: { show: boolean }) {
   );
 }
 
-// ── Tab types ─────────────────────────────────────────────────────────────────
-const TABS = ['Goals', 'Workshop', 'GPS'] as const;
-type Tab = typeof TABS[number];
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function WorkshopPage() {
   const router   = useRouter();
   const supabase = createClient();
   const { speak } = useSpiritVoice();
 
-  const [tab,           setTab]           = useState<Tab>('Workshop');
+  const tab = 'Workshop' as const;
   const [cards,         setCards]         = useState<FeedCard[]>([]);
   const [current,       setCurrent]       = useState(0);
   const [owopped,       setOwopped]       = useState<Set<string>>(new Set());
@@ -560,6 +557,7 @@ export default function WorkshopPage() {
   const hasGoals = activeGoals.length > 0;
   const card = cards[current];
   const isGoalAligned = hasGoals && card?.type === 'video';
+  const gpsHref = activeGoals[0] ? `/village/workshop/gps/${activeGoals[0].id}` : '/village/workshop/gps';
 
   // Auto-hide UI after 3s on card change
   useEffect(() => {
@@ -605,14 +603,10 @@ export default function WorkshopPage() {
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (dist < 14 && dt < 380) { handleTap(); return; }
 
-    // Horizontal swipe → tab navigation
+    // Horizontal swipe → Goals / GPS navigation
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
-      if (dx > 0) { // swipe right
-        if (tab === 'Workshop') router.push('/village/workshop/chat');
-        else if (tab === 'GPS') setTab('Workshop');
-      } else { // swipe left
-        if (tab === 'Workshop') setTab('GPS');
-      }
+      if (dx > 0) router.push('/village/workshop/chat'); // swipe right → Goals
+      else router.push(gpsHref); // swipe left → GPS
       triggerUIShow();
       return;
     }
@@ -785,8 +779,8 @@ export default function WorkshopPage() {
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 30, background: 'transparent' }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `calc(${safeTop} + 6px) 12px 4px`,
-          opacity: tab === 'Workshop' && !uiVisible && !showGoalPopup ? 0 : 1,
-          pointerEvents: tab === 'Workshop' && !uiVisible && !showGoalPopup ? 'none' : 'auto',
+          opacity: !uiVisible && !showGoalPopup ? 0 : 1,
+          pointerEvents: !uiVisible && !showGoalPopup ? 'none' : 'auto',
           transition: 'opacity 0.5s ease',
         }}>
           {/* Dual-function target button (content type / goal alignment) */}
@@ -815,66 +809,11 @@ export default function WorkshopPage() {
           </Link>
         </div>
 
-        {/* Tab bar */}
-        <div style={{ display: 'flex', padding: '0 12px' }}>
-          {TABS.map(t => t === 'Goals' ? (
-            <Link key={t} href="/village/workshop/chat"
-              style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: '2px solid transparent', transition: 'all 0.15s', textAlign: 'center', textDecoration: 'none' }}>
-              {t}
-            </Link>
-          ) : (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ flex: 1, padding: '9px 0', fontSize: 13, fontWeight: tab === t ? 900 : 600, color: tab === t ? '#fff' : 'rgba(255,255,255,0.35)', background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: tab === t ? '2px solid #4D72FF' : '2px solid transparent', transition: 'all 0.15s' }}>
-              {t}
-            </button>
-          ))}
+        {/* Goals | Workshop | GPS tab bar */}
+        <div style={{ padding: '0 12px' }}>
+          <WorkshopTabBar active="Workshop" gpsHref={gpsHref} underlineColor="#4D72FF" />
         </div>
       </div>
-
-      {/* ── GPS TAB ───────────────────────────────────────────────────────────── */}
-      {tab === 'GPS' && (
-        <div style={{ paddingTop: `calc(${safeTop} + 80px)`, padding: `calc(${safeTop} + 80px) 16px 120px` }}>
-          {activeSprints.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-              <p style={{ fontSize: 40, marginBottom: 12 }}>🗺️</p>
-              <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 8 }}>No active sprint</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.6, marginBottom: 24 }}>
-                {hasGoals ? 'Activate your GPS to generate a sprint plan.' : 'Create a goal first, then activate your GPS.'}
-              </p>
-              <Link href={hasGoals ? `/village/workshop/gps/${activeGoals[0]?.id}` : '/village/workshop/chat'}
-                style={{ display: 'inline-block', background: '#4D72FF', color: '#fff', borderRadius: 14, padding: '14px 28px', fontSize: 14, fontWeight: 900, textDecoration: 'none' }}>
-                {hasGoals ? 'View GPS →' : 'Create a Goal →'}
-              </Link>
-            </div>
-          ) : (
-            <>
-              <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 12 }}>ACTIVE SPRINT</p>
-              {activeSprints.slice(0, 1).map((sprint: any) => (
-                <div key={sprint.id} style={{ background: '#0E1630', border: '1px solid rgba(77,114,255,0.3)', borderRadius: 16, overflow: 'hidden', marginBottom: 12 }}>
-                  <div style={{ background: 'linear-gradient(135deg,#0033CC,#4D72FF)', padding: '16px' }}>
-                    <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.6)', letterSpacing: '0.06em', marginBottom: 4 }}>CURRENT SPRINT</p>
-                    <p style={{ fontSize: 16, fontWeight: 900, color: '#fff', marginBottom: 4 }}>{sprint.title}</p>
-                    <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)' }}>{sprint.week_start} → {sprint.week_end}</p>
-                  </div>
-                  <div style={{ padding: '14px' }}>
-                    {(sprint.sprint_actions ?? []).slice(0, 5).map((action: any, ai: number) => (
-                      <div key={action.id || ai} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: ai < (sprint.sprint_actions?.length ?? 0) - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
-                        <div style={{ width: 20, height: 20, borderRadius: 10, border: `2px solid ${action.completed ? '#1D9E75' : 'rgba(255,255,255,0.2)'}`, background: action.completed ? '#1D9E75' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          {action.completed && <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>}
-                        </div>
-                        <p style={{ fontSize: 13, color: action.completed ? 'rgba(255,255,255,0.4)' : '#fff', textDecoration: action.completed ? 'line-through' : 'none', flex: 1 }}>{action.title}</p>
-                      </div>
-                    ))}
-                    <Link href={`/village/workshop/sprint/${sprint.id}`} style={{ display: 'block', textAlign: 'center', marginTop: 12, background: '#4D72FF', color: '#fff', borderRadius: 12, padding: '12px', fontSize: 13, fontWeight: 900, textDecoration: 'none' }}>
-                      Open Full Sprint →
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-        </div>
-      )}
 
       {/* ── WORKSHOP TAB — full-screen TikTok feed ───────────────────────────── */}
       {tab === 'Workshop' && (

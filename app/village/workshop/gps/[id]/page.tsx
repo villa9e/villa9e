@@ -6,9 +6,9 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
+import WorkshopTabBar, { useWorkshopSwipeNav } from '@/components/village/WorkshopTabBar';
 
 // ── Color tokens (spec §14) ──────────────────────────────────────────────────
 const C = {
@@ -65,7 +65,6 @@ const STREETS = [
 
 export default function GpsMapPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
-  const router = useRouter();
   const { speak } = useSpiritVoice();
 
   const [goal, setGoal] = useState<any>(null);
@@ -79,7 +78,6 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const routeRef = useRef<SVGPathElement>(null);
-  const touchStart = useRef({ x: 0, y: 0, t: 0 });
 
   // ── Load goal + sprints + actions ──────────────────────────────────────────
   const load = useCallback(async () => {
@@ -210,18 +208,8 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     setTimeout(() => setToast(null), 3200);
   }
 
-  // ── Left-edge / right swipe → back to Workshop (spec §10.1) ─────────────────
-  function onTouchStart(e: React.TouchEvent) {
-    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now() };
-  }
-  function onTouchEnd(e: React.TouchEvent) {
-    const dx = e.changedTouches[0].clientX - touchStart.current.x;
-    const dy = e.changedTouches[0].clientY - touchStart.current.y;
-    const fromEdge = touchStart.current.x <= 28;
-    if ((fromEdge && dx > 60 && Math.abs(dy) < 50) || (dx > 120 && Math.abs(dy) < 40)) {
-      router.push('/village/workshop');
-    }
-  }
+  // ── Swipe → Workshop / Goals (spec §10.1) ───────────────────────────────────
+  const { onTouchStart, onTouchEnd } = useWorkshopSwipeNav('GPS');
 
   const sheetPx = sheetSnap === 'peek' ? 120 : sheetSnap === 'expanded' ? 600 : 320;
   const inspect = sprints[inspectIdx];
@@ -233,26 +221,11 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       {/* ── Top tab bar (Goals | Workshop | GPS) ─────────────────────────── */}
       <div className="flex-shrink-0 flex items-center" style={{ height: 44, background: C.page, paddingTop: 'env(safe-area-inset-top)' }}>
         <Link href="/village/workshop" aria-label="Back"
-          className="flex items-center justify-center" style={{ width: 44, height: 44, color: C.textBody }}>
+          className="flex items-center justify-center" style={{ width: 44, height: 44, color: C.textBody, flexShrink: 0 }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
         </Link>
-        <div className="flex-1 flex items-center justify-center" style={{ gap: 4 }}>
-          {[
-            { label: 'Goals', href: '/village/workshop/chat', active: false },
-            { label: 'Workshop', href: '/village/workshop', active: false },
-            { label: 'GPS', href: '#', active: true },
-          ].map(t => t.active ? (
-            <div key={t.label} style={{ padding: '0 10px', height: 44, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-              <span style={{ fontSize: 13, fontWeight: 500, color: '#fff' }}>{t.label}</span>
-              <span style={{ height: 2, background: '#fff', width: '100%', marginTop: 4, borderRadius: 1 }} />
-            </div>
-          ) : (
-            <Link key={t.label} href={t.href} style={{ padding: '0 10px', height: 44, display: 'flex', alignItems: 'center', fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.45)', textDecoration: 'none' }}>
-              {t.label}
-            </Link>
-          ))}
-        </div>
-        <div style={{ width: 44 }} />
+        <WorkshopTabBar active="GPS" />
+        <div style={{ width: 44, flexShrink: 0 }} />
       </div>
 
       {/* ── Map canvas ────────────────────────────────────────────────────── */}
