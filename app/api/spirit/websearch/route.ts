@@ -22,14 +22,16 @@ async function getDailySearchCount(admin: any, userId: string): Promise<number> 
 }
 
 async function logSearchAudit(admin: any, userId: string, query: string) {
-  await admin.from('data_access_audit').insert({
-    user_id:        userId,
-    accessor_type:  'platform',
-    accessor_name:  'Spirit AI (web search)',
-    data_category:  'spirit_web_search',
-    access_purpose: `Spirit searched the web: "${query.slice(0, 120)}"`,
-    legal_basis:    'platform_operation',
-  }).catch(() => {});
+  try {
+    await admin.from('data_access_audit').insert({
+      user_id:        userId,
+      accessor_type:  'platform',
+      accessor_name:  'Spirit AI (web search)',
+      data_category:  'spirit_web_search',
+      access_purpose: `Spirit searched the web: "${query.slice(0, 120)}"`,
+      legal_basis:    'platform_operation',
+    });
+  } catch { /* non-blocking */ }
 }
 
 export async function POST(req: NextRequest) {

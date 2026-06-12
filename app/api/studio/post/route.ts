@@ -68,9 +68,11 @@ export async function POST(req: NextRequest) {
 
   // Save hashtags
   if (hashtags.length > 0) {
-    await admin.from('post_hashtags').insert(
-      hashtags.map((tag: string) => ({ post_id: post.id, tag: tag.toLowerCase() }))
-    ).catch(() => {});
+    try {
+      await admin.from('post_hashtags').insert(
+        hashtags.map((tag: string) => ({ post_id: post.id, tag: tag.toLowerCase() }))
+      );
+    } catch { /* non-blocking */ }
   }
 
   // Fire transcript + moderation async (don't block the response)
@@ -97,24 +99,28 @@ export async function POST(req: NextRequest) {
   ]).catch(() => {});
 
   // Award VLG for posting
-  await admin.rpc('award_village_score', {
-    p_user_id:      user.id,
-    p_points:       is_workshop_content ? 20 : 10,
-    p_vlg:          is_workshop_content ? 5 : 2,
-    p_reason:       `Posted ${post_label ?? 'content'}`,
-    p_reference_id: post.id,
-  }).catch(() => {});
+  try {
+    await admin.rpc('award_village_score', {
+      p_user_id:      user.id,
+      p_points:       is_workshop_content ? 20 : 10,
+      p_vlg:          is_workshop_content ? 5 : 2,
+      p_reason:       `Posted ${post_label ?? 'content'}`,
+      p_reference_id: post.id,
+    });
+  } catch { /* non-blocking */ }
 
   // Notify tribe if tribe visibility
   if (visibility === 'tribe' && goal_id) {
-    await admin.from('notifications').insert({
-      user_id:        user.id,
-      type:           'post',
-      title:          'New post in your tribe',
-      body:           caption?.slice(0, 100) ?? 'New content',
-      reference_id:   post.id,
-      reference_type: 'studio_post',
-    }).catch(() => {});
+    try {
+      await admin.from('notifications').insert({
+        user_id:        user.id,
+        type:           'post',
+        title:          'New post in your tribe',
+        body:           caption?.slice(0, 100) ?? 'New content',
+        reference_id:   post.id,
+        reference_type: 'studio_post',
+      });
+    } catch { /* non-blocking */ }
   }
 
   return NextResponse.json({ postId: post.id, success: true });

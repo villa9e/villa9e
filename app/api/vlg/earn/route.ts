@@ -23,13 +23,15 @@ export async function POST(req: NextRequest) {
 
   if (txError) {
     // Try wallet_transactions table as fallback (used by existing VLG code)
-    await admin.from('wallet_transactions').insert({
-      user_id:    user.id,
-      amount,
-      token_type: 'VLG',
-      direction:  'credit',
-      reason,
-    }).catch(() => {});
+    try {
+      await admin.from('wallet_transactions').insert({
+        user_id:    user.id,
+        amount,
+        token_type: 'VLG',
+        direction:  'credit',
+        reason,
+      });
+    } catch { /* non-blocking */ }
   }
 
   // Update profiles.vlg_balance (increment by amount)
@@ -40,11 +42,12 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   const currentBalance = parseFloat(profile?.vlg_balance ?? '0') || 0;
-  await admin
-    .from('profiles')
-    .update({ vlg_balance: currentBalance + amount })
-    .eq('id', user.id)
-    .catch(() => {});
+  try {
+    await admin
+      .from('profiles')
+      .update({ vlg_balance: currentBalance + amount })
+      .eq('id', user.id);
+  } catch { /* non-blocking */ }
 
   // Also try village_wallets if it exists
   const { data: wallet } = await admin
@@ -55,11 +58,12 @@ export async function POST(req: NextRequest) {
 
   if (wallet !== null && wallet !== undefined) {
     const walletBalance = parseFloat(wallet?.vlg_balance ?? '0') || 0;
-    await admin
-      .from('village_wallets')
-      .update({ vlg_balance: walletBalance + amount })
-      .eq('user_id', user.id)
-      .catch(() => {});
+    try {
+      await admin
+        .from('village_wallets')
+        .update({ vlg_balance: walletBalance + amount })
+        .eq('user_id', user.id);
+    } catch { /* non-blocking */ }
   }
 
   return NextResponse.json({ ok: true, amount, reason, source_id });

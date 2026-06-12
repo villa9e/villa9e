@@ -52,15 +52,17 @@ export async function POST(req: NextRequest) {
     });
 
     // Log pending transaction
-    await supabase.from('trading_post_transactions').insert({
-      listing_id,
-      buyer_id:       user.id,
-      seller_id:      listing.user_id,
-      amount_cents:   amount,
-      platform_fee_cents: platformFee,
-      stripe_session_id:  session.id,
-      status: 'pending',
-    }).catch(() => {}); // non-blocking if table doesn't exist yet
+    try {
+      await supabase.from('trading_post_transactions').insert({
+        listing_id,
+        buyer_id:       user.id,
+        seller_id:      listing.user_id,
+        amount_cents:   amount,
+        platform_fee_cents: platformFee,
+        stripe_session_id:  session.id,
+        status: 'pending',
+      });
+    } catch { /* non-blocking if table doesn't exist yet */ }
 
     return NextResponse.json({ url: session.url });
   } catch (e: any) {

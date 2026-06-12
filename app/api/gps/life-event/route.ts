@@ -138,11 +138,13 @@ export async function POST(req: NextRequest) {
   }).eq('id', goal_id);
 
   // Log probability
-  await admin.from('goal_probability_log').insert({
-    goal_id,
-    score:   recalibration.newProbability,
-    factors: { reason: event_type, delta: recalibration.probabilityDelta, event_title: title },
-  }).catch(() => {});
+  try {
+    await admin.from('goal_probability_log').insert({
+      goal_id,
+      score:   recalibration.newProbability,
+      factors: { reason: event_type, delta: recalibration.probabilityDelta, event_title: title },
+    });
+  } catch { /* non-blocking */ }
 
   // Build notification with delta info
   const probChange = recalibration.probabilityDelta !== 0
@@ -152,14 +154,16 @@ export async function POST(req: NextRequest) {
     ? ` Timeline ${recalibration.timelineDeltaWeeks > 0 ? '+' : ''}${recalibration.timelineDeltaWeeks} week${Math.abs(recalibration.timelineDeltaWeeks) !== 1 ? 's' : ''}.`
     : '';
 
-  await admin.from('notifications').insert({
-    user_id:        user.id,
-    type:           'goal_step',
-    title:          '🗺️ GPS Recalibrated',
-    body:           `${recalibration.spiritMessage}${probChange}${timeChange}`,
-    reference_id:   goal_id,
-    reference_type: 'goal',
-  }).catch(() => {});
+  try {
+    await admin.from('notifications').insert({
+      user_id:        user.id,
+      type:           'goal_step',
+      title:          '🗺️ GPS Recalibrated',
+      body:           `${recalibration.spiritMessage}${probChange}${timeChange}`,
+      reference_id:   goal_id,
+      reference_type: 'goal',
+    });
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({
     recalibration,

@@ -201,12 +201,14 @@ export async function POST(
       .maybeSingle();
     const current = parseFloat(profile?.vlg_balance ?? '0') || 0;
     await admin.from('profiles').update({ vlg_balance: current + vlgAmount }).eq('id', user.id);
-    await admin.from('vlg_transactions').insert({
-      user_id:   user.id,
-      amount:    vlgAmount,
-      reason:    'action_verified',
-      source_id: action_id,
-    }).catch(() => {});
+    try {
+      await admin.from('vlg_transactions').insert({
+        user_id:   user.id,
+        amount:    vlgAmount,
+        reason:    'action_verified',
+        source_id: action_id,
+      });
+    } catch { /* non-blocking */ }
   } catch { /* silent */ }
 
   return NextResponse.json({

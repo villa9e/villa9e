@@ -41,15 +41,17 @@ export async function POST(req: NextRequest) {
 
     // Notify post owner (non-blocking)
     if (post?.user_id && post.user_id !== user.id) {
-      admin.from('notifications').insert({
-        user_id:        post.user_id,
-        type:           'oowop',
-        title:          'Someone OoWop\'d your post',
-        body:           'Your post got a fist bump!',
-        reference_id:   post_id,
-        reference_type: 'studio_post',
-        actor_id:       user.id,
-      }).catch(() => {});
+      try {
+        await admin.from('notifications').insert({
+          user_id:        post.user_id,
+          type:           'oowop',
+          title:          'Someone OoWop\'d your post',
+          body:           'Your post got a fist bump!',
+          reference_id:   post_id,
+          reference_type: 'studio_post',
+          actor_id:       user.id,
+        });
+      } catch { /* non-blocking */ }
     }
     oowoped = true;
   }

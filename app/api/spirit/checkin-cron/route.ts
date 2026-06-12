@@ -74,12 +74,14 @@ Keep title under 50 chars, body under 100 chars.`,
       }).catch(() => {});
 
       // Log the check-in
-      await (admin as any).from('spirit_checkin_log').insert({
-        user_id:      user.id,
-        checkin_type: type,
-        spirit_text:  notif.body,
-        sent_push:    true,
-      }).catch(() => {});
+      try {
+        await (admin as any).from('spirit_checkin_log').insert({
+          user_id:      user.id,
+          checkin_type: type,
+          spirit_text:  notif.body,
+          sent_push:    true,
+        });
+      } catch { /* non-blocking */ }
 
       sent++;
     } catch { /* skip this user, continue */ }

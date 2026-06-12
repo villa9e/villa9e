@@ -51,7 +51,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Notify recipient
-  await admin.from('notifications').insert({ user_id: recipient.id, type: 'message', title: 'Money received', body: `You received $${amountNum.toFixed(2)} from a Village member` }).catch(() => {});
+  try {
+    await admin.from('notifications').insert({ user_id: recipient.id, type: 'message', title: 'Money received', body: `You received $${amountNum.toFixed(2)} from a Village member` });
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({ success: true, amount: amountNum, fee, status, recipient: recipient.username });
 }

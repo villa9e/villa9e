@@ -63,15 +63,17 @@ export async function POST(req: NextRequest) {
 
   // Notify post owner
   if (post?.user_id && post.user_id !== user.id) {
-    admin.from('notifications').insert({
-      user_id:        post.user_id,
-      type:           'comment',
-      title:          'New comment on your post',
-      body:           content.trim().slice(0, 80),
-      reference_id:   post_id,
-      reference_type: 'studio_post',
-      actor_id:       user.id,
-    }).catch(() => {});
+    try {
+      await admin.from('notifications').insert({
+        user_id:        post.user_id,
+        type:           'comment',
+        title:          'New comment on your post',
+        body:           content.trim().slice(0, 80),
+        reference_id:   post_id,
+        reference_type: 'studio_post',
+        actor_id:       user.id,
+      });
+    } catch { /* non-blocking */ }
   }
 
   // Run moderation async (non-blocking)

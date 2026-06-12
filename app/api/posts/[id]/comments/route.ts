@@ -24,10 +24,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const { data: comment } = await admin.from('post_comments').insert({ post_id: params.id, user_id: user.id, content: content.trim(), parent_id: parent_id ?? null }).select('*, profiles(id, username, display_name, avatar_url)').single();
 
   // Increment comment count on post
-  await admin.rpc('increment_comment_count', { post_id: params.id }).catch(async () => {
+  try {
+    await admin.rpc('increment_comment_count', { post_id: params.id });
+  } catch {
     const { data: post } = await admin.from('dream_line_posts').select('comment_count').eq('id', params.id).single();
     await admin.from('dream_line_posts').update({ comment_count: (post?.comment_count ?? 0) + 1 }).eq('id', params.id);
-  });
+  }
 
   return NextResponse.json({ comment });
 }

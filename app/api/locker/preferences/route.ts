@@ -50,7 +50,11 @@ export async function PATCH(req: NextRequest) {
       access_purpose: 'Improve personalized recommendations',
       legal_basis: 'user_consent',
     }));
-  if (auditEntries.length > 0) await admin.from('data_access_audit').insert(auditEntries).catch(() => {});
+  if (auditEntries.length > 0) {
+    try {
+      await admin.from('data_access_audit').insert(auditEntries);
+    } catch { /* non-blocking */ }
+  }
 
   return NextResponse.json({ preferences: data });
 }

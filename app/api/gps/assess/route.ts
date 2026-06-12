@@ -133,22 +133,26 @@ export async function POST(req: NextRequest) {
   }).eq('id', goal_id);
 
   // Log probability
-  await admin.from('goal_probability_log').insert({
-    goal_id,
-    score:   plan.probability.score,
-    factors: plan.probability.factors,
-  }).catch(() => {});
+  try {
+    await admin.from('goal_probability_log').insert({
+      goal_id,
+      score:   plan.probability.score,
+      factors: plan.probability.factors,
+    });
+  } catch { /* non-blocking */ }
 
   // Notify user if ready for sprints
   if (plan.probability.meetsThreshold) {
-    await admin.from('notifications').insert({
-      user_id:        user.id,
-      type:           'goal_step',
-      title:          'Your GPS is ready — 95% probability reached',
-      body:           'Activate your sprints and get moving.',
-      reference_id:   goal_id,
-      reference_type: 'goal',
-    }).catch(() => {});
+    try {
+      await admin.from('notifications').insert({
+        user_id:        user.id,
+        type:           'goal_step',
+        title:          'Your GPS is ready — 95% probability reached',
+        body:           'Activate your sprints and get moving.',
+        reference_id:   goal_id,
+        reference_type: 'goal',
+      });
+    } catch { /* non-blocking */ }
   }
 
   return NextResponse.json({

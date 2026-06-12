@@ -25,9 +25,11 @@ export async function POST(req: NextRequest) {
   }
 
   // Ensure video_scores table exists (idempotent)
-  await admin.rpc('create_video_scores_if_not_exists').catch(() => {
+  try {
+    await admin.rpc('create_video_scores_if_not_exists');
+  } catch {
     // If RPC doesn't exist, try direct SQL via admin — gracefully continue if unavailable
-  });
+  }
 
   // Check cache first
   if (video_id && action_id) {
@@ -78,24 +80,27 @@ export async function POST(req: NextRequest) {
   // Cache the score
   if (video_id && action_id) {
     // Create table with IF NOT EXISTS inline — safe to run every time
-    await admin.rpc('run_sql', {
-      query: `
-        CREATE TABLE IF NOT EXISTS video_scores (
-          video_id  TEXT        NOT NULL,
-          action_id TEXT        NOT NULL,
-          score     INT         NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-          PRIMARY KEY (video_id, action_id)
-        );
-      `,
-    }).catch(async () => {
+    try {
+      await admin.rpc('run_sql', {
+        query: `
+          CREATE TABLE IF NOT EXISTS video_scores (
+            video_id  TEXT        NOT NULL,
+            action_id TEXT        NOT NULL,
+            score     INT         NOT NULL,
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (video_id, action_id)
+          );
+        `,
+      });
+    } catch {
       // If RPC doesn't exist, just upsert and let it fail silently if table missing
-    });
+    }
 
-    await admin
-      .from('video_scores')
-      .upsert({ video_id, action_id, score: finalScore }, { onConflict: 'video_id,action_id' })
-      .catch(() => {});
+    try {
+      await admin
+        .from('video_scores')
+        .upsert({ video_id, action_id, score: finalScore }, { onConflict: 'video_id,action_id' });
+    } catch { /* non-blocking */ }
   }
 
   return NextResponse.json({ score: finalScore, cached: false });

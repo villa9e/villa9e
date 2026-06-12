@@ -56,18 +56,20 @@ Categories: Business, Health, Finance, Education, Creative, Personal, Career, Re
     // Seed into DB for next time (24h TTL)
     if (trending.length > 0) {
       const expires = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      await (admin as any).from('trending_goals').insert(
-        trending.map((t: any) => ({
-          category:    t.category ?? 'Personal',
-          trend_source:'claude_generated',
-          search_volume: 1000,
-          region:      'us',
-          emoji:       t.emoji ?? '📍',
-          title:       t.title,
-          momentum:    t.momentum ?? 'steady',
-          expires_at:  expires,
-        }))
-      ).catch(() => {});
+      try {
+        await (admin as any).from('trending_goals').insert(
+          trending.map((t: any) => ({
+            category:    t.category ?? 'Personal',
+            trend_source:'claude_generated',
+            search_volume: 1000,
+            region:      'us',
+            emoji:       t.emoji ?? '📍',
+            title:       t.title,
+            momentum:    t.momentum ?? 'steady',
+            expires_at:  expires,
+          }))
+        );
+      } catch { /* non-blocking */ }
     }
 
     cachedTrending = trending;

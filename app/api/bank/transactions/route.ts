@@ -31,12 +31,14 @@ export async function POST(req: NextRequest) {
   // Update account balance
   if (body.account_id) {
     const delta = body.direction === 'credit' ? body.amount : -body.amount;
-    await admin.rpc('increment_balance', { acct_id: body.account_id, delta }).catch(() => {
+    try {
+      await admin.rpc('increment_balance', { acct_id: body.account_id, delta });
+    } catch {
       // Fallback: direct update
       admin.from('bank_accounts').select('balance').eq('id', body.account_id).single().then(({ data: acct }: any) => {
         if (acct) admin.from('bank_accounts').update({ balance: (acct.balance ?? 0) + delta, available_balance: (acct.balance ?? 0) + delta }).eq('id', body.account_id);
       });
-    });
+    }
   }
   return NextResponse.json({ transaction: data });
 }

@@ -15,10 +15,12 @@ export async function GET() {
 
     if (!existing || existing.length === 0) {
       const acctNum = user.id.replace(/-/g,'').slice(0,10) + '0001';
-      await admin.from('bank_accounts').insert([
-        { user_id: user.id, account_type: 'checking', account_name: 'Village Checking', balance: 0, available_balance: 0, account_number: acctNum, is_primary: true },
-        { user_id: user.id, account_type: 'savings', account_name: 'Village Savings', balance: 0, available_balance: 0, account_number: acctNum + '02' },
-      ]).catch(() => {});
+      try {
+        await admin.from('bank_accounts').insert([
+          { user_id: user.id, account_type: 'checking', account_name: 'Village Checking', balance: 0, available_balance: 0, account_number: acctNum, is_primary: true },
+          { user_id: user.id, account_type: 'savings', account_name: 'Village Savings', balance: 0, available_balance: 0, account_number: acctNum + '02' },
+        ]);
+      } catch { /* non-blocking */ }
     }
 
     const { data: accounts } = await admin.from('bank_accounts').select('*').eq('user_id', user.id).order('is_primary', { ascending: false });

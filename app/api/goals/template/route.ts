@@ -55,23 +55,27 @@ export async function POST(req: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   // Award VLG for sharing knowledge
-  await admin.rpc('award_village_score', {
-    p_user_id:      user.id,
-    p_points:       15,
-    p_vlg:          5,
-    p_reason:       'SHARE_GOAL_TEMPLATE',
-    p_reference_id: template.id,
-  }).catch(() => {});
+  try {
+    await admin.rpc('award_village_score', {
+      p_user_id:      user.id,
+      p_points:       15,
+      p_vlg:          5,
+      p_reason:       'SHARE_GOAL_TEMPLATE',
+      p_reference_id: template.id,
+    });
+  } catch { /* non-blocking */ }
 
   // Post to Dream Line as achievement
-  await admin.from('dream_line_posts').insert({
-    user_id:         user.id,
-    goal_id:         goalId,
-    content:         `📋 Just shared my "${goal.title}" goal plan as a template — clone it and make it yours. ${steps?.length ?? 0} steps, ready to go. ✊`,
-    visibility:      'public',
-    is_milestone:    true,
-    milestone_type:  'template_shared',
-  }).catch(() => {});
+  try {
+    await admin.from('dream_line_posts').insert({
+      user_id:         user.id,
+      goal_id:         goalId,
+      content:         `📋 Just shared my "${goal.title}" goal plan as a template — clone it and make it yours. ${steps?.length ?? 0} steps, ready to go. ✊`,
+      visibility:      'public',
+      is_milestone:    true,
+      milestone_type:  'template_shared',
+    });
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({ templateId: template.id, success: true });
 }

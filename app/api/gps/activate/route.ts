@@ -84,24 +84,26 @@ export async function POST(req: NextRequest) {
 
       // Save sprint actions
       if (sprint.actions?.length) {
-        await admin.from('sprint_actions').insert(
-          sprint.actions.map((action, aIdx) => ({
-            sprint_id:   savedSprint.id,
-            title:       action.title,
-            description: action.description,
-            order_index: aIdx,
-            completed:   false,
-            metadata: {
-              estimatedHours:       action.estimatedHours,
-              resourceCategory:     action.resourceCategory,
-              canRunInParallel:     action.canRunInParallel,
-              dependsOn:            action.dependsOn,
-              villageResourceNeeded: action.villageResourceNeeded,
-              aiCanAssist:          action.aiCanAssist,
-              aiAssistanceNotes:    action.aiAssistanceNotes,
-            },
-          }))
-        ).catch(() => {});
+        try {
+          await admin.from('sprint_actions').insert(
+            sprint.actions.map((action, aIdx) => ({
+              sprint_id:   savedSprint.id,
+              title:       action.title,
+              description: action.description,
+              order_index: aIdx,
+              completed:   false,
+              metadata: {
+                estimatedHours:       action.estimatedHours,
+                resourceCategory:     action.resourceCategory,
+                canRunInParallel:     action.canRunInParallel,
+                dependsOn:            action.dependsOn,
+                villageResourceNeeded: action.villageResourceNeeded,
+                aiCanAssist:          action.aiCanAssist,
+                aiAssistanceNotes:    action.aiAssistanceNotes,
+              },
+            }))
+          );
+        } catch { /* non-blocking */ }
       }
 
       return { ...savedSprint, actions: sprint.actions, milestone: sprint.milestone };
@@ -119,13 +121,15 @@ export async function POST(req: NextRequest) {
   }).eq('id', goal_id);
 
   // Award village score for activating GPS
-  await admin.rpc('award_village_score', {
-    p_user_id:      user.id,
-    p_points:       50,
-    p_vlg:          20,
-    p_reason:       'GPS_ACTIVATED',
-    p_reference_id: goal_id,
-  }).catch(() => {});
+  try {
+    await admin.rpc('award_village_score', {
+      p_user_id:      user.id,
+      p_points:       50,
+      p_vlg:          20,
+      p_reason:       'GPS_ACTIVATED',
+      p_reference_id: goal_id,
+    });
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({
     activated:    true,

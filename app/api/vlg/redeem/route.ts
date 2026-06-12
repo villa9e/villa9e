@@ -43,22 +43,26 @@ export async function POST(req: NextRequest) {
   }).eq('user_id', user.id);
 
   // Record transaction
-  await admin.from('wallet_transactions').insert({
-    user_id:    user.id,
-    amount:     -amount,
-    token_type: 'VLG',
-    direction:  'debit',
-    reason:     `VLG_REDEEM_REQUEST_$${usd_amount}`,
-  }).catch(() => {});
+  try {
+    await admin.from('wallet_transactions').insert({
+      user_id:    user.id,
+      amount:     -amount,
+      token_type: 'VLG',
+      direction:  'debit',
+      reason:     `VLG_REDEEM_REQUEST_$${usd_amount}`,
+    });
+  } catch { /* non-blocking */ }
 
   // Notify admin
-  await admin.from('notifications').insert({
-    user_id:    (await admin.from('profiles').select('id').eq('is_super_admin', true).limit(1).single()).data?.id,
-    type:       'system',
-    title:      '💸 VLG Redemption Request',
-    body:       `User ${user.id} requested ${amount} VLG → $${usd_amount} to ${payout_email}`,
-    reference_type: 'redemption',
-  }).catch(() => {});
+  try {
+    await admin.from('notifications').insert({
+      user_id:    (await admin.from('profiles').select('id').eq('is_super_admin', true).limit(1).single()).data?.id,
+      type:       'system',
+      title:      '💸 VLG Redemption Request',
+      body:       `User ${user.id} requested ${amount} VLG → $${usd_amount} to ${payout_email}`,
+      reference_type: 'redemption',
+    });
+  } catch { /* non-blocking */ }
 
   return NextResponse.json({ ok: true, vlg: amount, usd: usd_amount });
 }

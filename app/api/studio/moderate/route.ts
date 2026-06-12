@@ -52,14 +52,16 @@ reason is a brief explanation if flagged, null if clean.`,
 
       // Notify user if flagged
       if (result.severity === 'high') {
-        await admin.from('notifications').insert({
-          user_id,
-          type:           'moderation',
-          title:          'Content under review',
-          body:           `Your post was flagged: ${result.reason}`,
-          reference_id:   post_id,
-          reference_type: 'studio_post',
-        }).catch(() => {});
+        try {
+          await admin.from('notifications').insert({
+            user_id,
+            type:           'moderation',
+            title:          'Content under review',
+            body:           `Your post was flagged: ${result.reason}`,
+            reference_id:   post_id,
+            reference_type: 'studio_post',
+          });
+        } catch { /* non-blocking */ }
       }
     }
 

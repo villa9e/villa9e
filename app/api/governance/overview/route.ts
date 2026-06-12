@@ -67,10 +67,13 @@ export async function GET(req: NextRequest) {
   }
 
   // Treasury — try real data, fall back to mock
-  const { data: treasuryRows } = await supabase
-    .from('vico_treasury_allocations')
-    .select('amount')
-    .catch(() => ({ data: null }));
+  let treasuryRows: any[] | null = null;
+  try {
+    const { data } = await supabase
+      .from('vico_treasury_allocations')
+      .select('amount');
+    treasuryRows = data;
+  } catch { /* non-blocking */ }
 
   if (treasuryRows?.length) {
     treasuryBalance = treasuryRows.reduce((sum: number, r: any) => sum + (r.amount ?? 0), 0);
