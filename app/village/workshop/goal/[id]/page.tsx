@@ -1350,15 +1350,20 @@ export default function GoalDetailPage({ params }: { params: { id: string } }) {
                           <div className="absolute inset-0">
                             <iframe
                               key={`yt-${currentVideo.id}`}
-                              src={`https://www.youtube.com/embed/${currentVideo.id}?autoplay=1&rel=0&modestbranding=1&playsinline=1`}
+                              src={`https://www.youtube.com/embed/${currentVideo.id}?autoplay=1&mute=0&controls=0&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&iv_load_policy=3&loop=1&playlist=${currentVideo.id}&fs=0&disablekb=1`}
                               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                              allowFullScreen
                               className="absolute inset-0 w-full h-full"
-                              style={{ border: 'none' }}
+                              style={{ border: 'none', pointerEvents: 'none' }}
                             />
+                            {/* Mask YouTube's native title/channel/share bar */}
+                            <div className="absolute inset-x-0 top-0 pointer-events-none"
+                              style={{ height: 80, background: 'linear-gradient(to bottom, #000 0%, #000 35%, transparent 100%)', zIndex: 2 }} />
+                            {/* Transparent capture layer — blocks YouTube's logo/share/watch-on-YouTube
+                                UI from ever receiving a tap; taps fall through to our pause toggle */}
+                            <div className="absolute inset-0" style={{ zIndex: 3 }} onClick={handleVideoTap} />
                             {/* Thin gradient at bottom only so action rail stays readable */}
                             <div className="absolute inset-x-0 bottom-0 h-32 pointer-events-none"
-                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' }} />
+                              style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)', zIndex: 2 }} />
                           </div>
                         ) : (
                           /* Thumbnail cover — shown before first tap or when paused */
