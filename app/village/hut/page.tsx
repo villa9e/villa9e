@@ -610,17 +610,22 @@ function HutPageInner() {
   const [loading, setLoading] = useState(true);
   const [pillModal, setPillModal] = useState<PillType | null>(null);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
 
   const touchRef = useRef<{ x: number; y: number } | null>(null);
   const avatarFileRef = useRef<HTMLInputElement>(null);
 
-  async function uploadAvatar(e: React.ChangeEvent<HTMLInputElement>) {
+  function onAvatarFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) setCropFile(file);
+    e.target.value = '';
+  }
+
+  async function uploadAvatar(blob: Blob) {
     setAvatarUploading(true);
     try {
       const form = new FormData();
-      form.append('avatar', file);
+      form.append('avatar', blob, 'avatar.jpg');
       const res = await fetch('/api/profile/avatar', { method: 'POST', body: form });
       const data = await res.json();
       if (res.ok && data.url) {
@@ -628,7 +633,7 @@ function HutPageInner() {
       }
     } catch { /* non-blocking */ }
     setAvatarUploading(false);
-    e.target.value = '';
+    setCropFile(null);
   }
 
   // Desktop arrow-key navigation
@@ -957,7 +962,7 @@ function HutPageInner() {
               )}
             </div>
             {isOwnProfile && (
-              <input ref={avatarFileRef} type="file" accept="image/*" onChange={uploadAvatar}
+              <input ref={avatarFileRef} type="file" accept="image/*" onChange={onAvatarFileSelected}
                 style={{ display: 'none' }} aria-label="Upload profile picture" />
             )}
             {/* Edit-photo badge — own profile only */}
@@ -1389,8 +1394,175 @@ function HutPageInner() {
         {pillModal && (
           <PillSheet type={pillModal} onClose={() => setPillModal(null)} />
         )}
+        {cropFile && (
+          <AvatarCropModal
+            file={cropFile}
+            onCancel={() => setCropFile(null)}
+            onSave={uploadAvatar}
+          />
+        )}
       </AnimatePresence>
     </div>
+  );
+}
+
+// ── Avatar crop modal — circular pan/zoom crop, outputs a 512x512 JPEG ──
+function AvatarCropModal({ file, onCancel, onSave }: { file: File; onCancel: () => void; onSave: (blob: Blob) => void | Promise<void> }) {
+  const VIEW = 280;
+  const OUT = 512;
+
+  const [imgUrl, setImgUrl] = useState<string | null>(null);
+  const [naturalSize, setNaturalSize] = useState<{ w: number; h: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [saving, setSaving] = useState(false);
+  const dragRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setImgUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  const baseScale = naturalSize ? Math.max(VIEW / naturalSize.w, VIEW / naturalSize.h) : 1;
+  const scale = baseScale * zoom;
+  const displayedW = naturalSize ? naturalSize.w * scale : VIEW;
+  const displayedH = naturalSize ? naturalSize.h * scale : VIEW;
+  const maxOffsetX = Math.max(0, (displayedW - VIEW) / 2);
+  const maxOffsetY = Math.max(0, (displayedH - VIEW) / 2);
+
+  function clamp(o: { x: number; y: number }) {
+    return {
+      x: Math.min(maxOffsetX, Math.max(-maxOffsetX, o.x)),
+      y: Math.min(maxOffsetY, Math.max(-maxOffsetY, o.y)),
+    };
+  }
+
+  // Re-clamp whenever zoom or image dimensions change (max offsets shift)
+  useEffect(() => {
+    setOffset(o => clamp(o));
+  }, [zoom, naturalSize?.w, naturalSize?.h]);
+
+  function onImgLoad(e: React.SyntheticEvent<HTMLImageElement>) {
+    const img = e.currentTarget;
+    setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    dragRef.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragRef.current) return;
+    const dx = e.clientX - dragRef.current.x;
+    const dy = e.clientY - dragRef.current.y;
+    setOffset(clamp({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy }));
+  }
+  function onPointerUp() {
+    dragRef.current = null;
+  }
+
+  async function handleSave() {
+    if (!naturalSize || !imgUrl) return;
+    setSaving(true);
+    const img = new Image();
+    img.src = imgUrl;
+    await new Promise(res => { img.onload = () => res(null); });
+
+    const left = (VIEW - displayedW) / 2 + offset.x;
+    const top = (VIEW - displayedH) / 2 + offset.y;
+    const sx = -left / scale;
+    const sy = -top / scale;
+    const sSize = VIEW / scale;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = OUT;
+    canvas.height = OUT;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, sx, sy, sSize, sSize, 0, 0, OUT, OUT);
+    canvas.toBlob(blob => {
+      if (blob) onSave(blob);
+      setSaving(false);
+    }, 'image/jpeg', 0.9);
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      style={{ position: 'fixed', inset: 0, zIndex: 95, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.95, opacity: 0 }}
+        style={{ width: '100%', maxWidth: 360, background: '#0E1630', borderRadius: 24, padding: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}
+      >
+        <p style={{ fontWeight: 900, fontSize: 18, color: '#F0F4FF' }}>Edit photo</p>
+
+        {/* Crop viewport */}
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerLeave={onPointerUp}
+          style={{
+            width: VIEW, height: VIEW, borderRadius: VIEW / 2, overflow: 'hidden',
+            position: 'relative', background: '#1A2448', cursor: 'grab', touchAction: 'none',
+          }}
+        >
+          {imgUrl && (
+            <img
+              src={imgUrl}
+              onLoad={onImgLoad}
+              draggable={false}
+              alt="Crop preview"
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '50%',
+                width: displayedW,
+                height: displayedH,
+                transform: `translate(-50%, -50%) translate(${offset.x}px, ${offset.y}px)`,
+                userSelect: 'none',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </div>
+
+        {/* Zoom slider */}
+        <input
+          type="range"
+          min={1}
+          max={3}
+          step={0.01}
+          value={zoom}
+          onChange={e => setZoom(parseFloat(e.target.value))}
+          style={{ width: '100%' }}
+          aria-label="Zoom"
+        />
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+          <button
+            onClick={onCancel}
+            disabled={saving}
+            style={{ flex: 1, padding: '13px 0', borderRadius: 16, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', color: '#F0F4FF', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !naturalSize}
+            style={{ flex: 1, padding: '13px 0', borderRadius: 16, background: '#4D72FF', border: 'none', color: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? 'Saving…' : 'Use photo'}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
   );
 }
 

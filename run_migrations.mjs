@@ -9,11 +9,11 @@ const MIGRATIONS = [
 
 async function run() {
   const client = new Client({
-    host: 'db.zjhsggnmwvwlhiocmfrn.supabase.co',
+    host: 'aws-1-us-west-2.pooler.supabase.com',
     port: 5432,
     database: 'postgres',
-    user: 'postgres',
-    password: 'Jupiter2433!',
+    user: 'postgres.zjhsggnmwvwlhiocmfrn',
+    password: 'ThisIsHell@Long2433!',
     ssl: { rejectUnauthorized: false },
     connectionTimeoutMillis: 15000,
   });

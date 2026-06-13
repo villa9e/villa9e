@@ -31,11 +31,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Upload failed — please set up Supabase storage bucket "avatars"' }, { status: 500 });
   }
 
-  // Get public URL
+  // Get public URL — bust the cache, since the storage path is fixed per user
+  // and would otherwise return the same URL (and stale cached image) every time.
   const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+  const bustedUrl = `${publicUrl}?v=${Date.now()}`;
 
   // Update profile
-  await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+  await supabase.from('profiles').update({ avatar_url: bustedUrl }).eq('id', user.id);
 
-  return NextResponse.json({ url: publicUrl });
+  return NextResponse.json({ url: bustedUrl });
 }
