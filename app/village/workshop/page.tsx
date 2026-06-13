@@ -11,11 +11,21 @@ import { OoWopIcon } from '@/components/village/OoWopIcon';
 import WorkshopTabBar from '@/components/village/WorkshopTabBar';
 
 type CardType = 'template' | 'video' | 'tiktok' | 'sprint' | 'achievement' | 'goal' | 'guide';
+interface ActionContext {
+  goalId: string; sprintNumber: number; sprintTitle: string;
+  actionTitle: string; actionDescription?: string;
+}
 interface FeedCard {
   id: string; type: CardType; title: string; subtitle: string; content: string;
   author: { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
   media?: { videoId?: string; thumbnail?: string; url?: string; embedHtml?: string };
   color: string; accent: string; data?: any; oowops?: number;
+  actionContext?: ActionContext;
+}
+
+// Strip characters that would break a PostgREST `.or()` filter expression
+function sanitizeForOr(s: string): string {
+  return (s ?? '').replace(/[,()%]/g, '').trim().slice(0, 40);
 }
 interface Comment {
   id: string; username: string; avatar?: string;
@@ -556,8 +566,10 @@ export default function WorkshopPage() {
 
   const hasGoals = activeGoals.length > 0;
   const card = cards[current];
-  const isGoalAligned = hasGoals && card?.type === 'video';
-  const gpsHref = activeGoals[0] ? `/village/workshop/gps/${activeGoals[0].id}` : '/village/workshop/gps';
+  const isGoalAligned = !!card?.actionContext;
+  const gpsHref = card?.actionContext
+    ? `/village/workshop/gps/${card.actionContext.goalId}`
+    : activeGoals[0] ? `/village/workshop/gps/${activeGoals[0].id}` : '/village/workshop/gps';
 
   // Auto-hide UI after 3s on card change
   useEffect(() => {
@@ -656,33 +668,57 @@ export default function WorkshopPage() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const [templatesRes, goalsRes, videosRes, ytRes, curatedRes] = await Promise.all([
-        (supabase as any).from('goal_templates')
-          .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
-          .eq('is_public', true).order('clone_count', { ascending: false }).limit(10)
-          .then((r: any) => r).catch(() => ({ data: [] })),
-        user
-          ? (supabase as any).from('goals')
-              .select('id, title, description, category, progress_percentage, probability_score, goal_steps(status)')
-              .eq('user_id', user.id).eq('status', 'active').limit(5)
-              .then((r: any) => r).catch(() => ({ data: [] }))
-          : Promise.resolve({ data: [] }),
-        (supabase as any).from('studio_videos')
-          .select('id, title, description, category, video_url, thumbnail_url, profiles!creator_id(username)')
-          .eq('is_published', true).order('watch_count', { ascending: false }).limit(10)
-          .then((r: any) => r).catch(() => ({ data: [] })),
-        fetch('/api/gps/action-content', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}),
-        }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
-        // Curated feed: TikTok oEmbed + manually pinned YouTube
-        fetch('/api/admin/curated-feed')
-          .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
-      ]);
 
-      const templates: any[] = templatesRes.data ?? [];
-      const goals:     any[] = goalsRes.data     ?? [];
-      const videos:    any[] = videosRes.data    ?? [];
-      const curated:   any[] = curatedRes?.items  ?? [];
+      // ── Goals first (newest-active = "primary"), so the rest of the feed
+      // can be built around the sprint/action the user is currently on ──
+      let goals: any[] = [];
+      let actionContext: ActionContext | null = null;
+      if (user) {
+        const { data } = await (supabase as any)
+          .from('goals')
+          .select('id, title, description, category, progress_percentage, probability_score, goal_steps(status)')
+          .eq('user_id', user.id).eq('status', 'active')
+          .order('created_at', { ascending: false }).limit(5)
+          .then((r: any) => r).catch(() => ({ data: [] }));
+        goals = data ?? [];
+
+        const primaryGoal = goals[0];
+        if (primaryGoal) {
+          const { data: sp } = await (supabase as any)
+            .from('sprints')
+            .select('id, title, sprint_actions(id, title, description, completed, order_index)')
+            .eq('goal_id', primaryGoal.id)
+            .order('created_at', { ascending: true })
+            .then((r: any) => r).catch(() => ({ data: [] }));
+
+          let current: { sprintNumber: number; sprintTitle: string; title: string; description?: string } | null = null;
+          (sp ?? []).forEach((s: any, i: number) => {
+            if (current) return;
+            const action = (s.sprint_actions ?? [])
+              .slice().sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+              .find((a: any) => !a.completed);
+            if (action) current = { sprintNumber: i + 1, sprintTitle: s.title, title: action.title, description: action.description };
+          });
+
+          // Fallback: derive from goal_steps if no sprints exist yet
+          if (!current) {
+            const { data: steps } = await (supabase as any)
+              .from('goal_steps')
+              .select('title, status, step_number, week_number, description')
+              .eq('goal_id', primaryGoal.id).order('step_number', { ascending: true })
+              .then((r: any) => r).catch(() => ({ data: [] }));
+            const action = (steps ?? []).find((st: any) => st.status !== 'completed');
+            if (action) current = { sprintNumber: action.week_number ?? 1, sprintTitle: `Sprint ${action.week_number ?? 1}`, title: action.title, description: action.description };
+          }
+
+          if (current) {
+            actionContext = {
+              goalId: primaryGoal.id, sprintNumber: current.sprintNumber, sprintTitle: current.sprintTitle,
+              actionTitle: current.title, actionDescription: current.description,
+            };
+          }
+        }
+      }
 
       if (user && goals.length) {
         setActiveGoals(goals);
@@ -691,6 +727,42 @@ export default function WorkshopPage() {
           setActiveSprints(data.filter((s: any) => s.status === 'active'));
         }).catch(() => {});
       }
+
+      // Studio videos: when the user has a current action, only pull videos
+      // relevant to that action/category; otherwise show top-watched.
+      let studioQuery = (supabase as any).from('studio_videos')
+        .select('id, title, description, category, video_url, thumbnail_url, profiles!creator_id(username)')
+        .eq('is_published', true);
+      if (actionContext) {
+        const kw = sanitizeForOr(actionContext.actionTitle.split(' ')[0]);
+        const cat = sanitizeForOr(goals[0]?.category ?? '');
+        if (kw || cat) studioQuery = studioQuery.or(`title.ilike.%${kw}%,category.ilike.%${cat}%`);
+      }
+
+      const [templatesRes, videosRes, ytRes, curatedRes] = await Promise.all([
+        (supabase as any).from('goal_templates')
+          .select('id, title, description, estimated_weeks, clone_count, oowop_count, steps, profiles!creator_id(username, score_tier)')
+          .eq('is_public', true).order('clone_count', { ascending: false }).limit(10)
+          .then((r: any) => r).catch(() => ({ data: [] })),
+        studioQuery.order('watch_count', { ascending: false }).limit(10)
+          .then((r: any) => r).catch(() => ({ data: [] })),
+        fetch('/api/gps/action-content', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(actionContext ? {
+            goal_id: actionContext.goalId,
+            goal_title: goals[0]?.title,
+            goal_category: goals[0]?.category,
+            action_title: actionContext.actionTitle,
+          } : {}),
+        }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
+        // Curated feed: TikTok oEmbed + manually pinned YouTube
+        fetch('/api/admin/curated-feed')
+          .then(r => r.ok ? r.json() : { items: [] }).catch(() => ({ items: [] })),
+      ]);
+
+      const templates: any[] = templatesRes.data ?? [];
+      const videos:    any[] = videosRes.data    ?? [];
+      const curated:   any[] = curatedRes?.items  ?? [];
 
       const COLORS = ['#E8770A','#7C3AED','#059669','#D97706','#BE185D','#0D9488','#1877F2'];
       const goalCards: FeedCard[] = goals.map((g: any, i: number) => {
@@ -703,11 +775,21 @@ export default function WorkshopPage() {
       }));
       const studioCards: FeedCard[] = videos.filter((v: any) => v.video_url || v.thumbnail_url).map((v: any) => {
         const rawId = v.video_url?.includes('v=') ? v.video_url.split('v=')[1]?.split('&')[0] : undefined;
-        return { id: v.id, type: 'video', title: v.title, subtitle: v.category ?? 'Training', content: v.description ?? '', author: { username: v.profiles?.username ?? 'creator' }, media: { videoId: rawId, thumbnail: v.thumbnail_url }, color: '#FF6B2B', accent: '#FF6B2B' };
+        return {
+          id: v.id, type: 'video', title: v.title, subtitle: v.category ?? 'Training', content: v.description ?? '',
+          author: { username: v.profiles?.username ?? 'creator' }, media: { videoId: rawId, thumbnail: v.thumbnail_url },
+          color: '#FF6B2B', accent: '#FF6B2B',
+          ...(actionContext ? { actionContext } : {}),
+        };
       });
       const ytCards: FeedCard[] = (ytRes?.feed ?? [])
-        .filter((v: any) => v.id && !v.id.startsWith('fb')).slice(0, 8)
-        .map((v: any) => ({ id: `yt-${v.id}`, type: 'video', title: v.title, subtitle: v.channel ?? 'YouTube', content: '', author: { username: v.channel ?? 'YouTube' }, media: { videoId: v.id, thumbnail: v.thumbnail }, color: '#FF0000', accent: '#FF6B2B' }));
+        .filter((v: any) => v.source === 'youtube' && v.id && !String(v.id).startsWith('fb')).slice(0, 8)
+        .map((v: any) => ({
+          id: `yt-${v.id}`, type: 'video', title: v.title, subtitle: v.channel ?? 'YouTube', content: '',
+          author: { username: v.channel ?? 'YouTube' }, media: { videoId: v.id, thumbnail: v.thumbnail },
+          color: '#FF0000', accent: '#FF6B2B',
+          ...(actionContext ? { actionContext } : {}),
+        }));
 
       // Curated items: TikTok oEmbed cards + pinned YouTube — same video-first position as YT
       const curatedCards: FeedCard[] = curated.map((c: any) => {
@@ -730,8 +812,14 @@ export default function WorkshopPage() {
         };
       });
 
-      // All video-type cards go first (YouTube + TikTok + studio), sorted for variety
-      const videoCards    = [...studioCards.filter(c => c.media?.videoId), ...curatedCards, ...ytCards];
+      // When the user has a current action, action-matched content (YouTube
+      // search results + relevant studio videos for that action) leads the
+      // feed; curated/pinned content follows. Otherwise, studio content
+      // leads as before, with the generic YouTube feed last.
+      const matchedStudio = studioCards.filter(c => c.media?.videoId);
+      const videoCards = actionContext
+        ? [...ytCards, ...matchedStudio, ...curatedCards]
+        : [...matchedStudio, ...curatedCards, ...ytCards];
       const nonVideoCards = [...goalCards, ...templateCards, ...studioCards.filter(c => !c.media?.videoId)];
       const guideCard: FeedCard = { id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' };
       const shuffled: FeedCard[] = videoCards.length > 0 ? [...videoCards, ...nonVideoCards] : goals.length ? [...nonVideoCards, guideCard] : [guideCard, ...nonVideoCards];
@@ -849,6 +937,16 @@ export default function WorkshopPage() {
               {/* Bottom text info (video + tiktok, auto-hides) */}
               {(card?.type === 'video' || card?.type === 'tiktok') && (
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 72, padding: '0 16px 110px', zIndex: 10, opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: 'none' }}>
+                  {/* Action context banner — links back to the GPS sprint/action this content was matched to */}
+                  {card.actionContext && (
+                    <Link href={`/village/workshop/gps/${card.actionContext.goalId}`}
+                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(77,114,255,0.22)', color: '#AFC0FF', border: '1px solid rgba(77,114,255,0.5)', pointerEvents: 'auto', width: 'fit-content', textDecoration: 'none' }}>
+                      <span>🎯</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                        Sprint {card.actionContext.sprintNumber} · {card.actionContext.actionTitle}
+                      </span>
+                    </Link>
+                  )}
                   <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
                     {card.subtitle || 'Training'}
                   </span>
