@@ -104,6 +104,7 @@
 
 ## CREATOR STUDIO (in progress — see user spec)
 
+- [ ] Go Live — launch a live stream from Creator Studio (see VISION_LOG 2026-06-12)
 - [ ] Camera opens in selfie mode by default
 - [ ] Music note icon (top left): Spotify API, audio overlay, user sounds
 - [ ] Teepee icon (top right): countdown timer, format selector, filters, background blur/polish AI, camera switch

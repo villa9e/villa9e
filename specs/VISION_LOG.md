@@ -10,6 +10,37 @@ full spec when one exists.
 
 ---
 
+## 2026-06-12 — Remaining sections: Discover, Hut, Live, Map, Personality Maze, Spaces/Wellness/Zen, Notifications, Onboarding
+
+Quick-fire vision for most of the rest of the coverage map:
+
+- **Discover** = the search tool (magnifying glass). Already built (`app/village/discover/page.tsx`).
+- **Hut** = the user profile. This *is* the "profile" coverage item — same page
+  (`app/village/hut/page.tsx`), no separate surface needed.
+- **Live** = the user's ability to go live, launched from the Creator Studio
+  (`app/village/studio`). Not yet built — add to CREATOR STUDIO tasks in `TASKS.md`.
+- **Map** (3D village world) = **intentionally on standby** — no updated spec yet.
+  Leave uncaptured until Legaci describes it.
+- **Personality Maze** = the 8-archetype mini-game (already built at
+  `app/village/hut/personality/page.tsx`, result saved to `profiles.personality_type`)
+  is the maze. **New mechanic**: Spirit uses each archetype's compatibility (`match`
+  field) to pair villagers as **Trading Post partners** for tasks/deals that require
+  collaboration — surfaced on the user's profile (archetype badge) and on
+  partner-required Trading Post tasks ("Find your match"). → `PERSONALITY_MAZE_SPEC.md`.
+- **Spaces / Wellness (incl. Zen)** = part of the Hut/profile bundle: swiping the
+  profile screen right→left opens **Spaces**, swiping left→right opens **Wellness**
+  (which includes **Zen** — already built under `app/village/zen/*`: meditate,
+  breathwork, affirmation, music, journal). Trading Post, Wellness, Spaces, and Zen
+  specs were already captured in the 2026-06-01 dump (`TASKS.md` SPACES/WELLNESS
+  sections + cross-references across `BANK_SPEC.md`, `DREAMLINE_SPEC.md`,
+  `GOAL_GPS_MAPS_SPEC.md`, `ADS_MANAGER_SPEC.md`, `MERCHANT_NETWORK_SPEC.md`,
+  `SPIRIT_TOURS_SPEC.md`); no new spec needed.
+- **Notifications** = one unified inbox for every notification type across the app.
+  Already built (`app/village/notifications/page.tsx`) — routes/messages for
+  oowop, Trading Post match, tribe message, GPS goal-step, tribe invite, system.
+- **Onboarding** = the existing onboarding flow (`app/village/onboarding/` +
+  `app/onboarding/welcome/`) is the captured vision — no further description pending.
+
 ## 2026-06-10 — ViCo coin economics, on-chain verification & GVS (major dump)
 
 The full token economy, captured across several new specs:
@@ -157,25 +188,23 @@ one; mark `[x]` + link the spec as they're captured.
 - [x] admin — `SUPER_ADMIN_SPEC.md`
 - [x] (cross-cutting) section tours — `SPIRIT_TOURS_SPEC.md`
 - [x] _(platform-wide)_ — `PLATFORM_SPEC.md`
+- [x] discover — search tool, built `app/village/discover/page.tsx`
+- [x] hut / profile (`[username]`) — `app/village/hut/page.tsx`
+- [x] live — go-live from Creator Studio (vision captured 2026-06-12, not yet built)
+- [x] personality-maze — built maze + new Trading Post archetype-matching mechanic → `PERSONALITY_MAZE_SPEC.md`
+- [x] spaces — partial spec in `TASKS.md`; swipe-right from Hut
+- [x] wellness (incl. zen) — partial spec in `TASKS.md`; swipe-left from Hut; `app/village/zen/*` built
+- [x] trading-post — covered via cross-references (`BANK_SPEC.md`, `DREAMLINE_SPEC.md`, `GOAL_GPS_MAPS_SPEC.md`, `ADS_MANAGER_SPEC.md`, `MERCHANT_NETWORK_SPEC.md`, `SPIRIT_TOURS_SPEC.md`) + `PERSONALITY_MAZE_SPEC.md` (new matching mechanic)
+- [x] notifications — unified inbox, built `app/village/notifications/page.tsx`
+- [x] onboarding — built `app/village/onboarding/` + `app/onboarding/welcome/`
 
 **Not yet captured (awaiting Legaci's description):**
 - [ ] create
-- [ ] discover
 - [ ] hospital
-- [ ] hut
-- [ ] live
-- [ ] map (3D village world)
-- [ ] personality-maze
-- [ ] spaces
+- [ ] map (3D village world) — intentionally on standby, no spec yet
 - [ ] spirit (companion/personality — partial in memory)
 - [ ] stories
 - [ ] tribes
-- [ ] wellness
-- [ ] zen
-- [ ] trading-post
-- [ ] notifications
-- [ ] onboarding
-- [ ] profile (`[username]` / hut)
 
 ---
 
