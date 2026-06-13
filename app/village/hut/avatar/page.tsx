@@ -326,7 +326,13 @@ export default function AvatarBuilderPage() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await (supabase as any).from('profiles').update({ avatar_config: config }).eq('id', user.id);
+      // Read current avatar_config first — it's shared with spirit_variant and
+      // Google Calendar tokens (gcal_access_token/gcal_token_expiry), so a
+      // blind overwrite would clobber those.
+      const { data: profile } = await (supabase as any)
+        .from('profiles').select('avatar_config').eq('id', user.id).single();
+      const updated = { ...(profile?.avatar_config ?? {}), ...config };
+      await (supabase as any).from('profiles').update({ avatar_config: updated }).eq('id', user.id);
     }
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);

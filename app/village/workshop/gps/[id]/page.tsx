@@ -6,9 +6,14 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { createClient } from '@/lib/supabase/client';
 import { useSpiritVoice } from '@/components/village/SpiritVoiceProvider';
 import WorkshopTabBar, { useWorkshopSwipeNav } from '@/components/village/WorkshopTabBar';
+import { DEFAULT_AVATAR_CONFIG, type AvatarConfig } from '@/lib/avatar/config';
+
+// 3D avatar marker — client-only (WebGL), so it's excluded from SSR
+const AvatarMapMarker = dynamic(() => import('@/components/avatar/AvatarMapMarker'), { ssr: false });
 
 // ── Color tokens (spec §14) ──────────────────────────────────────────────────
 const C = {
@@ -175,6 +180,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [toast, setToast] = useState<string | null>(null);
   const [routeLen, setRouteLen] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarConfig, setAvatarConfig] = useState<AvatarConfig | null>(null);
 
   // ── Camera (pan/pinch/zoom, spec §10.2/§11) ────────────────────────────────
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, scale: 1 });
@@ -268,8 +274,11 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: profile } = await (supabase as any)
-        .from('profiles').select('avatar_url').eq('id', user.id).single();
+        .from('profiles').select('avatar_url, avatar_config').eq('id', user.id).single();
       if (profile?.avatar_url) setAvatarUrl(profile.avatar_url);
+      if (profile?.avatar_config?.character_type) {
+        setAvatarConfig({ ...DEFAULT_AVATAR_CONFIG, ...profile.avatar_config });
+      }
     }
   }, [params.id, supabase]);
 
@@ -374,6 +383,24 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
   const markerPoint = scrubPoint ?? youPoint;
   const isReviewing = inspectIdx !== activeSprintIdx;
+
+  // Whether the avatar should play its Walk animation: while being dragged
+  // along the route, or for the duration of the slide-to-new-position
+  // transition (matches the 1.2s CSS transition on the marker <g> below).
+  const [avatarWalking, setAvatarWalking] = useState(false);
+  const prevMarkerPoint = useRef(markerPoint);
+  useEffect(() => {
+    const prev = prevMarkerPoint.current;
+    if (prev.x !== markerPoint.x || prev.y !== markerPoint.y) {
+      prevMarkerPoint.current = markerPoint;
+      if (!scrubbing) {
+        setAvatarWalking(true);
+        const t = setTimeout(() => setAvatarWalking(false), 1200);
+        return () => clearTimeout(t);
+      }
+    }
+  }, [markerPoint, scrubbing]);
+  const isAvatarWalking = scrubbing || avatarWalking;
 
   // Per-action "turn markers" along each sprint's leg — revealed at zoom ≥1.6 (§11)
   const actionMarkers = useMemo(() => {
@@ -799,7 +826,11 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                 <defs>
                   <clipPath id="you-are-here-clip"><circle r={9} cx={0} cy={0} /></clipPath>
                 </defs>
-                {avatarUrl ? (
+                {avatarConfig ? (
+                  <foreignObject x={-15} y={-26} width={30} height={34} style={{ overflow: 'visible', pointerEvents: 'none' }}>
+                    <AvatarMapMarker config={avatarConfig} isWalking={isAvatarWalking} />
+                  </foreignObject>
+                ) : avatarUrl ? (
                   <image href={avatarUrl} x={-9} y={-9} width={18} height={18}
                     clipPath="url(#you-are-here-clip)" preserveAspectRatio="xMidYMid slice" />
                 ) : (
@@ -809,7 +840,9 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
                     <path d="M-6,9 C-6,3.5 -3.3,1 0,1 C3.3,1 6,3.5 6,9 Z" fill={C.textHi} />
                   </g>
                 )}
-                <circle r={9} cx={0} cy={0} fill="none" stroke={scrubbing ? C.amberText : C.textHi} strokeWidth={scrubbing ? 2 : 1.5} />
+                {!avatarConfig && (
+                  <circle r={9} cx={0} cy={0} fill="none" stroke={scrubbing ? C.amberText : C.textHi} strokeWidth={scrubbing ? 2 : 1.5} />
+                )}
               </g>
 
               {/* Action turn-markers — fade in 1.6→1.8 zoom (§11 Sprint view) */}
