@@ -186,9 +186,9 @@
 
 ### Spirit OS — Operating Intelligence (see SPIRIT_OS_SPEC.md, vision logged 2026-06-13)
 
-- [ ] Phase 1 — Memory graph: `spirit_entities` + `spirit_relationships` tables (migration 053)
-- [ ] Phase 2 — Unified API Fabric: internal tool registry (`lib/claude/spirit-tools.ts`) + Claude tool-use loop in `runSpirit()`
-- [ ] Phase 3 — Execution Layer: Tier 0/1/2 action model, `spirit_actions` audit table, Tier-2 confirmation card UI
+- [x] Phase 1 — Memory graph: `spirit_entities` + `spirit_relationships` tables (migration 053, applied)
+- [x] Phase 2 — Unified API Fabric: internal tool registry (`lib/claude/spirit-tools.ts`) + Claude tool-use loop in `callSpirit()`
+- [x] Phase 3 — Execution Layer: Tier 0/1/2 action model, `spirit_actions` audit table, Tier-2 confirmation UI (`SpiritActivityFeed` on Hut)
 - [ ] Phase 4 — Proactive perception: `/api/spirit/tick` cron, GPS-sprint-delay worked example end to end
 - [ ] Phase 5 (long-horizon) — External plugin Gateway Guard, wearable/3rd-party API fabric
 
