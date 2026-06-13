@@ -172,10 +172,28 @@ export const SPIRIT_TOOLS: SpiritTool[] = [
       },
       required: ['tribe_id', 'content'],
     },
-    // Tier 2 — never executed directly by the handler. The tool-use loop in
-    // callSpirit() intercepts Tier-2 calls before reaching here and writes a
-    // pending_confirmation row to spirit_actions instead.
-    handler: async () => ({ ok: false, pending: true, error: 'Awaiting user confirmation.' }),
+    // Tier 2 — the tool-use loop in callSpirit() never calls this directly;
+    // it queues a pending_confirmation row instead. This handler only runs
+    // once the user confirms via /api/spirit/actions/[id].
+    handler: async (admin, userId, input) => {
+      const { data: membership } = await admin
+        .from('tribe_members')
+        .select('id')
+        .eq('tribe_id', input.tribe_id)
+        .eq('user_id', userId)
+        .maybeSingle() as any;
+
+      if (!membership) return { ok: false, error: "You're not a member of that tribe." };
+
+      const { data, error } = await admin
+        .from('tribe_messages')
+        .insert({ tribe_id: input.tribe_id, user_id: userId, content: input.content })
+        .select()
+        .single() as any;
+
+      if (error) return { ok: false, error: error.message };
+      return { ok: true, data };
+    },
   },
 ];
 

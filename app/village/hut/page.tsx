@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { QRCodeSVG } from 'qrcode.react';
+import SpiritActivityFeed from '@/components/spirit/SpiritActivityFeed';
 
 // ── Number formatter ──────────────────────────────────────────────
 function fmt(n: number) {
@@ -1059,6 +1060,9 @@ function HutPageInner() {
         </Link>
       </div>
       )}
+
+      {/* Spirit Activity — pending confirmations + recent actions (own profile only) */}
+      {isOwnProfile && <SpiritActivityFeed />}
 
       {/* ── Bio + Counts ────────────────────────────────────────── */}
       <div style={{ padding: '0 16px 14px' }}>
