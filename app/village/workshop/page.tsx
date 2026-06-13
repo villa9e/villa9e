@@ -556,6 +556,7 @@ export default function WorkshopPage() {
   const [showComments,  setShowComments]  = useState(false);
   const [showMore,      setShowMore]      = useState(false);
   const [showGoalPopup, setShowGoalPopup] = useState(false);
+  const [missionScores, setMissionScores] = useState<Record<string, { score: number; label: 'green' | 'amber' | null }>>({});
 
   const iframeRef  = useRef<HTMLIFrameElement>(null);
   const uiTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -663,6 +664,34 @@ export default function WorkshopPage() {
   }
 
   useEffect(() => { loadFeed(); }, []);
+
+  // Mission score: lazily score the current video card against the user's
+  // GPS action (cached server-side, so repeat views are free).
+  useEffect(() => {
+    const c = cards[current];
+    if (!c?.media?.videoId || !c.actionContext || missionScores[c.id]) return;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch('/api/workshop/score-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({
+            videoId: c.media!.videoId,
+            videoTitle: c.title,
+            actionTitle: c.actionContext!.actionTitle,
+            actionDescription: c.actionContext!.actionDescription,
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setMissionScores(prev => ({ ...prev, [c.id]: { score: data.score, label: data.label } }));
+      } catch {}
+    })();
+  }, [current, cards]);
 
   async function loadFeed() {
     setLoading(true);
@@ -946,6 +975,19 @@ export default function WorkshopPage() {
                         Sprint {card.actionContext.sprintNumber} · {card.actionContext.actionTitle}
                       </span>
                     </Link>
+                  )}
+                  {/* Mission score pill — how well this video matches the current action (Claude-scored, cached) */}
+                  {missionScores[card.id]?.label && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20,
+                      fontSize: 10, fontWeight: 900, marginBottom: 6,
+                      background: missionScores[card.id].label === 'green' ? 'rgba(16,185,129,0.22)' : 'rgba(217,119,6,0.22)',
+                      color: missionScores[card.id].label === 'green' ? '#6EE7B7' : '#FCD34D',
+                      border: `1px solid ${missionScores[card.id].label === 'green' ? 'rgba(16,185,129,0.5)' : 'rgba(217,119,6,0.5)'}`,
+                    }}>
+                      <span>{missionScores[card.id].label === 'green' ? '✓' : '~'}</span>
+                      <span>{missionScores[card.id].score}% mission match</span>
+                    </span>
                   )}
                   <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
                     {card.subtitle || 'Training'}

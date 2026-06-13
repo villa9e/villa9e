@@ -17,8 +17,8 @@
 - [ ] Action context banner on every video card (Sprint/Action reference + title)
 - [ ] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms)
 - [ ] Skip signal → algorithm effect (30% probability reduction, hide after 3)
-- [ ] Mission score pill on video cards (green 85%+, amber 70-84%)
-- [ ] Video scoring system: Claude scores YouTube/Studio videos against action title
+- [x] Mission score pill on video cards (green 85%+, amber 70-84%)
+- [x] Video scoring system: Claude scores YouTube/Studio videos against action title
 - [ ] Format filter by action level (Wayfinder prefers >10min, Trailblazer <8min)
 - [ ] Card ordering algorithm (first card = current GPS action match)
 
@@ -64,8 +64,8 @@
 
 ### Skill Stream
 - [~] Skill Stream page exists — needs mission scoring
-- [ ] Mission score per action (Claude API call per video+action pair)
-- [ ] Score caching (avoid re-scoring same combination)
+- [ ] Mission score per action (Claude API call per video+action pair) — backend ready via /api/workshop/score-video, needs wiring on this page
+- [x] Score caching (avoid re-scoring same combination)
 - [ ] GPS-matched banner when user has active GPS
 
 ### $VLG
