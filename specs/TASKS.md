@@ -178,7 +178,7 @@
 ## SPIRIT CONNECTIVITY
 
 - [x] Spirit reads ALL sections: goals, bank, wellness, spaces, trading post, profile, workshop (`fetchSpiritContext`)
-- [ ] Spirit available on every page (floating icon or section-specific chat)
+- [x] Spirit available on every page (floating icon or section-specific chat)
 - [x] Spirit has context of entire app state when answering any question
 - [x] Spirit uses 77 Commandments as moral framework
 - [x] Spirit memory: RAG via pgvector (spirit_memories table)
