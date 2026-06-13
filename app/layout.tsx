@@ -6,6 +6,7 @@ import { NavSpacer } from '@/components/village/NavSpacer';
 import { ThemeSync } from '@/components/village/ThemeSync';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { SpiritVoiceProvider } from '@/components/village/SpiritVoiceProvider';
+import SpiritFab from '@/components/spirit/SpiritFab';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -65,6 +66,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {children}
               <NavSpacer />
               <BottomNav />
+              <SpiritFab />
             </div>
           </SpiritVoiceProvider>
         </PostHogProvider>

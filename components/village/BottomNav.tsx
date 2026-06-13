@@ -7,8 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { useNotifications } from '@/lib/hooks/useNotifications';
 
-const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/trading-post'];
-const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
+export const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/trading-post'];
+export const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
 
 const ITEMS = [
   { href: '/village/workshop', label: 'Workshop',     path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3z' },
