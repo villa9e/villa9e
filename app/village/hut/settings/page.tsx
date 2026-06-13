@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
@@ -31,8 +31,11 @@ export default function SettingsPage() {
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [usernameCheck, setUsernameCheck] = useState<{ state: 'idle' | 'checking' | 'available' | 'error'; message?: string }>({ state: 'idle' });
+  const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supabase = createClient();
   const { theme, toggle, virtualVillage, toggleVirtualVillage } = useVillageTheme();
   const { voiceGender, setGender, voiceEnabled, toggleVoice } = useSpiritVoice();
@@ -67,24 +70,67 @@ export default function SettingsPage() {
     load();
   }, []);
 
+  function onUsernameChange(value: string) {
+    setForm(f => ({ ...f, username: value }));
+    setSaveError(null);
+    if (usernameCheckTimer.current) clearTimeout(usernameCheckTimer.current);
+    const candidate = value.trim().toLowerCase();
+    if (!candidate || candidate === (profile?.username ?? '').toLowerCase()) {
+      setUsernameCheck({ state: 'idle' });
+      return;
+    }
+    setUsernameCheck({ state: 'checking' });
+    usernameCheckTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/profile/username?u=${encodeURIComponent(candidate)}`);
+        const data = await res.json();
+        if (data.available) setUsernameCheck({ state: 'available' });
+        else setUsernameCheck({ state: 'error', message: data.error ?? 'Unavailable' });
+      } catch {
+        setUsernameCheck({ state: 'idle' });
+      }
+    }, 400);
+  }
+
   async function save() {
     setSaving(true);
+    setSaveError(null);
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await Promise.all([
-        (supabase as any).from('profiles')
-          .update({ username: form.username, bio: form.bio, language: form.language })
-          .eq('id', user.id),
-        (supabase as any).from('spirit_configs').upsert({
-          user_id: user.id,
-          morning_check_in_time: form.morning_check_in_time,
-          evening_check_in_time: form.evening_check_in_time,
-          do_not_disturb: form.do_not_disturb,
-        }, { onConflict: 'user_id' }),
-      ]);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+    if (!user) { setSaving(false); return; }
+
+    // Username change goes through its own validated/uniqueness-checked endpoint
+    const newUsername = form.username.trim().toLowerCase();
+    if (newUsername && newUsername !== (profile?.username ?? '').toLowerCase()) {
+      const res = await fetch('/api/profile/username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: newUsername }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSaveError(data.error ?? 'Failed to update username.');
+        setUsernameCheck({ state: 'error', message: data.error });
+        setSaving(false);
+        return;
+      }
+      setProfile((p: any) => p ? { ...p, username: newUsername } : p);
+      setForm(f => ({ ...f, username: newUsername }));
+      setUsernameCheck({ state: 'idle' });
     }
+
+    await Promise.all([
+      (supabase as any).from('profiles')
+        .update({ bio: form.bio, language: form.language })
+        .eq('id', user.id),
+      (supabase as any).from('spirit_configs').upsert({
+        user_id: user.id,
+        morning_check_in_time: form.morning_check_in_time,
+        evening_check_in_time: form.evening_check_in_time,
+        do_not_disturb: form.do_not_disturb,
+      }, { onConflict: 'user_id' }),
+    ]);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
     setSaving(false);
   }
 
@@ -206,10 +252,24 @@ export default function SettingsPage() {
           <Field label="Username">
             <input
               value={form.username}
-              onChange={e => setForm(f => ({ ...f, username: e.target.value }))}
+              onChange={e => onUsernameChange(e.target.value)}
               style={inputCls}
               placeholder="@username"
+              autoCapitalize="none"
+              autoCorrect="off"
             />
+            <p className="text-xs mt-1.5" style={{ color: muted }}>
+              Your unique site address: villa9e.app/{form.username.trim().toLowerCase() || 'username'}
+            </p>
+            {usernameCheck.state === 'checking' && (
+              <p className="text-xs mt-1" style={{ color: muted }}>Checking availability…</p>
+            )}
+            {usernameCheck.state === 'available' && (
+              <p className="text-xs mt-1 font-semibold" style={{ color: '#22C55E' }}>✓ Available</p>
+            )}
+            {usernameCheck.state === 'error' && (
+              <p className="text-xs mt-1 font-semibold" style={{ color: '#ef4444' }}>{usernameCheck.message}</p>
+            )}
           </Field>
           <Field label="Bio">
             <textarea
@@ -332,7 +392,10 @@ export default function SettingsPage() {
           </div>
         </Section>
 
-        <button onClick={save} disabled={saving}
+        {saveError && (
+          <p className="text-xs font-semibold text-center" style={{ color: '#ef4444' }}>{saveError}</p>
+        )}
+        <button onClick={save} disabled={saving || usernameCheck.state === 'checking'}
           className="w-full py-4 rounded-2xl font-black text-base text-white transition-all disabled:opacity-50"
           style={{ background: saved ? '#22C55E' : '#1877F2' }}>
           {saving ? 'Saving…' : saved ? 'Saved!' : 'Save Settings'}
