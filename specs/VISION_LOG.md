@@ -10,6 +10,28 @@ full spec when one exists.
 
 ---
 
+## 2026-06-13 — Spirit OS: Spirit hard-wired to everything (Operating Intelligence)
+
+Spirit shouldn't be a feature you open — it's the substrate the whole app
+runs on. Vision describes Spirit as a hyper-personalized, context-aware,
+multimodal **Operating Intelligence**, built from 4 layers: a **Perception
+Engine** (voice/text/app-state/biometrics/calendar), a **Dynamic Context &
+Memory Graph** (relational graph of the user's life, not a flat memory log),
+a **Unified API Fabric** (one interface Spirit calls to act on any system,
+internal or external), and an **Execution Layer** running a continuous
+**Perceive → Reason → Orchestrate → Execute** loop (worked example: a flight
+delay triggers an auto-rebooked dinner + rideshare). Security via a **Trust
+Wall** — zero-knowledge token handling (villa9e already does this for
+Google Calendar tokens) plus a "Gateway Guard" proxy for any third-party
+plugins.
+
+Translated into villa9e-specific, buildable phases (memory graph schema,
+internal tool registry/Claude tool-use loop, Tier 0/1/2 action confirmation +
+audit log, proactive cron-based perception, worked example using GPS
+sprint-delay detection) → `SPIRIT_OS_SPEC.md`. This is the infrastructure
+layer underneath the existing personality/RAG work in `spirit_phase_c` and
+the SPIRIT CONNECTIVITY section of `TASKS.md`.
+
 ## 2026-06-12 — Remaining sections: Discover, Hut, Live, Map, Personality Maze, Spaces/Wellness/Zen, Notifications, Onboarding
 
 Quick-fire vision for most of the rest of the coverage map:

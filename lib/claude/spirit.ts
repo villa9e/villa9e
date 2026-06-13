@@ -1,5 +1,6 @@
 import { claude, CLAUDE_MODEL } from './client';
 import { createAdminClient } from '@/lib/supabase/server';
+import { spiritToolDefinitions, getSpiritTool } from './spirit-tools';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE 77 COMMANDMENTS — Spirit's moral floor
@@ -507,6 +508,15 @@ ${collectiveSection ? `━━━ VILLAGE WISDOM ━━━\n${collectiveSection}`
 ━━━ SPIRITUAL CONTEXT ━━━
 ${spiritualLayer}
 
+━━━ WHAT YOU CAN DO (not just say) ━━━
+You have tools to act on their behalf — adding a sprint action, marking one
+done, blocking time on their calendar. Use them when the conversation calls
+for it, not as a checklist. Reversible, in-app tools (creating/checking off a
+sprint action, adding a calendar block) you can just do. Anything that leaves
+the app or reaches another person (sending a tribe message) is queued for
+their confirmation — when that happens, tell them plainly what you want to
+send and ask for their OK before assuming it went out.
+
 ━━━ YOUR RULES ━━━
 - Never be generic. You know this person.
 - Never moralize, lecture, or quote rules.
@@ -564,19 +574,79 @@ export async function callSpirit(
   userId: string,
   userMessage: string,
   additionalContext?: Partial<SpiritUserContext>
-): Promise<{ text: string; raw: any }> {
+): Promise<{ text: string; raw: any; actions?: { tool: string; tier: number; input: any }[] }> {
   const ctx           = await fetchSpiritContext(userId, userMessage);
   const merged        = { ...ctx, ...additionalContext };
   const systemPrompt  = buildSpiritSystemPrompt(merged);
+  const admin         = createAdminClient();
 
-  const message = await claude.messages.create({
+  const messages: any[] = [{ role: 'user', content: userMessage }];
+  const pendingActions: { tool: string; tier: number; input: any }[] = [];
+
+  let message = await claude.messages.create({
     model:      CLAUDE_MODEL,
     max_tokens: 1024,
     system:     systemPrompt,
-    messages:   [{ role: 'user', content: userMessage }],
+    tools:      spiritToolDefinitions(),
+    messages,
   });
 
-  let text = message.content[0].type === 'text' ? message.content[0].text : '{}';
+  // Tool-use loop (Spirit OS Phase 2 — Unified API Fabric). Tier 0/1 tools
+  // execute immediately and feed their result back to Spirit. Tier 2 tools
+  // are never executed here — they're queued in spirit_actions for the user
+  // to confirm, and Spirit is told so it can ask for the go-ahead.
+  let rounds = 0;
+  while (message.stop_reason === 'tool_use' && rounds < 4) {
+    rounds++;
+    messages.push({ role: 'assistant', content: message.content });
+
+    const toolResults: any[] = [];
+    for (const block of message.content) {
+      if (block.type !== 'tool_use') continue;
+      const tool = getSpiritTool(block.name);
+
+      if (!tool) {
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: 'Unknown tool.', is_error: true });
+        continue;
+      }
+
+      if (tool.tier === 2) {
+        await (admin as any).from('spirit_actions').insert({
+          user_id: userId, tool_name: tool.name, tier: tool.tier,
+          input: block.input, status: 'pending_confirmation',
+        });
+        pendingActions.push({ tool: tool.name, tier: tool.tier, input: block.input });
+        toolResults.push({
+          type: 'tool_result', tool_use_id: block.id,
+          content: 'Queued for the user to confirm — not executed yet. Tell them what you want to do and ask for their OK.',
+        });
+        continue;
+      }
+
+      const result = await tool.handler(admin, userId, block.input);
+      await (admin as any).from('spirit_actions').insert({
+        user_id: userId, tool_name: tool.name, tier: tool.tier,
+        input: block.input, result, status: result.ok ? 'completed' : 'failed',
+        confirmed_at: new Date().toISOString(),
+      });
+      toolResults.push({
+        type: 'tool_result', tool_use_id: block.id,
+        content: JSON.stringify(result), is_error: !result.ok,
+      });
+    }
+
+    messages.push({ role: 'user', content: toolResults });
+
+    message = await claude.messages.create({
+      model:      CLAUDE_MODEL,
+      max_tokens: 1024,
+      system:     systemPrompt,
+      tools:      spiritToolDefinitions(),
+      messages,
+    });
+  }
+
+  let text = (message.content.find((b: any) => b.type === 'text') as any)?.text ?? '{}';
 
   // Run the commandment self-critique check — non-blocking on failure
   try {
@@ -591,10 +661,11 @@ export async function callSpirit(
   // Store this conversation as a memory (non-blocking)
   storeMemory(userId, 'conversation', `Spirit conversation: ${userMessage.slice(0, 120)}`).catch(() => {});
 
+  const actions = pendingActions.length ? pendingActions : undefined;
   try {
-    return { text, raw: JSON.parse(text) };
+    return { text, raw: JSON.parse(text), actions };
   } catch {
-    return { text, raw: { text } };
+    return { text, raw: { text }, actions };
   }
 }
 

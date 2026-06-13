@@ -177,12 +177,20 @@
 
 ## SPIRIT CONNECTIVITY
 
-- [ ] Spirit reads ALL sections: goals, bank, wellness, spaces, trading post, profile, workshop
+- [x] Spirit reads ALL sections: goals, bank, wellness, spaces, trading post, profile, workshop (`fetchSpiritContext`)
 - [ ] Spirit available on every page (floating icon or section-specific chat)
-- [ ] Spirit has context of entire app state when answering any question
-- [ ] Spirit uses 77 Commandments as moral framework
-- [ ] Spirit memory: RAG via pgvector (spirit_memories table)
-- [ ] Spirit collective intelligence (spirit_collective table)
+- [x] Spirit has context of entire app state when answering any question
+- [x] Spirit uses 77 Commandments as moral framework
+- [x] Spirit memory: RAG via pgvector (spirit_memories table)
+- [x] Spirit collective intelligence (spirit_collective table)
+
+### Spirit OS — Operating Intelligence (see SPIRIT_OS_SPEC.md, vision logged 2026-06-13)
+
+- [ ] Phase 1 — Memory graph: `spirit_entities` + `spirit_relationships` tables (migration 053)
+- [ ] Phase 2 — Unified API Fabric: internal tool registry (`lib/claude/spirit-tools.ts`) + Claude tool-use loop in `runSpirit()`
+- [ ] Phase 3 — Execution Layer: Tier 0/1/2 action model, `spirit_actions` audit table, Tier-2 confirmation card UI
+- [ ] Phase 4 — Proactive perception: `/api/spirit/tick` cron, GPS-sprint-delay worked example end to end
+- [ ] Phase 5 (long-horizon) — External plugin Gateway Guard, wearable/3rd-party API fabric
 
 ---
 
@@ -193,5 +201,5 @@
 - [ ] n8n self-hosted instance configured
 - [ ] Nextcloud instance configured
 - [ ] Ollama + BioMistral local inference
-- [ ] Anthropic API credits restored (blocked: Spirit + GPS dead)
+- [x] Anthropic API credits restored — verified live 2026-06-13, Spirit + GPS unblocked
 # Wed Jun  3 16:36:14 PDT 2026
