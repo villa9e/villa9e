@@ -30,8 +30,8 @@
 
 ### Spirit Chat
 - [x] 6-phase flow built and wired (discovery → success/commitment → proximity → resources → generating → ready)
-- [ ] Goal intersection detection (>50% semantic overlap → offer to merge) — current `checkDuplicate()` uses a simple >3-common-words heuristic with a single "view existing / create separate" alert, not a percentage-based merge offer
-- [ ] Duplicate detection (>85% identical → redirect to existing goal) — same heuristic as above; "go to existing goal" exists but isn't gated on an 85% similarity threshold
+- [x] Goal intersection detection (>50% semantic overlap → offer to merge) — `checkDuplicate()` now computes a Jaccard-style similarity %; 50-84% shows new `OverlapAlert` ("Merge into existing" appends the new text to the existing goal's description and redirects, or "Keep separate" continues discovery)
+- [x] Duplicate detection (>85% identical → redirect to existing goal) — same `checkDuplicate()`, >=85% shows the existing `DuplicateAlert` ("Build on existing" / "Create separate"), now gated on the 85% threshold instead of a raw word-count heuristic
 - [x] Phase 1: Spirit asks 4 questions, not just 1 (`DISCOVERY_QUESTIONS` — greeting Q1 + 3 follow-ups before falling through to Phase 2)
 - [x] Phase 2: commitment score 1-10, Spirit pushes back below 7 (`extractCommitmentScore` + `awaitingCommitment` gate)
 - [x] Phase 4: Action level selector (Wayfinder/Pathfinder/Trailblazer inline cards) — `ActionLevelSelector` component

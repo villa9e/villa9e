@@ -25,7 +25,8 @@ interface ChatMessage {
 type ChatItem =
   | { kind: 'message'; msg: ChatMessage }
   | { kind: 'action_level_selector'; id: string }
-  | { kind: 'duplicate_alert'; id: string; existingTitle: string; existingGoalId: string };
+  | { kind: 'duplicate_alert'; id: string; existingTitle: string; existingGoalId: string }
+  | { kind: 'overlap_alert'; id: string; existingTitle: string; existingGoalId: string; newGoalText: string; similarity: number };
 
 type Phase = 'discovery' | 'success' | 'proximity' | 'resources' | 'generating' | 'ready' | 'launched';
 
@@ -68,12 +69,15 @@ const DISCOVERY_QUESTIONS = [
 function spiritId() { return `spirit-${Date.now()}`; }
 function userId()   { return `user-${Date.now()}`; }
 
-// Count words two strings have in common (simple overlap check)
-function countCommonWords(a: string, b: string): number {
+// Percentage overlap of meaningful words between two strings (Jaccard similarity)
+function similarityScore(a: string, b: string): number {
   const stopWords = new Set(['the','a','an','to','for','of','in','on','at','my','i','and','or','is','are','be','it','this','that','with','have','want','get']);
   const wordsA = new Set(a.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w)));
-  const wordsB = b.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w));
-  return wordsB.filter(w => wordsA.has(w)).length;
+  const wordsB = new Set(b.toLowerCase().split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w)));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+  const union = new Set([...wordsA, ...wordsB]).size;
+  return Math.round((intersection / union) * 100);
 }
 
 // Extract a number 1-10 from a message string
@@ -204,6 +208,58 @@ function DuplicateAlert({
           style={{ background: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', color: muted, border: `1px solid ${border}` }}
         >
           Create separate
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+// ── Overlap Alert Card (50-84% similarity — offer to merge) ──────────────────
+function OverlapAlert({
+  existingTitle, similarity, onMerge, onKeepSeparate, isNight, card, border, text, muted,
+}: {
+  existingTitle: string;
+  similarity: number;
+  onMerge: () => void;
+  onKeepSeparate: () => void;
+  isNight: boolean;
+  card: string; border: string; text: string; muted: string;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-1 rounded-3xl p-4 space-y-3"
+      style={{ background: card, border: `1px solid rgba(124,58,237,0.35)` }}
+    >
+      <div className="flex items-start gap-2.5">
+        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-base"
+          style={{ background: 'rgba(124,58,237,0.15)', border: '1px solid rgba(124,58,237,0.3)' }}>
+          🔗
+        </div>
+        <div>
+          <p className="text-sm font-bold" style={{ color: text }}>This overlaps with a goal you&apos;re already working on</p>
+          <p className="text-xs mt-0.5 leading-snug" style={{ color: muted }}>
+            About {similarity}% of this matches your goal <strong>&quot;{existingTitle}&quot;</strong>. Want me to fold it into that goal, or keep building this as its own plan?
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onMerge}
+          className="py-3 rounded-2xl text-xs font-black"
+          style={{ background: 'rgba(124,58,237,0.15)', color: '#A78BFA', border: '1.5px solid rgba(124,58,237,0.35)' }}
+        >
+          Merge into existing
+        </motion.button>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={onKeepSeparate}
+          className="py-3 rounded-2xl text-xs font-bold"
+          style={{ background: isNight ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', color: muted, border: `1px solid ${border}` }}
+        >
+          Keep separate
         </motion.button>
       </div>
     </motion.div>
@@ -871,12 +927,16 @@ export default function GoalChatPage() {
     return msg;
   }
 
-  // Check for goal duplicates against user's existing goals
-  function checkDuplicate(goalText: string): { id: string; title: string } | null {
+  // Check for goal overlap against user's existing goals.
+  // >=85% similarity = likely the same goal (redirect to existing).
+  // 50-84% similarity = meaningful overlap (offer to merge).
+  function checkDuplicate(goalText: string): { id: string; title: string; similarity: number } | null {
+    let best: { id: string; title: string; similarity: number } | null = null;
     for (const g of existingGoals) {
-      if (countCommonWords(goalText, g.title) > 3) return g;
+      const sim = similarityScore(goalText, g.title);
+      if (sim >= 50 && (!best || sim > best.similarity)) best = { id: g.id, title: g.title, similarity: sim };
     }
-    return null;
+    return best;
   }
 
   // Inject action level selector into the chat stream
@@ -908,6 +968,23 @@ export default function GoalChatPage() {
     addSpiritMessage('Got it — let\'s build a fresh plan. Walk me through it.');
   }
 
+  // Handle overlap alert buttons (50-84% similarity)
+  async function handleMergeWithExisting(existingGoalId: string, newGoalText: string) {
+    setDuplicateResolved(true);
+    setChatItems(prev => prev.filter(i => i.kind !== 'overlap_alert'));
+    addSpiritMessage('Got it — I\'ll fold this into your existing goal and take you there now.');
+    const { data: existing } = await supabase.from('goals').select('description').eq('id', existingGoalId).single();
+    const mergedDescription = [existing?.description, newGoalText].filter(Boolean).join('\n\n— Added: ');
+    await supabase.from('goals').update({ description: mergedDescription }).eq('id', existingGoalId);
+    setTimeout(() => router.push(`/village/workshop/goal/${existingGoalId}`), 1200);
+  }
+
+  function handleKeepSeparate() {
+    setDuplicateResolved(true);
+    setChatItems(prev => prev.filter(i => i.kind !== 'overlap_alert'));
+    addSpiritMessage('Got it — let\'s build this as its own plan. Walk me through it.');
+  }
+
   const sendMessage = useCallback(async () => {
     if (!input.trim() || typing || generating) return;
 
@@ -934,9 +1011,13 @@ export default function GoalChatPage() {
         setDuplicateChecked(true);
         const dup = checkDuplicate(content);
         if (dup && !duplicateResolved) {
-          // Show duplicate alert inline and halt discovery
-          setChatItems(prev => [...prev, { kind: 'duplicate_alert', id: `dup-${Date.now()}`, existingTitle: dup.title, existingGoalId: dup.id }]);
-          return; // Wait for user to resolve duplicate alert
+          // Show duplicate/overlap alert inline and halt discovery
+          if (dup.similarity >= 85) {
+            setChatItems(prev => [...prev, { kind: 'duplicate_alert', id: `dup-${Date.now()}`, existingTitle: dup.title, existingGoalId: dup.id }]);
+          } else {
+            setChatItems(prev => [...prev, { kind: 'overlap_alert', id: `ovl-${Date.now()}`, existingTitle: dup.title, existingGoalId: dup.id, newGoalText: content, similarity: dup.similarity }]);
+          }
+          return; // Wait for user to resolve duplicate/overlap alert
         }
       }
 
@@ -1301,6 +1382,20 @@ export default function GoalChatPage() {
                 existingTitle={item.existingTitle}
                 onBuildOn={() => handleBuildOnExisting(item.existingGoalId)}
                 onCreateNew={handleCreateSeparate}
+                isNight={isNight}
+                card={card} border={border} text={text} muted={muted}
+              />
+            );
+          }
+
+          if (item.kind === 'overlap_alert') {
+            return (
+              <OverlapAlert
+                key={item.id}
+                existingTitle={item.existingTitle}
+                similarity={item.similarity}
+                onMerge={() => handleMergeWithExisting(item.existingGoalId, item.newGoalText)}
+                onKeepSeparate={handleKeepSeparate}
                 isNight={isNight}
                 card={card} border={border} text={text} muted={muted}
               />
