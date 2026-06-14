@@ -147,7 +147,7 @@
 
 - [x] Trigger system: fires automatically before calendar events (`SpacesTriggerWatcher` global component polls `calendar_events` and auto-navigates to /village/spaces/trigger when `now >= start_time - trigger_min`)
 - [x] 5 Trigger profiles: High Performance / Focused / Creative / Energize / Calm
-- [ ] AI dynamically adjusts Trigger based on daily wellness data
+- [x] AI dynamically adjusts Trigger based on daily wellness data — new `/api/spaces/trigger-adjustment` reads today's `wellness_logs` (mood/energy/stress/focus/readiness) and asks Claude whether to shift the scheduled energy-type profile and/or duration (5-20min), returning a short reason; `SpacesTriggerWatcher` calls it right before firing and overrides `energyType`/`duration` (+ passes `note`) only when `adjusted` is true; Trigger page shows a small "Spirit adjusted today's Trigger — {reason}" line when present. Falls back to the scheduled values unchanged if no wellness log exists today or the model response can't be parsed. "Skipped breakfast" and HRV-based adjustments from PLATFORM_SPEC remain out of scope — no breakfast/HRV fields exist in `wellness_logs` yet
 - [x] Trigger screen: dark, countdown, affirmation, music card, prep checklist, focus sentence
 - [x] Spaces home: Next up card, Trigger status bar, Today/Tomorrow event lists
 - [x] Event detail: event info, Trigger details, linked files (mock), affirmation, "Start Trigger now"

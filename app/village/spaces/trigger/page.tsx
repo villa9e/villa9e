@@ -188,6 +188,7 @@ function TriggerInner() {
 
   const affirmation = params.get('affirmation') ?? AFFIRMATIONS[energy];
   const playlist    = params.get('playlist') ?? PLAYLISTS[energy];
+  const spiritNote  = params.get('note');
 
   const [seconds,   setSeconds]   = useState(totalSeconds);
   const [checklist, setChecklist] = useState<CheckItem[]>(() =>
@@ -272,6 +273,17 @@ function TriggerInner() {
         <p style={{ fontSize: 16, fontWeight: 800, color: 'rgba(255,255,255,0.85)', marginBottom: 20, lineHeight: 1.3 }}>
           {eventTitle}
         </p>
+
+        {/* Spirit's wellness-based adjustment note */}
+        {spiritNote && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            fontSize: 11, fontWeight: 700, color: primaryColor, marginBottom: 16,
+          }}>
+            <span>✨</span>
+            <span>Spirit adjusted today's Trigger — {spiritNote}</span>
+          </div>
+        )}
 
         {/* Affirmation block */}
         <div style={{

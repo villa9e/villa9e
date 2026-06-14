@@ -72,7 +72,7 @@ export default function SpacesTriggerWatcher() {
   }, []);
 
   useEffect(() => {
-    const check = setInterval(() => {
+    const check = setInterval(async () => {
       if (pathname?.startsWith('/village/spaces/trigger')) return;
       const now = Date.now();
       const fired = loadFired();
@@ -82,20 +82,48 @@ export default function SpacesTriggerWatcher() {
         const fireAt = start - (e.trigger_min ?? 10) * 60000;
         if (now >= fireAt && now < start) {
           markFired(e.id);
+
+          let energyType = e.energy_type ?? 'focused';
+          let duration = e.trigger_min ?? 10;
+          let note: string | null = null;
+
+          // Let Spirit fine-tune today's Trigger based on today's wellness log.
+          try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const res = await fetch('/api/spaces/trigger-adjustment', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+              },
+              body: JSON.stringify({ energyType, durationMin: duration, eventTitle: e.title }),
+            });
+            if (res.ok) {
+              const adj = await res.json();
+              if (adj.adjusted) {
+                energyType = adj.energyType ?? energyType;
+                duration = adj.durationMin ?? duration;
+                note = adj.reason ?? null;
+              }
+            }
+          } catch { /* keep scheduled values */ }
+
           const qs = new URLSearchParams({
             eventId: e.id,
             eventTitle: e.title,
-            energyType: e.energy_type ?? 'focused',
-            duration: String(e.trigger_min ?? 10),
+            energyType,
+            duration: String(duration),
           });
           if (e.affirmation) qs.set('affirmation', e.affirmation);
           if (e.trigger_playlist) qs.set('playlist', e.trigger_playlist);
+          if (note) qs.set('note', note);
           router.push(`/village/spaces/trigger?${qs.toString()}`);
           break;
         }
       }
     }, 20000);
     return () => clearInterval(check);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [events, pathname, router]);
 
   return null;
