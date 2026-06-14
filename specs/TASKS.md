@@ -24,9 +24,9 @@
 
 ### Comment Drawer
 - [x] Comment drawer on main feed cards (CommentsDrawer in workshop/page.tsx, 78vh bottom sheet with OoWop row + input)
-- [ ] Draggable bottom sheet (70% height) — currently fixed height, not user-draggable
-- [ ] Reply threads (collapsed by default)
-- [ ] Keyboard-aware positioning
+- [x] Draggable bottom sheet (70% height) — sheet height changed from `78vh` max-height to a fixed `70vh`; header/handle is now a `drag="y"` framer-motion region with `dragSnapToOrigin` — dragging it down past 100px (or with enough velocity) closes the drawer, otherwise it springs back
+- [x] Reply threads (collapsed by default) — `Comment.replies?: Comment[]`; each comment has a "Reply" toggle (inline input, Enter or Post to submit) and, if it has replies, a "View N replies"/"Hide" toggle that expands a nested, indented thread
+- [x] Keyboard-aware positioning — new `keyboardInset` state driven by `window.visualViewport`'s `resize` event (`innerHeight - visualViewport.height`), applied as `paddingBottom` on the sheet so the input row stays above the on-screen keyboard
 
 ### Spirit Chat
 - [x] 6-phase flow built and wired (discovery → success/commitment → proximity → resources → generating → ready)

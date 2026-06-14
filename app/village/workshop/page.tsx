@@ -30,6 +30,7 @@ function sanitizeForOr(s: string): string {
 interface Comment {
   id: string; username: string; avatar?: string;
   text: string; isOoWop: boolean; timestamp: string;
+  replies?: Comment[];
 }
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -47,11 +48,28 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
 }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [input, setInput] = useState('');
+  const [expandedReplies, setExpandedReplies] = useState<Set<string>>(new Set());
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyInput, setReplyInput] = useState('');
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 200);
   }, [open, comments.length]);
+
+  // Keyboard-aware positioning: shrink the sheet by the on-screen keyboard
+  // height so the input row stays visible above it.
+  useEffect(() => {
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!open || !vv) return;
+    function onResize() {
+      setKeyboardInset(Math.max(0, window.innerHeight - vv!.height));
+    }
+    vv.addEventListener('resize', onResize);
+    onResize();
+    return () => { vv.removeEventListener('resize', onResize); setKeyboardInset(0); };
+  }, [open]);
 
   function submit() {
     if (!input.trim()) return;
@@ -60,6 +78,20 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
       isOoWop: false, timestamp: 'just now',
     }]);
     setInput('');
+  }
+
+  function toggleReplies(commentId: string) {
+    setExpandedReplies(prev => { const n = new Set(prev); if (n.has(commentId)) n.delete(commentId); else n.add(commentId); return n; });
+  }
+
+  function submitReply(commentId: string) {
+    if (!replyInput.trim()) return;
+    setComments(prev => prev.map(c => c.id === commentId
+      ? { ...c, replies: [...(c.replies ?? []), { id: Date.now().toString(), username: 'you', text: replyInput.trim(), isOoWop: false, timestamp: 'just now' }] }
+      : c));
+    setReplyInput('');
+    setReplyingTo(null);
+    setExpandedReplies(prev => new Set(prev).add(commentId));
   }
 
   return (
@@ -73,10 +105,15 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
             transition={{ type: 'spring', stiffness: 320, damping: 34 }}
             style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 71,
               background: 'rgba(8,10,24,0.98)', backdropFilter: 'blur(28px)',
-              borderRadius: '24px 24px 0 0', maxHeight: '78vh', display: 'flex', flexDirection: 'column' }}
+              borderRadius: '24px 24px 0 0', height: '70vh', display: 'flex', flexDirection: 'column',
+              paddingBottom: keyboardInset }}
           >
-            {/* Handle + header */}
-            <div style={{ padding: '10px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
+            {/* Handle + header — drag down to dismiss */}
+            <motion.div
+              drag="y" dragConstraints={{ top: 0, bottom: 0 }} dragElastic={{ top: 0, bottom: 0.7 }} dragSnapToOrigin
+              onDragEnd={(_e, info) => { if (info.offset.y > 100 || info.velocity.y > 500) onClose(); }}
+              style={{ padding: '10px 16px 10px', borderBottom: '1px solid rgba(255,255,255,0.07)', flexShrink: 0, cursor: 'grab', touchAction: 'none' }}
+            >
               <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2, margin: '0 auto 10px' }} />
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <span style={{ fontSize: 15, fontWeight: 900, color: '#fff' }}>
@@ -84,7 +121,7 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
                 </span>
                 <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 30, height: 30, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
               </div>
-            </div>
+            </motion.div>
 
             {/* Feed */}
             <div style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 18 }}>
@@ -94,18 +131,63 @@ function CommentsDrawer({ open, onClose, card, onOoWop, owopped }: {
                 </div>
               )}
               {comments.map(c => (
-                <div key={c.id} style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 18, background: c.isOoWop ? 'rgba(239,159,39,0.3)' : '#1877F2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {c.isOoWop ? <OoWopIcon size={18} /> : <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{c.username[0].toUpperCase()}</span>}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>@{c.username}</span>
-                      {c.isOoWop && <span style={{ fontSize: 9, fontWeight: 900, color: '#EF9F27', background: 'rgba(239,159,39,0.15)', padding: '1px 6px', borderRadius: 6 }}>OoWop</span>}
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)' }}>{c.timestamp}</span>
+                <div key={c.id} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 18, background: c.isOoWop ? 'rgba(239,159,39,0.3)' : '#1877F2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {c.isOoWop ? <OoWopIcon size={18} /> : <span style={{ fontSize: 13, fontWeight: 900, color: '#fff' }}>{c.username[0].toUpperCase()}</span>}
                     </div>
-                    <p style={{ fontSize: 14, color: '#fff', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>@{c.username}</span>
+                        {c.isOoWop && <span style={{ fontSize: 9, fontWeight: 900, color: '#EF9F27', background: 'rgba(239,159,39,0.15)', padding: '1px 6px', borderRadius: 6 }}>OoWop</span>}
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)' }}>{c.timestamp}</span>
+                      </div>
+                      <p style={{ fontSize: 14, color: '#fff', lineHeight: 1.5, margin: 0 }}>{c.text}</p>
+                    </div>
                   </div>
+
+                  {/* Reply action row */}
+                  <div style={{ display: 'flex', gap: 16, marginLeft: 46 }}>
+                    <button onClick={() => setReplyingTo(replyingTo === c.id ? null : c.id)}
+                      style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                      Reply
+                    </button>
+                    {!!c.replies?.length && (
+                      <button onClick={() => toggleReplies(c.id)}
+                        style={{ background: 'none', border: 'none', padding: 0, fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}>
+                        {expandedReplies.has(c.id) ? 'Hide' : 'View'} {c.replies.length} repl{c.replies.length === 1 ? 'y' : 'ies'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Reply input */}
+                  {replyingTo === c.id && (
+                    <div style={{ display: 'flex', gap: 8, marginLeft: 46 }}>
+                      <input value={replyInput} onChange={e => setReplyInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && submitReply(c.id)}
+                        placeholder={`Reply to @${c.username}…`} autoFocus
+                        style={{ flex: 1, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 18, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none' }} />
+                      <motion.button whileTap={{ scale: 0.92 }} onClick={() => submitReply(c.id)}
+                        style={{ background: '#4D72FF', border: 'none', borderRadius: 18, padding: '8px 14px', color: '#fff', fontWeight: 900, fontSize: 12, cursor: 'pointer' }}>
+                        Post
+                      </motion.button>
+                    </div>
+                  )}
+
+                  {/* Reply thread — collapsed by default */}
+                  {expandedReplies.has(c.id) && c.replies?.map(r => (
+                    <div key={r.id} style={{ display: 'flex', gap: 8, marginLeft: 46 }}>
+                      <div style={{ width: 28, height: 28, borderRadius: 14, background: '#1877F2', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>{r.username[0].toUpperCase()}</span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>@{r.username}</span>
+                          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.28)' }}>{r.timestamp}</span>
+                        </div>
+                        <p style={{ fontSize: 13, color: '#fff', lineHeight: 1.5, margin: 0 }}>{r.text}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))}
               <div ref={bottomRef} />
