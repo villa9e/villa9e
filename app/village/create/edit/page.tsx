@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSession } from '@/lib/create/session';
-import { useCreateStore, CSS_FILTERS, buildCSSFilter, type TextOverlay } from '@/lib/create/store';
+import { useCreateStore, CSS_FILTERS, buildCSSFilter, tintOverlay, type TextOverlay } from '@/lib/create/store';
 import { VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 
 type EditTool = 'adjust' | 'filter' | 'text' | 'trim' | 'audio' | 'stickers' | 'captions';
@@ -38,7 +38,11 @@ const ADJUST_PARAMS: { key: keyof ReturnType<typeof useCreateStore.getState>['ad
   { key: 'brightness',  label: 'Brightness',  min: -100, max: 100 },
   { key: 'contrast',    label: 'Contrast',    min: -100, max: 100 },
   { key: 'saturation',  label: 'Saturation',  min: -100, max: 100 },
-  { key: 'warmth',      label: 'Warmth',      min: -100, max: 100 },
+  { key: 'brilliance',  label: 'Brilliance',  min: -100, max: 100 },
+  { key: 'shadow',      label: 'Shadow',      min: -100, max: 100 },
+  { key: 'hue',         label: 'Hue',         min: -180, max: 180 },
+  { key: 'warmth',      label: 'Temp',        min: -100, max: 100 },
+  { key: 'tint',        label: 'Tint',        min: -100, max: 100 },
   { key: 'sharpness',   label: 'Sharpness',   min: 0,    max: 100 },
   { key: 'vignette',    label: 'Vignette',    min: 0,    max: 100 },
   { key: 'fade',        label: 'Fade',        min: 0,    max: 100 },
@@ -67,9 +71,10 @@ function CaptionsIcon() { return <svg width="20" height="20" viewBox="0 0 24 24"
 export default function EditPage() {
   const router = useRouter();
   const session = getSession();
-  const { selectedFilter, adjustments, textOverlays, trimStart, trimEnd, soundTitle,
+  const { selectedFilter, adjustments, textOverlays, captions, trimStart, trimEnd, soundTitle,
           setFilter, setAdjustment, resetAdjustments, addTextOverlay, updateTextOverlay,
-          removeTextOverlay, setTrim, setSound, clearSound } = useCreateStore();
+          removeTextOverlay, addCaption, updateCaption, removeCaption,
+          setTrim, setSound, clearSound } = useCreateStore();
 
   const [activeTool, setActiveTool]     = useState<EditTool | null>(null);
   const [draggingText, setDraggingText] = useState<string | null>(null);
@@ -227,6 +232,14 @@ export default function EditPage() {
     e.target.value = '';
   }
 
+  function addCaptionAtCurrentTime() {
+    const start = currentTime;
+    const end = Math.min(start + 3, duration || start + 3);
+    addCaption({ id: Math.random().toString(36).slice(2), start, end, text: '' });
+  }
+
+  const activeCaption = captions.find(c => currentTime >= c.start && currentTime <= c.end);
+
   function addSticker(emoji: string, type: string) {
     const label = type === 'time' ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : type === 'date' ? new Date().toLocaleDateString() : emoji;
@@ -267,6 +280,12 @@ export default function EditPage() {
             style={{ background: `rgba(255,255,255,${adjustments.fade / 200})` }} />
         )}
 
+        {/* Tint overlay */}
+        {tintOverlay(adjustments) && (
+          <div className="absolute inset-0 pointer-events-none"
+            style={{ background: tintOverlay(adjustments)!.color, opacity: tintOverlay(adjustments)!.opacity, mixBlendMode: 'soft-light' }} />
+        )}
+
         {/* Grain overlay */}
         {adjustments.grain > 0 && (
           <div className="absolute inset-0 pointer-events-none" style={{ opacity: adjustments.grain / 100,
@@ -302,6 +321,18 @@ export default function EditPage() {
             </div>
           </motion.div>
         ))}
+
+        {/* Burned-in caption */}
+        {activeCaption?.text && (
+          <div className="absolute left-0 right-0 flex justify-center pointer-events-none" style={{ bottom: '8%', padding: '0 16px' }}>
+            <span style={{
+              fontSize: 16, fontWeight: 800, color: '#fff', background: 'rgba(0,0,0,0.6)',
+              padding: '6px 14px', borderRadius: 8, textAlign: 'center', maxWidth: '90%',
+            }}>
+              {activeCaption.text}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ── TOOL RAIL — below media ─────────────────────────────────────────── */}
@@ -634,13 +665,46 @@ export default function EditPage() {
             {/* ── CAPTIONS ── */}
             {activeTool === 'captions' && (
               <div className="p-4 space-y-3">
-                <p className="text-white text-sm font-black">Captions</p>
-                <div className="p-4 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
-                    Captions are auto-generated from your transcript after posting.
-                    You can edit them on the published post.
-                  </p>
+                <div className="flex justify-between items-center mb-1">
+                  <p className="text-white text-sm font-black">Captions</p>
+                  {session.mediaType === 'video' && (
+                    <button onClick={addCaptionAtCurrentTime}
+                      style={{ color: '#1877F2', fontSize: 12, background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                      + Add at {fmt(currentTime)}
+                    </button>
+                  )}
                 </div>
+
+                {session.mediaType !== 'video' ? (
+                  <div className="p-4 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>Captions are available for video posts.</p>
+                  </div>
+                ) : captions.length === 0 ? (
+                  <div className="p-4 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      No captions yet. Play the video, pause where you want a caption, and tap "Add at …".
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {captions.map(c => (
+                      <div key={c.id} className="p-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <button onClick={() => seekTo(c.start)}
+                            style={{ color: '#1877F2', fontSize: 11, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer', fontVariantNumeric: 'tabular-nums' }}>
+                            {fmt(c.start)} – {fmt(c.end)}
+                          </button>
+                          <button onClick={() => removeCaption(c.id)}
+                            style={{ color: 'rgba(255,255,255,0.4)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 16 }}>×</button>
+                        </div>
+                        <input value={c.text} onChange={e => updateCaption(c.id, { text: e.target.value })}
+                          placeholder="Caption text…"
+                          className="w-full rounded-lg px-3 py-2 text-sm text-white focus:outline-none"
+                          style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </motion.div>

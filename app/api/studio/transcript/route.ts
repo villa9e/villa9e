@@ -9,8 +9,9 @@ export const maxDuration = 45;
 
 export async function POST(req: NextRequest) {
   const admin = createAdminClient() as any;
-  const { post_id, media_url } = await req.json();
+  const { post_id, media_url, user_captions } = await req.json();
   if (!post_id) return NextResponse.json({ error: 'post_id required' }, { status: 400 });
+  const hasUserCaptions = Array.isArray(user_captions) && user_captions.length > 0;
 
   // Get post data for context
   const { data: post } = await admin.from('studio_posts').select('caption, post_label, goal_id').eq('id', post_id).single();
@@ -46,11 +47,12 @@ captions array is empty for now (requires speech-to-text service).`,
     let parsed: any = {};
     try { parsed = JSON.parse(txt.match(/\{[\s\S]+\}/)?.[0] ?? '{}'); } catch { /* ignore */ }
 
-    // Save transcript record
+    // Save transcript record — user-authored captions (written live in the
+    // editor) take priority over AI-generated ones, which are empty for now.
     await admin.from('post_transcripts').upsert({
       post_id,
       transcript:  null,
-      captions:    parsed.captions ?? [],
+      captions:    hasUserCaptions ? user_captions : (parsed.captions ?? []),
       keywords:    parsed.keywords ?? [],
       language:    'en',
     }, { onConflict: 'post_id' });

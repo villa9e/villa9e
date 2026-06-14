@@ -14,20 +14,31 @@ export interface TextOverlay {
   y:        number;
 }
 
+export interface CaptionSegment {
+  id:    string;
+  start: number;   // seconds
+  end:   number;   // seconds
+  text:  string;
+}
+
 export interface Adjustments {
   brightness:  number;   // -100 to 100, default 0
   contrast:    number;
   saturation:  number;
-  warmth:      number;
+  brilliance:  number;   // -100 to 100, brightness+contrast lift
+  warmth:      number;   // temp: blue <-> yellow, via hue-rotate
+  tint:        number;   // -100 to 100, magenta <-> green overlay
+  hue:         number;   // -180 to 180, direct hue rotation
   sharpness:   number;
+  shadow:      number;   // -100 to 100, lift/crush shadows
   vignette:    number;   // 0-100
   fade:        number;   // 0-100
   grain:       number;   // 0-100
 }
 
 export const DEFAULT_ADJUSTMENTS: Adjustments = {
-  brightness: 0, contrast: 0, saturation: 0, warmth: 0,
-  sharpness: 0, vignette: 0, fade: 0, grain: 0,
+  brightness: 0, contrast: 0, saturation: 0, brilliance: 0, warmth: 0,
+  tint: 0, hue: 0, sharpness: 0, shadow: 0, vignette: 0, fade: 0, grain: 0,
 };
 
 export interface PostDetails {
@@ -79,6 +90,7 @@ interface CreateStore {
   selectedFilter:  string;
   adjustments:     Adjustments;
   textOverlays:    TextOverlay[];
+  captions:        CaptionSegment[];
   trimStart:       number;
   trimEnd:         number | null;
   playbackSpeed:   number;  // 0.5 = slow, 1 = normal, 2 = fast
@@ -99,6 +111,9 @@ interface CreateStore {
   addTextOverlay:     (o: TextOverlay) => void;
   updateTextOverlay:  (id: string, patch: Partial<TextOverlay>) => void;
   removeTextOverlay:  (id: string) => void;
+  addCaption:         (c: CaptionSegment) => void;
+  updateCaption:      (id: string, patch: Partial<CaptionSegment>) => void;
+  removeCaption:      (id: string) => void;
   setTrim:            (start: number, end: number | null) => void;
   setPlaybackSpeed:   (s: number) => void;
   setSound:           (title: string, url: string, source: string, startSec?: number) => void;
@@ -111,6 +126,7 @@ export const useCreateStore = create<CreateStore>((set) => ({
   selectedFilter:  'normal',
   adjustments:     { ...DEFAULT_ADJUSTMENTS },
   textOverlays:    [],
+  captions:        [],
   trimStart:       0,
   trimEnd:         null,
   playbackSpeed:   1,
@@ -126,6 +142,9 @@ export const useCreateStore = create<CreateStore>((set) => ({
   addTextOverlay:    (o) => set(s => ({ textOverlays: [...s.textOverlays, o] })),
   updateTextOverlay: (id, patch) => set(s => ({ textOverlays: s.textOverlays.map(t => t.id === id ? { ...t, ...patch } : t) })),
   removeTextOverlay: (id) => set(s => ({ textOverlays: s.textOverlays.filter(t => t.id !== id) })),
+  addCaption:        (c) => set(s => ({ captions: [...s.captions, c].sort((a, b) => a.start - b.start) })),
+  updateCaption:     (id, patch) => set(s => ({ captions: s.captions.map(c => c.id === id ? { ...c, ...patch } : c) })),
+  removeCaption:     (id) => set(s => ({ captions: s.captions.filter(c => c.id !== id) })),
   setTrim:           (start, end) => set({ trimStart: start, trimEnd: end }),
   setPlaybackSpeed:  (s) => set({ playbackSpeed: s }),
   setSound:          (title, url, source, startSec = 0) => set({ soundTitle: title, soundURL: url, soundSource: source, soundStartSec: startSec }),
@@ -133,7 +152,7 @@ export const useCreateStore = create<CreateStore>((set) => ({
   setDetails:        (patch) => set(s => ({ details: { ...s.details, ...patch } })),
   resetAll:          () => set({
     selectedFilter: 'normal', adjustments: { ...DEFAULT_ADJUSTMENTS },
-    textOverlays: [], trimStart: 0, trimEnd: null, playbackSpeed: 1,
+    textOverlays: [], captions: [], trimStart: 0, trimEnd: null, playbackSpeed: 1,
     soundTitle: '', soundURL: '', soundSource: '', soundStartSec: 0,
     details: { ...DEFAULT_POST_DETAILS },
   }),
@@ -141,12 +160,21 @@ export const useCreateStore = create<CreateStore>((set) => ({
 
 // CSS filter string from adjustments (applied to <video> or <img>)
 export function buildCSSFilter(adj: Adjustments, baseFilter = ''): string {
-  const b = 1 + adj.brightness / 100;
-  const c = 1 + adj.contrast / 100;
+  // Brilliance lifts brightness+contrast together; shadow lift trades contrast for brightness.
+  const b = 1 + (adj.brightness + adj.brilliance * 0.5 + adj.shadow * 0.25) / 100;
+  const c = 1 + (adj.contrast + adj.brilliance * 0.3 - adj.shadow * 0.3) / 100;
   const s = 1 + adj.saturation / 100;
-  const h = adj.warmth * 0.3;   // hue-rotate for warmth
+  const h = adj.warmth * 0.3 + adj.hue;   // hue-rotate for warmth (temp) + direct hue control
   const sharp = adj.sharpness > 0 ? `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><filter id='s'><feConvolveMatrix order='3' kernelMatrix='0 -${adj.sharpness/200} 0 -${adj.sharpness/200} ${1 + adj.sharpness/50} -${adj.sharpness/200} 0 -${adj.sharpness/200} 0'/></filter></svg>#s")` : '';
   return `brightness(${b}) contrast(${c}) saturate(${s}) hue-rotate(${h}deg) ${baseFilter} ${sharp}`.trim();
+}
+
+// Tint overlay color (magenta <-> green) — applied as a low-opacity color
+// wash since CSS filter has no separate tint axis.
+export function tintOverlay(adj: Adjustments): { color: string; opacity: number } | null {
+  if (adj.tint === 0) return null;
+  const opacity = Math.min(Math.abs(adj.tint) / 400, 0.25);
+  return { color: adj.tint > 0 ? '#22C55E' : '#D946EF', opacity };
 }
 
 export const CSS_FILTERS: Record<string, string> = {

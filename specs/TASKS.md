@@ -104,26 +104,26 @@
 
 ## CREATOR STUDIO (in progress — see user spec)
 
-- [ ] Go Live — launch a live stream from Creator Studio (see VISION_LOG 2026-06-12)
-- [ ] Camera opens in selfie mode by default
-- [ ] Music note icon (top left): Spotify API, audio overlay, user sounds
-- [ ] Teepee icon (top right): countdown timer, format selector, filters, background blur/polish AI, camera switch
-- [ ] Photo / Video / Text / Upload swipe selector
-- [ ] Video duration: 30s / 60s / Freeform (10min)
-- [ ] During recording: ONLY camera + stop + slow-motion + fast-motion buttons
+- [x] Go Live — launch a live stream from Creator Studio (GoLivePanel sets `profiles.is_live` + routes to /village/live/[userId]; presence-flag live, no WebRTC/RTMP pipeline yet)
+- [x] Camera opens in selfie mode by default
+- [x] Music note icon (top left): Spotify API, audio overlay, user sounds (Spotify + User Sounds tabs use mock catalogs, not live API/uploads yet)
+- [x] Teepee icon (top right): countdown timer, format selector, filters, background blur/polish AI, camera switch
+- [x] Photo / Video / Text / Upload swipe selector (implemented as tabs, not a swipe gesture)
+- [x] Video duration: 30s / 60s / Freeform (10min)
+- [x] During recording: ONLY camera + stop + slow-motion + fast-motion buttons
 - [x] Text editor: fonts, styles, highlights — visible while editing (fixed: drag transform now resets after each move, so overlay no longer drifts off-screen)
 - [x] Audio tracks: working (My Sounds = device file picker, Sound Library = villa9e VILLAGE_SONGS catalog wired via setSound)
 - [x] Trim: working (fixed Infinity-duration crash on recorded blobs + clamped/guarded trim values)
-- [ ] Captions: live in editor (not after posting — user explicitly rejected post-posting captions)
-- [ ] Full video editor per spec: timeline, playhead, tracks, cuts, transitions, keyframes
-- [ ] Effects: open source filters, zoom, face tracker, object tracker
-- [ ] Stickers: time, date, popular (open source library)
-- [ ] Adjust: brightness, contrast, saturation, brilliance, sharpness, HSL, shadow, temp, tint, fade, vignette, grain
-- [ ] Cover selection (still frame or upload)
-- [ ] Post details: description, hashtags, mentions, location, all toggles per spec
-- [ ] Post type labeling: Workshop/DreamLine/Story + content type labels
-- [ ] After posting: redirect to DreamLine while content uploads
-- [ ] Footer menu: must not overlap content, items spread out further
+- [x] Captions: live in editor (fixed: new Captions tool lets you add/edit/delete timed segments at the playhead, burned-in preview on the video, saved to `post_transcripts.captions` immediately on publish — no longer "after posting")
+- [ ] Full video editor per spec: timeline, playhead, tracks, cuts, transitions, keyframes (single-track trim timeline exists; no multi-track/cuts/transitions — large new subsystem)
+- [ ] Effects: open source filters, zoom, face tracker, object tracker (CSS filter presets done; zoom + face/object tracking not started — needs ML e.g. MediaPipe)
+- [x] Stickers: time, date, popular (open source library) (time/date/emoji stickers via text-overlay system; "popular" is a fixed emoji set, not a GIPHY/Lottie library)
+- [x] Adjust: brightness, contrast, saturation, brilliance, sharpness, HSL, shadow, temp, tint, fade, vignette, grain (fixed: added brilliance/shadow/hue/tint sliders — all 12 params now in `Adjustments`)
+- [x] Cover selection (still frame or upload) (fixed: new frame-scrubber modal lets you pick any video frame as cover, or upload an image)
+- [x] Post details: description, hashtags, mentions, location, all toggles per spec (@Mention is a static label, not a functional mention picker yet)
+- [x] Post type labeling: Workshop/DreamLine/Story + content type labels (DreamLine label pills + content-type labels + Workshop toggle implemented; no distinct "Story" post-destination type)
+- [x] After posting: redirect to DreamLine while content uploads
+- [ ] Footer menu: must not overlap content, items spread out further (no overlap in create flow since it's full-screen over BottomNav; "spread out further" spacing not yet revisited)
 
 ---
 

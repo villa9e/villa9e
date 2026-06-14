@@ -56,7 +56,12 @@ export default function PostDetailsPage() {
   const [mentionInput, setMentionInput] = useState('');
   const [showAdDisclosure, setShowAdDisclosure] = useState(false);
   const [dreamlineType, setDreamlineType] = useState<DreamlineType>('general');
+  const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const [coverScrubTime, setCoverScrubTime] = useState(0);
+  const [coverVideoDuration, setCoverVideoDuration] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const coverVideoRef = useRef<HTMLVideoElement>(null);
+  const coverCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const d = store.details;
 
@@ -86,6 +91,19 @@ export default function PostDetailsPage() {
 
   function removeHashtag(tag: string) {
     store.setDetails({ hashtags: d.hashtags.filter(t => t !== tag) });
+  }
+
+  function captureCoverFrame() {
+    const video = coverVideoRef.current;
+    const canvas = coverCanvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+    setCoverURL(canvas.toDataURL('image/jpeg', 0.92));
+    setShowCoverPicker(false);
   }
 
   async function upload(): Promise<{ url: string; cloudinaryId: string; thumbnail: string } | null> {
@@ -157,10 +175,12 @@ export default function PostDetailsPage() {
         sound_source:       store.soundSource || null,
         text_content:       session.mediaType === 'text' ? session.textContent : null,
         text_style:         session.mediaType === 'text' ? session.textStyle : null,
+        captions:           store.captions.map(({ start, end, text }) => ({ start, end, text })),
         edit_state:         {
           filter:      store.selectedFilter,
           adjustments: store.adjustments,
           textOverlays: store.textOverlays,
+          captions:    store.captions,
           trimStart:   store.trimStart,
           trimEnd:     store.trimEnd,
           playbackSpeed: store.playbackSpeed,
@@ -228,7 +248,8 @@ export default function PostDetailsPage() {
         {/* Cover preview + caption */}
         <div className="flex gap-4 px-4 py-4">
           {/* Cover */}
-          <div className="flex-shrink-0 relative cursor-pointer" onClick={() => fileRef.current?.click()}
+          <div className="flex-shrink-0 relative cursor-pointer"
+            onClick={() => session.mediaType === 'video' ? setShowCoverPicker(true) : fileRef.current?.click()}
             style={{ width: 72, height: 96, borderRadius: 12, overflow: 'hidden', background: 'var(--v-card-bg)', border: '1px solid rgba(255,255,255,0.1)' }}>
             {coverURL ? (
               <img src={coverURL} alt="cover" className="w-full h-full object-cover" />
@@ -489,6 +510,57 @@ export default function PostDetailsPage() {
           {posting ? 'Posting…' : 'Post Now'}
         </button>
       </div>
+
+      {/* Cover frame picker */}
+      <AnimatePresence>
+        {showCoverPicker && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end"
+            style={{ background: 'rgba(0,0,0,0.75)' }}
+            onClick={e => { if (e.target === e.currentTarget) setShowCoverPicker(false); }}>
+            <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32 }}
+              className="w-full px-4 pt-5"
+              style={{ background: 'var(--v-bg)', borderRadius: '20px 20px 0 0', paddingBottom: 'max(env(safe-area-inset-bottom), 20px)' }}>
+              <div className="w-9 h-1 rounded-full mx-auto mb-4" style={{ background: 'rgba(255,255,255,0.15)' }} />
+              <p className="text-white text-sm font-black mb-3">Choose Cover</p>
+
+              <div className="relative rounded-2xl overflow-hidden mb-3" style={{ background: '#000' }}>
+                <video ref={coverVideoRef} src={session.objectURL ?? undefined} muted playsInline
+                  className="w-full" style={{ maxHeight: '40vh', display: 'block' }}
+                  onLoadedMetadata={e => {
+                    const v = e.currentTarget;
+                    setCoverVideoDuration(v.duration);
+                    v.currentTime = 0;
+                  }} />
+              </div>
+
+              <input type="range" min={0} max={coverVideoDuration || 0} step={0.05}
+                value={coverScrubTime}
+                onChange={e => {
+                  const t = Number(e.target.value);
+                  setCoverScrubTime(t);
+                  if (coverVideoRef.current) coverVideoRef.current.currentTime = t;
+                }}
+                className="w-full mb-4" style={{ accentColor: '#1877F2' }} />
+
+              <div className="flex gap-3 mb-2">
+                <button onClick={captureCoverFrame}
+                  className="flex-1 py-3 rounded-2xl font-black text-sm text-white"
+                  style={{ background: '#1877F2', border: 'none', cursor: 'pointer' }}>
+                  Use This Frame
+                </button>
+                <button onClick={() => { setShowCoverPicker(false); fileRef.current?.click(); }}
+                  className="flex-1 py-3 rounded-2xl font-bold text-sm"
+                  style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: 'none', cursor: 'pointer' }}>
+                  Upload Image
+                </button>
+              </div>
+              <canvas ref={coverCanvasRef} style={{ display: 'none' }} />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

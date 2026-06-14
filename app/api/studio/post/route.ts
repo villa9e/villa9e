@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
     save_to_device, save_with_watermark, allow_visual_search,
     is_ad, ad_only, cta_text, cta_url,
     sound_title, sound_url, sound_source,
-    edit_state, text_content, text_style,
+    edit_state, text_content, text_style, captions,
   } = body;
 
   // Insert post
@@ -75,6 +75,18 @@ export async function POST(req: NextRequest) {
     } catch { /* non-blocking */ }
   }
 
+  // Save user-authored captions immediately (written live in the editor,
+  // not generated post-publish)
+  const userCaptions = Array.isArray(captions) ? captions.filter((c: any) => c.text?.trim()) : [];
+  if (userCaptions.length > 0) {
+    try {
+      await admin.from('post_transcripts').upsert({
+        post_id:  post.id,
+        captions: userCaptions,
+      }, { onConflict: 'post_id' });
+    } catch { /* non-blocking */ }
+  }
+
   // Fire transcript + moderation async (don't block the response)
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://villa9e.app';
   const moderationText = [caption, post_label, text_content].filter(Boolean).join(' ');
@@ -85,7 +97,7 @@ export async function POST(req: NextRequest) {
       ? fetch(`${baseUrl}/api/studio/transcript`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ post_id: post.id, media_url }),
+          body: JSON.stringify({ post_id: post.id, media_url, user_captions: userCaptions }),
         })
       : null,
     // Moderation
