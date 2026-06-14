@@ -1,6 +1,17 @@
 'use client';
 import { create } from 'zustand';
 
+// A keyframe captures the overlay's position/scale/opacity at a point on
+// the primary clip's timeline (seconds). With 2+ keyframes the overlay
+// animates by linear interpolation between them during playback.
+export interface TextKeyframe {
+  time:    number;   // seconds
+  x:       number;   // percent
+  y:       number;   // percent
+  scale:   number;   // 1 = normal
+  opacity: number;   // 0-1
+}
+
 export interface TextOverlay {
   id:       string;
   text:     string;
@@ -12,6 +23,7 @@ export interface TextOverlay {
   italic:   boolean;
   x:        number;
   y:        number;
+  keyframes?: TextKeyframe[];
 }
 
 export interface CaptionSegment {
@@ -40,6 +52,23 @@ export const DEFAULT_ADJUSTMENTS: Adjustments = {
   brightness: 0, contrast: 0, saturation: 0, brilliance: 0, warmth: 0,
   tint: 0, hue: 0, sharpness: 0, shadow: 0, vignette: 0, fade: 0, grain: 0,
 };
+
+// Cut/transition between sequential clips in the multi-track timeline.
+export type TransitionType = 'none' | 'crossfade' | 'fade-to-black' | 'wipe';
+
+// An additional clip appended after the primary captured media. The
+// primary clip itself is represented by session media + trimStart/trimEnd;
+// `clips` holds everything that plays after it, in order.
+export interface Clip {
+  id:                 string;
+  mediaURL:           string;
+  mediaType:          'video' | 'photo';
+  sourceDuration:     number;   // full duration of the source media (seconds)
+  inPoint:            number;   // trim start within source (seconds)
+  outPoint:           number;   // trim end within source (seconds)
+  transitionIn:       TransitionType;  // transition used entering this clip
+  transitionDuration: number;   // seconds
+}
 
 export interface PostDetails {
   caption:          string;
@@ -95,6 +124,9 @@ interface CreateStore {
   trimEnd:         number | null;
   playbackSpeed:   number;  // 0.5 = slow, 1 = normal, 2 = fast
 
+  // Multi-track timeline: clips that play after the primary clip
+  clips:           Clip[];
+
   // Sound
   soundTitle:      string;
   soundURL:        string;
@@ -111,11 +143,20 @@ interface CreateStore {
   addTextOverlay:     (o: TextOverlay) => void;
   updateTextOverlay:  (id: string, patch: Partial<TextOverlay>) => void;
   removeTextOverlay:  (id: string) => void;
+  addOverlayKeyframe: (id: string, kf: TextKeyframe) => void;
+  removeOverlayKeyframe: (id: string, time: number) => void;
+  clearOverlayKeyframes: (id: string) => void;
   addCaption:         (c: CaptionSegment) => void;
   updateCaption:      (id: string, patch: Partial<CaptionSegment>) => void;
   removeCaption:      (id: string) => void;
   setTrim:            (start: number, end: number | null) => void;
   setPlaybackSpeed:   (s: number) => void;
+
+  addClip:            (c: Clip) => void;
+  updateClip:         (id: string, patch: Partial<Clip>) => void;
+  removeClip:         (id: string) => void;
+  insertClip:         (index: number, c: Clip) => void;
+  reorderClip:        (id: string, direction: -1 | 1) => void;
   setSound:           (title: string, url: string, source: string, startSec?: number) => void;
   clearSound:         () => void;
   setDetails:         (patch: Partial<PostDetails>) => void;
@@ -130,6 +171,7 @@ export const useCreateStore = create<CreateStore>((set) => ({
   trimStart:       0,
   trimEnd:         null,
   playbackSpeed:   1,
+  clips:           [],
   soundTitle:      '',
   soundURL:        '',
   soundSource:     '',
@@ -142,17 +184,42 @@ export const useCreateStore = create<CreateStore>((set) => ({
   addTextOverlay:    (o) => set(s => ({ textOverlays: [...s.textOverlays, o] })),
   updateTextOverlay: (id, patch) => set(s => ({ textOverlays: s.textOverlays.map(t => t.id === id ? { ...t, ...patch } : t) })),
   removeTextOverlay: (id) => set(s => ({ textOverlays: s.textOverlays.filter(t => t.id !== id) })),
+  addOverlayKeyframe: (id, kf) => set(s => ({ textOverlays: s.textOverlays.map(t => t.id === id
+    ? { ...t, keyframes: [...(t.keyframes ?? []).filter(k => k.time !== kf.time), kf].sort((a, b) => a.time - b.time) }
+    : t) })),
+  removeOverlayKeyframe: (id, time) => set(s => ({ textOverlays: s.textOverlays.map(t => t.id === id
+    ? { ...t, keyframes: (t.keyframes ?? []).filter(k => k.time !== time) }
+    : t) })),
+  clearOverlayKeyframes: (id) => set(s => ({ textOverlays: s.textOverlays.map(t => t.id === id ? { ...t, keyframes: [] } : t) })),
   addCaption:        (c) => set(s => ({ captions: [...s.captions, c].sort((a, b) => a.start - b.start) })),
   updateCaption:     (id, patch) => set(s => ({ captions: s.captions.map(c => c.id === id ? { ...c, ...patch } : c) })),
   removeCaption:     (id) => set(s => ({ captions: s.captions.filter(c => c.id !== id) })),
   setTrim:           (start, end) => set({ trimStart: start, trimEnd: end }),
   setPlaybackSpeed:  (s) => set({ playbackSpeed: s }),
+
+  addClip:           (c) => set(s => ({ clips: [...s.clips, c] })),
+  updateClip:        (id, patch) => set(s => ({ clips: s.clips.map(c => c.id === id ? { ...c, ...patch } : c) })),
+  removeClip:        (id) => set(s => ({ clips: s.clips.filter(c => c.id !== id) })),
+  insertClip:        (index, c) => set(s => {
+    const clips = [...s.clips];
+    clips.splice(Math.max(0, Math.min(index, clips.length)), 0, c);
+    return { clips };
+  }),
+  reorderClip:       (id, direction) => set(s => {
+    const idx = s.clips.findIndex(c => c.id === id);
+    const target = idx + direction;
+    if (idx === -1 || target < 0 || target >= s.clips.length) return {};
+    const clips = [...s.clips];
+    [clips[idx], clips[target]] = [clips[target], clips[idx]];
+    return { clips };
+  }),
   setSound:          (title, url, source, startSec = 0) => set({ soundTitle: title, soundURL: url, soundSource: source, soundStartSec: startSec }),
   clearSound:        () => set({ soundTitle: '', soundURL: '', soundSource: '', soundStartSec: 0 }),
   setDetails:        (patch) => set(s => ({ details: { ...s.details, ...patch } })),
   resetAll:          () => set({
     selectedFilter: 'normal', adjustments: { ...DEFAULT_ADJUSTMENTS },
     textOverlays: [], captions: [], trimStart: 0, trimEnd: null, playbackSpeed: 1,
+    clips: [],
     soundTitle: '', soundURL: '', soundSource: '', soundStartSec: 0,
     details: { ...DEFAULT_POST_DETAILS },
   }),

@@ -1,12 +1,20 @@
 'use client';
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSession } from '@/lib/create/session';
-import { useCreateStore, CSS_FILTERS, buildCSSFilter, tintOverlay, type TextOverlay } from '@/lib/create/store';
+import { useCreateStore, CSS_FILTERS, buildCSSFilter, tintOverlay, type TextOverlay, type Clip, type TransitionType } from '@/lib/create/store';
+import { buildSegments, getTotalDuration, getActiveSegment, interpolateKeyframes } from '@/lib/create/composition';
 import { VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 
-type EditTool = 'adjust' | 'filter' | 'text' | 'trim' | 'audio' | 'stickers' | 'captions';
+type EditTool = 'adjust' | 'filter' | 'text' | 'trim' | 'timeline' | 'audio' | 'stickers' | 'captions';
+
+const TRANSITIONS: { id: TransitionType; label: string }[] = [
+  { id: 'none',          label: 'Cut' },
+  { id: 'crossfade',     label: 'Crossfade' },
+  { id: 'fade-to-black', label: 'Fade to black' },
+  { id: 'wipe',          label: 'Wipe' },
+];
 
 const FONTS = [
   { label: 'Bold',       value: 'system-ui',   weight: 900 },
@@ -56,6 +64,7 @@ const TOOLS: { id: EditTool; label: string; icon: React.ReactNode }[] = [
   { id: 'stickers', label: 'Stickers', icon: <StickerIcon /> },
   { id: 'audio',    label: 'Audio',    icon: <AudioIcon /> },
   { id: 'trim',     label: 'Trim',     icon: <TrimIcon /> },
+  { id: 'timeline', label: 'Tracks',   icon: <TracksIcon /> },
   { id: 'captions', label: 'Captions', icon: <CaptionsIcon /> },
 ];
 
@@ -67,14 +76,16 @@ function StickerIcon()  { return <svg width="20" height="20" viewBox="0 0 24 24"
 function AudioIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>; }
 function TrimIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="6" y1="20" x2="18" y2="4"/><circle cx="6" cy="4" r="2"/><circle cx="18" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></svg>; }
 function CaptionsIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h3m4 0h3M7 11h10"/></svg>; }
+function TracksIcon()   { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="11" width="12" height="5" rx="1"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg>; }
 
 export default function EditPage() {
   const router = useRouter();
   const session = getSession();
-  const { selectedFilter, adjustments, textOverlays, captions, trimStart, trimEnd, soundTitle,
+  const { selectedFilter, adjustments, textOverlays, captions, trimStart, trimEnd, soundTitle, clips,
           setFilter, setAdjustment, resetAdjustments, addTextOverlay, updateTextOverlay,
           removeTextOverlay, addCaption, updateCaption, removeCaption,
-          setTrim, setSound, clearSound } = useCreateStore();
+          setTrim, setSound, clearSound, addClip, updateClip, removeClip, insertClip, reorderClip,
+          addOverlayKeyframe, removeOverlayKeyframe, clearOverlayKeyframes } = useCreateStore();
 
   const [activeTool, setActiveTool]     = useState<EditTool | null>(null);
   const [draggingText, setDraggingText] = useState<string | null>(null);
@@ -92,6 +103,9 @@ export default function EditPage() {
   const previewRef   = useRef<HTMLDivElement>(null);
   const timelineRef  = useRef<HTMLDivElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
+  const clipInputRef  = useRef<HTMLInputElement>(null);
+  const compVideoRef  = useRef<HTMLVideoElement>(null);
+  const compStripRef  = useRef<HTMLDivElement>(null);
 
   const [showSoundLibrary, setShowSoundLibrary] = useState(false);
 
@@ -101,6 +115,11 @@ export default function EditPage() {
   const [duration,     setDuration]     = useState(0);
   const [keyMarkers,   setKeyMarkers]   = useState<number[]>([]);
   const [trimHistory,  setTrimHistory]  = useState<[number, number | null][]>([]);
+  const [selectedOverlayId, setSelectedOverlayId] = useState<string | null>(null);
+
+  // Composition (multi-clip) preview playback state
+  const [compTime,    setCompTime]    = useState(0);
+  const [compPlaying, setCompPlaying] = useState(false);
 
   // Redirect if no session media
   useEffect(() => {
@@ -150,6 +169,164 @@ export default function EditPage() {
     };
   }, []);
 
+  // ── Multi-track composition (primary clip + appended clips) ─────────────
+  const segments = useMemo(() => {
+    if (!session.objectURL || session.mediaType === 'text') return [];
+    return buildSegments({
+      mediaURL: session.objectURL,
+      mediaType: session.mediaType === 'photo' ? 'photo' : 'video',
+      trimStart, trimEnd,
+      sourceDuration: session.mediaType === 'photo' ? (duration || 5) : duration,
+    }, clips);
+  }, [session.objectURL, session.mediaType, trimStart, trimEnd, duration, clips]);
+
+  const compDuration = useMemo(() => getTotalDuration(segments), [segments]);
+  const activeSeg = useMemo(() => getActiveSegment(segments, compTime), [segments, compTime]);
+
+  // Composition clock — advances in real time while playing, loops at the end.
+  useEffect(() => {
+    if (!compPlaying) return;
+    let last = performance.now();
+    let raf = 0;
+    function tick(now: number) {
+      const dt = (now - last) / 1000;
+      last = now;
+      setCompTime(t => {
+        if (compDuration <= 0) return 0;
+        const nt = t + dt;
+        return nt >= compDuration ? 0 : nt;
+      });
+      raf = requestAnimationFrame(tick);
+    }
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [compPlaying, compDuration]);
+
+  // Seek/sync the composition video element when the active segment changes.
+  useEffect(() => {
+    const v = compVideoRef.current;
+    if (!v || !activeSeg || activeSeg.segment.mediaType !== 'video') return;
+    if (v.src !== activeSeg.segment.mediaURL) v.src = activeSeg.segment.mediaURL;
+    v.currentTime = activeSeg.localTime;
+    if (compPlaying) v.play().catch(() => {});
+  }, [activeSeg?.segment.id]);
+
+  // Keep composition video playing/paused in sync with the play button.
+  useEffect(() => {
+    const v = compVideoRef.current;
+    if (!v || !activeSeg || activeSeg.segment.mediaType !== 'video') return;
+    if (compPlaying) v.play().catch(() => {}); else v.pause();
+  }, [compPlaying]);
+
+  function seekComp(t: number) {
+    const clamped = Math.max(0, Math.min(t, compDuration || t));
+    setCompTime(clamped);
+    const act = getActiveSegment(segments, clamped);
+    const v = compVideoRef.current;
+    if (act && act.segment.mediaType === 'video' && v) {
+      if (v.src !== act.segment.mediaURL) v.src = act.segment.mediaURL;
+      v.currentTime = act.localTime;
+    }
+  }
+
+  function toggleCompPlay() {
+    setCompPlaying(p => !p);
+  }
+
+  // Brief dip-to-black at any segment boundary that has a transition set
+  // (all transition types render the same way in this single-element
+  // preview; the chosen type is stored for the feed-side compositor).
+  const compFlashOpacity = useMemo(() => {
+    if (!activeSeg) return 1;
+    const { segment, segStart } = activeSeg;
+    const segEnd = segStart + segment.duration;
+    let opacity = 1;
+    if (segment.transitionIn !== 'none' && segment.transitionDuration > 0) {
+      const t = (compTime - segStart) / segment.transitionDuration;
+      if (t < 1) opacity = Math.min(opacity, Math.max(0, t));
+    }
+    const next = segments[activeSeg.index + 1];
+    if (next && next.transitionIn !== 'none' && next.transitionDuration > 0) {
+      const t = (segEnd - compTime) / next.transitionDuration;
+      if (t < 1) opacity = Math.min(opacity, Math.max(0, t));
+    }
+    return opacity;
+  }, [activeSeg, compTime, segments]);
+
+  function addClipFromFile(file: File) {
+    const url = URL.createObjectURL(file);
+    const isVideo = file.type.startsWith('video/');
+    const base: Clip = {
+      id: Math.random().toString(36).slice(2),
+      mediaURL: url,
+      mediaType: isVideo ? 'video' : 'photo',
+      sourceDuration: isVideo ? 0 : 5,
+      inPoint: 0,
+      outPoint: isVideo ? 0 : 5,
+      transitionIn: 'none',
+      transitionDuration: 0.5,
+    };
+    if (!isVideo) { addClip(base); return; }
+    const probe = document.createElement('video');
+    probe.preload = 'metadata';
+    probe.src = url;
+    probe.onloadedmetadata = () => {
+      const d = Number.isFinite(probe.duration) ? probe.duration : 0;
+      addClip({ ...base, sourceDuration: d, outPoint: d });
+    };
+  }
+
+  function handleClipFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    addClipFromFile(file);
+    e.target.value = '';
+  }
+
+  function cycleTransition(clipId: string, current: TransitionType) {
+    const idx = TRANSITIONS.findIndex(t => t.id === current);
+    const next = TRANSITIONS[(idx + 1) % TRANSITIONS.length];
+    updateClip(clipId, { transitionIn: next.id });
+  }
+
+  // Split whichever segment contains the composition playhead into two clips.
+  function splitAtPlayhead() {
+    if (!activeSeg) return;
+    const { segment, index, localTime } = activeSeg;
+    if (segment.outPoint - localTime < 0.3 || localTime - segment.inPoint < 0.3) return;
+
+    if (index === 0) {
+      // Splitting the primary clip: shorten it, and insert the remainder
+      // as a new first entry in `clips`.
+      const remainder: Clip = {
+        id: Math.random().toString(36).slice(2),
+        mediaURL: segment.mediaURL,
+        mediaType: segment.mediaType,
+        sourceDuration: session.mediaType === 'photo' ? (duration || 5) : duration,
+        inPoint: localTime,
+        outPoint: segment.outPoint,
+        transitionIn: 'none',
+        transitionDuration: 0.5,
+      };
+      setTrim(trimStart, localTime);
+      insertClip(0, remainder);
+    } else {
+      const clip = clips[index - 1];
+      const remainder: Clip = {
+        id: Math.random().toString(36).slice(2),
+        mediaURL: clip.mediaURL,
+        mediaType: clip.mediaType,
+        sourceDuration: clip.sourceDuration,
+        inPoint: localTime,
+        outPoint: clip.outPoint,
+        transitionIn: 'none',
+        transitionDuration: clip.transitionDuration,
+      };
+      updateClip(clip.id, { outPoint: localTime });
+      insertClip(index, remainder);
+    }
+  }
+
   function togglePlay() {
     const v = videoRef.current;
     if (!v) return;
@@ -167,6 +344,17 @@ export default function EditPage() {
 
   function addKeyMarker() {
     setKeyMarkers(m => [...m, currentTime]);
+    if (!selectedOverlayId) return;
+    const overlay = textOverlays.find(o => o.id === selectedOverlayId);
+    if (!overlay) return;
+    const cur = interpolateKeyframes(overlay.keyframes, currentTime);
+    addOverlayKeyframe(selectedOverlayId, {
+      time: currentTime,
+      x: cur ? cur.x : overlay.x,
+      y: cur ? cur.y : overlay.y,
+      scale: cur ? cur.scale : 1,
+      opacity: cur ? cur.opacity : 1,
+    });
   }
 
   function applyTrim(start: number, end: number | null) {
@@ -293,34 +481,44 @@ export default function EditPage() {
         )}
 
         {/* Text overlays */}
-        {textOverlays.map(overlay => (
-          <motion.div key={`${overlay.id}-${overlay.x.toFixed(2)}-${overlay.y.toFixed(2)}`} drag dragMomentum={false}
-            onDragEnd={(_, info) => {
-              const el = previewRef.current;
-              if (!el) return;
-              const rect = el.getBoundingClientRect();
-              updateTextOverlay(overlay.id, {
-                x: Math.max(0, Math.min(90, overlay.x + (info.offset.x / rect.width) * 100)),
-                y: Math.max(0, Math.min(90, overlay.y + (info.offset.y / rect.height) * 100)),
-              });
-            }}
-            style={{
-              position: 'absolute',
-              left: `${overlay.x}%`, top: `${overlay.y}%`,
-              cursor: 'grab', touchAction: 'none', zIndex: 10,
-            }}
-            onDoubleClick={() => removeTextOverlay(overlay.id)}>
-            <div style={{
-              fontFamily: overlay.font, fontSize: overlay.size,
-              fontWeight: overlay.bold ? 800 : 400,
-              color: overlay.color, background: overlay.bg,
-              padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap',
-              userSelect: 'none',
-            }}>
-              {overlay.text}
-            </div>
-          </motion.div>
-        ))}
+        {textOverlays.map(overlay => {
+          const kf = interpolateKeyframes(overlay.keyframes, currentTime);
+          const x = kf ? kf.x : overlay.x;
+          const y = kf ? kf.y : overlay.y;
+          return (
+            <motion.div key={`${overlay.id}-${overlay.x.toFixed(2)}-${overlay.y.toFixed(2)}`} drag dragMomentum={false}
+              onDragEnd={(_, info) => {
+                const el = previewRef.current;
+                if (!el) return;
+                const rect = el.getBoundingClientRect();
+                updateTextOverlay(overlay.id, {
+                  x: Math.max(0, Math.min(90, overlay.x + (info.offset.x / rect.width) * 100)),
+                  y: Math.max(0, Math.min(90, overlay.y + (info.offset.y / rect.height) * 100)),
+                });
+              }}
+              onTap={() => setSelectedOverlayId(overlay.id)}
+              style={{
+                position: 'absolute',
+                left: `${x}%`, top: `${y}%`,
+                opacity: kf ? kf.opacity : 1,
+                scale: kf ? kf.scale : 1,
+                cursor: 'grab', touchAction: 'none', zIndex: 10,
+                outline: selectedOverlayId === overlay.id ? '2px dashed #F59E0B' : 'none',
+                outlineOffset: 2,
+              }}
+              onDoubleClick={() => removeTextOverlay(overlay.id)}>
+              <div style={{
+                fontFamily: overlay.font, fontSize: overlay.size,
+                fontWeight: overlay.bold ? 800 : 400,
+                color: overlay.color, background: overlay.bg,
+                padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap',
+                userSelect: 'none',
+              }}>
+                {overlay.text}
+              </div>
+            </motion.div>
+          );
+        })}
 
         {/* Burned-in caption */}
         {activeCaption?.text && (
@@ -460,6 +658,45 @@ export default function EditPage() {
                   style={{ background: newText.trim() ? '#1877F2' : 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer' }}>
                   Add to Video
                 </button>
+
+                {/* Animate (keyframes) */}
+                {textOverlays.length > 0 && (
+                  <div className="pt-2 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-white text-sm font-black">Animate</p>
+                    <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+                      Tap a text layer to select it, drag it to where it should appear, then tap the star on the Trim tab to drop a keyframe. Add 2+ keyframes to animate it.
+                    </p>
+                    {textOverlays.map(o => (
+                      <div key={o.id} className="p-2.5 rounded-xl space-y-1.5"
+                        style={{ background: selectedOverlayId === o.id ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)', border: selectedOverlayId === o.id ? '1px solid #F59E0B' : '1px solid transparent' }}>
+                        <div className="flex items-center justify-between gap-2">
+                          <button onClick={() => setSelectedOverlayId(o.id)}
+                            className="flex-1 text-left truncate"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 12, fontWeight: 700 }}>
+                            "{o.text}"
+                          </button>
+                          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10 }}>{(o.keyframes?.length ?? 0)} keyframes</span>
+                          {o.keyframes && o.keyframes.length > 0 && (
+                            <button onClick={() => clearOverlayKeyframes(o.id)}
+                              style={{ color: '#EF4444', fontSize: 11, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>
+                              Clear
+                            </button>
+                          )}
+                        </div>
+                        {o.keyframes && o.keyframes.length > 0 && (
+                          <div className="flex gap-1.5 flex-wrap">
+                            {o.keyframes.map(k => (
+                              <button key={k.time} onClick={() => removeOverlayKeyframe(o.id, k.time)}
+                                style={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                                {fmt(k.time)} ×
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -531,7 +768,7 @@ export default function EditPage() {
               </div>
             )}
 
-            {/* ── TRIM / TIMELINE ── */}
+            {/* ── TRIM ── */}
             {activeTool === 'trim' && session.mediaType === 'video' && (
               <div className="p-4 space-y-3">
 
@@ -659,6 +896,146 @@ export default function EditPage() {
                     </span>
                   ) : null}
                 </div>
+              </div>
+            )}
+
+            {/* ── TIMELINE (multi-clip tracks) ── */}
+            {activeTool === 'timeline' && session.mediaType !== 'text' && (
+              <div className="p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-white text-sm font-black">Timeline</p>
+                  <input ref={clipInputRef} type="file" accept="video/*,image/*" onChange={handleClipFile} style={{ display: 'none' }} />
+                  <button onClick={() => clipInputRef.current?.click()}
+                    style={{ color: '#1877F2', fontSize: 12, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    + Add clip
+                  </button>
+                </div>
+
+                {/* Composition preview */}
+                <div className="relative rounded-xl overflow-hidden" style={{ height: 140, background: '#000' }}>
+                  {activeSeg?.segment.mediaType === 'video' ? (
+                    <video ref={compVideoRef} className="absolute inset-0 w-full h-full object-contain"
+                      style={{ opacity: compFlashOpacity }} playsInline muted />
+                  ) : activeSeg ? (
+                    <img src={activeSeg.segment.mediaURL} alt="clip" className="absolute inset-0 w-full h-full object-contain"
+                      style={{ opacity: compFlashOpacity }} />
+                  ) : null}
+                  <button onClick={toggleCompPlay}
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ background: 'rgba(0,0,0,0.15)', border: 'none', cursor: 'pointer' }}>
+                    <div style={{ background: 'rgba(0,0,0,0.5)', borderRadius: '50%', width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                        {compPlaying
+                          ? <><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></>
+                          : <polygon points="5 3 19 12 5 21 5 3"/>}
+                      </svg>
+                    </div>
+                  </button>
+                </div>
+
+                {/* Position + split */}
+                <div className="flex items-center justify-between">
+                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmt(compTime)} / {fmt(compDuration)}
+                  </span>
+                  <button onClick={splitAtPlayhead}
+                    style={{ color: '#1877F2', fontSize: 12, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>
+                    Split at playhead
+                  </button>
+                </div>
+
+                {/* Segment strip */}
+                <div ref={compStripRef} className="relative rounded-lg overflow-hidden flex select-none"
+                  style={{ height: 44, background: 'rgba(255,255,255,0.06)', cursor: 'pointer' }}
+                  onClick={e => {
+                    const rect = compStripRef.current!.getBoundingClientRect();
+                    seekComp(((e.clientX - rect.left) / rect.width) * (compDuration || 0));
+                  }}>
+                  {segments.map((seg, i) => (
+                    <div key={seg.id} className="relative h-full flex items-center justify-center"
+                      style={{
+                        width: `${(seg.duration / (compDuration || 1)) * 100}%`,
+                        background: i === activeSeg?.index ? 'rgba(24,119,242,0.35)' : 'rgba(124,58,237,0.25)',
+                        borderRight: i < segments.length - 1 ? '2px solid #0a0a14' : 'none',
+                      }}>
+                      <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 10, fontWeight: 700 }}>
+                        {i === 0 ? 'Main' : `Clip ${i + 1}`}
+                      </span>
+                      {seg.transitionIn !== 'none' && (
+                        <div className="absolute top-0 bottom-0 left-0 w-1.5" style={{ background: '#F59E0B' }} />
+                      )}
+                    </div>
+                  ))}
+                  {/* Playhead */}
+                  {compDuration > 0 && (
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-white"
+                      style={{ left: `${(compTime / compDuration) * 100}%`, boxShadow: '0 0 4px rgba(255,255,255,0.8)' }}>
+                      <div className="absolute -top-1 -left-1.5 w-3 h-3 rounded-full bg-white" />
+                    </div>
+                  )}
+                </div>
+
+                {/* Primary clip note */}
+                <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>Main clip — {fmt((trimEnd ?? duration) - trimStart)}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, marginLeft: 'auto' }}>Edit trim in the Trim tab</span>
+                </div>
+
+                {/* Additional clips */}
+                {clips.map((c, i) => (
+                  <div key={c.id} className="p-3 rounded-xl space-y-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-center justify-between">
+                      <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>Clip {i + 2} · {c.mediaType === 'video' ? 'Video' : 'Photo'}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => reorderClip(c.id, -1)} disabled={i === 0}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', opacity: i === 0 ? 0.3 : 1, fontSize: 14 }}>↑</button>
+                        <button onClick={() => reorderClip(c.id, 1)} disabled={i === clips.length - 1}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.6)', opacity: i === clips.length - 1 ? 0.3 : 1, fontSize: 14 }}>↓</button>
+                        <button onClick={() => removeClip(c.id)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', fontSize: 16 }}>×</button>
+                      </div>
+                    </div>
+
+                    {c.mediaType === 'video' && c.sourceDuration > 0 && (
+                      <>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>Start</span>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>{fmt(c.inPoint)}</span>
+                          </div>
+                          <input type="range" min={0} max={c.sourceDuration} step={0.1} value={c.inPoint}
+                            onChange={e => updateClip(c.id, { inPoint: Math.min(Number(e.target.value), c.outPoint - 0.1) })}
+                            className="w-full" style={{ accentColor: '#1877F2' }} />
+                        </div>
+                        <div>
+                          <div className="flex justify-between mb-1">
+                            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>End</span>
+                            <span style={{ color: '#fff', fontSize: 11, fontWeight: 700 }}>{fmt(c.outPoint)}</span>
+                          </div>
+                          <input type="range" min={0} max={c.sourceDuration} step={0.1} value={c.outPoint}
+                            onChange={e => updateClip(c.id, { outPoint: Math.max(Number(e.target.value), c.inPoint + 0.1) })}
+                            className="w-full" style={{ accentColor: '#1877F2' }} />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Transition into this clip */}
+                    <button onClick={() => cycleTransition(c.id, c.transitionIn)}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-lg"
+                      style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', cursor: 'pointer' }}>
+                      <span style={{ color: '#F59E0B', fontSize: 11, fontWeight: 700 }}>Transition in</span>
+                      <span style={{ color: '#F59E0B', fontSize: 11, fontWeight: 700 }}>{TRANSITIONS.find(t => t.id === c.transitionIn)?.label}</span>
+                    </button>
+                  </div>
+                ))}
+
+                {clips.length === 0 && (
+                  <div className="p-4 rounded-2xl text-center" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13 }}>
+                      Add another clip to build a multi-clip sequence with cuts and transitions.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
 
