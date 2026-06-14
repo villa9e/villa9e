@@ -162,13 +162,13 @@
 
 ## WELLNESS (partial)
 
-- [ ] Readiness score: AI synthesizes sleep + HRV + RHR + mood every morning
-- [ ] Vital stat tiles: Sleep / RHR / HRV / SpO2 / Steps / Stress
-- [ ] AI daily insight (BioMistral local, no external data)
-- [ ] Nutrition: AI meal planning based on schedule + health data + chronobiology
+- [x] Readiness score: AI synthesizes mood/energy/stress/focus into a readiness score (`/api/wellness/insight`, `wellness_logs.readiness`) — sleep/HRV/RHR not included pending wearable ingestion (item 8), and it's computed on page load rather than a scheduled "every morning" job
+- [ ] Vital stat tiles: Sleep / RHR / HRV / SpO2 / Steps / Stress (body/page.tsx renders all 6 tiles, but only Stress reads real data — Sleep/RHR/HRV/SpO2/Steps are "Connect wearable" placeholders pending item 8)
+- [x] AI daily insight (uses Claude API, not local BioMistral — architectural substitution, see INFRASTRUCTURE)
+- [x] Nutrition: AI meal planning based on schedule + health data + chronobiology (`/api/wellness/nutrition` now receives today's real `calendar_events` as `schedule`, plus readiness/mood)
 - [ ] HAPI FHIR health records server
-- [ ] Telehealth: Jitsi embedded video room, pre-visit AI brief
-- [ ] Foundation: values/purpose editor, morning intention, gratitude log
+- [ ] Telehealth: Jitsi embedded video room, pre-visit AI brief (Jitsi link generation exists under /village/hospital booking flow, but not embedded in Wellness and no pre-visit AI brief)
+- [ ] Foundation: values/purpose editor, morning intention, gratitude log (gratitude log works in journal/page.tsx; values/purpose editor + morning intention not built)
 - [ ] Wearable: Gadgetbridge (Android) + Apple Health (iOS) → n8n → normalized DB
 - [ ] Medito integration (meditation)
 - [ ] Moodist integration (ambient sound)

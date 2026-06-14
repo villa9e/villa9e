@@ -105,7 +105,8 @@ export default function NutritionPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
-      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
       const { data: log } = await (supabase as any)
         .from('wellness_logs')
         .select('readiness,mood')
@@ -113,13 +114,29 @@ export default function NutritionPage() {
         .eq('log_date', today)
         .single();
 
+      const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(now); dayEnd.setHours(23, 59, 59, 999);
+      const { data: events } = await (supabase as any)
+        .from('calendar_events')
+        .select('title,start_time,energy_type')
+        .eq('creator_id', user.id)
+        .gte('start_time', dayStart.toISOString())
+        .lte('start_time', dayEnd.toISOString())
+        .order('start_time');
+
+      const schedule = (events ?? []).map((e: any) => ({
+        title: e.title,
+        time: new Date(e.start_time).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+        energyType: e.energy_type ?? undefined,
+      }));
+
       const res = await fetch('/api/wellness/nutrition', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           readiness: parseFloat(log?.readiness ?? 0),
           mood: log?.mood ?? null,
-          schedule: [],
+          schedule,
         }),
       });
 
