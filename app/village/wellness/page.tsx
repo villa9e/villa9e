@@ -280,6 +280,14 @@ export default function WellnessPage() {
             href: '/village/wellness/body',
             iconPath: 'M22 12h-4l-3 9L9 3l-3 9H2',
           },
+          {
+            label: 'Telehealth',
+            sub: 'Video sessions & pre-visit briefs',
+            pill: '',
+            pillColor: '',
+            href: '/village/wellness/sessions',
+            iconPath: 'M23 7l-7 5 7 5V7z M16 5H3a2 2 0 00-2 2v10a2 2 0 002 2h13a2 2 0 002-2V7a2 2 0 00-2-2z',
+          },
         ].map(c => (
           <motion.button
             key={c.label}
