@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
+import { getCurrentAction, type CurrentAction } from '@/lib/workshop/currentAction';
 
 const SKILL_CATEGORIES = [
   'All','USDA Grants','Microlending','Business Strategy','Marketing','Design','Tech','Finance','Wellness','Music','Real Estate','Fitness',
@@ -14,6 +15,7 @@ export default function SkillStreamPage() {
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);
+  const [currentAction, setCurrentAction] = useState<CurrentAction | null>(null);
   const supabase = createClient();
 
   useEffect(() => { loadSkillsAndVideos(); }, [category]);
@@ -21,15 +23,47 @@ export default function SkillStreamPage() {
   async function loadSkillsAndVideos() {
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
+    let action = currentAction;
     if (user) {
       const { data: s } = await supabase.from('user_skills').select('skill_name,rating_category').eq('user_id', user.id);
       const painPoints = s?.filter(sk => sk.rating_category === 'pain_point').map(sk => sk.skill_name) ?? [];
       setUserSkills(painPoints);
+      if (!action) {
+        action = await getCurrentAction(supabase, user.id);
+        setCurrentAction(action);
+      }
     }
     const searchQuery = category === 'All' ? 'goal setting productivity entrepreneur skills' : `${category} tutorial skills`;
     const videos = await searchYoutube(searchQuery);
     setVideos(videos);
     setLoading(false);
+    if (user && action) scoreVideos(videos, action);
+  }
+
+  // Mission score: how directly each video helps with the user's current
+  // GPS Sprint Action (Claude-scored, cached server-side).
+  async function scoreVideos(vids: any[], action: CurrentAction) {
+    const { data: { session } } = await supabase.auth.getSession();
+    await Promise.allSettled(vids.map(async (v) => {
+      try {
+        const res = await fetch('/api/workshop/score-video', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({
+            videoId: v.id,
+            videoTitle: v.title,
+            actionTitle: action.actionTitle,
+            actionDescription: action.actionDescription,
+          }),
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setVideos(prev => prev.map(p => p.id === v.id ? { ...p, mission_score: data.score } : p));
+      } catch {}
+    }));
   }
 
   async function searchYoutube(query: string) {
@@ -58,6 +92,15 @@ export default function SkillStreamPage() {
           <p className="text-orange-100 text-xs">Learn what your goals require</p>
         </div>
       </div>
+
+      {currentAction && (
+        <Link href={`/village/workshop/gps/${currentAction.goalId}`}
+          className="block bg-indigo-50 border-b border-indigo-100 px-4 py-2 hover:bg-indigo-100 transition-colors">
+          <p className="text-xs text-indigo-700 font-medium">
+            🎯 Matched to your GPS — Sprint {currentAction.sprintNumber} · {currentAction.actionTitle}
+          </p>
+        </Link>
+      )}
 
       {userSkills.length > 0 && (
         <div className="bg-orange-50 border-b border-orange-100 px-4 py-2">

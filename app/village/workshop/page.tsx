@@ -523,13 +523,16 @@ function FistAnimation({ show }: { show: boolean }) {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 1, scale: 0.7, y: 0 }}
-          animate={{ opacity: 0, scale: 2, y: -200 }}
+          initial={{ opacity: 1, scale: 1, y: 0 }}
+          animate={{ opacity: 0, scale: 1.4, y: -180 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.65, ease: 'easeOut' }}
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50 }}>
-          <OoWopIcon size={48} />
-        </motion.div>
+          transition={{ duration: 0.7, ease: 'easeOut' }}
+          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50,
+            width: 64, height: 64, background: '#EF9F27',
+            WebkitMaskImage: 'url(/oowop.png)', maskImage: 'url(/oowop.png)',
+            WebkitMaskSize: 'contain', maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat', maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center', maskPosition: 'center' }} />
       )}
     </AnimatePresence>
   );
@@ -829,6 +832,7 @@ export default function WorkshopPage() {
             author: { username: c.author_name ?? 'tiktok' },
             media: { embedHtml: c.embed_html, thumbnail: c.thumbnail_url },
             color: '#010101', accent: '#69C9D0',
+            ...(actionContext ? { actionContext } : {}),
           };
         }
         // Pinned YouTube
@@ -838,6 +842,7 @@ export default function WorkshopPage() {
           author: { username: c.author_name ?? 'curator' },
           media: { videoId: c.video_id, thumbnail: c.thumbnail_url },
           color: '#FF0000', accent: '#FF6B2B',
+          ...(actionContext ? { actionContext } : {}),
         };
       });
 

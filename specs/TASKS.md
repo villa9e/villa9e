@@ -7,15 +7,15 @@
 ## WORKSHOP
 
 ### Navigation
-- [~] Teepee radial menu (built, needs 7th Bank item + animation polish per WORKSHOP_SPEC §2)
-- [ ] Remove any remaining tab bars that conflict with radial menu
-- [ ] Radial menu: arc radius 110px, spring stagger 40ms, overlay backdrop
+- [~] Teepee radial menu (built, needs 7th Bank item + animation polish per WORKSHOP_SPEC §2 — Bank item already present in BottomNav, 110px arc/40ms stagger/overlay still pending — large rewrite, deferred)
+- [x] Remove any remaining tab bars that conflict with radial menu (audited — no conflicting tab bars found; WorkshopTabBar is the intentional Goals/Workshop/GPS swipe-tab structure, separate from the radial menu)
+- [ ] Radial menu: arc radius 110px, spring stagger 40ms, overlay backdrop (current menu is a bottom-sheet grid, not a radial arc — large rewrite, deferred)
 
 ### Feed
 - [~] Workshop/Goals/GPS tab structure (built today)
 - [ ] Scroll-snap container (currently custom swipe, needs CSS scroll-snap)
-- [ ] Action context banner on every video card (Sprint/Action reference + title)
-- [ ] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms)
+- [x] Action context banner on every video card (Sprint/Action reference + title) — banner already existed on studio/YouTube cards; extended to TikTok/curated cards too so it's on every video card
+- [x] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms) — fist now rendered as an amber-masked 64px shape, animates 1→1.4 scale + 180px up, fades over 700ms
 - [ ] Skip signal → algorithm effect (30% probability reduction, hide after 3)
 - [x] Mission score pill on video cards (green 85%+, amber 70-84%)
 - [x] Video scoring system: Claude scores YouTube/Studio videos against action title
@@ -23,8 +23,8 @@
 - [ ] Card ordering algorithm (first card = current GPS action match)
 
 ### Comment Drawer
-- [~] Comment drawer exists on goal detail page — needs to move to main feed cards
-- [ ] Draggable bottom sheet (70% height)
+- [x] Comment drawer on main feed cards (CommentsDrawer in workshop/page.tsx, 78vh bottom sheet with OoWop row + input)
+- [ ] Draggable bottom sheet (70% height) — currently fixed height, not user-draggable
 - [ ] Reply threads (collapsed by default)
 - [ ] Keyboard-aware positioning
 
@@ -41,7 +41,7 @@
 - [ ] GPS Ready Card: affiliate products row, "You win when" checklist
 
 ### Countdown
-- [~] Countdown overlay exists — needs spec-accurate sequence (3→2→1→"Let's GO")
+- [x] Countdown overlay: spec-accurate sequence (3 "Get ready..." → 2 "Almost there..." → 1 "Let's go..." → 0 "Let's GO 🚀", 120px circle, 800ms hold before completing)
 
 ### Goal Detail
 - [~] 3 internal tabs (Spirit/Instructions/Workshop) — needs GPS tab replacing Instructions
@@ -63,10 +63,10 @@
 - [ ] "Customize with Spirit" → Spirit chat pre-populated with template
 
 ### Skill Stream
-- [~] Skill Stream page exists — needs mission scoring
-- [ ] Mission score per action (Claude API call per video+action pair) — backend ready via /api/workshop/score-video, needs wiring on this page
+- [x] Skill Stream page exists — mission scoring wired
+- [x] Mission score per action (Claude API call per video+action pair) — wired via shared `lib/workshop/currentAction.ts` + /api/workshop/score-video, score pill renders on each video card
 - [x] Score caching (avoid re-scoring same combination)
-- [ ] GPS-matched banner when user has active GPS
+- [x] GPS-matched banner when user has active GPS (links to /village/workshop/gps/[goalId])
 
 ### $VLG
 - [x] Wire OoWop → 1 $VLG earn (server-side, once per card per user — `/api/vlg/earn` now writes to `wallet_transactions` with a `wallet_tx_dedup` unique constraint so repeats are ignored)
