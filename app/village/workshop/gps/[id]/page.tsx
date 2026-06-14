@@ -723,7 +723,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
 
       {/* ── Top tab bar (Goals | Workshop | GPS) ─────────────────────────── */}
-      <div className="flex-shrink-0 flex items-center" style={{ height: 44, background: C.page, paddingTop: 'env(safe-area-inset-top)' }}>
+      <div className="flex-shrink-0 flex items-center" style={{ height: 44, background: C.page, paddingTop: 'env(safe-area-inset-top)', position: 'relative', zIndex: 1 }}>
         <Link href="/village/workshop" aria-label="Back"
           className="flex items-center justify-center" style={{ width: 44, height: 44, color: C.textBody, flexShrink: 0 }}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
