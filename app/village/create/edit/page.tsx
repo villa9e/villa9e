@@ -6,8 +6,9 @@ import { getSession } from '@/lib/create/session';
 import { useCreateStore, CSS_FILTERS, buildCSSFilter, tintOverlay, type TextOverlay, type Clip, type TransitionType } from '@/lib/create/store';
 import { buildSegments, getTotalDuration, getActiveSegment, interpolateKeyframes } from '@/lib/create/composition';
 import { VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
+import { trackFaceZoom, trackObjectZoom } from '@/lib/create/tracking';
 
-type EditTool = 'adjust' | 'filter' | 'text' | 'trim' | 'timeline' | 'audio' | 'stickers' | 'captions';
+type EditTool = 'adjust' | 'filter' | 'effects' | 'text' | 'trim' | 'timeline' | 'audio' | 'stickers' | 'captions';
 
 const TRANSITIONS: { id: TransitionType; label: string }[] = [
   { id: 'none',          label: 'Cut' },
@@ -60,6 +61,7 @@ const ADJUST_PARAMS: { key: keyof ReturnType<typeof useCreateStore.getState>['ad
 const TOOLS: { id: EditTool; label: string; icon: React.ReactNode }[] = [
   { id: 'adjust',   label: 'Adjust',   icon: <AdjustIcon /> },
   { id: 'filter',   label: 'Filter',   icon: <FilterIcon /> },
+  { id: 'effects',  label: 'Effects',  icon: <EffectsIcon /> },
   { id: 'text',     label: 'Text',     icon: <TextIcon /> },
   { id: 'stickers', label: 'Stickers', icon: <StickerIcon /> },
   { id: 'audio',    label: 'Audio',    icon: <AudioIcon /> },
@@ -77,15 +79,17 @@ function AudioIcon()    { return <svg width="20" height="20" viewBox="0 0 24 24"
 function TrimIcon()     { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="6" y1="20" x2="18" y2="4"/><circle cx="6" cy="4" r="2"/><circle cx="18" cy="4" r="2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></svg>; }
 function CaptionsIcon() { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M7 15h3m4 0h3M7 11h10"/></svg>; }
 function TracksIcon()   { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="4" width="18" height="5" rx="1"/><rect x="3" y="11" width="12" height="5" rx="1"/><rect x="3" y="18" width="18" height="3" rx="1"/></svg>; }
+function EffectsIcon()  { return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/><line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/></svg>; }
 
 export default function EditPage() {
   const router = useRouter();
   const session = getSession();
-  const { selectedFilter, adjustments, textOverlays, captions, trimStart, trimEnd, soundTitle, clips,
+  const { selectedFilter, adjustments, textOverlays, captions, trimStart, trimEnd, soundTitle, clips, zoomKeyframes,
           setFilter, setAdjustment, resetAdjustments, addTextOverlay, updateTextOverlay,
           removeTextOverlay, addCaption, updateCaption, removeCaption,
           setTrim, setSound, clearSound, addClip, updateClip, removeClip, insertClip, reorderClip,
-          addOverlayKeyframe, removeOverlayKeyframe, clearOverlayKeyframes } = useCreateStore();
+          addOverlayKeyframe, removeOverlayKeyframe, clearOverlayKeyframes,
+          addZoomKeyframe, removeZoomKeyframe, clearZoomKeyframes, setZoomKeyframes } = useCreateStore();
 
   const [activeTool, setActiveTool]     = useState<EditTool | null>(null);
   const [draggingText, setDraggingText] = useState<string | null>(null);
@@ -120,6 +124,14 @@ export default function EditPage() {
   // Composition (multi-clip) preview playback state
   const [compTime,    setCompTime]    = useState(0);
   const [compPlaying, setCompPlaying] = useState(false);
+
+  // Zoom & pan effect (manual keyframes + auto face/object tracking)
+  const [zoomLevel,    setZoomLevel]    = useState(1.5);
+  const [panX,         setPanX]         = useState(0);
+  const [panY,         setPanY]         = useState(0);
+  const [tracking,     setTracking]     = useState<'face' | 'object' | null>(null);
+  const [trackProgress, setTrackProgress] = useState(0);
+  const [trackError,   setTrackError]   = useState<string | null>(null);
 
   // Redirect if no session media
   useEffect(() => {
@@ -394,6 +406,8 @@ export default function EditPage() {
   }
 
   const cssFilter = buildCSSFilter(adjustments, CSS_FILTERS[selectedFilter] ?? '');
+  const zoomState = interpolateKeyframes(zoomKeyframes, currentTime);
+  const zoomTransform = zoomState ? `scale(${zoomState.scale}) translate(${zoomState.x}%, ${zoomState.y}%)` : undefined;
 
   function addText() {
     if (!newText.trim()) return;
@@ -428,6 +442,29 @@ export default function EditPage() {
 
   const activeCaption = captions.find(c => currentTime >= c.start && currentTime <= c.end);
 
+  function addZoomKeyframeAtPlayhead() {
+    addZoomKeyframe({ time: currentTime, x: panX, y: panY, scale: zoomLevel, opacity: 1 });
+  }
+
+  async function runAutoTrack(kind: 'face' | 'object') {
+    const v = videoRef.current;
+    if (!v || duration <= 0) return;
+    setTracking(kind);
+    setTrackError(null);
+    setTrackProgress(0);
+    try {
+      const kfs = kind === 'face'
+        ? await trackFaceZoom(v, duration, zoomLevel, setTrackProgress)
+        : await trackObjectZoom(v, duration, zoomLevel, setTrackProgress);
+      setZoomKeyframes(kfs);
+    } catch (err) {
+      console.error(`${kind} tracking failed:`, err);
+      setTrackError('Tracking failed to load. Check your connection and try again.');
+    } finally {
+      setTracking(null);
+    }
+  }
+
   function addSticker(emoji: string, type: string) {
     const label = type === 'time' ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : type === 'date' ? new Date().toLocaleDateString() : emoji;
@@ -453,7 +490,7 @@ export default function EditPage() {
             style={{ filter: cssFilter }} />
         ) : (
           <video ref={videoRef} src={session.objectURL!} className="absolute inset-0 w-full h-full object-contain"
-            style={{ filter: cssFilter }} autoPlay loop playsInline muted />
+            style={{ filter: cssFilter, transform: zoomTransform, transition: tracking ? undefined : 'transform 0.1s linear' }} autoPlay loop playsInline muted />
         )}
 
         {/* Vignette overlay */}
@@ -605,6 +642,102 @@ export default function EditPage() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ── EFFECTS (zoom/pan + auto face/object tracking) ── */}
+            {activeTool === 'effects' && (
+              <div className="p-4 space-y-4">
+                <p className="text-white text-sm font-black">Effects</p>
+
+                {session.mediaType !== 'video' ? (
+                  <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
+                    Zoom, pan, and auto-tracking effects are available for video clips.
+                  </p>
+                ) : (
+                  <>
+                    {/* Zoom level */}
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Zoom</span>
+                        <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{zoomLevel.toFixed(1)}x</span>
+                      </div>
+                      <input type="range" min={1} max={3} step={0.1} value={zoomLevel}
+                        onChange={e => setZoomLevel(Number(e.target.value))}
+                        className="w-full" style={{ accentColor: '#1877F2' }} />
+                    </div>
+
+                    {/* Pan X/Y */}
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Pan X</span>
+                        <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{panX}%</span>
+                      </div>
+                      <input type="range" min={-50} max={50} value={panX}
+                        onChange={e => setPanX(Number(e.target.value))}
+                        className="w-full" style={{ accentColor: '#1877F2' }} />
+                    </div>
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>Pan Y</span>
+                        <span style={{ color: '#fff', fontSize: 12, fontWeight: 700 }}>{panY}%</span>
+                      </div>
+                      <input type="range" min={-50} max={50} value={panY}
+                        onChange={e => setPanY(Number(e.target.value))}
+                        className="w-full" style={{ accentColor: '#1877F2' }} />
+                    </div>
+
+                    <button onClick={addZoomKeyframeAtPlayhead}
+                      className="w-full py-2.5 rounded-2xl text-white font-black text-sm"
+                      style={{ background: '#1877F2', border: 'none', cursor: 'pointer' }}>
+                      Add keyframe at {fmt(currentTime)}
+                    </button>
+
+                    {/* Keyframe list */}
+                    {zoomKeyframes.length > 0 && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>{zoomKeyframes.length} keyframe{zoomKeyframes.length === 1 ? '' : 's'} {zoomKeyframes.length < 2 ? '(add 1 more to animate)' : ''}</span>
+                          <button onClick={clearZoomKeyframes}
+                            style={{ color: '#EF4444', fontSize: 11, fontWeight: 700, background: 'none', border: 'none', cursor: 'pointer' }}>
+                            Clear all
+                          </button>
+                        </div>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {zoomKeyframes.map(k => (
+                            <button key={k.time} onClick={() => removeZoomKeyframe(k.time)}
+                              style={{ background: 'rgba(24,119,242,0.15)', color: '#1877F2', border: '1px solid rgba(24,119,242,0.4)', borderRadius: 999, padding: '2px 8px', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                              {fmt(k.time)} · {k.scale.toFixed(1)}x ×
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Auto-track */}
+                    <div className="pt-2 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                      <p className="text-white text-sm font-black">Auto Track</p>
+                      <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+                        Automatically generate zoom &amp; pan keyframes that follow a face or object through the clip (replaces existing keyframes).
+                      </p>
+                      <div className="flex gap-2">
+                        <button onClick={() => runAutoTrack('face')} disabled={!!tracking}
+                          className="flex-1 py-2.5 rounded-2xl text-sm font-black"
+                          style={{ background: tracking === 'face' ? 'rgba(24,119,242,0.3)' : 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', cursor: tracking ? 'default' : 'pointer', opacity: tracking && tracking !== 'face' ? 0.5 : 1 }}>
+                          {tracking === 'face' ? `Tracking… ${trackProgress}%` : 'Track Face'}
+                        </button>
+                        <button onClick={() => runAutoTrack('object')} disabled={!!tracking}
+                          className="flex-1 py-2.5 rounded-2xl text-sm font-black"
+                          style={{ background: tracking === 'object' ? 'rgba(24,119,242,0.3)' : 'rgba(255,255,255,0.08)', color: '#fff', border: 'none', cursor: tracking ? 'default' : 'pointer', opacity: tracking && tracking !== 'object' ? 0.5 : 1 }}>
+                          {tracking === 'object' ? `Tracking… ${trackProgress}%` : 'Track Object'}
+                        </button>
+                      </div>
+                      {trackError && (
+                        <p style={{ color: '#EF4444', fontSize: 11 }}>{trackError}</p>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

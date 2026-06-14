@@ -121,6 +121,7 @@ export default function PostDetailsPage() {
       trimStart:   store.trimStart,
       trimEnd:     store.trimEnd,
       clips:       store.clips,
+      zoomKeyframes: store.zoomKeyframes,
     });
     formData.append('edit_state', editState);
 
@@ -186,6 +187,7 @@ export default function PostDetailsPage() {
           trimEnd:     store.trimEnd,
           playbackSpeed: store.playbackSpeed,
           clips:       store.clips,
+          zoomKeyframes: store.zoomKeyframes,
         },
       };
 

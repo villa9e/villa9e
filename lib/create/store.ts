@@ -127,6 +127,9 @@ interface CreateStore {
   // Multi-track timeline: clips that play after the primary clip
   clips:           Clip[];
 
+  // Zoom & pan effect (incl. auto face/object tracking) on the primary clip
+  zoomKeyframes:   TextKeyframe[];
+
   // Sound
   soundTitle:      string;
   soundURL:        string;
@@ -157,6 +160,11 @@ interface CreateStore {
   removeClip:         (id: string) => void;
   insertClip:         (index: number, c: Clip) => void;
   reorderClip:        (id: string, direction: -1 | 1) => void;
+
+  addZoomKeyframe:    (kf: TextKeyframe) => void;
+  removeZoomKeyframe: (time: number) => void;
+  clearZoomKeyframes: () => void;
+  setZoomKeyframes:   (kfs: TextKeyframe[]) => void;
   setSound:           (title: string, url: string, source: string, startSec?: number) => void;
   clearSound:         () => void;
   setDetails:         (patch: Partial<PostDetails>) => void;
@@ -172,6 +180,7 @@ export const useCreateStore = create<CreateStore>((set) => ({
   trimEnd:         null,
   playbackSpeed:   1,
   clips:           [],
+  zoomKeyframes:   [],
   soundTitle:      '',
   soundURL:        '',
   soundSource:     '',
@@ -213,6 +222,11 @@ export const useCreateStore = create<CreateStore>((set) => ({
     [clips[idx], clips[target]] = [clips[target], clips[idx]];
     return { clips };
   }),
+
+  addZoomKeyframe:    (kf) => set(s => ({ zoomKeyframes: [...s.zoomKeyframes.filter(k => k.time !== kf.time), kf].sort((a, b) => a.time - b.time) })),
+  removeZoomKeyframe: (time) => set(s => ({ zoomKeyframes: s.zoomKeyframes.filter(k => k.time !== time) })),
+  clearZoomKeyframes: () => set({ zoomKeyframes: [] }),
+  setZoomKeyframes:   (kfs) => set({ zoomKeyframes: [...kfs].sort((a, b) => a.time - b.time) }),
   setSound:          (title, url, source, startSec = 0) => set({ soundTitle: title, soundURL: url, soundSource: source, soundStartSec: startSec }),
   clearSound:        () => set({ soundTitle: '', soundURL: '', soundSource: '', soundStartSec: 0 }),
   setDetails:        (patch) => set(s => ({ details: { ...s.details, ...patch } })),
@@ -220,6 +234,7 @@ export const useCreateStore = create<CreateStore>((set) => ({
     selectedFilter: 'normal', adjustments: { ...DEFAULT_ADJUSTMENTS },
     textOverlays: [], captions: [], trimStart: 0, trimEnd: null, playbackSpeed: 1,
     clips: [],
+    zoomKeyframes: [],
     soundTitle: '', soundURL: '', soundSource: '', soundStartSec: 0,
     details: { ...DEFAULT_POST_DETAILS },
   }),
