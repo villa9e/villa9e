@@ -12,7 +12,7 @@
 - [ ] Radial menu: arc radius 110px, spring stagger 40ms, overlay backdrop (current menu is a bottom-sheet grid, not a radial arc — large rewrite, deferred)
 
 ### Feed
-- [~] Workshop/Goals/GPS tab structure (built today)
+- [x] Workshop/Goals/GPS tab structure (built today) — audited: `WorkshopTabBar` renders on Workshop/Goals(chat)/GPS([id]) with a shared `layoutId` underline; `useWorkshopSwipeNav` wires the spec's swipe matrix (Goals←→Workshop←→GPS, swipe-left-from-GPS is a no-op); Workshop's own `handleGesture` does right-swipe→Goals/chat, left-swipe→GPS — matches WORKSHOP_SPEC §3
 - [x] Scroll-snap container (currently custom swipe, needs CSS scroll-snap) — feed container now uses `scrollSnapType:'y mandatory'` with all cards rendered in a `cards.map`, each `100dvh` with `scrollSnapAlign:'start'`; debounced `onFeedScroll` syncs `current` from `scrollTop`, and a `current`-driven effect calls `scrollTo` for programmatic jumps (e.g. Skip); `VideoCard` got a new `isActive` prop gating the YouTube iframe mount (lazy-mount like `TikTokFeedCard`); removed the old `AnimatePresence mode="wait"` single-card swap, `onWheel`, and the vertical-swipe branch of `handleGesture` (native scroll-snap replaces both); pause indicator, fist fly-up, side actions, progress dots, and swipe-up hint moved to `position:'fixed'` overlay siblings of the scroll container
 - [x] Action context banner on every video card (Sprint/Action reference + title) — banner already existed on studio/YouTube cards; extended to TikTok/curated cards too so it's on every video card
 - [x] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms) — fist now rendered as an amber-masked 64px shape, animates 1→1.4 scale + 180px up, fades over 700ms
@@ -57,7 +57,7 @@
 - [x] Sprint completion celebration (confetti, badge, $VLG display) — `canvas-confetti` (120 particles, 80° spread, origin y=0.4) + `SprintCelebration` modal
 
 ### Goal DNA Templates
-- [~] Templates page exists — needs "Customize with Spirit" flow
+- [x] Templates page exists — needs "Customize with Spirit" flow — satisfied by item below ("Customize with Spirit" → Spirit chat pre-populated with template)
 - [x] Template enrichment: show actual timeline, completion rate, global stats — new `/api/templates/stats` aggregates `goals.source_template_id` rows (admin client, all users) into per-template clone count / completion rate / avg weeks-to-complete; templates page's `enrichedStats()` swaps in these real numbers (labeled "completion rate" / "avg actual") when available, falling back to the template's estimates ("est. success" / "est. weeks") otherwise — still `MOCK_TEMPLATES` until real templates exist, now with live stat wiring in place
 - [x] "Quick clone" → countdown → Goal Detail (skip Spirit chat) — wired via new shared `CountdownOverlay` component, navigates to `/village/workshop/goal/{goalId}` on completion
 - [x] "Customize with Spirit" → Spirit chat pre-populated with template — "Customize First →" (now "Customize with Spirit →") stores `{title, description, steps}` in sessionStorage and routes to `/village/workshop/chat`; chat greeting detects it, pre-fills the goal input with the template's title/description/numbered steps, and Spirit's greeting acknowledges the blueprint before the user edits and sends it as their Q1 answer
