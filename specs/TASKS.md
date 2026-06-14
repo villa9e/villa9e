@@ -127,19 +127,19 @@
 
 ---
 
-## PROFILE PAGE (needs work)
+## PROFILE PAGE
 
-- [ ] Header: username, add friend (+), health shortcut (green heart), spaces shortcut (calendar), more (⋯)
-- [ ] Avatar + story ring (green border if active stories, 24hr expiry)
-- [ ] Stats: following, tribe count, total OoWops
-- [ ] Bio counts: Verification / Success (sprints) / Testimonials / Deals
-- [ ] Trading Post store link (if store exists)
-- [ ] Action buttons: Follow (red) / Message / Dropdown
-- [ ] Highlights/Playlists row
-- [ ] Content tabs: Grid / Repost-Series / OoWop content
-- [ ] Video grid: 3-column, view count overlay, pinned (up to 3), Drafts first for owner
-- [ ] Swipe right → Spaces Calendar
-- [ ] Swipe left → Wellness
+- [x] Header: username, add friend (+), health shortcut (green heart), spaces shortcut (calendar), more (⋯)
+- [x] Avatar + story ring (green border if active stories, 24hr expiry)
+- [x] Stats: following, tribe count, total OoWops
+- [x] Bio counts: Verification / Success (sprints) / Testimonials / Deals (fixed: Verified count now reads real `action_verifications` rows instead of hardcoded 0)
+- [x] Trading Post store link (if store exists)
+- [x] Action buttons: Follow (red) / Message / Dropdown (implemented as Add Friend/Connected/Pending + Message; Dropdown = header "⋯" MoreMenu — connections-based model, not literal "Follow")
+- [x] Highlights/Playlists row
+- [x] Content tabs: Grid / Repost-Series / OoWop content (Repost tab is a placeholder — "No reposts yet")
+- [x] Video grid: 3-column, view count overlay, pinned (up to 3), Drafts first for owner
+- [x] Swipe right → Spaces Calendar
+- [x] Swipe left → Wellness (via /village/hospital → redirects to /village/wellness)
 
 ---
 

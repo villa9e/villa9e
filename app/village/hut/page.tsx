@@ -663,6 +663,7 @@ function HutPageInner() {
       followRes,
       tribeRes,
       oowopCntRes,
+      verifiedRes,
       sprintRes,
       storeRes,
       dealRes,
@@ -682,6 +683,8 @@ function HutPageInner() {
       (supabase as any).from('connections').select('id', { count: 'exact', head: true }).eq('addressee_id', targetUserId).eq('status', 'accepted'),
       // total oowops received
       (supabase as any).from('oowops').select('id', { count: 'exact', head: true }).eq('receiver_id', targetUserId),
+      // verified action proofs
+      (supabase as any).from('action_verifications').select('id', { count: 'exact', head: true }).eq('user_id', targetUserId).eq('status', 'verified'),
       // goals → sprints completed
       (supabase as any).from('goals').select('id, goal_steps(id,status)').eq('user_id', targetUserId),
       // trading post store
@@ -748,7 +751,7 @@ function HutPageInner() {
       following:     followRes.status === 'fulfilled'     ? (followRes.value.count ?? 0)      : 0,
       tribe:         tribeRes.status === 'fulfilled'      ? (tribeRes.value.count ?? 0)       : 0,
       oowops:        oowopCntRes.status === 'fulfilled'   ? (oowopCntRes.value.count ?? 0)    : 0,
-      verifications: 0,
+      verifications: verifiedRes.status === 'fulfilled' ? (verifiedRes.value.count ?? 0) : 0,
       successes,
       testimonials:  testimonialRes.status === 'fulfilled' ? (testimonialRes.value.count ?? 0) : 0,
       deals:         dealRes.status === 'fulfilled'       ? (dealRes.value.count ?? 0)        : 0,
