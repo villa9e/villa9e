@@ -77,28 +77,28 @@
 
 ---
 
-## BANK (Not yet built — see BANK_SPEC.md)
+## BANK (see BANK_SPEC.md)
 
-### Infrastructure
+### Infrastructure (real external providers — not started, needs account/credential decisions)
 - [ ] Unit BaaS account and API integration
 - [ ] Alpaca Securities API integration
 - [ ] Coinbase Prime API integration
 - [ ] Polygon wallet + Ethers.js setup
 - [ ] Persona KYC integration
 
-### Pages
-- [ ] Bank Home Dashboard (Page 1)
-- [ ] Send Money (Page 2)
-- [ ] Receive Money (Page 3)
-- [ ] Invest - Stocks + Crypto (Page 4)
-- [ ] Village Fund micro-trusts (Page 5)
-- [ ] Budget and Spending (Page 6)
-- [ ] Financial Goals (Page 7)
-- [ ] Financing and Lending (Page 8)
-- [ ] Direct Deposit (Page 9)
-- [ ] Financial Profile (Page 10)
-- [ ] AI Financial Chat (Page 11)
-- [ ] Statements and Tax Documents (Page 12)
+### Pages (all built on internal Supabase ledger via /api/bank/*, Phase 1 "points mode" — real-money rails above are what's missing)
+- [x] Bank Home Dashboard (Page 1) — app/village/bank/page.tsx
+- [x] Send Money (Page 2) — app/village/bank/move/page.tsx
+- [x] Receive Money (Page 3) — app/village/bank/receive/page.tsx
+- [x] Invest - Stocks + Crypto (Page 4) — app/village/bank/invest/page.tsx + blockchain/page.tsx
+- [x] Village Fund micro-trusts (Page 5) — app/village/bank/village-fund/page.tsx
+- [x] Budget and Spending (Page 6) — app/village/bank/budget/page.tsx
+- [x] Financial Goals (Page 7) — app/village/bank/goals/page.tsx
+- [x] Financing and Lending (Page 8) — app/village/bank/finance/page.tsx
+- [x] Direct Deposit (Page 9) — app/village/bank/direct-deposit/page.tsx
+- [x] Financial Profile (Page 10) — app/village/bank/financial-profile/page.tsx
+- [x] AI Financial Chat (Page 11) — app/village/bank/advisor/page.tsx
+- [x] Statements and Tax Documents (Page 12) — app/village/bank/statements/page.tsx
 
 ---
 
