@@ -188,6 +188,8 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [wayfinderAction, setWayfinderAction] = useState<{
     id: string; title: string; description?: string; sprintTitle: string; sprintNumber: number;
   } | null>(null);
+  const [instructionSheet, setInstructionSheet] = useState<{ actionId: string; content: string } | null>(null);
+  const [loadingInstructions, setLoadingInstructions] = useState(false);
   const [resourcePopover, setResourcePopover] = useState<ResourceItem | null>(null);
   const [gapAnalysis, setGapAnalysis] = useState<{ gaps: GapItem[]; can_reach_95: boolean | null } | null>(null);
   const [selectedGap, setSelectedGap] = useState<GapItem | null>(null);
@@ -496,6 +498,36 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       setWayfinderAction(null);
     }
   }, [camera, actionMarkers]);
+
+  // Clear any loaded instruction sheet when the focused action changes
+  useEffect(() => {
+    setInstructionSheet(null);
+  }, [wayfinderAction?.id]);
+
+  // Fetch (or generate) the step-by-step Wayfinder guide for the focused action
+  async function loadInstructionSheet() {
+    if (!wayfinderAction || loadingInstructions) return;
+    setLoadingInstructions(true);
+    try {
+      const res = await fetch('/api/workshop/action-instructions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actionId: wayfinderAction.id,
+          actionTitle: wayfinderAction.title,
+          actionDescription: wayfinderAction.description,
+          goalTitle: goal?.title,
+          goalCategory: goal?.category,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setInstructionSheet({ actionId: wayfinderAction.id, content: data.content });
+      }
+    } catch {} finally {
+      setLoadingInstructions(false);
+    }
+  }
 
   const probScore = goal?.probability_score ?? 0;
   const probColor = probScore >= 85 ? C.routeAhead : probScore >= 70 ? C.amberText : '#F09595';
@@ -899,6 +931,20 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
             </p>
             {wayfinderAction.description && (
               <p style={{ fontSize: 11, color: C.textBody, margin: 0, lineHeight: 1.4 }}>{wayfinderAction.description}</p>
+            )}
+
+            {instructionSheet?.actionId === wayfinderAction.id ? (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: `0.5px solid ${C.borderDim}`, maxHeight: 220, overflowY: 'auto' }}>
+                <p style={{ fontSize: 10, color: C.textMute, letterSpacing: '0.4px', textTransform: 'uppercase', margin: '0 0 4px' }}>
+                  Step-by-step guide
+                </p>
+                <p style={{ fontSize: 12, color: C.textBody, margin: 0, lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{instructionSheet.content}</p>
+              </div>
+            ) : (
+              <button onClick={loadInstructionSheet} disabled={loadingInstructions}
+                style={{ marginTop: 8, background: 'none', border: 'none', padding: 0, fontSize: 11, fontWeight: 600, color: C.amberText, cursor: loadingInstructions ? 'default' : 'pointer', opacity: loadingInstructions ? 0.6 : 1 }}>
+                {loadingInstructions ? 'Spirit is writing your guide…' : '📋 Get the full step-by-step guide'}
+              </button>
             )}
           </motion.div>
         )}

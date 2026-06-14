@@ -53,7 +53,7 @@
 - [x] Sprint page + verification flow (text/image/screenshot/document/social URL)
 - [x] Action verification flow: photo/video/screenshot/document/social/text (`/api/actions/[id]/verify`)
 - [x] Spirit AI verification for Wayfinder (Claude vision analysis on image uploads when `action_level === 1`)
-- [ ] Wayfinder instruction sheet (full step-by-step Spirit-written guide) — current Wayfinder panel on the GPS map only shows `action.description`; spec §7.1's "word for word, what to wear, how to fill out documents" level of detail needs a dedicated Claude-generated + cached instruction sheet
+- [x] Wayfinder instruction sheet (full step-by-step Spirit-written guide) — new `action_instruction_sheets` cache table (migration 061, applied) + `/api/workshop/action-instructions` (Claude-generated, cached per action); Wayfinder panel now has a "Get the full step-by-step guide" button that loads and displays it inline
 - [x] Sprint completion celebration (confetti, badge, $VLG display) — `canvas-confetti` (120 particles, 80° spread, origin y=0.4) + `SprintCelebration` modal
 
 ### Goal DNA Templates
