@@ -68,6 +68,7 @@ export default function GoalDNAPage() {
   const [cloned, setCloned] = useState(false);
   const [countdownGoalId, setCountdownGoalId] = useState<string | null>(null);
   const [realTemplates, setRealTemplates] = useState<any[]>([]);
+  const [templateStats, setTemplateStats] = useState<Record<string, { cloneTotal: number; completionRate: number; avgWeeks: number | null }>>({});
   const supabase = createClient();
   const router = useRouter();
 
@@ -82,9 +83,24 @@ export default function GoalDNAPage() {
       if (data && data.length > 0) setRealTemplates(data);
     }
     loadTemplates();
+    fetch('/api/templates/stats').then(r => r.ok ? r.json() : { stats: {} })
+      .then(d => setTemplateStats(d.stats ?? {})).catch(() => {});
   }, []);
 
   const templates = realTemplates.length > 0 ? realTemplates : MOCK_TEMPLATES;
+
+  // Real outcome data (from cloned goals) when available, else the
+  // template's own estimates.
+  function enrichedStats(t: any) {
+    const s = templateStats[t.id];
+    return {
+      successRate: s ? s.completionRate : t.probability_score,
+      successLabel: s ? 'completion rate' : 'est. success',
+      timeline: s?.avgWeeks ?? t.estimated_weeks,
+      timelineLabel: s?.avgWeeks ? 'avg actual' : 'est. weeks',
+      uses: s?.cloneTotal ?? (t.uses ?? t.use_count ?? 0),
+    };
+  }
 
   const filtered = templates.filter(t =>
     (category === 'All' || t.category === category) &&
@@ -170,7 +186,7 @@ export default function GoalDNAPage() {
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{selected.category}</span>
                       <span className="text-xs text-amber-500">★ {selected.rating}</span>
-                      <span className="text-xs text-gray-400">Used by {(selected.uses ?? selected.use_count ?? 0).toLocaleString()} villagers</span>
+                      <span className="text-xs text-gray-400">Used by {enrichedStats(selected).uses.toLocaleString()} villagers</span>
                     </div>
                   </div>
 
@@ -178,12 +194,12 @@ export default function GoalDNAPage() {
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-gray-50 rounded-xl p-2 text-center">
-                      <p className="font-bold text-orange-600">{selected.probability_score}%</p>
-                      <p className="text-xs text-gray-400">Success rate</p>
+                      <p className="font-bold text-orange-600">{enrichedStats(selected).successRate}%</p>
+                      <p className="text-xs text-gray-400">{enrichedStats(selected).successLabel}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-2 text-center">
-                      <p className="font-bold">{selected.estimated_weeks}w</p>
-                      <p className="text-xs text-gray-400">Avg timeline</p>
+                      <p className="font-bold">{enrichedStats(selected).timeline}w</p>
+                      <p className="text-xs text-gray-400">{enrichedStats(selected).timelineLabel}</p>
                     </div>
                     <div className="bg-gray-50 rounded-xl p-2 text-center">
                       <p className="font-bold">{selected.steps_count ?? (selected.steps_preview?.length ?? 0)}</p>
@@ -266,18 +282,18 @@ export default function GoalDNAPage() {
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">{t.category}</span>
                   <span className="text-xs text-amber-500">★ {t.rating}</span>
-                  <span className="text-xs text-gray-400">{(t.uses ?? t.use_count ?? 0).toLocaleString()} uses</span>
+                  <span className="text-xs text-gray-400">{enrichedStats(t).uses.toLocaleString()} uses</span>
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="font-bold text-orange-600">{t.probability_score}%</p>
-                <p className="text-xs text-gray-400">success</p>
+                <p className="font-bold text-orange-600">{enrichedStats(t).successRate}%</p>
+                <p className="text-xs text-gray-400">{enrichedStats(t).successLabel}</p>
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2 line-clamp-2">{t.description}</p>
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-3 text-xs text-gray-400">
-                <span>📅 {t.estimated_weeks}w</span>
+                <span>📅 {enrichedStats(t).timeline}w</span>
                 <span>📍 {t.steps_count ?? (t.steps_preview?.length ?? 0)} steps</span>
               </div>
               <button className="bg-orange-500 text-white rounded-full px-4 py-1.5 text-xs font-bold hover:bg-orange-600 transition-colors"

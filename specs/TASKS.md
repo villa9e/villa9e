@@ -58,7 +58,7 @@
 
 ### Goal DNA Templates
 - [~] Templates page exists — needs "Customize with Spirit" flow
-- [ ] Template enrichment: show actual timeline, completion rate, global stats (still `MOCK_TEMPLATES` with hardcoded stats when no real templates exist; real `goal_templates` rows are used when present but have no completion-rate aggregation)
+- [x] Template enrichment: show actual timeline, completion rate, global stats — new `/api/templates/stats` aggregates `goals.source_template_id` rows (admin client, all users) into per-template clone count / completion rate / avg weeks-to-complete; templates page's `enrichedStats()` swaps in these real numbers (labeled "completion rate" / "avg actual") when available, falling back to the template's estimates ("est. success" / "est. weeks") otherwise — still `MOCK_TEMPLATES` until real templates exist, now with live stat wiring in place
 - [x] "Quick clone" → countdown → Goal Detail (skip Spirit chat) — wired via new shared `CountdownOverlay` component, navigates to `/village/workshop/goal/{goalId}` on completion
 - [x] "Customize with Spirit" → Spirit chat pre-populated with template — "Customize First →" (now "Customize with Spirit →") stores `{title, description, steps}` in sessionStorage and routes to `/village/workshop/chat`; chat greeting detects it, pre-fills the goal input with the template's title/description/numbered steps, and Spirit's greeting acknowledges the blueprint before the user edits and sends it as their Q1 answer
 
