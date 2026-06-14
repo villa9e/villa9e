@@ -240,6 +240,7 @@ export interface SpiritUserContext {
   collectiveWisdom:    string[];         // relevant collective insights
   finance:             FinanceSnapshot;   // cross-domain: Bank
   wellness:            WellnessSnapshot;  // cross-domain: Wellness
+  foundation:          { values: string | null; purpose: string | null }; // Wellness Foundation
 }
 
 export interface FinanceSnapshot {
@@ -345,6 +346,10 @@ export function buildSharedKnowledgeBlock(ctx: SpiritUserContext): string {
     lines.push(`Active goals: ${ctx.activeGoals.map(g => `"${g.title}" (${g.progress}% complete, ${g.steps_done}/${g.steps_total} steps)`).join('; ')}`);
   }
 
+  if (ctx.foundation.values || ctx.foundation.purpose) {
+    lines.push(`Their stated foundation: ${ctx.foundation.values ? `values — "${ctx.foundation.values}"` : ''}${ctx.foundation.values && ctx.foundation.purpose ? '; ' : ''}${ctx.foundation.purpose ? `purpose — "${ctx.foundation.purpose}"` : ''}`);
+  }
+
   const finance  = formatFinanceSnapshot(ctx.finance);
   const wellness = formatWellnessSnapshot(ctx.wellness);
   if (finance)  lines.push(finance);
@@ -365,7 +370,7 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
     profileRes, spiritRes, goalsRes, patternsRes, collectiveRes, memoriesRes,
   ] = await Promise.allSettled([
     (admin as any).from('profiles')
-      .select('username, display_name, personality_type, communication_style, village_score, score_tier, streak_days')
+      .select('username, display_name, personality_type, communication_style, village_score, score_tier, streak_days, values_statement, purpose_statement')
       .eq('id', userId).single(),
     (admin as any).from('spirit_configs')
       .select('spiritual_system, spiritual_systems, topics, coaching_tone')
@@ -442,6 +447,10 @@ export async function fetchSpiritContext(userId: string, query?: string): Promis
     collectiveWisdom:   ((collective ?? []) as any[]).map((c: any) => c.insight),
     finance,
     wellness,
+    foundation: {
+      values:  profile?.values_statement ?? null,
+      purpose: profile?.purpose_statement ?? null,
+    },
   };
 }
 
@@ -476,6 +485,10 @@ export function buildSpiritSystemPrompt(ctx: SpiritUserContext): string {
     ? `Their patterns: ${ctx.patterns.goals_completed ?? 0} goals completed, ${ctx.patterns.streak_days ?? 0}-day streak, avg morning mood ${ctx.patterns.avg_morning_mood ?? 0}/10`
     : '';
 
+  const foundationSection = (ctx.foundation.values || ctx.foundation.purpose)
+    ? `Their stated foundation:${ctx.foundation.values ? `\n  • Values: "${ctx.foundation.values}"` : ''}${ctx.foundation.purpose ? `\n  • Purpose: "${ctx.foundation.purpose}"` : ''}\nGround affirmations, encouragement, and advice in this whenever it's relevant — it's who they're trying to be.`
+    : '';
+
   const financeSection  = formatFinanceSnapshot(ctx.finance);
   const wellnessSection = formatWellnessSnapshot(ctx.wellness);
 
@@ -503,6 +516,7 @@ ${crossDomainSection}
 
 ${memoriesSection ? `━━━ YOUR MEMORY ━━━\n${memoriesSection}` : ''}
 ${patternSection ? `━━━ THEIR PATTERNS ━━━\n${patternSection}` : ''}
+${foundationSection ? `━━━ THEIR FOUNDATION ━━━\n${foundationSection}` : ''}
 ${collectiveSection ? `━━━ VILLAGE WISDOM ━━━\n${collectiveSection}` : ''}
 
 ━━━ SPIRITUAL CONTEXT ━━━

@@ -13,6 +13,11 @@ interface WellnessLog {
   gratitude: string | null;
 }
 
+interface FoundationProfile {
+  values_statement: string | null;
+  purpose_statement: string | null;
+}
+
 interface GratitudeEntry {
   id: string;
   entry: string;
@@ -46,14 +51,37 @@ export default function JournalPage() {
   const [recentLogs, setRecentLogs] = useState<WellnessLog[]>([]);
   const [addingGratitude, setAddingGratitude] = useState(false);
 
+  // Morning intention — one per day, lives on wellness_logs like gratitude.
+  const [intention, setIntention] = useState('');
+  const [intentionSavedToday, setIntentionSavedToday] = useState(false);
+  const [savingIntention, setSavingIntention] = useState(false);
+
+  // Foundation — persistent values/purpose statements on the profile.
+  const [values, setValues] = useState('');
+  const [purpose, setPurpose] = useState('');
+  const [foundationEditing, setFoundationEditing] = useState(false);
+  const [savingFoundation, setSavingFoundation] = useState(false);
+
   const load = useCallback(async (uid: string) => {
     if (!uid) return;
-    const [gRes, lRes] = await Promise.allSettled([
+    const today = new Date().toISOString().split('T')[0];
+    const [gRes, lRes, tRes, pRes] = await Promise.allSettled([
       (supabase as any).from('gratitude_log').select('*').eq('user_id', uid).order('created_at', { ascending: false }).limit(10),
       (supabase as any).from('wellness_logs').select('id,log_date,mood,gratitude').eq('user_id', uid).order('log_date', { ascending: false }).limit(7),
+      (supabase as any).from('wellness_logs').select('morning_intention').eq('user_id', uid).eq('log_date', today).maybeSingle(),
+      (supabase as any).from('profiles').select('values_statement,purpose_statement').eq('id', uid).single(),
     ]);
     if (gRes.status === 'fulfilled') setGratitudeEntries(gRes.value.data || []);
     if (lRes.status === 'fulfilled') setRecentLogs(lRes.value.data || []);
+    if (tRes.status === 'fulfilled' && tRes.value.data?.morning_intention) {
+      setIntention(tRes.value.data.morning_intention);
+      setIntentionSavedToday(true);
+    }
+    if (pRes.status === 'fulfilled' && pRes.value.data) {
+      const p: FoundationProfile = pRes.value.data;
+      setValues(p.values_statement ?? '');
+      setPurpose(p.purpose_statement ?? '');
+    }
   }, [supabase]);
 
   useEffect(() => {
@@ -79,6 +107,29 @@ export default function JournalPage() {
     setSaved(true);
     setSaving(false);
     load(userId);
+  }
+
+  async function saveIntention() {
+    if (!userId || savingIntention || !intention.trim()) return;
+    setSavingIntention(true);
+    const today = new Date().toISOString().split('T')[0];
+    await (supabase as any).from('wellness_logs').upsert(
+      { user_id: userId, log_date: today, morning_intention: intention.trim() },
+      { onConflict: 'user_id,log_date' }
+    );
+    setIntentionSavedToday(true);
+    setSavingIntention(false);
+  }
+
+  async function saveFoundation() {
+    if (!userId || savingFoundation) return;
+    setSavingFoundation(true);
+    await (supabase as any).from('profiles').update({
+      values_statement: values.trim() || null,
+      purpose_statement: purpose.trim() || null,
+    }).eq('id', userId);
+    setSavingFoundation(false);
+    setFoundationEditing(false);
   }
 
   async function addGratitude() {
@@ -111,6 +162,114 @@ export default function JournalPage() {
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 96px' }}>
+
+        {/* Morning Intention */}
+        <div style={{ background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 900, color: '#A78BFA', letterSpacing: '0.06em', marginBottom: 10 }}>MORNING INTENTION</p>
+          <textarea
+            value={intention}
+            onChange={e => { setIntention(e.target.value); setIntentionSavedToday(false); }}
+            rows={2}
+            placeholder="Today, I intend to..."
+            style={{
+              width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#fff',
+              outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10,
+            }}
+          />
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={saveIntention}
+            disabled={savingIntention || !intention.trim() || intentionSavedToday}
+            style={{
+              width: '100%', padding: '12px 0', borderRadius: 12,
+              background: intentionSavedToday ? 'rgba(139,92,246,0.3)' : '#8B5CF6',
+              color: '#fff', fontWeight: 900, fontSize: 14, border: 'none',
+              cursor: savingIntention || !intention.trim() || intentionSavedToday ? 'not-allowed' : 'pointer',
+              opacity: savingIntention ? 0.7 : 1,
+            }}
+          >
+            {intentionSavedToday ? 'Intention Set for Today' : savingIntention ? 'Saving...' : 'Set Intention'}
+          </motion.button>
+        </div>
+
+        {/* Foundation — values & purpose */}
+        <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <p style={{ fontSize: 11, fontWeight: 900, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em' }}>MY FOUNDATION</p>
+            {!foundationEditing && (
+              <button onClick={() => setFoundationEditing(true)} style={{ fontSize: 12, fontWeight: 800, color: '#34D399', background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
+                {values || purpose ? 'Edit' : 'Add'}
+              </button>
+            )}
+          </div>
+
+          {foundationEditing ? (
+            <>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: 6 }}>My values</p>
+              <textarea
+                value={values}
+                onChange={e => setValues(e.target.value)}
+                rows={2}
+                placeholder="What matters most to you..."
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#fff',
+                  outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 14,
+                }}
+              />
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontWeight: 700, marginBottom: 6 }}>My purpose</p>
+              <textarea
+                value={purpose}
+                onChange={e => setPurpose(e.target.value)}
+                rows={2}
+                placeholder="Why you're here, what you're working toward..."
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 10, padding: '10px 12px', fontSize: 13, color: '#fff',
+                  outline: 'none', resize: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 14,
+                }}
+              />
+              <div style={{ display: 'flex', gap: 8 }}>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={saveFoundation}
+                  disabled={savingFoundation}
+                  style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: '#22C55E', color: '#fff', fontWeight: 900, fontSize: 14, border: 'none', cursor: savingFoundation ? 'not-allowed' : 'pointer', opacity: savingFoundation ? 0.7 : 1 }}
+                >
+                  {savingFoundation ? 'Saving...' : 'Save'}
+                </motion.button>
+                <button
+                  onClick={() => setFoundationEditing(false)}
+                  style={{ padding: '12px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', fontWeight: 800, fontSize: 14, border: 'none', cursor: 'pointer' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          ) : (
+            (values || purpose) ? (
+              <>
+                {values && (
+                  <div style={{ marginBottom: purpose ? 10 : 0 }}>
+                    <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 4 }}>VALUES</p>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{values}</p>
+                  </div>
+                )}
+                {purpose && (
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.06em', marginBottom: 4 }}>PURPOSE</p>
+                    <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.8)', lineHeight: 1.5 }}>{purpose}</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
+                Write down what matters most to you and why — Spirit will ground its guidance and affirmations in it.
+              </p>
+            )
+          )}
+        </div>
 
         {/* Evening Reflection — 3 prompts */}
         <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 16, marginBottom: 12 }}>

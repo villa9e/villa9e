@@ -168,7 +168,7 @@
 - [x] Nutrition: AI meal planning based on schedule + health data + chronobiology (`/api/wellness/nutrition` now receives today's real `calendar_events` as `schedule`, plus readiness/mood)
 - [ ] HAPI FHIR health records server
 - [ ] Telehealth: Jitsi embedded video room, pre-visit AI brief (Jitsi link generation exists under /village/hospital booking flow, but not embedded in Wellness and no pre-visit AI brief)
-- [ ] Foundation: values/purpose editor, morning intention, gratitude log (gratitude log works in journal/page.tsx; values/purpose editor + morning intention not built)
+- [x] Foundation: values/purpose editor, morning intention, gratitude log (migration 063 adds `profiles.values_statement`/`purpose_statement` + `wellness_logs.morning_intention`; journal/page.tsx gains a "Morning Intention" card (daily, upserts to wellness_logs) and a "My Foundation" values/purpose editor above the existing Evening Reflection/Gratitude Log; `fetchSpiritContext`/`buildSpiritSystemPrompt`/`buildSharedKnowledgeBlock` in lib/claude/spirit.ts now read and surface the stated values/purpose so Spirit grounds affirmations and guidance in them everywhere)
 - [ ] Wearable: Gadgetbridge (Android) + Apple Health (iOS) → n8n → normalized DB
 - [ ] Medito integration (meditation)
 - [ ] Moodist integration (ambient sound)
