@@ -37,6 +37,7 @@ const ShareSvg  = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="wh
 const SaveSvg   = ({ active }: { active?: boolean }) => <svg width={22} height={22} viewBox="0 0 24 24" fill={active ? 'white' : 'none'} stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>;
 const CommentSvg = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>;
 const MoreSvg   = () => <svg width={22} height={22} viewBox="0 0 24 24" fill="white"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>;
+const SkipSvg   = () => <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 9V5a2 2 0 00-2-2L7 13v8h9.28a2 2 0 002-1.7l1.38-9A2 2 0 0017.7 8H14z"/><path d="M7 13H4a1 1 0 01-1-1V8a1 1 0 011-1h3"/></svg>;
 const PlaySvg   = () => <svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>;
 const PauseSvg  = () => <svg width={36} height={36} viewBox="0 0 24 24" fill="white"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>;
 
@@ -161,7 +162,7 @@ const MORE_OPTS = [
   { icon: 'GIF', label: 'Share GIF' },
 ];
 
-function MoreDrawer({ open, onClose, card }: { open: boolean; onClose: () => void; card: FeedCard }) {
+function MoreDrawer({ open, onClose, card, onSkip }: { open: boolean; onClose: () => void; card: FeedCard; onSkip: () => void }) {
   const FAKE_USERS = ['Alex','Jordan','Sam','Morgan','Taylor','Casey','Riley','Drew','Chris','Avery','Blake','Quinn'];
   const COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E','#0D9488','#BE185D','#D97706'];
 
@@ -231,7 +232,8 @@ function MoreDrawer({ open, onClose, card }: { open: boolean; onClose: () => voi
               <div style={{ padding: '0 16px 16px' }}>
                 <div style={{ display: 'flex', gap: 12, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as any }}>
                   {MORE_OPTS.map(opt => (
-                    <motion.button whileTap={{ scale: 0.9 }} key={opt.label} onClick={onClose}
+                    <motion.button whileTap={{ scale: 0.9 }} key={opt.label}
+                      onClick={() => { if (opt.label === 'Not interested') onSkip(); onClose(); }}
                       style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', flexShrink: 0, width: 62 }}>
                       <div style={{ width: 52, height: 52, borderRadius: 16, background: 'rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, color: '#fff', fontWeight: 900 }}>
                         {opt.icon}
@@ -384,9 +386,9 @@ function GuideCard() {
 }
 
 // ── Side Actions ──────────────────────────────────────────────────────────────
-function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, onSave, saved, uiVisible }: {
+function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, onSave, saved, onSkip, uiVisible }: {
   card: FeedCard; onOoWop: () => void; owopped: boolean; oowopCount: number;
-  onComment: () => void; onMore: () => void; onSave: () => void; saved: boolean; uiVisible: boolean;
+  onComment: () => void; onMore: () => void; onSave: () => void; saved: boolean; onSkip: () => void; uiVisible: boolean;
 }) {
   const AVATAR_COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E'];
   const username = card.author.username || '?';
@@ -455,6 +457,15 @@ function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, on
           <MoreSvg />
         </div>
         <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>More</span>
+      </motion.button>
+
+      {/* Skip / not helpful */}
+      <motion.button whileTap={{ scale: 0.82 }} onClick={onSkip}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, background: 'transparent', border: 'none', cursor: 'pointer' }}>
+        <div style={{ width: 40, height: 40, borderRadius: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.14)', backdropFilter: 'blur(8px)' }}>
+          <SkipSvg />
+        </div>
+        <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.75)' }}>Skip</span>
       </motion.button>
     </div>
   );
@@ -705,7 +716,15 @@ export default function WorkshopPage() {
       // can be built around the sprint/action the user is currently on ──
       let goals: any[] = [];
       let actionContext: ActionContext | null = null;
+      let skipCounts: Map<string, number> = new Map();
       if (user) {
+        const { data: skips } = await (supabase as any)
+          .from('card_skips')
+          .select('card_id, skip_count')
+          .eq('user_id', user.id)
+          .then((r: any) => r).catch(() => ({ data: [] }));
+        (skips ?? []).forEach((s: any) => skipCounts.set(s.card_id, s.skip_count));
+
         const { data } = await (supabase as any)
           .from('goals')
           .select('id, title, description, category, progress_percentage, probability_score, action_level, goal_steps(status)')
@@ -862,8 +881,19 @@ export default function WorkshopPage() {
       const nonVideoCards = [...goalCards, ...templateCards, ...studioCards.filter(c => !c.media?.videoId)];
       const guideCard: FeedCard = { id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' };
       const shuffled: FeedCard[] = videoCards.length > 0 ? [...videoCards, ...nonVideoCards] : goals.length ? [...nonVideoCards, guideCard] : [guideCard, ...nonVideoCards];
-      setCards(shuffled);
-      if (shuffled[0]) speak(shuffled[0].title, 'casual');
+
+      // Skip signal (WORKSHOP_SPEC §5.3): hide cards skipped 3+ times,
+      // and randomly drop cards skipped 1-2 times (~30% chance per skip).
+      const filtered = shuffled.filter(c => {
+        const skips = skipCounts.get(c.id) ?? 0;
+        if (skips >= 3) return false;
+        if (skips > 0 && Math.random() < skips * 0.3) return false;
+        return true;
+      });
+      const finalCards = filtered.length > 0 ? filtered : shuffled;
+
+      setCards(finalCards);
+      if (finalCards[0]) speak(finalCards[0].title, 'casual');
     } catch {
       setCards([{ id: 'guide', type: 'guide', title: 'How to use the Workshop', subtitle: 'Start with your Goal GPS', content: '', author: { username: 'Spirit' }, color: '#7C3AED', accent: '#7C3AED' }]);
     } finally { setLoading(false); }
@@ -886,6 +916,14 @@ export default function WorkshopPage() {
 
   function handleSave(cardId: string) {
     setSaved(prev => { const n = new Set(prev); if (n.has(cardId)) n.delete(cardId); else n.add(cardId); return n; });
+  }
+
+  function handleSkip(cardId: string) {
+    setTimeout(() => setCurrent(c => Math.min(c + 1, cards.length - 1)), 300);
+    fetch('/api/workshop/skip', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cardId }),
+    }).catch(() => {});
   }
 
   if (loading) {
@@ -1035,6 +1073,7 @@ export default function WorkshopPage() {
                   onMore={() => setShowMore(true)}
                   onSave={() => handleSave(card.id)}
                   saved={saved.has(card.id)}
+                  onSkip={() => handleSkip(card.id)}
                   uiVisible={uiVisible}
                 />
               )}
@@ -1061,7 +1100,7 @@ export default function WorkshopPage() {
 
       {/* Drawers */}
       {card && <CommentsDrawer open={showComments} onClose={() => setShowComments(false)} card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
-      {card && <MoreDrawer open={showMore} onClose={() => setShowMore(false)} card={card} />}
+      {card && <MoreDrawer open={showMore} onClose={() => setShowMore(false)} card={card} onSkip={() => handleSkip(card.id)} />}
     </div>
   );
 }

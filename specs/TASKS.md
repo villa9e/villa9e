@@ -16,7 +16,7 @@
 - [ ] Scroll-snap container (currently custom swipe, needs CSS scroll-snap)
 - [x] Action context banner on every video card (Sprint/Action reference + title) — banner already existed on studio/YouTube cards; extended to TikTok/curated cards too so it's on every video card
 - [x] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms) — fist now rendered as an amber-masked 64px shape, animates 1→1.4 scale + 180px up, fades over 700ms
-- [ ] Skip signal → algorithm effect (30% probability reduction, hide after 3)
+- [x] Skip signal → algorithm effect (30% probability reduction, hide after 3) — new `card_skips` table (migration 062, applied) + `/api/workshop/skip` increments per-user/per-card skip count; new thumbs-down "Skip" button in `SideActions` (and "Not interested" in MoreDrawer) calls it then slides to next card after 300ms; `loadFeed()` fetches the user's skip counts and filters cards with 3+ skips, with a ~30%-per-skip chance of dropping cards skipped 1-2 times
 - [x] Mission score pill on video cards (green 85%+, amber 70-84%)
 - [x] Video scoring system: Claude scores YouTube/Studio videos against action title
 - [x] Format filter by action level (Wayfinder prefers >10min, Trailblazer <8min) — new `goals.action_level` column (migration 060, applied), persisted from `gpsData.actionLevel` on goal creation; `/api/gps/action-content` uses it to set YouTube `videoDuration` (medium/long for Wayfinder, short for Trailblazer) and filters studio videos by `duration_seconds`

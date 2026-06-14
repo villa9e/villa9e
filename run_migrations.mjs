@@ -3,7 +3,7 @@ const { Client } = pkg;
 import { readFileSync } from 'fs';
 
 const MIGRATIONS = [
-  '/Users/legacijackson/villa9e/supabase/migrations/061_action_instruction_sheets.sql',
+  '/Users/legacijackson/villa9e/supabase/migrations/062_card_skips.sql',
 ];
 
 async function run() {
