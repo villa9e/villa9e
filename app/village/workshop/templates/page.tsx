@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { CountdownOverlay } from '@/components/village/CountdownOverlay';
 
 const CATEGORIES = ['All', 'Business', 'Health', 'Education', 'Creative', 'Financial', 'Personal'];
 
@@ -65,6 +66,7 @@ export default function GoalDNAPage() {
   const [selected, setSelected] = useState<any>(null);
   const [cloning, setCloning] = useState(false);
   const [cloned, setCloned] = useState(false);
+  const [countdownGoalId, setCountdownGoalId] = useState<string | null>(null);
   const [realTemplates, setRealTemplates] = useState<any[]>([]);
   const supabase = createClient();
   const router = useRouter();
@@ -124,7 +126,11 @@ export default function GoalDNAPage() {
 
     setCloning(false);
     setCloned(true);
-    setTimeout(() => { setSelected(null); setCloned(false); }, 2000);
+    if (goal?.id) {
+      setTimeout(() => setCountdownGoalId(goal.id), 1200);
+    } else {
+      setTimeout(() => { setSelected(null); setCloned(false); }, 2000);
+    }
   }
 
   return (
@@ -282,6 +288,12 @@ export default function GoalDNAPage() {
           </div>
         )}
       </div>
+
+      <AnimatePresence>
+        {countdownGoalId && (
+          <CountdownOverlay onComplete={() => router.push(`/village/workshop/goal/${countdownGoalId}`)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

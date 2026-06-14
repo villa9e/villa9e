@@ -29,38 +29,38 @@
 - [ ] Keyboard-aware positioning
 
 ### Spirit Chat
-- [~] 6-phase flow built (needs polish and all phases fully wired)
-- [ ] Goal intersection detection (>50% semantic overlap → offer to merge)
-- [ ] Duplicate detection (>85% identical → redirect to existing goal)
-- [ ] Phase 1: Spirit asks 4 questions, not just 1
-- [ ] Phase 2: commitment score 1-10, Spirit pushes back below 7
-- [ ] Phase 4: Action level selector (Wayfinder/Pathfinder/Trailblazer inline cards)
-- [~] Agent wave system (built but needs UI animation per spec)
-- [ ] Agent loading state: each agent animates in as it completes
-- [ ] pathTo95 guidance screen (below 70% probability)
-- [ ] GPS Ready Card: affiliate products row, "You win when" checklist
+- [x] 6-phase flow built and wired (discovery → success/commitment → proximity → resources → generating → ready)
+- [ ] Goal intersection detection (>50% semantic overlap → offer to merge) — current `checkDuplicate()` uses a simple >3-common-words heuristic with a single "view existing / create separate" alert, not a percentage-based merge offer
+- [ ] Duplicate detection (>85% identical → redirect to existing goal) — same heuristic as above; "go to existing goal" exists but isn't gated on an 85% similarity threshold
+- [x] Phase 1: Spirit asks 4 questions, not just 1 (`DISCOVERY_QUESTIONS` — greeting Q1 + 3 follow-ups before falling through to Phase 2)
+- [x] Phase 2: commitment score 1-10, Spirit pushes back below 7 (`extractCommitmentScore` + `awaitingCommitment` gate)
+- [x] Phase 4: Action level selector (Wayfinder/Pathfinder/Trailblazer inline cards) — `ActionLevelSelector` component
+- [x] Agent wave system (built — `AgentWaveOverlay`/`AgentRowItem` rows animate in, pulse while running, turn green on done)
+- [x] Agent loading state: each agent animates in as it completes
+- [x] pathTo95 guidance screen (below 70% probability) — `PathTo95Screen` component
+- [x] GPS Ready Card: affiliate products row, "You win when" checklist
 
 ### Countdown
 - [x] Countdown overlay: spec-accurate sequence (3 "Get ready..." → 2 "Almost there..." → 1 "Let's go..." → 0 "Let's GO 🚀", 120px circle, 800ms hold before completing)
 
 ### Goal Detail
-- [~] 3 internal tabs (Spirit/Instructions/Workshop) — needs GPS tab replacing Instructions
-- [ ] GPS tab: sprint roadmap circles, gap analysis card with agent outputs
-- [ ] Recalibrate button → re-runs relevant agents
-- [ ] Life events modal (12 event types → Spirit adjusts plan)
+- [x] 4 internal tabs (GPS/Spirit/Instructions/Workshop) — GPS tab already replaces the old Instructions-first layout
+- [x] GPS tab: sprint roadmap circles, gap analysis card with agent outputs (driven by `wave1_results`/`gpsData`, falls back to probability-derived rows)
+- [x] Recalibrate button → re-runs relevant agents (`/api/goals/recalibrate` re-invokes Wave 1/2 agents)
+- [x] Life events modal (12 event types → Spirit adjusts plan via `/api/gps/life-event`)
 
 ### Sprint Execution
-- [~] Sprint page exists — needs verification flow
-- [ ] Action verification flow: photo/video/screenshot/document/social/text
-- [ ] Spirit AI verification for Wayfinder (vision analysis on uploads)
-- [ ] Wayfinder instruction sheet (full step-by-step Spirit-written guide)
-- [ ] Sprint completion celebration (confetti, badge, $VLG display)
+- [x] Sprint page + verification flow (text/image/screenshot/document/social URL)
+- [x] Action verification flow: photo/video/screenshot/document/social/text (`/api/actions/[id]/verify`)
+- [x] Spirit AI verification for Wayfinder (Claude vision analysis on image uploads when `action_level === 1`)
+- [ ] Wayfinder instruction sheet (full step-by-step Spirit-written guide) — current Wayfinder panel on the GPS map only shows `action.description`; spec §7.1's "word for word, what to wear, how to fill out documents" level of detail needs a dedicated Claude-generated + cached instruction sheet
+- [x] Sprint completion celebration (confetti, badge, $VLG display) — `canvas-confetti` (120 particles, 80° spread, origin y=0.4) + `SprintCelebration` modal
 
 ### Goal DNA Templates
 - [~] Templates page exists — needs "Customize with Spirit" flow
-- [ ] Template enrichment: show actual timeline, completion rate, global stats
-- [ ] "Quick clone" → countdown → Goal Detail (skip Spirit chat)
-- [ ] "Customize with Spirit" → Spirit chat pre-populated with template
+- [ ] Template enrichment: show actual timeline, completion rate, global stats (still `MOCK_TEMPLATES` with hardcoded stats when no real templates exist; real `goal_templates` rows are used when present but have no completion-rate aggregation)
+- [x] "Quick clone" → countdown → Goal Detail (skip Spirit chat) — wired via new shared `CountdownOverlay` component, navigates to `/village/workshop/goal/{goalId}` on completion
+- [ ] "Customize with Spirit" → Spirit chat pre-populated with template ("Customize First" currently routes to `/village/workshop?goal=title`, not a chat pre-populated with the template's steps)
 
 ### Skill Stream
 - [x] Skill Stream page exists — mission scoring wired
