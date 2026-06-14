@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { getSession } from '@/lib/create/session';
 import { useCreateStore, CSS_FILTERS, buildCSSFilter, type TextOverlay } from '@/lib/create/store';
+import { VILLAGE_SONGS } from '@/lib/music/useVillageMusic';
 
 type EditTool = 'adjust' | 'filter' | 'text' | 'trim' | 'audio' | 'stickers' | 'captions';
 
@@ -85,6 +86,9 @@ export default function EditPage() {
   const videoRef     = useRef<HTMLVideoElement>(null);
   const previewRef   = useRef<HTMLDivElement>(null);
   const timelineRef  = useRef<HTMLDivElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
+  const [showSoundLibrary, setShowSoundLibrary] = useState(false);
 
   // Video playback state (for trim tool)
   const [isPlaying,    setIsPlaying]    = useState(false);
@@ -104,16 +108,40 @@ export default function EditPage() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    const onTime  = () => setCurrentTime(v.currentTime);
-    const onMeta  = () => setDuration(v.duration ?? 0);
+    // Chrome reports duration=Infinity for MediaRecorder blobs until the video
+    // is seeked once. Force that seek so trim math never divides by Infinity
+    // (which throws "non-finite currentTime" when later passed back in).
+    let fixingDuration = false;
+    const onTime  = () => {
+      if (fixingDuration) {
+        if (Number.isFinite(v.duration)) setDuration(v.duration);
+        v.currentTime = 0;
+        fixingDuration = false;
+        return;
+      }
+      setCurrentTime(v.currentTime);
+    };
+    const onMeta  = () => {
+      if (!Number.isFinite(v.duration)) {
+        fixingDuration = true;
+        v.currentTime = 1e101;
+      } else {
+        setDuration(v.duration);
+      }
+    };
+    const onDurationChange = () => {
+      if (Number.isFinite(v.duration)) setDuration(v.duration);
+    };
     const onEnded = () => setIsPlaying(false);
     v.addEventListener('timeupdate',       onTime);
     v.addEventListener('loadedmetadata',   onMeta);
+    v.addEventListener('durationchange',   onDurationChange);
     v.addEventListener('ended',            onEnded);
     return () => {
-      v.removeEventListener('timeupdate',     onTime);
-      v.removeEventListener('loadedmetadata', onMeta);
-      v.removeEventListener('ended',          onEnded);
+      v.removeEventListener('timeupdate',       onTime);
+      v.removeEventListener('loadedmetadata',   onMeta);
+      v.removeEventListener('durationchange',   onDurationChange);
+      v.removeEventListener('ended',            onEnded);
     };
   }, []);
 
@@ -121,14 +149,15 @@ export default function EditPage() {
     const v = videoRef.current;
     if (!v) return;
     if (isPlaying) { v.pause(); setIsPlaying(false); }
-    else           { v.play(); setIsPlaying(true); }
+    else           { v.play().catch(() => {}); setIsPlaying(true); }
   }
 
   function seekTo(t: number) {
     const v = videoRef.current;
-    if (!v) return;
-    v.currentTime = t;
-    setCurrentTime(t);
+    if (!v || !Number.isFinite(t)) return;
+    const clamped = Math.max(0, Math.min(t, duration || t));
+    v.currentTime = clamped;
+    setCurrentTime(clamped);
   }
 
   function addKeyMarker() {
@@ -136,8 +165,11 @@ export default function EditPage() {
   }
 
   function applyTrim(start: number, end: number | null) {
+    if (!Number.isFinite(start) || (end !== null && !Number.isFinite(end))) return;
+    const clampedStart = Math.max(0, start);
+    const clampedEnd   = end === null ? null : Math.max(clampedStart + 0.1, end);
     setTrimHistory(h => [...h, [trimStart, trimEnd]]);
-    setTrim(start, end);
+    setTrim(clampedStart, clampedEnd);
   }
 
   function undoTrim() {
@@ -188,6 +220,13 @@ export default function EditPage() {
     setActiveTool(null);
   }
 
+  function handleAudioFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSound(file.name, URL.createObjectURL(file), 'device');
+    e.target.value = '';
+  }
+
   function addSticker(emoji: string, type: string) {
     const label = type === 'time' ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                 : type === 'date' ? new Date().toLocaleDateString() : emoji;
@@ -236,7 +275,7 @@ export default function EditPage() {
 
         {/* Text overlays */}
         {textOverlays.map(overlay => (
-          <motion.div key={overlay.id} drag dragMomentum={false}
+          <motion.div key={`${overlay.id}-${overlay.x.toFixed(2)}-${overlay.y.toFixed(2)}`} drag dragMomentum={false}
             onDragEnd={(_, info) => {
               const el = previewRef.current;
               if (!el) return;
@@ -414,6 +453,7 @@ export default function EditPage() {
             {activeTool === 'audio' && (
               <div className="p-4 space-y-3">
                 <p className="text-white text-sm font-black">Audio</p>
+                <input ref={audioInputRef} type="file" accept="audio/*" onChange={handleAudioFile} style={{ display: 'none' }} />
                 {soundTitle ? (
                   <div className="flex items-center gap-3 p-3 rounded-2xl" style={{ background: 'rgba(24,119,242,0.15)', border: '1px solid rgba(24,119,242,0.3)' }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1877F2" strokeWidth="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
@@ -422,15 +462,39 @@ export default function EditPage() {
                     </div>
                     <button onClick={clearSound} style={{ color: 'rgba(255,255,255,0.5)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 18 }}>×</button>
                   </div>
+                ) : showSoundLibrary ? (
+                  <div className="flex flex-col gap-2">
+                    <button onClick={() => setShowSoundLibrary(false)}
+                      className="flex items-center gap-2 px-1 py-1 text-left w-full"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.5)', fontSize: 12, fontWeight: 700 }}>
+                      ← Back
+                    </button>
+                    <div className="flex flex-col gap-2 max-h-72 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                      {VILLAGE_SONGS.map(song => (
+                        <button key={song.id}
+                          onClick={() => { setSound(song.title, song.file, 'library'); setShowSoundLibrary(false); }}
+                          className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left w-full"
+                          style={{ background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer', color: '#fff' }}>
+                          <span style={{ fontSize: 18 }}>🎼</span>
+                          <span className="text-sm font-bold">{song.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 ) : (
                   <div className="flex flex-col gap-2">
-                    {[{ label: 'My Sounds', icon: '🎙' }, { label: 'Spotify', icon: '🎵' }, { label: 'Sound Library', icon: '🎼' }].map(opt => (
-                      <button key={opt.label} className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left w-full"
-                        style={{ background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer', color: '#fff' }}>
-                        <span style={{ fontSize: 20 }}>{opt.icon}</span>
-                        <span className="text-sm font-bold">{opt.label}</span>
-                      </button>
-                    ))}
+                    <button onClick={() => audioInputRef.current?.click()}
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left w-full"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer', color: '#fff' }}>
+                      <span style={{ fontSize: 20 }}>🎙</span>
+                      <span className="text-sm font-bold">My Sounds</span>
+                    </button>
+                    <button onClick={() => setShowSoundLibrary(true)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-2xl text-left w-full"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: 'none', cursor: 'pointer', color: '#fff' }}>
+                      <span style={{ fontSize: 20 }}>🎼</span>
+                      <span className="text-sm font-bold">Sound Library</span>
+                    </button>
                   </div>
                 )}
               </div>

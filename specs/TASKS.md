@@ -111,9 +111,9 @@
 - [ ] Photo / Video / Text / Upload swipe selector
 - [ ] Video duration: 30s / 60s / Freeform (10min)
 - [ ] During recording: ONLY camera + stop + slow-motion + fast-motion buttons
-- [ ] Text editor: fonts, styles, highlights — visible while editing (bug: text disappears on move, FIX)
-- [ ] Audio tracks: working (currently broken, FIX)
-- [ ] Trim: working (currently crashes, FIX)
+- [x] Text editor: fonts, styles, highlights — visible while editing (fixed: drag transform now resets after each move, so overlay no longer drifts off-screen)
+- [x] Audio tracks: working (My Sounds = device file picker, Sound Library = villa9e VILLAGE_SONGS catalog wired via setSound)
+- [x] Trim: working (fixed Infinity-duration crash on recorded blobs + clamped/guarded trim values)
 - [ ] Captions: live in editor (not after posting — user explicitly rejected post-posting captions)
 - [ ] Full video editor per spec: timeline, playhead, tracks, cuts, transitions, keyframes
 - [ ] Effects: open source filters, zoom, face tracker, object tracker
