@@ -15,12 +15,13 @@ export async function POST(req: NextRequest) {
   if (!payout_email?.includes('@')) return NextResponse.json({ error: 'Valid email required' }, { status: 400 });
 
   // Check balance
-  const { data: wallet } = await supabase.from('village_wallets').select('vlg_balance').eq('user_id', user.id).single();
+  const { data: wallet } = await supabase.from('village_wallets').select('id, vlg_balance').eq('user_id', user.id).single();
   if (!wallet || parseFloat(wallet.vlg_balance) < amount) {
     return NextResponse.json({ error: 'Insufficient VLG balance' }, { status: 400 });
   }
 
   const usd_amount = (amount * RATE).toFixed(2);
+  const newBalance = parseFloat(wallet.vlg_balance) - amount;
 
   // Record redemption request
   const { error } = await admin.from('vlg_redemption_requests').insert({
@@ -39,19 +40,22 @@ export async function POST(req: NextRequest) {
 
   // Deduct from wallet
   await admin.from('village_wallets').update({
-    vlg_balance: parseFloat(wallet.vlg_balance) - amount,
+    vlg_balance: newBalance,
+    updated_at:  new Date().toISOString(),
   }).eq('user_id', user.id);
 
   // Record transaction
-  try {
-    await admin.from('wallet_transactions').insert({
-      user_id:    user.id,
-      amount:     -amount,
-      token_type: 'VLG',
-      direction:  'debit',
-      reason:     `VLG_REDEEM_REQUEST_$${usd_amount}`,
-    });
-  } catch { /* non-blocking */ }
+  await admin.from('wallet_transactions').insert({
+    wallet_id:        wallet.id,
+    user_id:          user.id,
+    transaction_type: 'vlg_redeem_request',
+    token_type:       'VLG',
+    amount:           amount,
+    direction:        'debit',
+    balance_after:    newBalance,
+    reference_type:   'vlg_redeem_request',
+    description:      `Redemption request for $${usd_amount}`,
+  });
 
   // Notify admin
   try {

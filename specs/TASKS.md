@@ -69,11 +69,11 @@
 - [ ] GPS-matched banner when user has active GPS
 
 ### $VLG
-- [ ] Wire OoWop → 1 $VLG earn (server-side, once per card per user)
-- [ ] Sprint completion → $VLG earn
-- [ ] Action verification → $VLG earn
-- [ ] Goal completion → $VLG earn
-- [ ] VLG balance visible in profile
+- [x] Wire OoWop → 1 $VLG earn (server-side, once per card per user — `/api/vlg/earn` now writes to `wallet_transactions` with a `wallet_tx_dedup` unique constraint so repeats are ignored)
+- [x] Sprint completion → $VLG earn (sprint/[id]/page.tsx, +10)
+- [x] Action verification → $VLG earn (actions/[id]/verify + submit-proof routes, +10)
+- [x] Goal completion → $VLG earn (goal/[id]/page.tsx, +200)
+- [x] VLG balance visible in profile (hut/page.tsx $VLG pill, own profile)
 
 ---
 
