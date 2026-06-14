@@ -19,8 +19,8 @@
 - [ ] Skip signal → algorithm effect (30% probability reduction, hide after 3)
 - [x] Mission score pill on video cards (green 85%+, amber 70-84%)
 - [x] Video scoring system: Claude scores YouTube/Studio videos against action title
-- [ ] Format filter by action level (Wayfinder prefers >10min, Trailblazer <8min)
-- [ ] Card ordering algorithm (first card = current GPS action match)
+- [x] Format filter by action level (Wayfinder prefers >10min, Trailblazer <8min) — new `goals.action_level` column (migration 060, applied), persisted from `gpsData.actionLevel` on goal creation; `/api/gps/action-content` uses it to set YouTube `videoDuration` (medium/long for Wayfinder, short for Trailblazer) and filters studio videos by `duration_seconds`
+- [x] Card ordering algorithm (first card = current GPS action match) — already satisfied: when the user has a current GPS action, every video card (YouTube/studio/curated) gets `actionContext` attached and action-matched YouTube results lead the feed
 
 ### Comment Drawer
 - [x] Comment drawer on main feed cards (CommentsDrawer in workshop/page.tsx, 78vh bottom sheet with OoWop row + input)

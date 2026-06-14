@@ -708,7 +708,7 @@ export default function WorkshopPage() {
       if (user) {
         const { data } = await (supabase as any)
           .from('goals')
-          .select('id, title, description, category, progress_percentage, probability_score, goal_steps(status)')
+          .select('id, title, description, category, progress_percentage, probability_score, action_level, goal_steps(status)')
           .eq('user_id', user.id).eq('status', 'active')
           .order('created_at', { ascending: false }).limit(5)
           .then((r: any) => r).catch(() => ({ data: [] }));
@@ -762,13 +762,17 @@ export default function WorkshopPage() {
 
       // Studio videos: when the user has a current action, only pull videos
       // relevant to that action/category; otherwise show top-watched.
+      const actionLevel = goals[0]?.action_level ?? 1;
       let studioQuery = (supabase as any).from('studio_videos')
-        .select('id, title, description, category, video_url, thumbnail_url, profiles!creator_id(username)')
+        .select('id, title, description, category, video_url, thumbnail_url, duration_seconds, profiles!creator_id(username)')
         .eq('is_published', true);
       if (actionContext) {
         const kw = sanitizeForOr(actionContext.actionTitle.split(' ')[0]);
         const cat = sanitizeForOr(goals[0]?.category ?? '');
         if (kw || cat) studioQuery = studioQuery.or(`title.ilike.%${kw}%,category.ilike.%${cat}%`);
+        // Format filter by action level: Wayfinder prefers >10min, Trailblazer prefers <8min
+        if (actionLevel === 1) studioQuery = studioQuery.gt('duration_seconds', 600);
+        else if (actionLevel === 3) studioQuery = studioQuery.lt('duration_seconds', 480);
       }
 
       const [templatesRes, videosRes, ytRes, curatedRes] = await Promise.all([
@@ -785,6 +789,7 @@ export default function WorkshopPage() {
             goal_title: goals[0]?.title,
             goal_category: goals[0]?.category,
             action_title: actionContext.actionTitle,
+            action_level: actionLevel,
           } : {}),
         }).then(r => r.ok ? r.json() : { feed: [] }).catch(() => ({ feed: [] })),
         // Curated feed: TikTok oEmbed + manually pinned YouTube

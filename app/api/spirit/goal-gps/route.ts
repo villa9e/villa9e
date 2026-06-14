@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       startingPoint:      string;
       timeline:           string;
       probabilityScore:   number;
+      actionLevel?:       number;
     };
     conversationSummary: string;
   };
@@ -126,6 +127,7 @@ Generate 5-12 concrete steps. Be specific and actionable.`,
     probability_score:  gpsData.probabilityScore,
     estimated_cost:     gpsData.estimatedCost,
     requires_funding:   gpsData.requiresFunding,
+    action_level:       gpsData.actionLevel ?? 1,
     ai_analysis: {
       startingPoint:    gpsData.startingPoint,
       successMetrics:   gpsData.successMetrics,
