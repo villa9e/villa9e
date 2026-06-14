@@ -871,7 +871,7 @@ export default function CameraPage() {
           )}
 
           {/* Record row — always shown (just stop btn during recording) */}
-          <div className="flex items-center justify-center gap-10">
+          <div className="flex items-center justify-between px-8">
 
             {/* Slow motion — left of record, video mode */}
             {mode === 'video' ? (

@@ -123,7 +123,7 @@
 - [x] Post details: description, hashtags, mentions, location, all toggles per spec (@Mention is a static label, not a functional mention picker yet)
 - [x] Post type labeling: Workshop/DreamLine/Story + content type labels (DreamLine label pills + content-type labels + Workshop toggle implemented; no distinct "Story" post-destination type)
 - [x] After posting: redirect to DreamLine while content uploads
-- [ ] Footer menu: must not overlap content, items spread out further (no overlap in create flow since it's full-screen over BottomNav; "spread out further" spacing not yet revisited)
+- [x] Footer menu: must not overlap content, items spread out further — record row in `app/village/create/camera/page.tsx` changed from `justify-center gap-10` to `justify-between px-8`, pushing the slow-motion/fast-motion controls toward the screen edges (TikTok-style) instead of clustering them tight against the record button; no-overlap was already satisfied
 
 ---
 
