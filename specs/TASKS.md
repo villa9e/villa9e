@@ -13,7 +13,7 @@
 
 ### Feed
 - [~] Workshop/Goals/GPS tab structure (built today)
-- [ ] Scroll-snap container (currently custom swipe, needs CSS scroll-snap)
+- [x] Scroll-snap container (currently custom swipe, needs CSS scroll-snap) — feed container now uses `scrollSnapType:'y mandatory'` with all cards rendered in a `cards.map`, each `100dvh` with `scrollSnapAlign:'start'`; debounced `onFeedScroll` syncs `current` from `scrollTop`, and a `current`-driven effect calls `scrollTo` for programmatic jumps (e.g. Skip); `VideoCard` got a new `isActive` prop gating the YouTube iframe mount (lazy-mount like `TikTokFeedCard`); removed the old `AnimatePresence mode="wait"` single-card swap, `onWheel`, and the vertical-swipe branch of `handleGesture` (native scroll-snap replaces both); pause indicator, fist fly-up, side actions, progress dots, and swipe-up hint moved to `position:'fixed'` overlay siblings of the scroll container
 - [x] Action context banner on every video card (Sprint/Action reference + title) — banner already existed on studio/YouTube cards; extended to TikTok/curated cards too so it's on every video card
 - [x] OoWop fist fly-up animation (64px amber fist, 180px up, 700ms) — fist now rendered as an amber-masked 64px shape, animates 1→1.4 scale + 180px up, fades over 700ms
 - [x] Skip signal → algorithm effect (30% probability reduction, hide after 3) — new `card_skips` table (migration 062, applied) + `/api/workshop/skip` increments per-user/per-card skip count; new thumbs-down "Skip" button in `SideActions` (and "Not interested" in MoreDrawer) calls it then slides to next card after 300ms; `loadFeed()` fetches the user's skip counts and filters cards with 3+ skips, with a ~30%-per-skip chance of dropping cards skipped 1-2 times

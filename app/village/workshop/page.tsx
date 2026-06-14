@@ -334,17 +334,18 @@ function MoreDrawer({ open, onClose, card, onSkip }: { open: boolean; onClose: (
 }
 
 // ── Video Card (YouTube) ──────────────────────────────────────────────────────
-function VideoCard({ card, iframeRef, isPaused }: {
+function VideoCard({ card, iframeRef, isPaused, isActive }: {
   card: FeedCard;
   iframeRef: React.RefObject<HTMLIFrameElement>;
   isPaused: boolean;
+  isActive: boolean;
 }) {
   const thumb = card.media?.thumbnail ||
     (card.media?.videoId ? `https://img.youtube.com/vi/${card.media.videoId}/maxresdefault.jpg` : null);
 
   return (
     <div className="absolute inset-0" style={{ background: '#000' }}>
-      {card.media?.videoId ? (
+      {card.media?.videoId && isActive ? (
         <>
           <iframe
             ref={iframeRef}
@@ -478,7 +479,7 @@ function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, on
 
   return (
     <div style={{
-      position: 'absolute', right: 6, bottom: 100,
+      position: 'fixed', right: 6, bottom: 100,
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 20,
       opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: uiVisible ? 'auto' : 'none',
     }}>
@@ -620,7 +621,7 @@ function FistAnimation({ show }: { show: boolean }) {
           animate={{ opacity: 0, scale: 1.4, y: -180 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.7, ease: 'easeOut' }}
-          style={{ position: 'absolute', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50,
+          style={{ position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 50,
             width: 64, height: 64, background: '#EF9F27',
             WebkitMaskImage: 'url(/oowop.png)', maskImage: 'url(/oowop.png)',
             WebkitMaskSize: 'contain', maskSize: 'contain',
@@ -660,6 +661,8 @@ export default function WorkshopPage() {
   const tapTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ptDown     = useRef({ x: 0, y: 0, time: 0 });
   const isDragging = useRef(false);
+  const feedRef     = useRef<HTMLDivElement>(null);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasGoals = activeGoals.length > 0;
   const card = cards[current];
@@ -673,6 +676,17 @@ export default function WorkshopPage() {
     triggerUIShow();
     setIsPaused(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current]);
+
+  // Keep the scroll-snap container in sync when `current` changes
+  // programmatically (e.g. handleSkip advancing past a skipped card).
+  useEffect(() => {
+    const el = feedRef.current;
+    if (!el) return;
+    const target = current * el.clientHeight;
+    if (Math.abs(el.scrollTop - target) > 2) {
+      el.scrollTo({ top: target, behavior: 'smooth' });
+    }
   }, [current]);
 
   function triggerUIShow() {
@@ -717,23 +731,8 @@ export default function WorkshopPage() {
       if (dx > 0) router.push('/village/workshop/chat'); // swipe right → Goals
       else router.push(gpsHref); // swipe left → GPS
       triggerUIShow();
-      return;
     }
-
-    // Vertical swipe → content navigation (Workshop only)
-    if (tab !== 'Workshop') return;
-    if (Math.abs(dy) > 55) {
-      if (dy < 0 && current < cards.length - 1) {
-        const next = current + 1;
-        setCurrent(next);
-        if (cards[next]) speak(cards[next].title, 'casual');
-      }
-      if (dy > 0 && current > 0) {
-        const prev = current - 1;
-        setCurrent(prev);
-        if (cards[prev]) speak(cards[prev].title, 'casual');
-      }
-    }
+    // Vertical card-to-card navigation is handled natively by CSS scroll-snap.
   }
 
   function onTouchStart(e: React.TouchEvent) {
@@ -753,10 +752,19 @@ export default function WorkshopPage() {
     isDragging.current = false;
     handleGesture(e.clientX - ptDown.current.x, e.clientY - ptDown.current.y, Date.now() - ptDown.current.time);
   }
-  function onWheel(e: React.WheelEvent) {
-    if (tab !== 'Workshop') return;
-    if (e.deltaY > 50 && current < cards.length - 1) setCurrent(c => c + 1);
-    if (e.deltaY < -50 && current > 0) setCurrent(c => c - 1);
+  // Debounced scroll-snap position → `current` index sync.
+  function onFeedScroll() {
+    const el = feedRef.current;
+    if (!el) return;
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      const idx = Math.round(el.scrollTop / el.clientHeight);
+      const clamped = Math.max(0, Math.min(idx, cards.length - 1));
+      if (clamped !== current) {
+        setCurrent(clamped);
+        if (cards[clamped]) speak(cards[clamped].title, 'casual');
+      }
+    }, 80);
   }
 
   useEffect(() => { loadFeed(); }, []);
@@ -1065,105 +1073,100 @@ export default function WorkshopPage() {
       {/* ── WORKSHOP TAB — full-screen TikTok feed ───────────────────────────── */}
       {tab === 'Workshop' && (
         <div
-          style={{ position: 'fixed', inset: 0, zIndex: 1, background: '#000', overflow: 'hidden', touchAction: 'none', cursor: isDragging.current ? 'grabbing' : 'default' }}
+          ref={feedRef}
+          style={{ position: 'fixed', inset: 0, zIndex: 1, background: '#000', overflowY: 'scroll', scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch', touchAction: 'pan-y', cursor: isDragging.current ? 'grabbing' : 'default' }}
+          onScroll={onFeedScroll}
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
-          onWheel={onWheel}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseUp={onMouseUp}
           onMouseLeave={() => { isDragging.current = false; }}
         >
-          {/* Card */}
-          <AnimatePresence mode="wait">
-            <motion.div key={card?.id}
-              initial={{ y: '100%', opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: '-100%', opacity: 0 }}
-              transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-              className="absolute inset-0">
+          {/* Cards — all rendered, snapped one-per-screen */}
+          {cards.map((c, i) => (
+            <div key={c.id} style={{ position: 'relative', height: '100dvh', scrollSnapAlign: 'start', scrollSnapStop: 'always', overflow: 'hidden' }}>
+              {c.type === 'video'    && <VideoCard card={c} iframeRef={iframeRef} isPaused={i === current && isPaused} isActive={i === current} />}
+              {c.type === 'tiktok'   && <TikTokFeedCard embedHtml={c.media?.embedHtml ?? ''} thumbnail={c.media?.thumbnail ?? ''} isActive={i === current} title={c.title} author={c.author.username} />}
+              {c.type === 'template' && <TemplateCard card={c} />}
+              {c.type === 'goal'     && <GoalCard card={c} />}
+              {c.type === 'guide'    && <GuideCard />}
 
-              {card?.type === 'video'    && <VideoCard card={card} iframeRef={iframeRef} isPaused={isPaused} />}
-              {card?.type === 'tiktok'   && <TikTokFeedCard embedHtml={card.media?.embedHtml ?? ''} thumbnail={card.media?.thumbnail ?? ''} isActive={true} title={card.title} author={card.author.username} />}
-              {card?.type === 'template' && <TemplateCard card={card} />}
-              {card?.type === 'goal'     && <GoalCard card={card} />}
-              {card?.type === 'guide'    && <GuideCard />}
-
-              {/* Bottom gradient (video + tiktok, auto-hides) */}
-              {(card?.type === 'video' || card?.type === 'tiktok') && (
+              {/* Bottom gradient (video + tiktok, auto-hides) — active card only */}
+              {i === current && (c.type === 'video' || c.type === 'tiktok') && (
                 <div className="absolute inset-x-0 bottom-0 pointer-events-none"
                   style={{ height: '50%', background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.3) 60%, transparent 100%)', opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease' }} />
               )}
 
-              {/* Bottom text info (video + tiktok, auto-hides) */}
-              {(card?.type === 'video' || card?.type === 'tiktok') && (
+              {/* Bottom text info (video + tiktok, auto-hides) — active card only */}
+              {i === current && (c.type === 'video' || c.type === 'tiktok') && (
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 72, padding: '0 16px 110px', zIndex: 10, opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: 'none' }}>
                   {/* Action context banner — links back to the GPS sprint/action this content was matched to */}
-                  {card.actionContext && (
-                    <Link href={`/village/workshop/gps/${card.actionContext.goalId}`}
+                  {c.actionContext && (
+                    <Link href={`/village/workshop/gps/${c.actionContext.goalId}`}
                       style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(77,114,255,0.22)', color: '#AFC0FF', border: '1px solid rgba(77,114,255,0.5)', pointerEvents: 'auto', width: 'fit-content', textDecoration: 'none' }}>
                       <span>🎯</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                        Sprint {card.actionContext.sprintNumber} · {card.actionContext.actionTitle}
+                        Sprint {c.actionContext.sprintNumber} · {c.actionContext.actionTitle}
                       </span>
                     </Link>
                   )}
                   {/* Mission score pill — how well this video matches the current action (Claude-scored, cached) */}
-                  {missionScores[card.id]?.label && (
+                  {missionScores[c.id]?.label && (
                     <span style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderRadius: 20,
                       fontSize: 10, fontWeight: 900, marginBottom: 6,
-                      background: missionScores[card.id].label === 'green' ? 'rgba(16,185,129,0.22)' : 'rgba(217,119,6,0.22)',
-                      color: missionScores[card.id].label === 'green' ? '#6EE7B7' : '#FCD34D',
-                      border: `1px solid ${missionScores[card.id].label === 'green' ? 'rgba(16,185,129,0.5)' : 'rgba(217,119,6,0.5)'}`,
+                      background: missionScores[c.id].label === 'green' ? 'rgba(16,185,129,0.22)' : 'rgba(217,119,6,0.22)',
+                      color: missionScores[c.id].label === 'green' ? '#6EE7B7' : '#FCD34D',
+                      border: `1px solid ${missionScores[c.id].label === 'green' ? 'rgba(16,185,129,0.5)' : 'rgba(217,119,6,0.5)'}`,
                     }}>
-                      <span>{missionScores[card.id].label === 'green' ? '✓' : '~'}</span>
-                      <span>{missionScores[card.id].score}% mission match</span>
+                      <span>{missionScores[c.id].label === 'green' ? '✓' : '~'}</span>
+                      <span>{missionScores[c.id].score}% mission match</span>
                     </span>
                   )}
                   <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(83,74,183,0.3)', color: '#AFA9EC', border: '1px solid rgba(83,74,183,0.5)' }}>
-                    {card.subtitle || 'Training'}
+                    {c.subtitle || 'Training'}
                   </span>
-                  <h2 style={{ fontSize: 16, fontWeight: 900, color: '#fff', lineHeight: 1.3, margin: '0 0 4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{card.title}</h2>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>@{card.author.username}</p>
+                  <h2 style={{ fontSize: 16, fontWeight: 900, color: '#fff', lineHeight: 1.3, margin: '0 0 4px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{c.title}</h2>
+                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', margin: 0 }}>@{c.author.username}</p>
                 </div>
               )}
+            </div>
+          ))}
 
-              {/* Pause/play indicator */}
-              <AnimatePresence>
-                {showPauseInd && (
-                  <motion.div initial={{ opacity: 1, scale: 0.7 }} animate={{ opacity: 0, scale: 1.1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
-                    style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 30 }}>
-                    <div style={{ width: 72, height: 72, borderRadius: 36, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {isPaused ? <PauseSvg /> : <PlaySvg />}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Fist OoWop fly-up */}
-              <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
-                <FistAnimation show={showFist} />
-              </div>
-
-              {/* Side actions (video + template cards) */}
-              {card && card.type !== 'goal' && card.type !== 'guide' && (
-                <SideActions
-                  card={card}
-                  onOoWop={() => handleOoWop(card.id)}
-                  owopped={owopped.has(card.id)}
-                  oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)}
-                  onComment={() => setShowComments(true)}
-                  onMore={() => setShowMore(true)}
-                  onSave={() => handleSave(card.id)}
-                  saved={saved.has(card.id)}
-                  onSkip={() => handleSkip(card.id)}
-                  uiVisible={uiVisible}
-                />
-              )}
-            </motion.div>
+          {/* Pause/play indicator */}
+          <AnimatePresence>
+            {showPauseInd && (
+              <motion.div initial={{ opacity: 1, scale: 0.7 }} animate={{ opacity: 0, scale: 1.1 }} exit={{ opacity: 0 }} transition={{ duration: 0.6 }}
+                style={{ position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none', zIndex: 30 }}>
+                <div style={{ width: 72, height: 72, borderRadius: 36, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {isPaused ? <PauseSvg /> : <PlaySvg />}
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
 
+          {/* Fist OoWop fly-up */}
+          <FistAnimation show={showFist} />
+
+          {/* Side actions (video + template cards) */}
+          {card && card.type !== 'goal' && card.type !== 'guide' && (
+            <SideActions
+              card={card}
+              onOoWop={() => handleOoWop(card.id)}
+              owopped={owopped.has(card.id)}
+              oowopCount={(card.oowops ?? 0) + (owopped.has(card.id) ? 1 : 0)}
+              onComment={() => setShowComments(true)}
+              onMore={() => setShowMore(true)}
+              onSave={() => handleSave(card.id)}
+              saved={saved.has(card.id)}
+              onSkip={() => handleSkip(card.id)}
+              uiVisible={uiVisible}
+            />
+          )}
+
           {/* Progress dots */}
-          <div style={{ position: 'absolute', right: 3, top: '50%', transform: 'translateY(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 5 }}>
+          <div style={{ position: 'fixed', right: 3, top: '50%', transform: 'translateY(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', gap: 5 }}>
             {cards.slice(0, 10).map((_, i) => (
               <div key={i} style={{ borderRadius: 3, width: 3, height: i === current ? 20 : 6, background: i === current ? '#E8770A' : 'rgba(255,255,255,0.22)', transition: 'height 0.2s' }} />
             ))}
@@ -1171,7 +1174,7 @@ export default function WorkshopPage() {
 
           {/* Swipe-up hint */}
           {current === 0 && cards.length > 1 && (
-            <motion.div style={{ position: 'absolute', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
+            <motion.div style={{ position: 'fixed', bottom: 90, left: '50%', transform: 'translateX(-50%)', zIndex: 30, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}
               initial={{ opacity: 0 }} animate={{ opacity: 1, y: [0, -8, 0] }} transition={{ delay: 2.5, duration: 1.4, repeat: 3 }}>
               <svg width={18} height={18} viewBox="0 0 24 24" fill="rgba(255,255,255,0.35)"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"/></svg>
               <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>Swipe up</p>
