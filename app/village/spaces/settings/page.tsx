@@ -102,13 +102,40 @@ function TabIcon({ icon, label, active, onTap }: { icon: React.ReactNode; label:
   );
 }
 
+// ── Field input styling ─────────────────────────────────────────────────────
+const fieldInputStyle: React.CSSProperties = {
+  width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: 10, padding: '8px 10px', fontSize: 13, color: '#fff', outline: 'none',
+  fontFamily: 'inherit', boxSizing: 'border-box',
+};
+
 // ── Profile Card ──────────────────────────────────────────────────────────────
-function ProfileCard({ profile, expanded, onToggle }: {
+function ProfileCard({ profile, expanded, onToggle, onSave }: {
   profile: TriggerProfile;
   expanded: boolean;
   onToggle: () => void;
+  onSave: (next: TriggerProfile) => Promise<void>;
 }) {
   const color = ENERGY_COLORS[profile.energy];
+  const [draft, setDraft] = useState<TriggerProfile>(profile);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { setDraft(profile); }, [profile]);
+
+  const dirty = JSON.stringify(draft) !== JSON.stringify(profile);
+
+  function setField<K extends keyof TriggerProfile>(key: K, value: TriggerProfile[K]) {
+    setDraft(d => ({ ...d, [key]: value }));
+    setSaved(false);
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    await onSave(draft);
+    setSaving(false);
+    setSaved(true);
+  }
 
   return (
     <div style={{ marginBottom: 8, borderRadius: 16, overflow: 'hidden', border: `1px solid ${expanded ? color + '40' : 'rgba(255,255,255,0.07)'}`, background: 'rgba(255,255,255,0.04)' }}>
@@ -143,31 +170,53 @@ function ProfileCard({ profile, expanded, onToggle }: {
               {/* Affirmation */}
               <div style={{ padding: '12px 0 10px' }}>
                 <p style={{ fontSize: 9, fontWeight: 900, color: color, letterSpacing: '0.07em', marginBottom: 6 }}>AFFIRMATION</p>
-                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', fontStyle: 'italic', lineHeight: 1.55 }}>"{profile.affirmation}"</p>
+                <textarea value={draft.affirmation} onChange={e => setField('affirmation', e.target.value)} rows={3}
+                  style={{ ...fieldInputStyle, fontStyle: 'italic', resize: 'vertical', lineHeight: 1.5 }} />
+              </div>
+
+              {/* Music */}
+              <div style={{ paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em', marginBottom: 5 }}>MUSIC</p>
+                <input value={draft.music} onChange={e => setField('music', e.target.value)} style={fieldInputStyle} />
               </div>
 
               {/* Detail rows */}
-              {[
-                { label: 'MOVEMENT', value: profile.movement },
-                { label: 'BREATHWORK', value: profile.breathwork },
-                { label: 'ENVIRONMENT', value: profile.environment },
-              ].map(row => (
+              {([
+                { label: 'MOVEMENT', key: 'movement' as const },
+                { label: 'BREATHWORK', key: 'breathwork' as const },
+                { label: 'ENVIRONMENT', key: 'environment' as const },
+              ]).map(row => (
                 <div key={row.label} style={{ paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                   <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em', marginBottom: 5 }}>{row.label}</p>
-                  <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.65)', lineHeight: 1.45 }}>{row.value}</p>
+                  <input value={draft[row.key]} onChange={e => setField(row.key, e.target.value)} style={fieldInputStyle} />
                 </div>
               ))}
 
-              {/* Duration pill */}
-              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em' }}>DURATION</p>
-                <span style={{
-                  fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 20,
-                  background: `${color}20`, color, border: `1px solid ${color}40`,
-                }}>
-                  {profile.duration} min
-                </span>
+              {/* Duration */}
+              <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.07em', marginBottom: 8 }}>DURATION</p>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[5, 10, 15, 20].map(m => (
+                    <button key={m} onClick={() => setField('duration', m)} style={{
+                      flex: 1, padding: '8px 0', borderRadius: 10, fontWeight: 800, fontSize: 12, border: 'none', cursor: 'pointer',
+                      background: draft.duration === m ? color : 'rgba(255,255,255,0.06)',
+                      color: draft.duration === m ? '#fff' : 'rgba(255,255,255,0.45)',
+                    }}>
+                      {m} min
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Save */}
+              <button onClick={handleSave} disabled={!dirty || saving} style={{
+                marginTop: 14, width: '100%', padding: '11px 0', borderRadius: 12, fontWeight: 900, fontSize: 13,
+                border: 'none', cursor: dirty && !saving ? 'pointer' : 'default',
+                background: dirty ? color : 'rgba(255,255,255,0.06)',
+                color: dirty ? '#fff' : 'rgba(255,255,255,0.3)',
+              }}>
+                {saving ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
+              </button>
             </div>
           </motion.div>
         )}
@@ -219,6 +268,23 @@ export default function SettingsPage() {
     if (userId) {
       await (supabase as any).from('trigger_profiles').update({ duration_min: min }).eq('user_id', userId).eq('is_default', true);
     }
+  }
+
+  async function saveProfile(next: TriggerProfile) {
+    setProfiles(prev => prev.map(p => p.energy === next.energy ? next : p));
+    if (!userId) return;
+    await (supabase as any).from('trigger_profiles').upsert({
+      user_id: userId,
+      energy_type: next.energy,
+      name: next.label,
+      affirmation: next.affirmation,
+      playlist: next.music,
+      movement: next.movement,
+      breathwork: next.breathwork,
+      environment: next.environment,
+      duration_min: next.duration,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id,energy_type' });
   }
 
   return (
@@ -273,6 +339,7 @@ export default function SettingsPage() {
             profile={p}
             expanded={expandedProfile === p.energy}
             onToggle={() => setExpandedProfile(prev => prev === p.energy ? null : p.energy)}
+            onSave={saveProfile}
           />
         ))}
 

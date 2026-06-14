@@ -143,17 +143,17 @@
 
 ---
 
-## SPACES (partial)
+## SPACES
 
-- [ ] Trigger system: fires automatically before calendar events
-- [ ] 5 Trigger profiles: High Performance / Focused / Creative / Energize / Calm
+- [x] Trigger system: fires automatically before calendar events (`SpacesTriggerWatcher` global component polls `calendar_events` and auto-navigates to /village/spaces/trigger when `now >= start_time - trigger_min`)
+- [x] 5 Trigger profiles: High Performance / Focused / Creative / Energize / Calm
 - [ ] AI dynamically adjusts Trigger based on daily wellness data
-- [ ] Trigger screen: dark, countdown, affirmation, music card, prep checklist, focus sentence
-- [ ] Spaces home: Next up card, Trigger status bar, Today/Tomorrow event lists
-- [ ] Event detail: event info, Trigger details, linked files, affirmation, "Start Trigger now"
-- [ ] Tasks page: Today / Upcoming / Projects
-- [ ] Calendar page: week strip with colored borders, Trigger badge per event
-- [ ] Settings: Trigger defaults, 4 profile editors
+- [x] Trigger screen: dark, countdown, affirmation, music card, prep checklist, focus sentence
+- [x] Spaces home: Next up card, Trigger status bar, Today/Tomorrow event lists
+- [x] Event detail: event info, Trigger details, linked files (mock), affirmation, "Start Trigger now"
+- [x] Tasks page: Today / Upcoming / Projects
+- [x] Calendar page: colored energy borders/pills + TRIGGER badge per event
+- [x] Settings: Trigger defaults, 5 profile editors (now fully editable — migration 059 + ProfileCard rewrite)
 - [ ] Nextcloud CalDAV sync
 - [ ] AppFlowy integration for tasks/projects
 - [ ] n8n automation: calendar event → Trigger fires → music + notification

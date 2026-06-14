@@ -7,6 +7,7 @@ import { ThemeSync } from '@/components/village/ThemeSync';
 import { PostHogProvider } from '@/components/analytics/PostHogProvider';
 import { SpiritVoiceProvider } from '@/components/village/SpiritVoiceProvider';
 import SpiritFab from '@/components/spirit/SpiritFab';
+import SpacesTriggerWatcher from '@/components/village/SpacesTriggerWatcher';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavSpacer />
               <BottomNav />
               <SpiritFab />
+              <SpacesTriggerWatcher />
             </div>
           </SpiritVoiceProvider>
         </PostHogProvider>
