@@ -279,7 +279,7 @@ function MyDealsTab({ userId }: { userId: string }) {
     (async () => {
       if (userId) {
         const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: Deal[] | null }> } } })
-          .from('deals').select('*').eq('user_id', userId);
+          .from('investor_deals').select('*').eq('user_id', userId);
         if (data && data.length > 0) setMyDeals(data);
         else setMyDeals(MOCK_MY_DEALS);
 
@@ -396,7 +396,7 @@ export default function DealsPage() {
       if (user) setUserId(user.id);
 
       const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (k: string, o: object) => { limit: (n: number) => Promise<{ data: Deal[] | null }> } } } } })
-        .from('deals').select('*,profiles(username,display_name)').eq('status','active').order('created_at',{ascending:false}).limit(20);
+        .from('investor_deals').select('*,profiles(username,display_name)').eq('status','active').order('created_at',{ascending:false}).limit(20);
       if (data && data.length > 0) setDeals(data);
       else setDeals(MOCK_DEALS);
     })();

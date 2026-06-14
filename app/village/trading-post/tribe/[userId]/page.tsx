@@ -102,7 +102,7 @@ export default function TribeProfilePage() {
       if (prof) {
         // Load deal count
         const { count: dealCount } = await (supabase as any)
-          .from('deals')
+          .from('investor_deals')
           .select('id', { count:'exact', head:true })
           .eq('user_id', targetId)
           .eq('status','active');

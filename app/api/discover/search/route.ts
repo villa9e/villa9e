@@ -40,7 +40,7 @@ export async function GET(req: NextRequest) {
       .limit(3),
 
     // 4. Deals — active only
-    db.from('deals')
+    db.from('investor_deals')
       .select('id, name, industry, status')
       .ilike('name', ilike)
       .eq('status', 'active')

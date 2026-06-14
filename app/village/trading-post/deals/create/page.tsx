@@ -59,7 +59,7 @@ export default function CreateDealPage() {
     setSaving(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setSaving(false); return; }
-    await (supabase as any).from('deals').insert({
+    await (supabase as any).from('investor_deals').insert({
       user_id: user.id,
       name: form.name,
       hook: form.hook,

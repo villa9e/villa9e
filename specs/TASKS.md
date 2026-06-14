@@ -196,8 +196,8 @@
 
 ## INFRASTRUCTURE
 
-- [ ] Supabase migrations 035 + 036 applied (user running manually)
-- [ ] Studio-videos storage bucket created
+- [x] Supabase migrations 035 + 036 applied (035 finished via migration 056; 036 reworked as migration 057 with `deals`→`investor_deals` rename to resolve schema collision with Trading Post trade-deals)
+- [x] Studio-videos storage bucket created
 - [ ] n8n self-hosted instance configured
 - [ ] Nextcloud instance configured
 - [ ] Ollama + BioMistral local inference

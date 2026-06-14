@@ -117,13 +117,13 @@ export default function DiscoverPage() {
         .select('id,username,display_name,avatar_url,village_score')
         .order('village_score', { ascending: false })
         .limit(8),
-      (supabase as any).from('deals')
-        .select('id,name,deal_type,asking_price,currency')
+      (supabase as any).from('investor_deals')
+        .select('id,name,deal_type,raise_amount')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(3),
       (supabase as any).from('estores')
-        .select('id,store_name,store_description')
+        .select('id,store_name,tagline')
         .order('created_at', { ascending: false })
         .limit(4),
     ]);
@@ -158,12 +158,12 @@ export default function DiscoverPage() {
         .select('id,title,category,probability_score')
         .ilike('title', ilike)
         .limit(5),
-      (supabase as any).from('deals')
-        .select('id,name,deal_type,asking_price,currency,status')
+      (supabase as any).from('investor_deals')
+        .select('id,name,deal_type,raise_amount,status')
         .ilike('name', ilike)
         .limit(5),
       (supabase as any).from('estores')
-        .select('id,store_name,store_description')
+        .select('id,store_name,tagline')
         .ilike('store_name', ilike)
         .limit(5),
     ]);
@@ -336,7 +336,7 @@ export default function DiscoverPage() {
                           <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{d.name}</p>
                           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
                             {d.deal_type && <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{d.deal_type}</span>}
-                            {d.asking_price != null && <span style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B' }}>{d.currency ?? '$'}{d.asking_price.toLocaleString()}</span>}
+                            {d.raise_amount != null && <span style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B' }}>${d.raise_amount.toLocaleString()}</span>}
                           </div>
                         </motion.button>
                       ))}
@@ -354,7 +354,7 @@ export default function DiscoverPage() {
                           onClick={() => router.push(`/village/trading-post/market/${s.id}`)}
                           style={{ display: 'block', padding: '12px 14px', borderRadius: 14, width: '100%', textAlign: 'left', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', cursor: 'pointer' }}>
                           <p style={{ fontSize: 14, fontWeight: 700, color: '#fff' }}>{s.store_name}</p>
-                          {s.store_description && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{s.store_description?.slice(0, 80)}</p>}
+                          {s.tagline && <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{s.tagline?.slice(0, 80)}</p>}
                         </motion.button>
                       ))}
                     </div>
@@ -455,9 +455,9 @@ export default function DiscoverPage() {
                             <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</p>
                             {d.deal_type && <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>{d.deal_type}</p>}
                           </div>
-                          {d.asking_price != null && (
+                          {d.raise_amount != null && (
                             <span style={{ fontSize: 13, fontWeight: 900, color: '#F59E0B', flexShrink: 0 }}>
-                              {d.currency ?? '$'}{d.asking_price.toLocaleString()}
+                              ${d.raise_amount.toLocaleString()}
                             </span>
                           )}
                         </motion.button>
