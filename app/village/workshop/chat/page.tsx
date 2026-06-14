@@ -737,7 +737,24 @@ export default function GoalChatPage() {
       resolved = true;
       clearTimeout(fallbackTimer);
       setUserName(name);
-      const greeting = `Hey ${name}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nTell me your goal.`;
+
+      // "Customize with Spirit" from a Goal DNA template — pre-fill the
+      // goal input with the template's title/description/steps so the
+      // user can edit before sending it as their Q1 answer.
+      let greeting = `Hey ${name}! I'm ready to help you build your Goal GPS — the step-by-step roadmap that takes you from where you are to exactly where you want to be.\n\nTell me your goal.`;
+      try {
+        const raw = sessionStorage.getItem('spirit_template_customize');
+        if (raw) {
+          sessionStorage.removeItem('spirit_template_customize');
+          const tpl = JSON.parse(raw);
+          const stepsText = tpl.steps?.length
+            ? `\n\nSteps I'm thinking:\n${tpl.steps.map((s: string, i: number) => `${i + 1}. ${s}`).join('\n')}`
+            : '';
+          setInput(`${tpl.title}${tpl.description ? ' — ' + tpl.description : ''}${stepsText}`);
+          greeting = `Hey ${name}! Nice pick — I've pre-filled "${tpl.title}" below using that blueprint. Edit it however you like, then hit send and I'll build your personalized plan around it.`;
+        }
+      } catch {}
+
       const greetingMsg: ChatMessage = {
         id: spiritId(), role: 'spirit', content: greeting, timestamp: new Date(),
       };

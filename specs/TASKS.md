@@ -60,7 +60,7 @@
 - [~] Templates page exists — needs "Customize with Spirit" flow
 - [ ] Template enrichment: show actual timeline, completion rate, global stats (still `MOCK_TEMPLATES` with hardcoded stats when no real templates exist; real `goal_templates` rows are used when present but have no completion-rate aggregation)
 - [x] "Quick clone" → countdown → Goal Detail (skip Spirit chat) — wired via new shared `CountdownOverlay` component, navigates to `/village/workshop/goal/{goalId}` on completion
-- [ ] "Customize with Spirit" → Spirit chat pre-populated with template ("Customize First" currently routes to `/village/workshop?goal=title`, not a chat pre-populated with the template's steps)
+- [x] "Customize with Spirit" → Spirit chat pre-populated with template — "Customize First →" (now "Customize with Spirit →") stores `{title, description, steps}` in sessionStorage and routes to `/village/workshop/chat`; chat greeting detects it, pre-fills the goal input with the template's title/description/numbered steps, and Spirit's greeting acknowledges the blueprint before the user edits and sends it as their Q1 answer
 
 ### Skill Stream
 - [x] Skill Stream page exists — mission scoring wired

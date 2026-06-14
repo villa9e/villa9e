@@ -218,10 +218,17 @@ export default function GoalDNAPage() {
                       {cloning ? 'Cloning…' : '🧬 Quick Clone — Add Directly'}
                     </button>
                     <button
-                      onClick={() => router.push(`/village/workshop?goal=${encodeURIComponent(selected.title)}`)}
+                      onClick={() => {
+                        sessionStorage.setItem('spirit_template_customize', JSON.stringify({
+                          title: selected.title,
+                          description: selected.description,
+                          steps: selected.steps_preview || selected.steps || [],
+                        }));
+                        router.push('/village/workshop/chat');
+                      }}
                       className="w-full border border-orange-300 text-orange-600 rounded-full py-3 font-bold text-sm hover:bg-orange-50 transition-colors"
                     >
-                      Customize First →
+                      Customize with Spirit →
                     </button>
                   </div>
                 </>
