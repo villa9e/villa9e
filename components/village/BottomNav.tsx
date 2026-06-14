@@ -1,5 +1,4 @@
 'use client';
-import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
@@ -10,14 +9,107 @@ import { useNotifications } from '@/lib/hooks/useNotifications';
 export const SHOW_PREFIXES = ['/village', '/notifications', '/messages', '/admin', '/trading-post'];
 export const HIDE_EXACT    = ['/login', '/signup', '/onboarding'];
 
-const ITEMS = [
-  { href: '/village/workshop', label: 'Workshop',     path: 'M9.5 3C7 3 5 5.2 5 7.8c0 1 .3 2 .9 2.8A4 4 0 004 14c0 2.2 1.8 4 4 4h8c2.2 0 4-1.8 4-4a4 4 0 00-.9-2.4c.5-.8.9-1.8.9-2.8C20 5.2 18 3 15.5 3c-1 0-2 .4-2.7 1C12.1 3.4 10.9 3 9.5 3z' },
-  { href: '/village/workshop', label: 'Goals',        path: 'M12 22a10 10 0 100-20 10 10 0 000 20zm0-4a6 6 0 100-12 6 6 0 000 12zm0-4a2 2 0 100-4 2 2 0 000 4z' },
-  { href: '/village/create',   label: 'Create',       path: 'M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2zM12 10a4 4 0 100 8 4 4 0 000-8zm2 4h-1.5v-1.5a.5.5 0 00-1 0V14H10a.5.5 0 000 1h1.5v1.5a.5.5 0 001 0V15H14a.5.5 0 000-1z' },
-  { href: '/village/dreamline',     label: 'DreamLine',    path: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z' },
-  { href: '/village/trading-post',  label: 'Trading Post', path: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82zM7 7h.01' },
-  { href: '/village/bank',          label: 'Bank',         path: 'M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10' },
-] as const;
+type RadialIconKey = 'workshop' | 'goals' | 'create' | 'dreamline' | 'trading-post' | 'bank' | 'profile';
+
+// 7 items, left to right, per WORKSHOP_SPEC §2 radial menu order.
+const ITEMS: { href: string; label: string; icon: RadialIconKey }[] = [
+  { href: '/village/workshop',      label: 'Workshop',     icon: 'workshop' },
+  { href: '/village/workshop/chat', label: 'Goals',        icon: 'goals' },
+  { href: '/village/create',        label: 'Create',       icon: 'create' },
+  { href: '/village/dreamline',     label: 'DreamLine',    icon: 'dreamline' },
+  { href: '/village/trading-post',  label: 'Trading Post', icon: 'trading-post' },
+  { href: '/village/bank',          label: 'Bank',         icon: 'bank' },
+  { href: '/village/hut',           label: 'Profile',      icon: 'profile' },
+];
+
+// Radial icons — 20px, white stroke (villa9e icon rules: white on dark, no color variety).
+function RadialIcon({ icon, avatarUrl }: { icon: RadialIconKey; avatarUrl: string | null }) {
+  if (icon === 'profile') {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={avatarUrl || '/default-avatar.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+    );
+  }
+  const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: '#ffffff', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  switch (icon) {
+    case 'workshop':
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="8" height="8" rx="1.5" />
+          <rect x="13" y="3" width="8" height="8" rx="1.5" />
+          <rect x="3" y="13" width="8" height="8" rx="1.5" />
+          <rect x="13" y="13" width="8" height="8" rx="1.5" />
+        </svg>
+      );
+    case 'goals':
+      return (
+        <svg {...common}>
+          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+          <path d="M4 22V15" />
+        </svg>
+      );
+    case 'create':
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v8M8 12h8" />
+        </svg>
+      );
+    case 'dreamline':
+      return (
+        <svg {...common}>
+          <path d="M3 12h18" />
+          <circle cx="6" cy="12" r="1.6" fill="#ffffff" stroke="none" />
+          <circle cx="12" cy="12" r="1.6" fill="#ffffff" stroke="none" />
+          <circle cx="18" cy="12" r="1.6" fill="#ffffff" stroke="none" />
+        </svg>
+      );
+    case 'trading-post':
+      return (
+        <svg {...common}>
+          <path d="M2 9l1.5-5h17L22 9" />
+          <path d="M2 9v11a1 1 0 001 1h18a1 1 0 001-1V9" />
+          <path d="M9 21v-7h6v7" />
+        </svg>
+      );
+    case 'bank':
+      return (
+        <svg {...common}>
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2V9zM9 22V12h6v10" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+// Teepee trigger icon — 28px, white. Crosses to an "X" when the radial menu opens.
+function TeepeeIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L4 22M12 2l8 20" />
+      <path d="M9 22V15a3 3 0 016 0v7" />
+      <path d="M7 17h10" />
+    </svg>
+  );
+}
+
+function CloseIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2} strokeLinecap="round">
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+// 7 items fanned across a 180° crescent above the trigger button.
+const ARC_RADIUS = 110;
+function radialOffset(i: number, total: number) {
+  const angle = Math.PI * (total - 1 - i) / (total - 1);
+  return { x: ARC_RADIUS * Math.cos(angle), y: ARC_RADIUS * Math.sin(angle) };
+}
+// Trigger button center sits this far above the safe-area bottom edge.
+const BUTTON_CENTER_OFFSET = 6 + 28;
 
 // ── Search Drawer ─────────────────────────────────────────────────────────────
 function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -94,62 +186,51 @@ function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
-// ── Nav Drawer (bottom sheet) ─────────────────────────────────────────────────
-function NavDrawer({ open, onClose, avatarUrl, onSearch }: { open: boolean; onClose: () => void; avatarUrl: string | null; onSearch: () => void }) {
+// ── Radial Menu ────────────────────────────────────────────────────────────────
+// 7 items fanned across a 180° crescent arc above the teepee button (WORKSHOP_SPEC §2).
+function RadialMenu({ open, onClose, avatarUrl }: { open: boolean; onClose: () => void; avatarUrl: string | null }) {
   return (
     <AnimatePresence>
       {open && (
         <>
           {/* Backdrop */}
-          <motion.div key="nd-bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div key="rm-bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{ position: 'fixed', inset: 0, zIndex: 48, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(3px)' }} />
+            style={{ position: 'fixed', inset: 0, zIndex: 48, background: 'rgba(0,0,0,0.4)' }} />
 
-          {/* Sheet */}
-          <motion.div key="nd-sheet"
-            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-            transition={{ type: 'spring', stiffness: 340, damping: 36 }}
-            style={{
-              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 52,
-              background: 'rgba(8,10,22,0.97)', backdropFilter: 'blur(28px)',
-              borderRadius: '22px 22px 0 0',
-              paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 72px)',
-            }}
-          >
-            {/* Handle */}
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 6px' }}>
-              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.2)' }} />
-            </div>
-
-            {/* Search + Profile row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 20px 12px' }}>
-              <button onClick={() => { onClose(); onSearch(); }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 12, padding: '8px 14px', cursor: 'pointer', flex: 1, marginRight: 12 }}>
-                <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: 600 }}>Search the Village…</span>
-              </button>
-              <Link href="/village/hut" onClick={onClose}
-                style={{ width: 40, height: 40, borderRadius: 20, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.5)', background: '#1877F2', display: 'block', flexShrink: 0 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={avatarUrl || '/default-avatar.png'} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </Link>
-            </div>
-
-            {/* Nav items — 3-column grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, padding: '0 16px' }}>
-              {ITEMS.map((item, idx) => (
-                <motion.div key={item.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.04, type: 'spring', stiffness: 380, damping: 26 }}>
-                  <Link href={item.href} onClick={onClose}
-                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '14px 8px', background: 'rgba(255,255,255,0.04)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', textDecoration: 'none' }}>
-                    <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-                      <path d={item.path} />
-                    </svg>
-                    <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', textAlign: 'center', lineHeight: 1.2 }}>{item.label}</span>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+          {/* Arc items */}
+          {ITEMS.map((item, i) => {
+            const { x, y } = radialOffset(i, ITEMS.length);
+            return (
+              <motion.div
+                key={item.label}
+                initial={{ opacity: 0, scale: 0.3 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.3 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 20, delay: i * 0.04 }}
+                style={{
+                  position: 'fixed',
+                  left: `calc(50% + ${x}px)`,
+                  bottom: `calc(env(safe-area-inset-bottom, 0px) + ${BUTTON_CENTER_OFFSET + y - 24}px)`,
+                  transform: 'translateX(-50%)',
+                  zIndex: 52,
+                }}
+              >
+                <Link href={item.href} onClick={onClose}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                  <div style={{
+                    width: 48, height: 48, borderRadius: 24,
+                    background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.12)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: item.icon === 'profile' ? 'hidden' : 'visible',
+                  }}>
+                    <RadialIcon icon={item.icon} avatarUrl={avatarUrl} />
+                  </div>
+                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>{item.label}</span>
+                </Link>
+              </motion.div>
+            );
+          })}
         </>
       )}
     </AnimatePresence>
@@ -188,12 +269,18 @@ function BottomNavInner() {
     <>
       <SearchDrawer open={searchOpen} onClose={() => setSearchOpen(false)} />
 
-      <NavDrawer
+      <RadialMenu
         open={open}
         onClose={() => setOpen(false)}
         avatarUrl={avatarUrl}
-        onSearch={() => setSearchOpen(true)}
       />
+
+      {/* Search — top-left, mirrors the notification bell */}
+      <button onClick={() => setSearchOpen(true)}
+        style={{ position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', left: 16, zIndex: 47, width: 36, height: 36, borderRadius: 18, background: 'rgba(10,10,18,0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+        aria-label="Search">
+        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </button>
 
       {/* Notification bell — hidden on workshop (it has its own) */}
       {path !== '/village/workshop' && (
@@ -221,23 +308,30 @@ function BottomNavInner() {
       }}>
         <motion.button
           onClick={handleToggle}
-          whileTap={{ scale: 0.88 }}
+          whileTap={{ scale: 0.94 }}
+          transition={{ duration: 0.12 }}
           style={{
-            width: 44, height: 44, borderRadius: 22,
-            background: open ? 'rgba(24,119,242,0.22)' : 'rgba(10,10,18,0.82)',
-            backdropFilter: 'blur(20px)',
-            WebkitBackdropFilter: 'blur(20px)',
-            border: open ? '1.5px solid rgba(24,119,242,0.7)' : '1.5px solid rgba(255,255,255,0.18)',
-            boxShadow: open ? '0 0 24px rgba(24,119,242,0.45), 0 4px 16px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.55)',
+            width: 56, height: 56, borderRadius: 28,
+            background: open ? '#26215C' : '#0033CC',
+            border: '1.5px solid rgba(255,255,255,0.15)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'background 0.2s, border 0.2s, box-shadow 0.2s',
+            transition: 'background 0.2s',
           }}
           aria-label="Open navigation"
         >
-          <motion.div animate={{ rotate: open ? 45 : 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
-            <Image src="/village-icon-button.png" width={30} height={30} alt="The Village" style={{ objectFit: 'contain', display: 'block' }} priority />
-          </motion.div>
+          <AnimatePresence mode="wait" initial={false}>
+            {open ? (
+              <motion.div key="close" initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
+                <CloseIcon size={28} />
+              </motion.div>
+            ) : (
+              <motion.div key="teepee" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
+                <TeepeeIcon size={28} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.button>
       </div>
     </>

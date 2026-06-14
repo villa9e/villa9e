@@ -7,9 +7,9 @@
 ## WORKSHOP
 
 ### Navigation
-- [~] Teepee radial menu (built, needs 7th Bank item + animation polish per WORKSHOP_SPEC §2 — Bank item already present in BottomNav, 110px arc/40ms stagger/overlay still pending — large rewrite, deferred)
+- [x] Teepee radial menu (rewrote `BottomNav.tsx` — `NavDrawer` bottom-sheet replaced with `RadialMenu`: 7 items fanned in a 180° crescent, 110px arc radius, `angle_i = 180° - i*30°`; trigger is now a 56px circle `#0033CC`/`#26215C` open, `1.5px solid rgba(255,255,255,0.15)` ring, white 28px teepee icon that crosses to an X on open with scale-0.94/120ms press; added 7th "Profile" item (avatar → `/village/hut`) and corrected "Goals" href to `/village/workshop/chat`; search moved to a top-left icon button mirroring the notification bell)
 - [x] Remove any remaining tab bars that conflict with radial menu (audited — no conflicting tab bars found; WorkshopTabBar is the intentional Goals/Workshop/GPS swipe-tab structure, separate from the radial menu)
-- [ ] Radial menu: arc radius 110px, spring stagger 40ms, overlay backdrop (current menu is a bottom-sheet grid, not a radial arc — large rewrite, deferred)
+- [x] Radial menu: arc radius 110px, spring stagger 40ms, overlay backdrop (implemented in `RadialMenu` — `rgba(0,0,0,0.4)` backdrop fades in, each item springs in with `{stiffness:300, damping:20, delay: i*0.04}`)
 
 ### Feed
 - [x] Workshop/Goals/GPS tab structure (built today) — audited: `WorkshopTabBar` renders on Workshop/Goals(chat)/GPS([id]) with a shared `layoutId` underline; `useWorkshopSwipeNav` wires the spec's swipe matrix (Goals←→Workshop←→GPS, swipe-left-from-GPS is a no-op); Workshop's own `handleGesture` does right-swipe→Goals/chat, left-swipe→GPS — matches WORKSHOP_SPEC §3
