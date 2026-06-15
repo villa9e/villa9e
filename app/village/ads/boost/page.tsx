@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useRouter } from 'next/navigation';
 
@@ -32,15 +33,16 @@ export default function BoostPostPage() {
   const c = isNight ? A.night : A.day;
   const router = useRouter();
 
+  const supabase = createClient();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState('');
   const [audience, setAudience] = useState('lookalike');
   const [budget, setBudget] = useState(10);
   const [duration, setDuration] = useState(7);
+  const [boosting, setBoosting] = useState(false);
 
   const totalSpend = budget * duration;
-
-  const estimatedReach = Math.round((budget * duration * 180) + Math.random() * 1000);
+  const estimatedReach = Math.round(budget * duration * 180);
 
   return (
     <div style={{ background: c.bg, minHeight: '100vh', color: c.text, fontFamily: 'system-ui,sans-serif' }}>
@@ -171,9 +173,25 @@ export default function BoostPostPage() {
               </div>
             </div>
 
-            <button onClick={() => router.push('/village/ads')}
-              style={{ width: '100%', background: '#2952E8', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 17, fontWeight: 800, cursor: 'pointer', letterSpacing: 0.3 }}>
-              Boost now
+            <button
+              disabled={boosting}
+              onClick={async () => {
+                setBoosting(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  await (supabase as any).from('ad_campaigns').insert({
+                    user_id: user.id,
+                    name: `Boosted post — ${goal}`,
+                    objective: goal === 'views' ? 'video_views' : goal === 'engage' ? 'engagement' : goal === 'profile' ? 'traffic' : 'traffic',
+                    status: 'learning',
+                    daily_budget: budget,
+                    end_date: new Date(Date.now() + duration * 86400000).toISOString().slice(0, 10),
+                  });
+                }
+                router.push('/village/ads');
+              }}
+              style={{ width: '100%', background: boosting ? '#6B7280' : '#2952E8', color: '#fff', border: 'none', borderRadius: 12, padding: '16px', fontSize: 17, fontWeight: 800, cursor: boosting ? 'not-allowed' : 'pointer', letterSpacing: 0.3 }}>
+              {boosting ? 'Boosting…' : 'Boost now'}
             </button>
           </div>
         )}

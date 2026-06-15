@@ -8,29 +8,8 @@ const A = {
   night: { bg: '#060F18', card: '#0E1E2E', border: '#1A3040', text: '#EEF4F8', textSec: '#8EB4CC', textTer: '#4A7A96', surface: '#091525' },
 };
 
-const PAYMENT_METHODS = [
-  { id: 'pm1', type: 'card', brand: 'Visa', last4: '4242', expiry: '12/28', isDefault: true },
-  { id: 'pm2', type: 'card', brand: 'Mastercard', last4: '8831', expiry: '07/27', isDefault: false },
-  { id: 'pm3', type: 'bank', brand: 'Village Bank', last4: null, expiry: null, isDefault: false },
-];
-
-const BILLING_HISTORY = [
-  { id: 'inv1', date: 'Jun 1, 2026',  amount: 420.00, status: 'paid',    desc: 'May 26–Jun 1 spend' },
-  { id: 'inv2', date: 'May 25, 2026', amount: 380.50, status: 'paid',    desc: 'May 18–25 spend' },
-  { id: 'inv3', date: 'May 18, 2026', amount: 295.80, status: 'paid',    desc: 'May 11–18 spend' },
-  { id: 'inv4', date: 'May 11, 2026', amount: 210.40, status: 'paid',    desc: 'May 4–11 spend' },
-  { id: 'inv5', date: 'May 4, 2026',  amount: 185.60, status: 'paid',    desc: 'Apr 27–May 4 spend' },
-];
-
-const CARD_ICONS: Record<string, string> = {
-  Visa:       '#1A1F71',
-  Mastercard: '#EB001B',
-  'Village Bank': '#2952E8',
-};
-
 export default function BillingPage() {
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
+  const isNight = useVillageTheme(s => s.theme) === 'night';
   const c = isNight ? A.night : A.day;
   const [threshold, setThreshold] = useState(25);
   const [spendLimit, setSpendLimit] = useState('');
@@ -57,38 +36,8 @@ export default function BillingPage() {
               + Add payment method
             </button>
           </div>
-          <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {PAYMENT_METHODS.map(pm => (
-              <div key={pm.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: c.surface, border: `1px solid ${c.border}`, borderRadius: 10, padding: '14px 16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  <div style={{ width: 44, height: 28, background: CARD_ICONS[pm.brand] ?? '#6B7280', borderRadius: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ color: '#fff', fontSize: 9, fontWeight: 700 }}>{pm.brand.slice(0, 4).toUpperCase()}</span>
-                  </div>
-                  <div>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>
-                      {pm.brand} {pm.last4 ? `•••• ${pm.last4}` : 'Balance'}
-                    </div>
-                    {pm.expiry && <div style={{ fontSize: 12, color: c.textSec }}>Expires {pm.expiry}</div>}
-                  </div>
-                  {pm.isDefault && (
-                    <span style={{ fontSize: 11, background: 'rgba(41,82,232,0.12)', color: '#2952E8', borderRadius: 100, padding: '2px 8px', fontWeight: 600 }}>
-                      Default
-                    </span>
-                  )}
-                </div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {!pm.isDefault && (
-                    <button style={{ fontSize: 12, color: '#2952E8', background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer', fontWeight: 600 }}>
-                      Set default
-                    </button>
-                  )}
-                  <button style={{ fontSize: 12, color: '#EF4444', background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div style={{ padding: '32px 20px', textAlign: 'center', color: c.textSec, fontSize: 14 }}>
+            No payment methods added yet.
           </div>
         </div>
 
@@ -128,39 +77,9 @@ export default function BillingPage() {
         {/* Billing history */}
         <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ padding: '16px 20px', borderBottom: `1px solid ${c.border}`, fontWeight: 700, fontSize: 15 }}>Billing history</div>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                {['Date', 'Description', 'Amount', 'Status', ''].map(h => (
-                  <th key={h} style={{ padding: '10px 20px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: c.textTer }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {BILLING_HISTORY.map(inv => (
-                <tr key={inv.id} style={{ borderBottom: `1px solid ${c.border}` }}
-                  onMouseEnter={e => (e.currentTarget.style.background = c.surface)}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <td style={{ padding: '12px 20px', fontSize: 13 }}>{inv.date}</td>
-                  <td style={{ padding: '12px 20px', fontSize: 13, color: c.textSec }}>{inv.desc}</td>
-                  <td style={{ padding: '12px 20px', fontSize: 14, fontWeight: 700 }}>${inv.amount.toFixed(2)}</td>
-                  <td style={{ padding: '12px 20px' }}>
-                    <span style={{ fontSize: 12, background: 'rgba(34,197,94,0.12)', color: '#16A34A', borderRadius: 100, padding: '3px 9px', fontWeight: 600, textTransform: 'capitalize' }}>
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: '12px 20px' }}>
-                    <button style={{ fontSize: 12, color: '#2952E8', background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      Receipt
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ padding: '32px 20px', textAlign: 'center', color: c.textSec, fontSize: 14 }}>
+            No billing history yet. Charges appear here after your first campaign runs.
+          </div>
         </div>
       </div>
     </div>

@@ -245,8 +245,23 @@ const MORE_OPTS = [
 ];
 
 function MoreDrawer({ open, onClose, card, onSkip }: { open: boolean; onClose: () => void; card: FeedCard; onSkip: () => void }) {
-  const FAKE_USERS = ['Alex','Jordan','Sam','Morgan','Taylor','Casey','Riley','Drew','Chris','Avery','Blake','Quinn'];
   const COLORS = ['#7C3AED','#1D9E75','#E8770A','#1877F2','#D4537E','#0D9488','#BE185D','#D97706'];
+  const [shareUsers, setShareUsers] = useState<{ id: string; display_name: string; username: string }[]>([]);
+
+  useEffect(() => {
+    if (!open) return;
+    const supabase = createClient();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await (supabase as any)
+        .from('profiles')
+        .select('id,display_name,username')
+        .neq('id', user.id)
+        .limit(20);
+      setShareUsers(data ?? []);
+    })();
+  }, [open]);
 
   return (
     <AnimatePresence>
@@ -277,15 +292,20 @@ function MoreDrawer({ open, onClose, card, onSkip }: { open: boolean; onClose: (
               <div style={{ padding: '0 16px 16px' }}>
                 <p style={{ fontSize: 10, fontWeight: 900, color: 'rgba(255,255,255,0.35)', letterSpacing: '0.08em', marginBottom: 12 }}>SEND TO</p>
                 <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 4, WebkitOverflowScrolling: 'touch' as any }}>
-                  {FAKE_USERS.map((name, i) => (
-                    <motion.button whileTap={{ scale: 0.9 }} key={name}
-                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', width: 56 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: 26, background: COLORS[i % COLORS.length], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>{name[0]}</span>
-                      </div>
-                      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textAlign: 'center' }}>{name}</span>
-                    </motion.button>
-                  ))}
+                  {shareUsers.length === 0 ? (
+                    <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.4)', padding: '8px 0' }}>No users to show</span>
+                  ) : shareUsers.map((u, i) => {
+                    const name = u.display_name || u.username || '?';
+                    return (
+                      <motion.button whileTap={{ scale: 0.9 }} key={u.id}
+                        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, flexShrink: 0, background: 'none', border: 'none', cursor: 'pointer', width: 56 }}>
+                        <div style={{ width: 52, height: 52, borderRadius: 26, background: COLORS[i % COLORS.length], display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <span style={{ fontSize: 18, fontWeight: 900, color: '#fff' }}>{name[0].toUpperCase()}</span>
+                        </div>
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 700, textAlign: 'center' }}>{name.split(' ')[0]}</span>
+                      </motion.button>
+                    );
+                  })}
                 </div>
               </div>
 

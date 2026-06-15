@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { useRouter } from 'next/navigation';
 
@@ -41,7 +42,9 @@ export default function CreateCampaignPage() {
   const c = isNight ? A.night : A.day;
   const router = useRouter();
 
+  const supabase = createClient();
   const [step, setStep] = useState(0);
+  const [publishing, setPublishing] = useState(false);
 
   // Step 1
   const [objective, setObjective] = useState('');
@@ -598,9 +601,27 @@ export default function CreateCampaignPage() {
                 </div>
               ))}
             </div>
-            <button onClick={() => router.push('/village/ads')}
-              style={{ background: '#2952E8', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 40px', fontSize: 16, fontWeight: 700, cursor: 'pointer' }}>
-              Publish campaign
+            <button
+              disabled={publishing}
+              onClick={async () => {
+                setPublishing(true);
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                  await (supabase as any).from('ad_campaigns').insert({
+                    user_id: user.id,
+                    name: campaignName,
+                    objective,
+                    status: 'learning',
+                    cbo,
+                    [budgetType === 'daily' ? 'daily_budget' : 'lifetime_budget']: parseFloat(budgetAmount),
+                    start_date: startDate || null,
+                    end_date: endDate || null,
+                  });
+                }
+                router.push('/village/ads');
+              }}
+              style={{ background: publishing ? '#6B7280' : '#2952E8', color: '#fff', border: 'none', borderRadius: 10, padding: '14px 40px', fontSize: 16, fontWeight: 700, cursor: publishing ? 'not-allowed' : 'pointer' }}>
+              {publishing ? 'Publishing…' : 'Publish campaign'}
             </button>
           </div>
         )}
