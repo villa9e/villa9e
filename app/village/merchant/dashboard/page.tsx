@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -29,27 +30,24 @@ function TrendUpIcon() {
   return <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" /></svg>;
 }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_TRANSACTIONS = [
-  { id: 1, name: '@jade_ceramics', amount: 85, desc: 'Custom mug set', method: 'qr',   status: 'completed', time: '2h ago' },
-  { id: 2, name: '@marcus_builds', amount: 120, desc: 'Website consultation', method: 'link', status: 'completed', time: '5h ago' },
-  { id: 3, name: 'Guest',          amount: 30,  desc: 'Market stall purchase', method: 'qr', status: 'completed', time: '1d ago' },
-  { id: 4, name: '@priya_yoga',   amount: 55,  desc: 'Private session', method: 'invoice', status: 'pending', time: '1d ago' },
-  { id: 5, name: '@dj_soleil',    amount: 950, desc: 'Event booking', method: 'link', status: 'completed', time: '2d ago' },
-];
+type Period = 'Today' | 'Week' | 'Month' | 'All time';
 
-const PERIOD_DATA: Record<string, { vico: number; usd: string; txCount: number; customers: number; avg: string }> = {
-  Today:     { vico: 215,  usd: '$21.50',  txCount: 4,  customers: 3,  avg: '53.75' },
-  Week:      { vico: 1240, usd: '$124.00', txCount: 18, customers: 12, avg: '68.89' },
-  Month:     { vico: 4820, usd: '$482.00', txCount: 67, customers: 38, avg: '71.94' },
-  'All time':{ vico: 12450, usd: '$1,245.00', txCount: 198, customers: 95, avg: '62.88' },
-};
-
-const AI_INSIGHTS = [
-  'Your Tuesday peak hours (2-6pm) generate 40% of weekly revenue — consider targeted promos.',
-  'Repeat customer rate is 31% — up 8pts from last month. Loyalty is building.',
-  'QR payments average 2x higher than payment links. Optimize your in-person setup.',
-];
+function periodStats(txs: any[], period: Period) {
+  const now = Date.now();
+  const cutoffs: Record<Period, number> = {
+    'Today':    now - 86400000,
+    'Week':     now - 7 * 86400000,
+    'Month':    now - 30 * 86400000,
+    'All time': 0,
+  };
+  const cut = cutoffs[period];
+  const filtered = txs.filter(t => new Date(t.created_at).getTime() >= cut);
+  const vico = filtered.reduce((s,t) => s + Number(t.vico_amount), 0);
+  const usdEq = (vico * 0.10).toFixed(2);
+  const uniqueCustomers = new Set(filtered.map(t => t.customer_user_id ?? t.customer_handle ?? 'guest')).size;
+  const avg = filtered.length > 0 ? (vico / filtered.length).toFixed(2) : '0.00';
+  return { vico: Math.round(vico), usd: `$${usdEq}`, txCount: filtered.length, customers: uniqueCustomers, avg };
+}
 
 function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   const colors = ['#BA7517','#1D9E75','#2952E8','#D4537E','#7C3AED'];
@@ -113,8 +111,46 @@ function MiniMapPreview({ isNight }: { isNight: boolean }) {
 // ── Main component ────────────────────────────────────────────────────────────
 export default function MerchantDashboardPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
-  const [period, setPeriod] = useState<keyof typeof PERIOD_DATA>('Week');
-  const data = PERIOD_DATA[period];
+  const supabase = createClient();
+  const [period, setPeriod] = useState<Period>('Week');
+  const [merchantAcct, setMerchantAcct] = useState<any>(null);
+  const [allTxs, setAllTxs] = useState<any[]>([]);
+  const [recentTxs, setRecentTxs] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: acct } = await (supabase as any).from('merchant_accounts').select('*').eq('user_id', user.id).maybeSingle();
+      if (!acct) return;
+      setMerchantAcct(acct);
+      const { data: txRows } = await (supabase as any)
+        .from('merchant_transactions')
+        .select('*')
+        .eq('merchant_id', acct.id)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      const rows = txRows ?? [];
+      setAllTxs(rows);
+      setRecentTxs(rows.slice(0, 5).map((t: any) => ({
+        id: t.id,
+        name: t.customer_handle ?? t.customer_display_name ?? 'Guest',
+        amount: Number(t.vico_amount),
+        desc: t.description ?? '',
+        method: t.payment_method,
+        status: t.status,
+        time: (() => {
+          const diff = Date.now() - new Date(t.created_at).getTime();
+          if (diff < 3600000) return `${Math.round(diff/60000)}m ago`;
+          if (diff < 86400000) return `${Math.round(diff/3600000)}h ago`;
+          return `${Math.round(diff/86400000)}d ago`;
+        })(),
+      })));
+    })();
+  }, []);
+
+  const data = periodStats(allTxs, period);
+  const totalVico = Number(merchantAcct?.total_vico_received ?? 0);
 
   const pageBg      = isNight ? '#1A1400' : '#FFFBF2';
   const heroBg      = '#412402';
@@ -223,13 +259,12 @@ export default function MerchantDashboardPage() {
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-            <span style={{ fontSize: 12, color: textMuted }}>Balance</span>
-            <span style={{ fontSize: 14, fontWeight: 700, color: textPrimary }}>1,240 VICO</span>
+            <span style={{ fontSize: 12, color: textMuted }}>Total Received</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: textPrimary }}>{Math.round(totalVico).toLocaleString()} VICO</span>
           </div>
-          <div style={{ height: 6, background: isNight ? '#3A2800' : '#F0D9B0', borderRadius: 3 }}>
-            <div style={{ width: '62%', height: 6, background: accent, borderRadius: 3 }} />
-          </div>
-          <div style={{ fontSize: 11, color: textMuted, marginTop: 6 }}>62% of monthly goal · 767 VICO to target</div>
+          {totalVico === 0 && (
+            <div style={{ fontSize: 11, color: textMuted, marginTop: 6 }}>No transactions yet. Accept your first payment to see your balance.</div>
+          )}
         </div>
 
         {/* Recent transactions */}
@@ -241,7 +276,10 @@ export default function MerchantDashboardPage() {
             </Link>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {MOCK_TRANSACTIONS.map(tx => (
+            {recentTxs.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '20px 0', color: textMuted, fontSize: 13 }}>No transactions yet</div>
+          )}
+          {recentTxs.map(tx => (
               <div key={tx.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <Avatar name={tx.name} />
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -287,14 +325,15 @@ export default function MerchantDashboardPage() {
               <div style={{ fontSize: 10, color: isNight ? '#3D8C6A' : '#5DA882' }}>AI-powered merchant analysis</div>
             </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {AI_INSIGHTS.map((insight, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10 }}>
-                <div style={{ color: '#1D9E75', marginTop: 2, flexShrink: 0 }}><TrendUpIcon /></div>
-                <span style={{ fontSize: 12, color: isNight ? '#A0D4BC' : '#1A5C3A', lineHeight: 1.5 }}>{insight}</span>
-              </div>
-            ))}
-          </div>
+          {allTxs.length === 0 ? (
+            <span style={{ fontSize: 12, color: isNight ? '#3D8C6A' : '#5DA882', lineHeight: 1.5 }}>
+              Complete your first transactions to unlock Spirit AI insights for your store.
+            </span>
+          ) : (
+            <span style={{ fontSize: 12, color: isNight ? '#A0D4BC' : '#1A5C3A', lineHeight: 1.5 }}>
+              You have {allTxs.length} transaction{allTxs.length !== 1 ? 's' : ''} from {new Set(allTxs.map(t => t.customer_user_id ?? t.customer_handle ?? 'guest')).size} customer{new Set(allTxs.map(t => t.customer_user_id ?? t.customer_handle ?? 'guest')).size !== 1 ? 's' : ''} so far. Spirit will surface deeper insights as your transaction history grows.
+            </span>
+          )}
         </div>
 
         {/* Action row */}

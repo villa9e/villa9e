@@ -20,16 +20,6 @@ const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); retu
 const dayAfter = (() => { const d = new Date(); d.setDate(d.getDate() + 2); return d.toISOString().split('T')[0]; })();
 const friday = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().split('T')[0]; })();
 
-const MOCK_TASKS: Task[] = [
-  { id: 't1', text: 'Send investor deck to Sarah', done: false, due_date: today, project: 'Fundraise', display_order: 1 },
-  { id: 't2', text: 'Review Q2 financial model', done: true, due_date: today, project: 'Fundraise', display_order: 2 },
-  { id: 't3', text: 'Book team dinner for Wednesday', done: false, due_date: today, display_order: 3 },
-  { id: 't4', text: 'Update product roadmap doc', done: false, due_date: tomorrow, project: 'Product', display_order: 4 },
-  { id: 't5', text: 'Run discovery calls x3', done: false, due_date: tomorrow, project: 'Sales', display_order: 5 },
-  { id: 't6', text: 'Draft marketing email', done: false, due_date: dayAfter, project: 'Marketing', display_order: 6 },
-  { id: 't7', text: 'Finalize contract with vendor', done: false, due_date: friday, project: 'Legal', display_order: 7 },
-];
-
 // ── Projects (derived) ────────────────────────────────────────────────────────
 function getProjects(tasks: Task[]) {
   const map: Record<string, { open: number; done: number }> = {};
@@ -164,7 +154,7 @@ export default function TasksPage() {
   const router = useRouter();
   const supabase = createClient();
   const [userId, setUserId] = useState('');
-  const [tasks, setTasks] = useState<Task[]>(MOCK_TASKS);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
   const [nextId, setNextId] = useState(100);
 
@@ -182,7 +172,7 @@ export default function TasksPage() {
       .eq('user_id', userId)
       .order('display_order')
       .order('created_at');
-    if (data && data.length > 0) setTasks(data);
+    setTasks(data ?? []);
   }, [userId]);
 
   useEffect(() => { if (userId) loadTasks(); }, [userId, loadTasks]);

@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -10,26 +11,23 @@ function SendIcon() { return <svg width={14} height={14} viewBox="0 0 24 24" fil
 function EyeIcon() { return <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>; }
 function DownloadIcon() { return <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>; }
 
-// ── Mock invoices ─────────────────────────────────────────────────────────────
-const MOCK_INVOICES = [
-  { id: 'INV-2026-001', customer: '@jade_ceramics', email: 'jade@example.com', amount: 350, currency: 'VICO', issued: '2026-05-28', due: '2026-06-11', status: 'unpaid' },
-  { id: 'INV-2026-002', customer: '@marcus_builds', email: 'marcus@example.com', amount: 120, currency: 'VICO', issued: '2026-05-20', due: '2026-06-03', status: 'paid' },
-  { id: 'INV-2026-003', customer: 'contact@priya.yoga', email: 'priya@example.com', amount: 500, currency: 'VICO', issued: '2026-05-15', due: '2026-05-29', status: 'overdue' },
-  { id: 'INV-2026-004', customer: '@village_events', email: 'events@example.com', amount: 950, currency: 'VICO', issued: '2026-05-30', due: '2026-06-13', status: 'unpaid' },
-  { id: 'INV-2026-005', customer: '@soleil_studio', email: 'dj@example.com', amount: 200, currency: 'VICO', issued: '2026-05-10', due: '2026-05-24', status: 'paid' },
-];
-
 interface LineItem { id: number; description: string; qty: string; unitPrice: string; }
+
+const todayStr = new Date().toISOString().split('T')[0];
+const in14 = (() => { const d = new Date(); d.setDate(d.getDate()+14); return d.toISOString().split('T')[0]; })();
 
 export default function MerchantInvoicesPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const supabase = createClient();
+  const [merchantAccount, setMerchantAccount] = useState<any>(null);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [tab, setTab] = useState<'unpaid' | 'paid' | 'all'>('unpaid');
   const [showForm, setShowForm] = useState(false);
+  const [sending, setSending] = useState(false);
   // Form state
   const [customer, setCustomer] = useState('');
-  const [invoiceNum] = useState('INV-2026-006');
-  const [issueDate, setIssueDate] = useState('2026-06-03');
-  const [dueDate, setDueDate] = useState('2026-06-17');
+  const [issueDate, setIssueDate] = useState(todayStr);
+  const [dueDate, setDueDate] = useState(in14);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { id: 1, description: '', qty: '1', unitPrice: '' },
   ]);
@@ -52,6 +50,51 @@ export default function MerchantInvoicesPage() {
     color: textPrimary, fontSize: 13, outline: 'none', boxSizing: 'border-box' as const,
   };
 
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: acct } = await (supabase as any).from('merchant_accounts').select('*').eq('user_id', user.id).maybeSingle();
+      if (!acct) return;
+      setMerchantAccount(acct);
+      const { data: rows } = await (supabase as any)
+        .from('merchant_invoices').select('*').eq('merchant_id', acct.id).order('created_at', { ascending: false });
+      setInvoices((rows ?? []).map((r: any) => ({
+        dbId: r.id,
+        id: r.invoice_number,
+        customer: r.customer_handle || r.customer_email || 'Unknown',
+        amount: Number(r.total),
+        currency: r.currency,
+        issued: r.issued_at?.slice(0, 10),
+        due: r.due_at?.slice(0, 10),
+        status: r.status,
+      })));
+    })();
+  }, []);
+
+  async function sendInvoice() {
+    if (!merchantAccount || !customer.trim() || total <= 0) return;
+    setSending(true);
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
+    const { data: row } = await (supabase as any).from('merchant_invoices').insert({
+      merchant_id: merchantAccount.id,
+      invoice_number: invoiceNumber,
+      customer_handle: customer.startsWith('@') ? customer : null,
+      customer_email: !customer.startsWith('@') ? customer : null,
+      subtotal, tax_rate: parseFloat(taxRate)||0, tax_amount: tax, total,
+      currency, line_items: lineItems,
+      issued_at: new Date(issueDate).toISOString(),
+      due_at: new Date(dueDate).toISOString(),
+      notes: notes || null, status: 'unpaid',
+    }).select().single();
+    if (row) {
+      setInvoices(prev => [{ dbId: row.id, id: row.invoice_number, customer, amount: total, currency, issued: issueDate, due: dueDate, status: 'unpaid' }, ...prev]);
+      setShowForm(false); setCustomer(''); setNotes(''); setTaxRate('');
+      setLineItems([{ id: 1, description: '', qty: '1', unitPrice: '' }]);
+    }
+    setSending(false);
+  }
+
   function addLineItem() {
     setLineItems(prev => [...prev, { id: Date.now(), description: '', qty: '1', unitPrice: '' }]);
   }
@@ -68,8 +111,8 @@ export default function MerchantInvoicesPage() {
   const tax = subtotal * ((parseFloat(taxRate) || 0) / 100);
   const total = subtotal + tax;
 
-  const filteredInvoices = tab === 'all' ? MOCK_INVOICES :
-    MOCK_INVOICES.filter(inv => tab === 'unpaid' ? inv.status !== 'paid' : inv.status === 'paid');
+  const filteredInvoices = tab === 'all' ? invoices :
+    invoices.filter(inv => tab === 'unpaid' ? inv.status !== 'paid' : inv.status === 'paid');
 
   const statusColor = (s: string) => {
     if (s === 'paid') return { bg: '#1D9E7522', color: '#1D9E75' };
@@ -115,7 +158,7 @@ export default function MerchantInvoicesPage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: textMuted, marginBottom: 4 }}>Invoice #</label>
-                <input style={{ ...inputStyle, background: isNight ? '#1A1400' : '#F5EDD8', color: textMuted }} value={invoiceNum} readOnly />
+                <input style={{ ...inputStyle, background: isNight ? '#1A1400' : '#F5EDD8', color: textMuted }} value={`INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3,'0')}`} readOnly />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: 12, color: textMuted, marginBottom: 4 }}>Currency</label>
@@ -215,12 +258,13 @@ export default function MerchantInvoicesPage() {
               }}>
                 <EyeIcon /> Preview
               </button>
-              <button style={{
+              <button onClick={sendInvoice} disabled={sending || !customer.trim() || total <= 0} style={{
                 flex: 2, padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer',
                 background: btnBg, color: 'white', fontSize: 13, fontWeight: 700,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                opacity: (sending || !customer.trim() || total <= 0) ? 0.5 : 1,
               }}>
-                <SendIcon /> Send Invoice
+                <SendIcon /> {sending ? 'Sending…' : 'Send Invoice'}
               </button>
             </div>
           </div>

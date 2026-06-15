@@ -5,30 +5,6 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { OoWopIcon } from '@/components/village/OoWopIcon';
 
-const MOCK_CAMPAIGNS = [
-  {
-    id: '1', title: 'Launch My Music Studio', target_amount: 5000, raised_amount: 3200, backer_count: 47,
-    days_left: 12, creator: 'Deon M.', creator_score: 1240, category: 'Creative',
-    description: 'Turning my bedroom setup into a professional recording space to produce music for local artists.',
-    probability_score: 81, goal_title: 'Build Professional Music Studio',
-    perks: [{ amount: 25, label: 'Early Access', desc: 'First listen to 3 tracks' }, { amount: 100, label: 'Studio Session', desc: '1-hour recording session when we open' }],
-  },
-  {
-    id: '2', title: 'Food Truck Launch Fund', target_amount: 15000, raised_amount: 11400, backer_count: 203,
-    days_left: 5, creator: 'Priya K.', creator_score: 2100, category: 'Business',
-    description: 'My jerk chicken food truck needs a final push to cover licensing, equipment, and first month\'s location fees.',
-    probability_score: 88, goal_title: 'Launch Jerk Chicken Food Truck',
-    perks: [{ amount: 10, label: 'Supporter', desc: 'Name on the thank you board' }, { amount: 50, label: 'VIP', desc: '5 free meals when we launch' }],
-  },
-  {
-    id: '3', title: 'Tech Bootcamp Tuition', target_amount: 3000, raised_amount: 850, backer_count: 18,
-    days_left: 30, creator: 'Jaylen T.', creator_score: 340, category: 'Education',
-    description: 'I got accepted to a 12-week full stack coding bootcamp but need help covering the tuition. All completed goals shared publicly.',
-    probability_score: 74, goal_title: 'Complete Full Stack Bootcamp',
-    perks: [{ amount: 15, label: 'Believer', desc: 'Shoutout on Dream Line' }, { amount: 75, label: 'Mentor Credit', desc: 'One free session when I\'m employed' }],
-  },
-];
-
 export default function CrowdfundingPage() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [selected, setSelected] = useState<any>(null);
@@ -49,13 +25,17 @@ export default function CrowdfundingPage() {
         .eq('status', 'active')
         .order('raised_amount', { ascending: false })
         .limit(20);
-      if (data && data.length > 0) setCampaigns(data);
-      else setCampaigns(MOCK_CAMPAIGNS);
+      setCampaigns(data ?? []);
     }
     load();
   }, []);
 
   const pct = (c: any) => Math.min(100, Math.round(((c.raised_amount ?? 0) / (c.target_amount ?? 1)) * 100));
+
+  const daysLeft = (c: any) => {
+    if (!c.deadline) return null;
+    return Math.max(0, Math.ceil((new Date(c.deadline).getTime() - Date.now()) / 86400000));
+  };
 
   async function contribute() {
     if (!contributing || !amount) return;
@@ -250,9 +230,11 @@ export default function CrowdfundingPage() {
                 <p className="font-bold">{c.title}</p>
                 <p className="text-xs text-gray-500 mt-0.5">by {c.creator ?? c.profiles?.username}</p>
               </div>
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex-shrink-0">
-                {c.days_left ?? 30}d left
-              </span>
+              {daysLeft(c) !== null && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex-shrink-0">
+                  {daysLeft(c)}d left
+                </span>
+              )}
             </div>
 
             <p className="text-xs text-gray-500 mt-2 line-clamp-2">{c.description}</p>
@@ -273,9 +255,9 @@ export default function CrowdfundingPage() {
               </div>
             </div>
 
-            {c.probability_score && (
+            {c.goals?.probability_score && (
               <div className="mt-2 text-xs text-gray-400">
-                Goal GPS: <span className="font-bold text-orange-500">{c.probability_score}%</span> probability of completion
+                Goal GPS: <span className="font-bold text-orange-500">{c.goals.probability_score}%</span> probability of completion
               </div>
             )}
 
@@ -285,6 +267,14 @@ export default function CrowdfundingPage() {
             </button>
           </motion.div>
         ))}
+
+        {campaigns.length === 0 && (
+          <div className="text-center py-12 text-gray-400">
+            <p className="text-4xl mb-2">🤝</p>
+            <p className="font-bold text-gray-600 mb-1">No active campaigns yet</p>
+            <p className="text-sm">Be the first to start a campaign and rally your tribe behind a goal.</p>
+          </div>
+        )}
       </div>
     </div>
   );

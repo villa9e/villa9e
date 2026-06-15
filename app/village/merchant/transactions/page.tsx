@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -10,17 +11,6 @@ function RefundIcon() { return <svg width={12} height={12} viewBox="0 0 24 24" f
 function ExternalIcon() { return <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" /></svg>; }
 function ChevronDownIcon() { return <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>; }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_TXS = [
-  { id: 'tx001', date: '2026-06-03 14:32', customer: '@jade_ceramics', desc: 'Custom mug set (3)', vico: 85, usd: 8.50, method: 'qr', status: 'completed', hash: '0x4f3a...b291' },
-  { id: 'tx002', date: '2026-06-03 11:08', customer: '@marcus_builds', desc: 'Website consultation 1hr', vico: 120, usd: 12.00, method: 'link', status: 'completed', hash: '0x7c21...e8a4' },
-  { id: 'tx003', date: '2026-06-02 16:55', customer: 'Guest', desc: 'Farmer market purchase', vico: 30, usd: 3.00, method: 'qr', status: 'completed', hash: '0x1a9d...f307' },
-  { id: 'tx004', date: '2026-06-02 09:20', customer: '@priya_yoga', desc: 'Private yoga session', vico: 55, usd: 5.50, method: 'invoice', status: 'pending', hash: null },
-  { id: 'tx005', date: '2026-06-01 19:45', customer: '@dj_soleil', desc: 'Event booking — June 14', vico: 950, usd: 95.00, method: 'link', status: 'completed', hash: '0x8b56...c742' },
-  { id: 'tx006', date: '2026-05-31 13:10', customer: '@river_runs', desc: 'Photography package', vico: 200, usd: 20.00, method: 'qr', status: 'completed', hash: '0x2e4f...a115' },
-  { id: 'tx007', date: '2026-05-30 10:30', customer: '@city_hive', desc: 'Pottery workshop x2', vico: 100, usd: 10.00, method: 'qr', status: 'refunded', hash: '0x9c7d...b830' },
-  { id: 'tx008', date: '2026-05-29 15:22', customer: '@nova_eats', desc: 'Catering deposit', vico: 400, usd: 40.00, method: 'invoice', status: 'completed', hash: '0x3a5e...d994' },
-];
 
 const METHOD_COLORS: Record<string, { bg: string; color: string; label: string }> = {
   qr:      { bg: '#EF9F2722', color: '#EF9F27', label: 'QR' },
@@ -38,12 +28,37 @@ const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 export default function MerchantTransactionsPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const supabase = createClient();
+  const [allTxs, setAllTxs] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [filterMethod, setFilterMethod] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterMinAmount, setFilterMinAmount] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: acct } = await (supabase as any).from('merchant_accounts').select('id').eq('user_id', user.id).maybeSingle();
+      if (!acct) return;
+      const { data: rows } = await (supabase as any)
+        .from('merchant_transactions').select('*').eq('merchant_id', acct.id)
+        .order('created_at', { ascending: false }).limit(500);
+      setAllTxs((rows ?? []).map((t: any) => ({
+        id: t.id,
+        date: t.created_at?.slice(0, 16).replace('T', ' ') ?? '',
+        customer: t.customer_handle ?? t.customer_display_name ?? 'Guest',
+        desc: t.description ?? '',
+        vico: Number(t.vico_amount),
+        usd: Number(t.usd_at_time ?? (Number(t.vico_amount) * 0.10)),
+        method: t.payment_method,
+        status: t.status,
+        hash: t.chain_tx_hash ?? null,
+      })));
+    })();
+  }, []);
 
   const pageBg      = isNight ? '#1A1400' : '#FFFBF2';
   const heroBg      = '#412402';
@@ -59,7 +74,7 @@ export default function MerchantTransactionsPage() {
     color: textPrimary, fontSize: 12, outline: 'none', boxSizing: 'border-box' as const,
   };
 
-  const filtered = MOCK_TXS.filter(tx => {
+  const filtered = allTxs.filter(tx => {
     if (filterMethod !== 'all' && tx.method !== filterMethod) return false;
     if (filterStatus !== 'all' && tx.status !== filterStatus) return false;
     if (filterMinAmount && tx.vico < parseFloat(filterMinAmount)) return false;
@@ -207,7 +222,7 @@ export default function MerchantTransactionsPage() {
           })}
           {filtered.length === 0 && (
             <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted, fontSize: 14 }}>
-              No transactions match your filters
+              {allTxs.length === 0 ? 'No transactions yet.' : 'No transactions match your filters.'}
             </div>
           )}
         </div>

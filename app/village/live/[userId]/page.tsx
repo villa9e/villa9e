@@ -11,48 +11,64 @@ interface Comment {
   at: number;
 }
 
-// Mock comments that scroll in
-const MOCK_COMMENTS: Omit<Comment, 'at'>[] = [
-  { id: '1', username: 'nia_j',    text: 'This is 🔥' },
-  { id: '2', username: 'marcus_t', text: 'Let\'s go!' },
-  { id: '3', username: 'aisha_b',  text: 'Tapped in from Dallas' },
-  { id: '4', username: 'dev_jay',  text: 'OoWop!' },
-  { id: '5', username: 'king_sol', text: 'Say less 👏' },
-  { id: '6', username: 'brand_k',  text: 'This resonates fr' },
-  { id: '7', username: 'n8_moves', text: 'Dropping gems' },
-];
-
 export default function LiveViewerPage() {
   const router = useRouter();
   const params = useParams();
-  const userId = params.userId as string;
+  const streamUserId = params.userId as string;
+  const supabase = createClient();
 
   const [profile, setProfile]         = useState<any>(null);
-  const [viewerCount, setViewerCount] = useState(0);
+  const [currentUsername, setCurrentUsername] = useState('viewer');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [comments, setComments]       = useState<Comment[]>([]);
   const [inputVal, setInputVal]       = useState('');
   const commentsRef                   = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const supabase = createClient();
-    (supabase as any).from('profiles').select('id, username, display_name, avatar_url, is_live').eq('id', userId).single()
-      .then(({ data }: any) => setProfile(data));
+    (async () => {
+      // Load stream owner profile
+      const { data: prof } = await (supabase as any)
+        .from('profiles')
+        .select('id, username, display_name, avatar_url, is_live')
+        .eq('id', streamUserId)
+        .single();
+      setProfile(prof);
 
-    // Simulate viewer count ticking up
-    const iv = setInterval(() => {
-      setViewerCount(v => v + Math.floor(Math.random() * 3));
-    }, 4000);
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserId(user.id);
+        const { data: me } = await (supabase as any).from('profiles').select('username').eq('id', user.id).single();
+        if (me?.username) setCurrentUsername(me.username);
+      }
 
-    // Simulate comment stream
-    let ci = 0;
-    const ci2 = setInterval(() => {
-      const mock = MOCK_COMMENTS[ci % MOCK_COMMENTS.length];
-      setComments(prev => [...prev.slice(-19), { ...mock, id: mock.id + Date.now(), at: Date.now() }]);
-      ci++;
-    }, 2500);
+      // Load last 20 comments
+      const { data: recent } = await (supabase as any)
+        .from('live_stream_comments')
+        .select('*')
+        .eq('stream_user_id', streamUserId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      const sorted = (recent ?? []).reverse();
+      setComments(sorted.map((r: any) => ({ id: r.id, username: r.username, text: r.text, at: new Date(r.created_at).getTime() })));
 
-    return () => { clearInterval(iv); clearInterval(ci2); };
-  }, [userId]);
+      // Realtime subscription
+      const channel = (supabase as any)
+        .channel(`live:${streamUserId}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_stream_comments',
+          filter: `stream_user_id=eq.${streamUserId}`,
+        }, (payload: any) => {
+          const r = payload.new;
+          setComments(prev => [...prev.slice(-19), { id: r.id, username: r.username, text: r.text, at: new Date(r.created_at).getTime() }]);
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
+    })();
+  }, [streamUserId]);
 
   useEffect(() => {
     if (commentsRef.current) {
@@ -60,16 +76,18 @@ export default function LiveViewerPage() {
     }
   }, [comments]);
 
-  function sendComment() {
-    if (!inputVal.trim()) return;
-    setComments(prev => [...prev.slice(-19), { id: 'u' + Date.now(), username: 'you', text: inputVal.trim(), at: Date.now() }]);
+  async function sendComment(text: string) {
+    if (!text.trim()) return;
     setInputVal('');
+    await (supabase as any).from('live_stream_comments').insert({
+      stream_user_id: streamUserId,
+      viewer_user_id: currentUserId,
+      username: currentUsername,
+      text: text.trim(),
+    });
   }
 
-  async function sendOoWop() {
-    // Optimistic OoWop animation
-    setComments(prev => [...prev.slice(-19), { id: 'ow' + Date.now(), username: 'you', text: '🤜 OoWop!', at: Date.now() }]);
-  }
+  const viewerCount = new Set(comments.map(c => c.username)).size;
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: '#000', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
@@ -106,7 +124,7 @@ export default function LiveViewerPage() {
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round">
               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
             </svg>
-            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{viewerCount.toLocaleString()}</span>
+            <span style={{ color: '#fff', fontSize: 13, fontWeight: 700 }}>{viewerCount}</span>
           </div>
           <button onClick={() => router.back()} style={{ width: 32, height: 32, borderRadius: 16, background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -114,7 +132,7 @@ export default function LiveViewerPage() {
         </div>
       </div>
 
-      {/* Comment stream — right side */}
+      {/* Comment stream */}
       <div
         ref={commentsRef}
         style={{ position: 'absolute', bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))', left: 16, right: 16, height: 280, overflowY: 'auto', zIndex: 2, display: 'flex', flexDirection: 'column', gap: 6, maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%)' }}
@@ -139,11 +157,11 @@ export default function LiveViewerPage() {
         <input
           value={inputVal}
           onChange={e => setInputVal(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && sendComment()}
+          onKeyDown={e => e.key === 'Enter' && sendComment(inputVal)}
           placeholder="Say something..."
           style={{ flex: 1, background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 24, padding: '10px 16px', color: '#fff', fontSize: 14, outline: 'none' }}
         />
-        <button onClick={sendOoWop}
+        <button onClick={() => sendComment('OoWop!')}
           style={{ background: '#2952E8', border: 'none', borderRadius: 24, padding: '10px 16px', color: '#fff', fontWeight: 800, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}>
           OoWop
         </button>

@@ -35,15 +35,8 @@ const STATUS_STYLES: Record<CredStatus, { bg: string; color: string; label: stri
   failed:   { bg: 'rgba(239,68,68,0.15)',  color: '#EF4444', label: 'Failed'  },
 };
 
-// Mock credentials for demo
-const MOCK_CREDENTIALS: Credential[] = [
-  { id: 'c1', credential_type: 'Business License', issuing_body: 'State of California', issue_date: '2023-03-15', status: 'verified' },
-  { id: 'c2', credential_type: 'Professional Certificate', issuing_body: 'Harvard Business School Online', issue_date: '2022-11-01', status: 'verified' },
-  { id: 'c3', credential_type: 'Industry Accreditation', issuing_body: 'International Coach Federation', issue_date: '2024-01-10', status: 'pending', notes: 'Under review — typically 3-5 business days' },
-];
-
 // ── Upload Sheet ──────────────────────────────────────────────────────────────
-function UploadSheet({ onClose, onAdded }: { onClose: () => void; onAdded: (c: Credential) => void }) {
+function UploadSheet({ onClose, onAdded, supabase, userId }: { onClose: () => void; onAdded: (c: Credential) => void; supabase: any; userId: string }) {
   const [credType, setCredType] = useState('');
   const [issuingBody, setIssuingBody] = useState('');
   const [issueDate, setIssueDate] = useState('');
@@ -57,25 +50,24 @@ function UploadSheet({ onClose, onAdded }: { onClose: () => void; onAdded: (c: C
     borderRadius: 12, padding: '12px 14px', color: '#fff', fontSize: 14, boxSizing: 'border-box',
   };
 
-  function submit() {
+  async function submit() {
     if (!credType) { setErr('Select a credential type'); return; }
     if (!issuingBody.trim()) { setErr('Enter issuing body'); return; }
     if (!issueDate) { setErr('Enter issue date'); return; }
+    if (!userId) { setErr('Please sign in first'); return; }
     setSubmitting(true);
-    // Simulate AI verification submission
-    setTimeout(() => {
-      const newCred: Credential = {
-        id: `local-${Date.now()}`,
-        credential_type: credType,
-        issuing_body: issuingBody.trim(),
-        issue_date: issueDate,
-        status: 'pending',
-        notes: 'Under review — typically 3-5 business days',
-      };
-      onAdded(newCred);
-      setSubmitting(false);
-      onClose();
-    }, 1200);
+    const { data, error } = await (supabase as any).from('user_credentials').insert({
+      user_id: userId,
+      credential_type: credType,
+      issuing_body: issuingBody.trim(),
+      issue_date: issueDate,
+      status: 'pending',
+      notes: 'Under review — typically 3-5 business days',
+    }).select().single();
+    if (error || !data) { setErr('Failed to submit. Try again.'); setSubmitting(false); return; }
+    onAdded(data as Credential);
+    setSubmitting(false);
+    onClose();
   }
 
   return (
@@ -147,8 +139,24 @@ function UploadSheet({ onClose, onAdded }: { onClose: () => void; onAdded: (c: C
 // ── Page ──────────────────────────────────────────────────────────────────────
 export default function VerificationsPage() {
   const router = useRouter();
-  const [credentials, setCredentials] = useState<Credential[]>(MOCK_CREDENTIALS);
+  const supabase = createClient();
+  const [userId, setUserId] = useState('');
+  const [credentials, setCredentials] = useState<Credential[]>([]);
   const [showUpload, setShowUpload] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setUserId(user.id);
+      const { data } = await (supabase as any)
+        .from('user_credentials')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setCredentials(data ?? []);
+    })();
+  }, []);
 
   return (
     <div style={{ background: '#080E24', minHeight: '100vh', color: '#fff', display: 'flex', flexDirection: 'column' }}>
@@ -251,7 +259,9 @@ export default function VerificationsPage() {
         {showUpload && (
           <UploadSheet
             onClose={() => setShowUpload(false)}
-            onAdded={c => setCredentials(prev => [...prev, c])}
+            onAdded={c => setCredentials(prev => [c, ...prev])}
+            supabase={supabase}
+            userId={userId}
           />
         )}
       </AnimatePresence>

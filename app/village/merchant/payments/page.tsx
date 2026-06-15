@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 // ── Icons ────────────────────────────────────────────────────────────────────
@@ -55,15 +56,10 @@ function QRCode({ name, size = 240 }: { name: string; size?: number }) {
   );
 }
 
-// ── Mock payment links ────────────────────────────────────────────────────────
-const MOCK_LINKS = [
-  { id: 'lnk001', desc: 'Custom ceramics order', amount: null, currency: 'VICO', created: '2026-05-28', expires: null, uses: 3, active: true },
-  { id: 'lnk002', desc: 'Website consultation — 1hr', amount: 120, currency: 'VICO', created: '2026-05-30', expires: '2026-06-30', uses: 1, active: true },
-  { id: 'lnk003', desc: 'Workshop ticket', amount: 50, currency: 'VICO', created: '2026-05-20', expires: '2026-05-31', uses: 0, active: false },
-];
-
 export default function MerchantPaymentsPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const supabase = createClient();
+  const [merchantAccount, setMerchantAccount] = useState<any>(null);
   const [tab, setTab] = useState<'qr' | 'embed' | 'links'>('qr');
   // QR tab state
   const [fixedAmount, setFixedAmount] = useState(false);
@@ -79,7 +75,57 @@ export default function MerchantPaymentsPage() {
   const [linkCurrency, setLinkCurrency] = useState<'VICO' | 'USD'>('VICO');
   const [linkExpiry, setLinkExpiry] = useState('');
   const [oneTime, setOneTime] = useState(false);
-  const [links, setLinks] = useState(MOCK_LINKS);
+  const [links, setLinks] = useState<any[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: acct } = await (supabase as any)
+        .from('merchant_accounts').select('*').eq('user_id', user.id).maybeSingle();
+      if (!acct) return;
+      setMerchantAccount(acct);
+      const { data: linkRows } = await (supabase as any)
+        .from('merchant_payment_links').select('*').eq('merchant_id', acct.id).order('created_at', { ascending: false });
+      setLinks((linkRows ?? []).map((l: any) => ({
+        id: l.link_id,
+        dbId: l.id,
+        desc: l.description,
+        amount: l.amount,
+        currency: l.currency,
+        expires: l.expires_at ? l.expires_at.slice(0, 10) : null,
+        uses: l.use_count,
+        active: l.is_active,
+      })));
+    })();
+  }, []);
+
+  async function generateLink() {
+    if (!linkDesc.trim() || !merchantAccount) return;
+    const slug = `lnk_${Date.now().toString(36)}`;
+    const { data: row } = await (supabase as any).from('merchant_payment_links').insert({
+      merchant_id: merchantAccount.id,
+      link_id: slug,
+      description: linkDesc.trim(),
+      amount: linkAmount ? parseFloat(linkAmount) : null,
+      currency: linkCurrency,
+      is_one_time: oneTime,
+      expires_at: linkExpiry ? new Date(linkExpiry).toISOString() : null,
+      is_active: true,
+    }).select().single();
+    if (row) {
+      setLinks(prev => [{ id: row.link_id, dbId: row.id, desc: row.description, amount: row.amount, currency: row.currency, expires: null, uses: 0, active: true }, ...prev]);
+      setLinkDesc(''); setLinkAmount(''); setLinkExpiry(''); setOneTime(false);
+    }
+  }
+
+  async function deactivateLink(dbId: string) {
+    await (supabase as any).from('merchant_payment_links').update({ is_active: false, deactivated_at: new Date().toISOString() }).eq('id', dbId);
+    setLinks(prev => prev.map(l => l.dbId === dbId ? { ...l, active: false } : l));
+  }
+
+  const handle = merchantAccount?.merchant_handle ?? 'your-shop';
+  const businessName = merchantAccount?.business_name ?? 'Your Business';
 
   const pageBg      = isNight ? '#1A1400' : '#FFFBF2';
   const heroBg      = '#412402';
@@ -105,7 +151,7 @@ export default function MerchantPaymentsPage() {
   const embedCode = `<script src="https://pay.village.com/vico.js"><\/script>
 <button
   class="vico-pay-btn"
-  data-merchant="jade_ceramics"
+  data-merchant="${handle}"
   data-currency="${linkCurrency}"
   data-description="Payment"
   style="background:${embedStyle === 'dark' ? '#2C1800' : embedStyle === 'outline' ? 'transparent' : '#EF9F27'}; color:${embedStyle === 'outline' ? '#EF9F27' : 'white'}; border:${embedStyle === 'outline' ? '2px solid #EF9F27' : 'none'}; padding:${embedSize === 'small' ? '8px 16px' : embedSize === 'large' ? '16px 32px' : '12px 24px'}; border-radius:8px; font-weight:700; cursor:pointer"
@@ -161,8 +207,8 @@ export default function MerchantPaymentsPage() {
             {/* QR display */}
             <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
               <div style={{ background: cardBg, border: cardBorder, borderRadius: 16, padding: '20px', textAlign: 'center' }}>
-                <QRCode name={fixedAmount && qrAmount ? `merchant_${qrAmount}` : 'jade_ceramics'} size={200} />
-                <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary, marginTop: 12 }}>Jade&apos;s Ceramics</div>
+                <QRCode name={fixedAmount && qrAmount ? `${handle}_${qrAmount}` : handle} size={200} />
+                <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary, marginTop: 12 }}>{businessName}</div>
                 <div style={{ fontSize: 13, color: accent, fontWeight: 600, marginTop: 2 }}>$VICO accepted here</div>
                 {fixedAmount && qrAmount && (
                   <div style={{ fontSize: 20, fontWeight: 800, color: textPrimary, marginTop: 8 }}>
@@ -363,22 +409,28 @@ export default function MerchantPaymentsPage() {
                     <div style={{ position: 'absolute', top: 3, left: oneTime ? 23 : 3, width: 18, height: 18, borderRadius: 9, background: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
                   </button>
                 </div>
-                <button style={{
+                <button onClick={generateLink} disabled={!linkDesc.trim() || !merchantAccount} style={{
                   width: '100%', padding: '13px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   background: btnBg, color: 'white', fontWeight: 700, fontSize: 14,
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  opacity: (!linkDesc.trim() || !merchantAccount) ? 0.5 : 1,
                 }}>
                   <LinkIcon /> Generate link
                 </button>
                 {/* URL format */}
                 <div style={{ padding: '10px', background: isNight ? '#2C1E00' : '#FFF8ED', borderRadius: 8, fontSize: 11, color: textMuted, fontFamily: 'monospace' }}>
-                  pay.village.com/jade_ceramics/lnk_...
+                  pay.village.com/{handle}/lnk_...
                 </div>
               </div>
             </div>
 
             {/* Active links */}
             <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary, marginBottom: 10 }}>Active Links</div>
+            {links.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '24px 16px', background: cardBg, border: cardBorder, borderRadius: 12, color: textMuted, fontSize: 13 }}>
+                No payment links yet. Create your first one above.
+              </div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {links.map(link => (
                 <div key={link.id} style={{ background: cardBg, border: link.active ? cardBorder : (isNight ? '1px solid #2A2000' : '1px solid #F5EDD8'), borderRadius: 12, padding: '14px 16px', opacity: link.active ? 1 : 0.6 }}>
@@ -386,7 +438,7 @@ export default function MerchantPaymentsPage() {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{link.desc}</div>
                       <div style={{ fontSize: 11, color: textMuted, marginTop: 2, fontFamily: 'monospace' }}>
-                        pay.village.com/jade_ceramics/{link.id}
+                        pay.village.com/{handle}/{link.id}
                       </div>
                     </div>
                     <span style={{
@@ -410,8 +462,8 @@ export default function MerchantPaymentsPage() {
                       { icon: <TrashIcon />, label: 'Deactivate', danger: true },
                     ].map(a => (
                       <button key={a.label} onClick={() => {
-                        if (a.label === 'Copy') handleCopy(`https://pay.village.com/jade_ceramics/${link.id}`);
-                        if (a.label === 'Deactivate') setLinks(prev => prev.map(l => l.id === link.id ? { ...l, active: false } : l));
+                        if (a.label === 'Copy') handleCopy(`https://pay.village.com/${handle}/${link.id}`);
+                        if (a.label === 'Deactivate') deactivateLink(link.dbId);
                       }} style={{
                         display: 'flex', alignItems: 'center', gap: 5, padding: '6px 10px',
                         borderRadius: 7, border: cardBorder, background: cardBg, cursor: 'pointer',

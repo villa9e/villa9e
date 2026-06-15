@@ -8,58 +8,6 @@ import { CountdownOverlay } from '@/components/village/CountdownOverlay';
 
 const CATEGORIES = ['All', 'Business', 'Health', 'Education', 'Creative', 'Financial', 'Personal'];
 
-// Mock DNA templates until real ones are generated from completed goals
-const MOCK_TEMPLATES = [
-  {
-    id: '1', title: 'Launch a Freelance Business', category: 'Business', uses: 312,
-    probability_score: 78, estimated_weeks: 8, steps_count: 12, rating: 4.8,
-    creator: 'Amara W.', creator_score: 2340,
-    description: 'From zero to first paying client. Covers positioning, portfolio, outreach, and pricing.',
-    steps_preview: ['Define your niche and ideal client', 'Build a 3-project portfolio', 'Set up Stripe and contracts', 'Send 20 cold outreach messages'],
-    tags: ['freelance', 'income', 'business'],
-  },
-  {
-    id: '2', title: 'Get to 185 lbs (Muscle Cut)', category: 'Health', uses: 891,
-    probability_score: 82, estimated_weeks: 16, steps_count: 18, rating: 4.9,
-    creator: 'Marcus C.', creator_score: 1870,
-    description: 'Structured cut program. Includes meal prep, progressive overload, and weekly check-in protocol.',
-    steps_preview: ['Calculate TDEE and set calorie deficit', 'Build 4-day split training schedule', 'Meal prep Sunday + Wednesday', 'Weekly body measurements'],
-    tags: ['fitness', 'health', 'weight'],
-  },
-  {
-    id: '3', title: 'Publish My First Book', category: 'Creative', uses: 147,
-    probability_score: 71, estimated_weeks: 24, steps_count: 22, rating: 4.7,
-    creator: 'Zara O.', creator_score: 1120,
-    description: 'Outline to published. Covers daily writing, editing, ISBN, self-publishing vs agent route.',
-    steps_preview: ['Write detailed chapter outline', '1,000 words/day writing habit', 'Hire developmental editor', 'Submit to 10 literary agents OR self-publish'],
-    tags: ['writing', 'creative', 'publishing'],
-  },
-  {
-    id: '4', title: 'Pay Off $15k in Debt', category: 'Financial', uses: 2104,
-    probability_score: 85, estimated_weeks: 52, steps_count: 14, rating: 4.9,
-    creator: 'James R.', creator_score: 3200,
-    description: 'Debt snowball method. Budgeting, side hustle integration, automatic payments.',
-    steps_preview: ['List all debts smallest to largest', 'Cut 3 recurring subscriptions', 'Start $500/month debt payment', 'Find one side income stream'],
-    tags: ['finance', 'debt', 'money'],
-  },
-  {
-    id: '5', title: 'Learn Spanish in 6 Months', category: 'Education', uses: 436,
-    probability_score: 74, estimated_weeks: 26, steps_count: 16, rating: 4.6,
-    creator: 'Camila T.', creator_score: 890,
-    description: 'A1 to B1. Daily immersion schedule, speaking partner system, vocabulary spaced repetition.',
-    steps_preview: ['30 min Duolingo + Anki daily', 'Find a language exchange partner', 'Watch 1 Spanish show per week', 'Complete 2 italki sessions/month'],
-    tags: ['language', 'education', 'skills'],
-  },
-  {
-    id: '6', title: 'Build a Daily Meditation Practice', category: 'Personal', uses: 678,
-    probability_score: 88, estimated_weeks: 8, steps_count: 10, rating: 4.9,
-    creator: 'Spirit AI', creator_score: 9999,
-    description: 'Zero to 20 minutes daily. Progressive habit building with accountability check-ins.',
-    steps_preview: ['Start with 5 minutes every morning', 'Download Insight Timer or Waking Up', 'Journal 3 lines post-meditation', 'Find a sitting spot and protect it'],
-    tags: ['mindfulness', 'wellness', 'habits'],
-  },
-];
-
 export default function GoalDNAPage() {
   const [category, setCategory] = useState('All');
   const [search, setSearch] = useState('');
@@ -87,7 +35,7 @@ export default function GoalDNAPage() {
       .then(d => setTemplateStats(d.stats ?? {})).catch(() => {});
   }, []);
 
-  const templates = realTemplates.length > 0 ? realTemplates : MOCK_TEMPLATES;
+  const templates = realTemplates;
 
   // Real outcome data (from cloned goals) when available, else the
   // template's own estimates.
@@ -136,7 +84,7 @@ export default function GoalDNAPage() {
     }
 
     // Increment use_count
-    if (template.id && !MOCK_TEMPLATES.find(m => m.id === template.id)) {
+    if (template.id) {
       await supabase.from('goal_templates').update({ use_count: (template.use_count ?? 0) + 1 }).eq('id', template.id);
     }
 
@@ -307,7 +255,14 @@ export default function GoalDNAPage() {
         {filtered.length === 0 && (
           <div className="text-center py-12 text-gray-400">
             <p className="text-4xl mb-2">🧬</p>
-            <p>No blueprints found for "{search || category}"</p>
+            {templates.length === 0 ? (
+              <>
+                <p className="font-bold text-gray-600 mb-1">No blueprints yet</p>
+                <p className="text-sm">Complete a goal in the Workshop and share it as a template — you'll earn VLG and help other villagers start with a proven roadmap.</p>
+              </>
+            ) : (
+              <p>No blueprints found for "{search || category}"</p>
+            )}
           </div>
         )}
       </div>

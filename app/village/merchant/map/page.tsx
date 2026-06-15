@@ -2,17 +2,16 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createClient } from '@/lib/supabase/client';
 
-// ── Mock merchants ─────────────────────────────────────────────────────────────
-const MOCK_MERCHANTS = [
-  { id: 1, name: "Jade's Ceramics", category: 'Art & Design', lat: 37.7749, lng: -122.4194, distance: '0.2 mi', hours: 'Open until 6pm', verified: true, type: 'physical', rating: 4.9 },
-  { id: 2, name: 'Marcus Builds', category: 'Service', lat: 37.7780, lng: -122.4150, distance: '0.5 mi', hours: 'By appointment', verified: true, type: 'physical', rating: 5.0 },
-  { id: 3, name: 'Priya Yoga Studio', category: 'Health & Fitness', lat: 37.7720, lng: -122.4220, distance: '0.7 mi', hours: 'Open until 8pm', verified: false, type: 'physical', rating: 4.7 },
-  { id: 4, name: 'DJ Soleil Events', category: 'Events', lat: 37.7760, lng: -122.4100, distance: '0.9 mi', hours: 'By booking', verified: true, type: 'physical', rating: 4.8 },
-  { id: 5, name: 'River Runs Photography', category: 'Art & Design', lat: 37.7700, lng: -122.4160, distance: '1.1 mi', hours: 'Flexible', verified: false, type: 'online', rating: 4.6 },
-  { id: 6, name: 'Nova Eats Catering', category: 'Food & Beverage', lat: 37.7735, lng: -122.4250, distance: '0.6 mi', hours: 'Open until 9pm', verified: true, type: 'physical', rating: 4.8 },
-];
+function haversineMi(lat1: number, lng1: number, lat2: number, lng2: number) {
+  const R = 3958.8;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 
 const CATEGORIES = ['All','Nearby','Online','Art & Design','Health & Fitness','Food & Beverage','Service','Events','Verified'];
 
@@ -30,10 +29,48 @@ const MerchantMapLeaflet = dynamic(() => import('@/components/merchant/MerchantM
 
 export default function MerchantMapPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const supabase = createClient();
+  const [merchants, setMerchants] = useState<any[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<typeof MOCK_MERCHANTS[0] | null>(null);
+  const [selected, setSelected] = useState<any>(null);
+
+  useEffect(() => {
+    (async () => {
+      const { data: rows } = await (supabase as any)
+        .from('merchant_accounts')
+        .select('id, business_name, category, location_type, lat, lng, business_hours, is_verified, business_type, city, state')
+        .eq('status', 'active')
+        .limit(100);
+
+      let userLat: number | null = null;
+      let userLng: number | null = null;
+      try {
+        await new Promise<void>(res => {
+          navigator.geolocation.getCurrentPosition(pos => { userLat = pos.coords.latitude; userLng = pos.coords.longitude; res(); }, () => res(), { timeout: 3000 });
+        });
+      } catch {}
+
+      setMerchants((rows ?? []).map((r: any) => {
+        const dist = (userLat && userLng && r.lat && r.lng)
+          ? `${haversineMi(userLat, userLng, r.lat, r.lng).toFixed(1)} mi`
+          : r.city ? `${r.city}${r.state ? ', ' + r.state : ''}` : null;
+        return {
+          id: r.id,
+          name: r.business_name,
+          category: r.category ?? r.business_type ?? 'Other',
+          lat: r.lat,
+          lng: r.lng,
+          distance: dist,
+          hours: r.business_hours ?? null,
+          verified: r.is_verified,
+          type: r.location_type,
+          rating: null,
+        };
+      }));
+    })();
+  }, []);
 
   const pageBg = isNight ? '#1A1400' : '#FFFBF2';
   const heroBg = '#412402';
@@ -44,7 +81,7 @@ export default function MerchantMapPage() {
   const accent = '#EF9F27';
   const btnBg = '#BA7517';
 
-  const filtered = MOCK_MERCHANTS.filter(m => {
+  const filtered = merchants.filter(m => {
     if (activeFilter === 'Verified' && !m.verified) return false;
     if (activeFilter === 'Online' && m.type !== 'online') return false;
     if (activeFilter === 'Nearby') { /* show all in mock */ }
@@ -169,8 +206,7 @@ export default function MerchantMapPage() {
                     <span>{selected.distance}</span>
                     <span>·</span>
                     <span>{selected.hours}</span>
-                    <span>·</span>
-                    <span style={{ color: accent }}>★ {selected.rating}</span>
+                    {selected.rating != null && <><span>·</span><span style={{ color: accent }}>★ {selected.rating}</span></>}
                   </div>
                 </div>
               </div>
