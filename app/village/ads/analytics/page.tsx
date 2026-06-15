@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const A = {
@@ -19,30 +20,28 @@ const ALL_METRICS = [
 
 const BREAKDOWNS = ['Day', 'Week', 'Month', 'Placement', 'Age', 'Gender', 'Platform', 'Section', 'Geography'];
 
-const REPORT_DATA = [
-  { date: 'May 26', impressions: 18400, clicks: 512, spend: 82.40, cpm: 4.48, ctr: '2.78%' },
-  { date: 'May 27', impressions: 21200, clicks: 640, spend: 94.80, cpm: 4.47, ctr: '3.02%' },
-  { date: 'May 28', impressions: 19800, clicks: 590, spend: 88.20, cpm: 4.45, ctr: '2.98%' },
-  { date: 'May 29', impressions: 24600, clicks: 780, spend: 108.00, cpm: 4.39, ctr: '3.17%' },
-  { date: 'May 30', impressions: 22100, clicks: 694, spend: 97.40, cpm: 4.41, ctr: '3.14%' },
-  { date: 'May 31', impressions: 26800, clicks: 840, spend: 116.60, cpm: 4.35, ctr: '3.13%' },
-  { date: 'Jun 1',  impressions: 25200, clicks: 810, spend: 112.60, cpm: 4.47, ctr: '3.21%' },
-];
-
-// Funnel stages
-const FUNNEL = [
-  { label: 'Impressions',   value: 158100, pct: 100, dropoff: null },
-  { label: 'Visits',        value: 4842,   pct: 3.1,  dropoff: '96.9%' },
-  { label: 'Leads',         value: 628,    pct: 13.0, dropoff: '87.0%' },
-  { label: 'Purchases',     value: 94,     pct: 15.0, dropoff: '85.0%' },
-];
-
 export default function AnalyticsPage() {
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
+  const isNight = useVillageTheme(s => s.theme) === 'night';
   const c = isNight ? A.night : A.day;
+  const supabase = createClient();
   const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['Impressions', 'Clicks', 'Spend', 'CTR', 'CPM']);
   const [breakdown, setBreakdown] = useState('Day');
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      const { data } = await (supabase as any)
+        .from('ad_campaigns')
+        .select('id,name,objective,status,daily_budget,lifetime_budget,start_date,end_date,created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      setCampaigns(data ?? []);
+      setLoading(false);
+    })();
+  }, []);
 
   const toggleMetric = (m: string) => {
     setSelectedMetrics(p => p.includes(m) ? p.filter(x => x !== m) : [...p, m]);
@@ -98,74 +97,62 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* Right: Data + Funnel */}
+        {/* Right: Data */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Report table */}
+          {/* Campaign overview */}
           <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 14, overflow: 'hidden' }}>
             <div style={{ padding: '14px 20px', borderBottom: `1px solid ${c.border}`, fontWeight: 700, fontSize: 14 }}>
-              Report — {breakdown} breakdown
+              Campaigns — {breakdown} breakdown
             </div>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ borderBottom: `1px solid ${c.border}` }}>
-                    <th style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: c.textTer, whiteSpace: 'nowrap' }}>Date</th>
-                    {selectedMetrics.map(m => (
-                      <th key={m} style={{ padding: '10px 16px', textAlign: 'right', fontSize: 12, fontWeight: 700, color: c.textTer, whiteSpace: 'nowrap' }}>{m}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {REPORT_DATA.map((row) => (
-                    <tr key={row.date} style={{ borderBottom: `1px solid ${c.border}` }}
-                      onMouseEnter={e => (e.currentTarget.style.background = c.surface)}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                      <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{row.date}</td>
-                      {selectedMetrics.map(m => {
-                        const val: Record<string, unknown> = row;
-                        const key = m.toLowerCase().replace(/[^a-z]/g, '');
-                        const raw = val[key] ?? val[m.toLowerCase()] ?? '—';
-                        return (
-                          <td key={m} style={{ padding: '10px 16px', textAlign: 'right', fontSize: 13, color: c.textSec }}>
-                            {typeof raw === 'number' ? (m === 'Spend' ? `$${raw.toFixed(2)}` : raw.toLocaleString()) : String(raw)}
-                          </td>
-                        );
-                      })}
+            {loading ? (
+              <div style={{ padding: '32px 20px', textAlign: 'center', color: c.textTer, fontSize: 14 }}>Loading…</div>
+            ) : campaigns.length === 0 ? (
+              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                <div style={{ fontSize: 14, color: c.textSec, marginBottom: 12 }}>No campaigns yet. Analytics will appear once your first campaign delivers.</div>
+                <Link href="/village/ads/campaigns/create"
+                  style={{ display: 'inline-block', background: '#2952E8', color: '#fff', padding: '9px 20px', borderRadius: 8, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>
+                  Create campaign
+                </Link>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${c.border}` }}>
+                      {['Campaign', 'Objective', 'Status', 'Budget/day', 'Starts', 'Ends'].map(h => (
+                        <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 12, fontWeight: 700, color: c.textTer, whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {campaigns.map(cam => (
+                      <tr key={cam.id} style={{ borderBottom: `1px solid ${c.border}` }}
+                        onMouseEnter={e => (e.currentTarget.style.background = c.surface)}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                        <td style={{ padding: '10px 16px', fontSize: 13, fontWeight: 600 }}>{cam.name}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 12, color: c.textSec }}>{cam.objective?.replace('_', ' ')}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 12, color: c.textSec }}>{cam.status}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 13 }}>${Number(cam.daily_budget ?? 0).toFixed(2)}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 12, color: c.textSec }}>{cam.start_date ?? '—'}</td>
+                        <td style={{ padding: '10px 16px', fontSize: 12, color: c.textSec }}>{cam.end_date ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
-          {/* Funnel visualization */}
-          <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 14, overflow: 'hidden' }}>
-            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${c.border}`, fontWeight: 700, fontSize: 14 }}>Conversion funnel</div>
-            <div style={{ padding: '20px 24px' }}>
-              {FUNNEL.map((stage, i) => {
-                const barColor = ['#2952E8', '#7C3AED', '#0F766E', '#16A34A'][i];
-                return (
-                  <div key={stage.label} style={{ marginBottom: i < FUNNEL.length - 1 ? 8 : 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600 }}>{stage.label}</span>
-                      <span style={{ fontSize: 13, color: c.textSec }}>{stage.value.toLocaleString()}</span>
-                    </div>
-                    <div style={{ height: 28, background: c.surface, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
-                      <div style={{ height: '100%', width: `${stage.pct}%`, background: barColor, borderRadius: 6, transition: 'width 0.5s' }} />
-                      <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 11, color: c.textSec }}>
-                        {stage.pct}%
-                      </span>
-                    </div>
-                    {stage.dropoff && i < FUNNEL.length - 1 && (
-                      <div style={{ textAlign: 'center', fontSize: 11, color: '#EF4444', margin: '2px 0 4px' }}>
-                        {stage.dropoff} drop-off
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+          {/* Delivery data notice */}
+          {campaigns.length > 0 && (
+            <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 14, padding: '20px 24px' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>Delivery analytics</div>
+              <p style={{ fontSize: 13, color: c.textSec, margin: 0, lineHeight: 1.6 }}>
+                Impression, click, spend, and conversion data will appear here once your campaigns begin delivering.
+                Detailed {breakdown.toLowerCase()} breakdowns are automatically populated as your ads run.
+              </p>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { PavilionNav } from '@/components/pavilion/PavilionNav';
 
@@ -51,7 +52,9 @@ export default function HostEventPage() {
     return true;
   }
 
+  const supabase = createClient();
   const [published, setPublished] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   if (published) {
     return (
@@ -310,14 +313,33 @@ export default function HostEventPage() {
           </button>
         )}
         <button
-          onClick={() => {
-            if (step < STEPS.length - 1) setStep(s => s + 1);
-            else setPublished(true);
+          onClick={async () => {
+            if (step < STEPS.length - 1) { setStep(s => s + 1); return; }
+            setPublishing(true);
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const startISO = schedule.date && schedule.time
+                ? new Date(`${schedule.date}T${schedule.time}`).toISOString()
+                : null;
+              await (supabase as any).from('calendar_events').insert({
+                creator_id: user.id,
+                title: basics.name,
+                description: basics.description || null,
+                event_type: basics.eventType,
+                is_public: true,
+                start_time: startISO,
+                max_attendees: parseInt(schedule.capacity) || null,
+                ticket_price: ticketing.free ? 0 : parseFloat(ticketing.price) || null,
+                roles: speakers.filter(s => s.handle).map(s => ({ handle: s.handle, role: s.role })),
+              });
+            }
+            setPublishing(false);
+            setPublished(true);
           }}
-          disabled={!canAdvance()}
-          style={{ flex: 2, padding: '13px 0', borderRadius: 14, background: canAdvance() ? '#2952E8' : (isNight ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'), color: canAdvance() ? '#fff' : muted, fontWeight: 900, fontSize: 15, border: 'none', cursor: canAdvance() ? 'pointer' : 'not-allowed' }}
+          disabled={!canAdvance() || publishing}
+          style={{ flex: 2, padding: '13px 0', borderRadius: 14, background: canAdvance() && !publishing ? '#2952E8' : (isNight ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'), color: canAdvance() && !publishing ? '#fff' : muted, fontWeight: 900, fontSize: 15, border: 'none', cursor: canAdvance() && !publishing ? 'pointer' : 'not-allowed' }}
         >
-          {step < STEPS.length - 1 ? 'Continue' : 'Save + Publish'}
+          {step < STEPS.length - 1 ? 'Continue' : publishing ? 'Publishing…' : 'Save + Publish'}
         </button>
       </div>
 

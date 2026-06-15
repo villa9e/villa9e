@@ -1,6 +1,7 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
 const A = {
@@ -8,17 +9,17 @@ const A = {
   night: { bg: '#060F18', card: '#0E1E2E', border: '#1A3040', text: '#EEF4F8', textSec: '#8EB4CC', textTer: '#4A7A96', surface: '#091525', code: '#060F18' },
 };
 
-const PIXEL_ID = 'a3f8b2c91d4e5f60';
-
-const PIXEL_SNIPPET = `<!-- Village Pixel -->
+function buildSnippet(pixelId: string) {
+  return `<!-- Village Pixel -->
 <script>
 (function(v,i,l,g,e){v[g]=v[g]||function(){(v[g].q=v[g].q||[]).push(arguments)};
 var s=i.createElement('script');s.async=1;s.src=l;i.head.appendChild(s);
 })(window,document,'https://pixel.villa9e.com/v.js','vpixel');
-vpixel('init', '${PIXEL_ID}');
+vpixel('init', '${pixelId}');
 vpixel('track', 'PageView');
 </script>
 <!-- End Village Pixel -->`;
+}
 
 const STANDARD_EVENTS = [
   { name: 'PageView', desc: 'Fires automatically on page load' },
@@ -35,22 +36,33 @@ const STANDARD_EVENTS = [
 
 const INSTALL_TABS = ['HTML', 'WordPress', 'Shopify'];
 
-const TEST_EVENTS = [
-  { event: 'PageView', time: '2s ago', status: 'received' },
-  { event: 'ViewContent', time: '18s ago', status: 'received' },
-  { event: 'AddToCart', time: '1m ago', status: 'received' },
-];
-
 export default function PixelsPage() {
-  const { theme } = useVillageTheme();
-  const isNight = theme === 'night';
+  const isNight = useVillageTheme(s => s.theme) === 'night';
   const c = isNight ? A.night : A.day;
+  const supabase = createClient();
+  const [pixelId, setPixelId] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [installTab, setInstallTab] = useState('HTML');
-  const [testEvents, setTestEvents] = useState(TEST_EVENTS);
+  const [testEvents, setTestEvents] = useState<{ event: string; time: string; status: string }[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      let { data: px } = await (supabase as any).from('ad_pixels').select('pixel_id').eq('user_id', user.id).maybeSingle();
+      if (!px) {
+        const { data: created } = await (supabase as any).from('ad_pixels').insert({ user_id: user.id }).select('pixel_id').single();
+        px = created;
+      }
+      setPixelId(px?.pixel_id ?? null);
+    })();
+  }, []);
+
+  const snippet = pixelId ? buildSnippet(pixelId) : '';
 
   const copySnippet = () => {
-    navigator.clipboard.writeText(PIXEL_SNIPPET).then(() => {
+    if (!snippet) return;
+    navigator.clipboard.writeText(snippet).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -58,13 +70,13 @@ export default function PixelsPage() {
 
   const fireTestEvent = () => {
     const events = ['PageView', 'Lead', 'Purchase', 'Search'];
-    const evt = events[Math.floor(Math.random() * events.length)];
+    const evt = events[Math.floor(Date.now() / 1000) % events.length];
     setTestEvents(p => [{ event: evt, time: 'just now', status: 'received' }, ...p.slice(0, 4)]);
   };
 
   const INSTALL_CODE: Record<string, string> = {
     HTML: `Paste the snippet above inside <head> on every page of your website.`,
-    WordPress: `Install the "Village Pixel" WordPress plugin, then enter your Pixel ID:\n  ${PIXEL_ID}\nin the plugin settings under Village → Pixel Configuration.`,
+    WordPress: `Install the "Village Pixel" WordPress plugin, then enter your Pixel ID:\n  ${pixelId ?? '—'}\nin the plugin settings under Village → Pixel Configuration.`,
     Shopify: `Go to Shopify Admin → Online Store → Preferences → Additional scripts.\nPaste your Village Pixel snippet in the Order status page section.`,
   };
 
@@ -86,8 +98,8 @@ export default function PixelsPage() {
         <div style={{ background: c.card, border: `1px solid ${c.border}`, borderRadius: 14, padding: '20px 24px' }}>
           <div style={{ fontSize: 13, color: c.textSec, marginBottom: 4 }}>Your Pixel ID</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <code style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1 }}>{PIXEL_ID}</code>
-            <button onClick={() => navigator.clipboard.writeText(PIXEL_ID)}
+            <code style={{ fontSize: 22, fontWeight: 700, fontFamily: 'monospace', letterSpacing: 1 }}>{pixelId ?? '—'}</code>
+            <button onClick={() => pixelId && navigator.clipboard.writeText(pixelId)}
               style={{ background: c.surface, border: `1px solid ${c.border}`, borderRadius: 7, padding: '6px 12px', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: c.textSec }}>
               Copy ID
             </button>
@@ -112,7 +124,7 @@ export default function PixelsPage() {
           </div>
           <pre style={{ margin: 0, padding: '16px 20px', background: c.code, fontSize: 12, fontFamily: 'monospace',
             color: c.text, overflowX: 'auto', lineHeight: 1.6 }}>
-            {PIXEL_SNIPPET}
+            {snippet || 'Loading pixel…'}
           </pre>
         </div>
 
