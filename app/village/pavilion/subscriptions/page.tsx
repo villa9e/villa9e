@@ -1,18 +1,7 @@
 'use client';
-import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { PavilionNav } from '@/components/pavilion/PavilionNav';
-
-const MOCK_SUBS = [
-  { id: 's1', creator: 'Nia James', handle: 'niajames', tier: 'Creator Pass', price_usd: 9, next_billing: new Date(Date.now() + 12 * 86400000).toISOString(), color: '#BE185D' },
-  { id: 's2', creator: 'Spirit AI', handle: 'spiritai', tier: 'Village Member', price_usd: 0, next_billing: null, color: '#2952E8' },
-  { id: 's3', creator: 'Kwame A.', handle: 'devpath', tier: 'Dev Access', price_usd: 19, next_billing: new Date(Date.now() + 24 * 86400000).toISOString(), color: '#7C3AED' },
-];
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
 
 export default function SubscriptionsPage() {
   const { theme } = useVillageTheme();
@@ -34,53 +23,22 @@ export default function SubscriptionsPage() {
         <h1 style={{ flex: 1, fontSize: 18, fontWeight: 900, color: text, margin: 0 }}>My Subscriptions</h1>
       </div>
 
-      {/* Summary card */}
-      <div style={{ margin: '16px', padding: '16px', borderRadius: 18, background: isNight ? 'rgba(41,82,232,0.12)' : 'rgba(41,82,232,0.07)', border: `1px solid ${isNight ? 'rgba(41,82,232,0.3)' : 'rgba(41,82,232,0.2)'}` }}>
-        <p style={{ fontSize: 13, color: muted, marginBottom: 4 }}>Monthly spend</p>
-        <p style={{ fontSize: 28, fontWeight: 900, color: text }}>$28<span style={{ fontSize: 14, color: muted }}>/mo</span></p>
-        <p style={{ fontSize: 12, color: muted, marginTop: 4 }}>3 active subscriptions</p>
-      </div>
-
-      {/* List */}
-      <div style={{ padding: '0 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {MOCK_SUBS.map((s, i) => (
-          <motion.div
-            key={s.id}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            style={{ borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}
-          >
-            <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* Avatar */}
-              <div style={{ width: 48, height: 48, borderRadius: '50%', background: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 16, flexShrink: 0 }}>
-                {s.creator.charAt(0)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontWeight: 900, fontSize: 15, color: text, marginBottom: 2 }}>{s.creator}</p>
-                <p style={{ fontSize: 12, color: muted, marginBottom: 4 }}>{s.tier}</p>
-                {s.next_billing ? (
-                  <p style={{ fontSize: 11, color: muted }}>Next billing: <strong style={{ color: text }}>{formatDate(s.next_billing)}</strong></p>
-                ) : (
-                  <p style={{ fontSize: 11, color: '#059669', fontWeight: 700 }}>Free</p>
-                )}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-                <span style={{ fontSize: 15, fontWeight: 900, color: text }}>{s.price_usd === 0 ? 'Free' : `$${s.price_usd}/mo`}</span>
-                <button style={{ padding: '6px 14px', borderRadius: 20, background: isNight ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', color: text, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                  Manage
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
+      {/* Coming soon */}
+      <div style={{ margin: '16px', padding: '24px 16px', borderRadius: 18, background: isNight ? 'rgba(41,82,232,0.12)' : 'rgba(41,82,232,0.07)', border: `1px solid ${isNight ? 'rgba(41,82,232,0.3)' : 'rgba(41,82,232,0.2)'}`, textAlign: 'center' }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: 'rgba(41,82,232,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2952E8" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <p style={{ fontSize: 15, fontWeight: 900, color: text, margin: '0 0 6px' }}>Paid subscriptions launching soon</p>
+        <p style={{ fontSize: 12, color: muted, margin: 0, lineHeight: 1.6 }}>
+          Creator memberships and recurring access tiers aren't live yet. For now, all Pavilion content is free to watch.
+        </p>
       </div>
 
       {/* Browse more */}
-      <div style={{ padding: '20px 16px' }}>
+      <div style={{ padding: '4px 16px 20px' }}>
         <Link href="/village/pavilion/creators" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 0', borderRadius: 16, background: cardBg, border: `1px dashed ${border}`, color: '#2952E8', fontWeight: 800, fontSize: 14, textDecoration: 'none' }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-          Discover More Creators
+          Discover Creators
         </Link>
       </div>
 

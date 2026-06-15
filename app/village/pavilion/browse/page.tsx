@@ -1,28 +1,27 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { PavilionNav } from '@/components/pavilion/PavilionNav';
 
-const CATEGORIES = ['All', 'Documentary', 'Education', 'Business', 'Finance', 'Music', 'Art', 'Tech', 'Health'] as const;
-type Category = typeof CATEGORIES[number];
-
-const MOCK_CONTENT = [
-  { id: 'c1', title: 'Building a Business from $0', creator: 'niajames', duration: '1h 12m', category: 'Business', free: true, thumbnail_color: '#2952E8' },
-  { id: 'c2', title: 'Credit Score Mastery', creator: 'creditpro', duration: '48m', category: 'Finance', free: true, thumbnail_color: '#059669' },
-  { id: 'c3', title: 'The History of Black Wall Street', creator: 'village_archive', duration: '2h 04m', category: 'Documentary', free: true, thumbnail_color: '#7C3AED' },
-  { id: 'c4', title: 'Introduction to Web3 & DeFi', creator: 'web3village', duration: '56m', category: 'Tech', free: true, thumbnail_color: '#E8770A' },
-  { id: 'c5', title: 'Meditation for High Performers', creator: 'wellnessv', duration: '22m', category: 'Health', free: true, thumbnail_color: '#BE185D' },
-  { id: 'c6', title: 'Village Sessions: Live Jazz', creator: 'jazzvillage', duration: '1h 33m', category: 'Music', free: true, thumbnail_color: '#D4A030' },
-];
-
-function formatMins(dur: string) { return dur; }
+type ContentItem = {
+  id: string;
+  title: string;
+  creator: string;
+  duration: string;
+  category: string;
+  free: boolean;
+  thumbnail_color: string;
+};
 
 export default function BrowsePage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
-  const [activeCategory, setActiveCategory] = useState<Category>('All');
+  const [activeCategory, setActiveCategory] = useState('All');
+  const [items, setItems] = useState<ContentItem[]>([]);
+  const [categories, setCategories] = useState<string[]>(['All']);
+  const [loading, setLoading] = useState(true);
 
   const bg     = isNight ? '#080E24' : '#F0EFF8';
   const cardBg = isNight ? '#1A1830' : '#FFFFFF';
@@ -30,7 +29,15 @@ export default function BrowsePage() {
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
 
-  const filtered = activeCategory === 'All' ? MOCK_CONTENT : MOCK_CONTENT.filter(c => c.category === activeCategory);
+  useEffect(() => {
+    fetch('/api/pavilion/content').then(r => r.json()).then(d => {
+      setItems(d.items ?? []);
+      setCategories(d.categories ?? ['All']);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const filtered = activeCategory === 'All' ? items : items.filter(c => c.category === activeCategory);
 
   return (
     <div style={{ minHeight: '100vh', background: bg, paddingBottom: 80 }}>
@@ -47,7 +54,7 @@ export default function BrowsePage() {
         </div>
         {/* Category pills */}
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-          {CATEGORIES.map(c => (
+          {categories.map(c => (
             <button
               key={c}
               onClick={() => setActiveCategory(c)}
@@ -70,36 +77,47 @@ export default function BrowsePage() {
       </div>
 
       {/* Content grid */}
-      <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {filtered.map((item, i) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04 }}
-          >
-            <Link href={`/village/pavilion/watch/${item.id}`} style={{ display: 'block', borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}`, textDecoration: 'none' }}>
-              {/* Thumbnail */}
-              <div style={{ height: 110, background: `linear-gradient(135deg, ${item.thumbnail_color}35, ${item.thumbnail_color}15)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={item.thumbnail_color} strokeWidth={1.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
-                <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '2px 7px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{item.duration}</span>
+      {!loading && filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: muted }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" style={{ margin: '0 auto 12px', display: 'block' }}><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+          <p style={{ fontSize: 14 }}>No content yet. Check back soon.</p>
+        </div>
+      ) : (
+        <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {filtered.map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+            >
+              <Link href={`/village/pavilion/watch/${item.id}`} style={{ display: 'block', borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}`, textDecoration: 'none' }}>
+                {/* Thumbnail */}
+                <div style={{ height: 110, background: `linear-gradient(135deg, ${item.thumbnail_color}35, ${item.thumbnail_color}15)`, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={item.thumbnail_color} strokeWidth={1.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+                  {item.duration && (
+                    <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.6)', borderRadius: 8, padding: '2px 7px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{item.duration}</span>
+                    </div>
+                  )}
+                  {item.free && (
+                    <div style={{ position: 'absolute', top: 6, right: 8, background: '#059669', borderRadius: 8, padding: '2px 7px' }}>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>FREE</span>
+                    </div>
+                  )}
                 </div>
-                <div style={{ position: 'absolute', top: 6, right: 8, background: '#059669', borderRadius: 8, padding: '2px 7px' }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, color: '#fff' }}>FREE</span>
+                {/* Info */}
+                <div style={{ padding: '10px 12px' }}>
+                  <p style={{ fontWeight: 800, fontSize: 12, color: text, marginBottom: 3, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {item.title}
+                  </p>
+                  <p style={{ fontSize: 10, color: muted }}>@{item.creator}</p>
                 </div>
-              </div>
-              {/* Info */}
-              <div style={{ padding: '10px 12px' }}>
-                <p style={{ fontWeight: 800, fontSize: 12, color: text, marginBottom: 3, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                  {item.title}
-                </p>
-                <p style={{ fontSize: 10, color: muted }}>@{item.creator}</p>
-              </div>
-            </Link>
-          </motion.div>
-        ))}
-      </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       <PavilionNav active="learn" />
     </div>

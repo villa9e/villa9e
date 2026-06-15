@@ -1,18 +1,11 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { PavilionNav } from '@/components/pavilion/PavilionNav';
 
-const MOCK_CREATORS = [
-  { id: 'cr1', name: 'Spirit AI', handle: 'spiritai', subscribers: 12400, verified: true, color: '#2952E8', specialty: 'Wellness & Goals' },
-  { id: 'cr2', name: 'Nia James', handle: 'niajames', subscribers: 3280, verified: true, color: '#BE185D', specialty: 'Brand & Business' },
-  { id: 'cr3', name: 'Marcus T.', handle: 'marcust', subscribers: 1870, verified: false, color: '#059669', specialty: 'Finance & Credit' },
-  { id: 'cr4', name: 'DJ Village', handle: 'dj_village', subscribers: 940, verified: false, color: '#E8770A', specialty: 'Music & Arts' },
-  { id: 'cr5', name: 'Kwame A.', handle: 'devpath', subscribers: 4120, verified: true, color: '#7C3AED', specialty: 'Tech & Web3' },
-  { id: 'cr6', name: 'Priya S.', handle: 'priyas', subscribers: 2650, verified: false, color: '#D4A030', specialty: 'Health & Mindset' },
-];
+type Creator = { id: string; name: string; handle: string; posts: number; views: number; color: string };
 
 function fmt(n: number) {
   return n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
@@ -23,6 +16,8 @@ export default function CreatorsPage() {
   const isNight = theme === 'night';
   const [search, setSearch] = useState('');
   const [following, setFollowing] = useState<Set<string>>(new Set());
+  const [creators, setCreators] = useState<Creator[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const bg     = isNight ? '#080E24' : '#F0EFF8';
   const cardBg = isNight ? '#1A1830' : '#FFFFFF';
@@ -30,9 +25,13 @@ export default function CreatorsPage() {
   const text   = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted  = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
 
-  const filtered = MOCK_CREATORS.filter(c =>
-    !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.handle.includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    const params = search ? `?search=${encodeURIComponent(search)}` : '';
+    fetch(`/api/pavilion/creators${params}`).then(r => r.json()).then(d => {
+      setCreators(d.creators ?? []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [search]);
 
   function toggleFollow(id: string) {
     setFollowing(prev => {
@@ -65,47 +64,48 @@ export default function CreatorsPage() {
       </div>
 
       {/* Grid */}
-      <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        {filtered.map((cr, i) => (
-          <motion.div
-            key={cr.id}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            style={{ borderRadius: 18, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}
-          >
-            <Link href={`/village/pavilion/creators/${cr.handle}`} style={{ display: 'block', textDecoration: 'none' }}>
-              {/* Banner */}
-              <div style={{ height: 64, background: `linear-gradient(135deg, ${cr.color}40, ${cr.color}18)`, position: 'relative' }}>
-                {/* Avatar */}
-                <div style={{ position: 'absolute', bottom: -24, left: '50%', transform: 'translateX(-50%)', width: 48, height: 48, borderRadius: '50%', background: cr.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `3px solid ${cardBg}`, color: '#fff', fontWeight: 900, fontSize: 16 }}>
-                  {cr.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
-                  {cr.verified && (
-                    <div style={{ position: 'absolute', bottom: -2, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#2952E8', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${cardBg}` }}>
-                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-                    </div>
-                  )}
+      {!loading && creators.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: muted }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" style={{ margin: '0 auto 12px', display: 'block' }}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0116 0v1"/></svg>
+          <p style={{ fontSize: 14 }}>{search ? 'No creators match your search.' : 'No creators yet. Be the first to publish in Pavilion.'}</p>
+        </div>
+      ) : (
+        <div style={{ padding: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {creators.map((cr, i) => (
+            <motion.div
+              key={cr.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.05 }}
+              style={{ borderRadius: 18, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}
+            >
+              <Link href={`/village/pavilion/creators/${cr.handle}`} style={{ display: 'block', textDecoration: 'none' }}>
+                {/* Banner */}
+                <div style={{ height: 64, background: `linear-gradient(135deg, ${cr.color}40, ${cr.color}18)`, position: 'relative' }}>
+                  {/* Avatar */}
+                  <div style={{ position: 'absolute', bottom: -24, left: '50%', transform: 'translateX(-50%)', width: 48, height: 48, borderRadius: '50%', background: cr.color, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `3px solid ${cardBg}`, color: '#fff', fontWeight: 900, fontSize: 16 }}>
+                    {cr.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}
+                  </div>
                 </div>
-              </div>
-            </Link>
-
-            <div style={{ paddingTop: 28, paddingBottom: 12, paddingLeft: 12, paddingRight: 12, textAlign: 'center' }}>
-              <Link href={`/village/pavilion/creators/${cr.handle}`} style={{ textDecoration: 'none' }}>
-                <p style={{ fontWeight: 900, fontSize: 13, color: text, marginBottom: 2 }}>{cr.name}</p>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>@{cr.handle}</p>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 8 }}>{fmt(cr.subscribers)} subscribers</p>
-                <p style={{ fontSize: 10, color: cr.color, fontWeight: 700, marginBottom: 10 }}>{cr.specialty}</p>
               </Link>
-              <button
-                onClick={() => toggleFollow(cr.id)}
-                style={{ width: '100%', padding: '8px 0', borderRadius: 20, background: following.has(cr.id) ? (isNight ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)') : '#2952E8', color: following.has(cr.id) ? text : '#fff', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12 }}
-              >
-                {following.has(cr.id) ? 'Following' : 'Follow'}
-              </button>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+
+              <div style={{ paddingTop: 28, paddingBottom: 12, paddingLeft: 12, paddingRight: 12, textAlign: 'center' }}>
+                <Link href={`/village/pavilion/creators/${cr.handle}`} style={{ textDecoration: 'none' }}>
+                  <p style={{ fontWeight: 900, fontSize: 13, color: text, marginBottom: 2 }}>{cr.name}</p>
+                  <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>@{cr.handle}</p>
+                  <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>{cr.posts} {cr.posts === 1 ? 'post' : 'posts'} · {fmt(cr.views)} views</p>
+                </Link>
+                <button
+                  onClick={() => toggleFollow(cr.id)}
+                  style={{ width: '100%', padding: '8px 0', borderRadius: 20, background: following.has(cr.id) ? (isNight ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)') : '#2952E8', color: following.has(cr.id) ? text : '#fff', border: 'none', cursor: 'pointer', fontWeight: 800, fontSize: 12 }}
+                >
+                  {following.has(cr.id) ? 'Following' : 'Follow'}
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
 
       <PavilionNav active="home" />
     </div>

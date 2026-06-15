@@ -21,12 +21,6 @@ function Avatar({ name, size=40 }: { name:string; size?:number }) {
   );
 }
 
-const MOCK_STORES = [
-  { id:'s1', store_name:'The Growth Lab', tagline:'Business strategy and coaching for founders', product_types:['coaching','courses'], rating:4.8, follower_count:142, product_count:7, verified:true, profiles:{username:'growthlab', display_name:'Maya Kim'} },
-  { id:'s2', store_name:'DevPath Academy', tagline:'Full-stack engineering courses for career switchers', product_types:['courses','gig'], rating:4.6, follower_count:380, product_count:12, verified:false, profiles:{username:'devpath', display_name:'Kwame A.'} },
-  { id:'s3', store_name:'Legal Launchpad', tagline:'Contract templates and consulting for small businesses', product_types:['service','product'], rating:4.9, follower_count:89, product_count:5, verified:true, profiles:{username:'legallaunch', display_name:'Priya S.'} },
-];
-
 export default function MarketPage() {
   const supabase = createClient();
   const [stores, setStores]     = useState<any[]>([]);
@@ -37,7 +31,7 @@ export default function MarketPage() {
       const { data } = await (supabase as any).from('estores')
         .select('*,profiles(username,display_name)')
         .eq('status','active').order('follower_count',{ascending:false}).limit(20);
-      setStores(data && data.length > 0 ? data : MOCK_STORES);
+      setStores(data ?? []);
     })();
   }, []);
 
@@ -109,7 +103,7 @@ export default function MarketPage() {
         {filtered.length === 0 && (
           <div style={{ textAlign:'center', padding:'60px 0', color:muted }}>
             <p style={{ fontSize:32, marginBottom:8 }}>🏪</p>
-            <p style={{ fontSize:13 }}>No stores in this category yet.</p>
+            <p style={{ fontSize:13 }}>{filter === 'All' ? 'No stores yet.' : 'No stores in this category yet.'}</p>
             <Link href="/village/trading-post/market/create" style={{ display:'inline-block', marginTop:16, background:'var(--v-gold)', color:'#fff', borderRadius:20, padding:'10px 24px', fontSize:12, fontWeight:900, textDecoration:'none' }}>
               Open the First
             </Link>

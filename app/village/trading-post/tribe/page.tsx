@@ -20,34 +20,12 @@ function Avatar({ name, size=44 }: { name:string; size?:number }) {
   );
 }
 
-const MOCK = [
-  { id:'c1', display_name:'Marcus Brown', role:'investor',    context:'Matched on Meridian Solar', mutuals:3 },
-  { id:'c2', display_name:'Dr. Aisha Thompson', role:'founder', context:'Mutual connection with Sarah C.', mutuals:7 },
-  { id:'c3', display_name:'Priya Singh', role:'service pro', context:'Purchased Legal Launchpad service', mutuals:2 },
-  { id:'c4', display_name:'Jordan Cole', role:'advisor',     context:'Met at Pavilion Summit 2025', mutuals:12 },
-  { id:'c5', display_name:'Maya Kim', role:'founder',        context:'Purchased Growth Lab coaching', mutuals:5 },
-];
-
-const SUGGEST = [
-  { id:'s1', display_name:'Elena Vasquez', role:'investor', mutuals:8 },
-  { id:'s2', display_name:'Kwame Asante',  role:'founder',  mutuals:4 },
-  { id:'s3', display_name:'David Park',    role:'advisor',  mutuals:6 },
-];
-
-// Mock pending requests
-const MOCK_PENDING = [
-  { id:'p1', from_user_id:'u10', display_name:'Tariq Williams', role:'investor', context:'Matched on FleetOps deal', mutuals:3 },
-  { id:'p2', from_user_id:'u11', display_name:'Sofia Reyes',    role:'founder',  context:'Mutual connection: Jordan Cole', mutuals:5 },
-];
-
 // ── Pending Requests Panel ────────────────────────────────────────────────────
 interface PendingRequest {
   id: string;
-  from_user_id: string;
+  requester_id: string;
   display_name: string;
   role: string;
-  context: string;
-  mutuals: number;
 }
 
 function PendingPanel({ requests, onAccept, onDecline, onClose }: {
@@ -60,7 +38,6 @@ function PendingPanel({ requests, onAccept, onDecline, onClose }: {
   const card   = 'var(--v-card-bg)';
   const text   = 'var(--v-text)';
   const muted  = 'var(--v-text-muted)';
-  const sub    = 'var(--v-text-sub)';
 
   return (
     <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:50, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>
@@ -95,11 +72,7 @@ function PendingPanel({ requests, onAccept, onDecline, onClose }: {
                   <Avatar name={req.display_name} size={44} />
                   <div style={{ flex:1, minWidth:0 }}>
                     <p style={{ fontSize:14, fontWeight:700, color:text, margin:'0 0 2px' }}>{req.display_name}</p>
-                    <p style={{ fontSize:10, color:muted, margin:'0 0 4px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{req.context}</p>
-                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                      <span className={`pill ${ROLE_PILL[req.role]??'pill-blue'}`} style={{ fontSize:9, textTransform:'capitalize' }}>{req.role}</span>
-                      <span style={{ fontSize:10, color:sub }}>{req.mutuals} mutual</span>
-                    </div>
+                    <span className={`pill ${ROLE_PILL[req.role.toLowerCase()]??'pill-blue'}`} style={{ fontSize:9, textTransform:'capitalize' }}>{req.role}</span>
                   </div>
                 </div>
                 <div style={{ display:'flex', gap:8 }}>
@@ -128,8 +101,10 @@ export default function TribePage() {
   const [userId, setUserId]             = useState('');
   const [sending, setSending]           = useState<string|null>(null);
   const [sent, setSent]                 = useState<Set<string>>(new Set());
-  const [pendingReqs, setPendingReqs]   = useState<PendingRequest[]>(MOCK_PENDING);
+  const [pendingReqs, setPendingReqs]   = useState<PendingRequest[]>([]);
   const [showPending, setShowPending]   = useState(false);
+  const [suggestions, setSuggestions]   = useState<any[]>([]);
+  const [newThisWeek, setNewThisWeek]   = useState(0);
 
   const bg    = 'var(--v-bg)';
   const card  = 'var(--v-card-bg)';
@@ -141,41 +116,62 @@ export default function TribePage() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-        // Load accepted connections
-        const { data: conns } = await (supabase as any)
-          .from('connections')
-          .select('*,profiles!connections_to_user_id_fkey(username,display_name,personality_type)')
-          .eq('pending', false)
-          .limit(30);
-        setConnections(conns && conns.length > 0 ? conns : MOCK);
+      if (!user) return;
+      setUserId(user.id);
 
-        // Load pending incoming requests
-        const { data: reqs } = await (supabase as any)
-          .from('connections')
-          .select('*,profiles!connections_from_user_id_fkey(username,display_name)')
-          .eq('to_user_id', user.id)
-          .eq('pending', true);
-        if (reqs && reqs.length > 0) {
-          setPendingReqs(reqs.map((r: any) => ({
-            id: r.id,
-            from_user_id: r.from_user_id,
-            display_name: r.profiles?.display_name ?? r.profiles?.username ?? 'Villager',
-            role: 'member',
-            context: 'Connected through villa9e',
-            mutuals: 0,
-          })));
-        }
-      } else {
-        setConnections(MOCK);
-      }
+      // Load accepted connections (either direction)
+      const { data: conns } = await (supabase as any)
+        .from('connections')
+        .select('id,requester_id,addressee_id,created_at,requester:profiles!connections_requester_id_fkey(id,username,display_name,occupation,personality_type),addressee:profiles!connections_addressee_id_fkey(id,username,display_name,occupation,personality_type)')
+        .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`)
+        .eq('pending', false)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      const connList = (conns ?? []).map((c: any) => {
+        const isRequester = c.requester_id === user.id;
+        const other = isRequester ? c.addressee : c.requester;
+        return {
+          id: c.id,
+          userId: isRequester ? c.addressee_id : c.requester_id,
+          display_name: other?.display_name ?? other?.username ?? 'Villager',
+          role: other?.occupation ?? other?.personality_type ?? 'member',
+          created_at: c.created_at,
+        };
+      });
+      setConnections(connList);
+
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      setNewThisWeek(connList.filter((c: any) => new Date(c.created_at).getTime() >= weekAgo).length);
+
+      // Load pending incoming requests
+      const { data: reqs } = await (supabase as any)
+        .from('connections')
+        .select('id,requester_id,requester:profiles!connections_requester_id_fkey(username,display_name,occupation)')
+        .eq('addressee_id', user.id)
+        .eq('pending', true);
+      setPendingReqs((reqs ?? []).map((r: any) => ({
+        id: r.id,
+        requester_id: r.requester_id,
+        display_name: r.requester?.display_name ?? r.requester?.username ?? 'Villager',
+        role: r.requester?.occupation ?? 'member',
+      })));
+
+      // Suggestions: villagers not yet connected or pending
+      const exclude = new Set<string>([user.id, ...connList.map((c: any) => c.userId), ...(reqs ?? []).map((r: any) => r.requester_id)]);
+      const { data: sugg } = await (supabase as any)
+        .from('profiles')
+        .select('id,username,display_name,occupation')
+        .neq('id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(15);
+      setSuggestions((sugg ?? []).filter((p: any) => !exclude.has(p.id)).slice(0, 5));
     })();
   }, []);
 
   async function connect(id:string) {
     setSending(id);
-    await (supabase as any).from('connections').insert({ from_user_id: userId, to_user_id: id, pending: true }).catch(()=>{});
+    await (supabase as any).from('connections').insert({ requester_id: userId, addressee_id: id, pending: true }).catch(()=>{});
     setSent(s => new Set([...s, id]));
     setSending(null);
   }
@@ -183,7 +179,7 @@ export default function TribePage() {
   async function acceptRequest(req: PendingRequest) {
     await (supabase as any).from('connections').update({ pending: false }).eq('id', req.id).catch(()=>{});
     setPendingReqs(r => r.filter(x => x.id !== req.id));
-    setConnections(c => [...c, { id: req.from_user_id, display_name: req.display_name, role: req.role, context: req.context }]);
+    setConnections(c => [...c, { id: req.id, userId: req.requester_id, display_name: req.display_name, role: req.role, created_at: new Date().toISOString() }]);
   }
 
   async function declineRequest(req: PendingRequest) {
@@ -192,7 +188,7 @@ export default function TribePage() {
   }
 
   const filtered = filter === 'All' ? connections : connections.filter((c:any) => {
-    const role = c.role ?? c.profiles?.personality_type ?? '';
+    const role = c.role ?? '';
     return role.toLowerCase().includes(filter.toLowerCase().replace(' pro',''));
   });
 
@@ -213,7 +209,7 @@ export default function TribePage() {
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:6, padding:'12px 16px', borderBottom:`1px solid ${border}` }}>
         {[
           { value: connections.length, label:'Connections', color:text, onClick: undefined },
-          { value: 3, label:'New this week', color:'var(--v-success)', onClick: undefined },
+          { value: newThisWeek, label:'New this week', color:'var(--v-success)', onClick: undefined },
           { value: pendingReqs.length, label:'Pending', color:'var(--v-gold)', onClick: () => setShowPending(true) },
         ].map(s => (
           <div
@@ -247,31 +243,26 @@ export default function TribePage() {
           {filtered.length === 0 ? (
             <div style={{ padding:'32px 16px', textAlign:'center', color:muted }}>
               <p style={{ fontSize:24, marginBottom:8 }}>🤝</p>
-              <p style={{ fontSize:13 }}>No connections yet in this category.</p>
+              <p style={{ fontSize:13 }}>{connections.length === 0 ? 'No connections yet.' : 'No connections in this category yet.'}</p>
             </div>
           ) : filtered.map((c:any, i:number) => {
-            const name = c.display_name ?? c.profiles?.display_name ?? c.profiles?.username ?? 'Villager';
+            const name = c.display_name ?? 'Villager';
             const role = c.role ?? 'member';
-            const context = c.context ?? `Connected through villa9e`;
             return (
               <div key={c.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom: i < filtered.length-1 ? `1px solid ${border}` : 'none' }}>
-                <Link href={`/village/trading-post/tribe/${c.id ?? c.from_user_id ?? 'unknown'}`} style={{ textDecoration:'none', flexShrink:0 }}>
+                <Link href={`/village/trading-post/tribe/${c.userId}`} style={{ textDecoration:'none', flexShrink:0 }}>
                   <Avatar name={name} />
                 </Link>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <Link href={`/village/trading-post/tribe/${c.id ?? 'unknown'}`} style={{ textDecoration:'none' }}>
+                  <Link href={`/village/trading-post/tribe/${c.userId}`} style={{ textDecoration:'none' }}>
                     <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{name}</p>
                   </Link>
-                  <p style={{ fontSize:10, color:muted, margin:'0 0 4px', overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{context}</p>
-                  <span className={`pill ${ROLE_PILL[role]??'pill-blue'}`} style={{fontSize:9,textTransform:'capitalize'}}>{role}</span>
+                  <span className={`pill ${ROLE_PILL[role.toLowerCase()]??'pill-blue'}`} style={{fontSize:9,textTransform:'capitalize'}}>{role}</span>
                 </div>
                 <div style={{ display:'flex', gap:6 }}>
                   <Link href="/village/trading-post/office" style={{ width:32, height:32, borderRadius:16, background:'var(--v-gold-light)', display:'flex', alignItems:'center', justifyContent:'center', textDecoration:'none' }}>
                     <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--v-gold)" strokeWidth={2} strokeLinecap="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
                   </Link>
-                  <button style={{ width:32, height:32, borderRadius:16, background:'var(--v-bg-2)', border:'none', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
-                    <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke={sub} strokeWidth={2} strokeLinecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-                  </button>
                 </div>
               </div>
             );
@@ -281,19 +272,26 @@ export default function TribePage() {
         {/* Suggestions */}
         <p style={{ fontSize:10, fontWeight:900, color:sub, letterSpacing:'0.06em', marginBottom:10 }}>PEOPLE YOU MAY KNOW</p>
         <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, overflow:'hidden' }}>
-          {SUGGEST.map((s,i) => (
-            <div key={s.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom: i < SUGGEST.length-1 ? `1px solid ${border}` : 'none' }}>
-              <Avatar name={s.display_name} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{s.display_name}</p>
-                <p style={{ fontSize:10, color:muted, margin:0 }}>{s.mutuals} mutual connections · <span style={{textTransform:'capitalize'}}>{s.role}</span></p>
-              </div>
-              <button onClick={()=>connect(s.id)} disabled={sending===s.id||sent.has(s.id)}
-                style={{ padding:'6px 14px', borderRadius:20, border:`1px solid var(--v-gold)`, background:sent.has(s.id)?'var(--v-gold)':'transparent', color:sent.has(s.id)?'#fff':'var(--v-gold)', fontSize:11, fontWeight:900, cursor:'pointer' }}>
-                {sent.has(s.id) ? 'Sent' : sending===s.id ? '...' : 'Connect'}
-              </button>
+          {suggestions.length === 0 ? (
+            <div style={{ padding:'24px 16px', textAlign:'center', color:muted }}>
+              <p style={{ fontSize:13 }}>No suggestions right now.</p>
             </div>
-          ))}
+          ) : suggestions.map((s,i) => {
+            const name = s.display_name ?? s.username ?? 'Villager';
+            return (
+              <div key={s.id} style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom: i < suggestions.length-1 ? `1px solid ${border}` : 'none' }}>
+                <Avatar name={name} />
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{name}</p>
+                  {s.occupation && <p style={{ fontSize:10, color:muted, margin:0 }}>{s.occupation}</p>}
+                </div>
+                <button onClick={()=>connect(s.id)} disabled={sending===s.id||sent.has(s.id)}
+                  style={{ padding:'6px 14px', borderRadius:20, border:`1px solid var(--v-gold)`, background:sent.has(s.id)?'var(--v-gold)':'transparent', color:sent.has(s.id)?'#fff':'var(--v-gold)', fontSize:11, fontWeight:900, cursor:'pointer' }}>
+                  {sent.has(s.id) ? 'Sent' : sending===s.id ? '...' : 'Connect'}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </div>
 

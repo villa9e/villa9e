@@ -1,7 +1,8 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { PERMISSION_ID_TO_SHARE_KEY } from '@/lib/locker/constants';
 
 const L = {
   day:   { bg:'#F2FAF8', card:'#FFFFFF', border:'#D0EDE6', text:'#0A1F14', textSec:'#3A6A5A', textTer:'#7AA89A' },
@@ -168,10 +169,28 @@ export default function Permissions() {
   const [perms, setPerms] = useState<PermCategory[]>(INITIAL_PERMS);
   const [modal, setModal] = useState<PermCategory | null>(null);
   const [minimization, setMinimization] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/locker/preferences').then(r => r.json()).then(d => {
+      const prefs = d.preferences ?? {};
+      setPerms(prev => prev.map(p => ({ ...p, shared: !!prefs[PERMISSION_ID_TO_SHARE_KEY[p.id]] })));
+      setMinimization(!!prefs.data_minimization_mode);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  function patchPrefs(updates: Record<string, boolean>) {
+    fetch('/api/locker/preferences', {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    }).catch(() => {});
+  }
 
   function confirmShare() {
     if (!modal) return;
     setPerms(prev => prev.map(p => p.id === modal.id ? { ...p, shared:true } : p));
+    patchPrefs({ [PERMISSION_ID_TO_SHARE_KEY[modal.id]]: true });
     setModal(null);
   }
 
@@ -180,14 +199,22 @@ export default function Permissions() {
       setModal(cat);
     } else {
       setPerms(prev => prev.map(p => p.id === cat.id ? { ...p, shared:false } : p));
+      patchPrefs({ [PERMISSION_ID_TO_SHARE_KEY[cat.id]]: false });
     }
   }
 
   function shareAll() {
     setPerms(prev => prev.map(p => ({ ...p, shared:true })));
+    patchPrefs(Object.fromEntries(Object.values(PERMISSION_ID_TO_SHARE_KEY).map(k => [k, true])));
   }
   function lockAll() {
     setPerms(prev => prev.map(p => ({ ...p, shared:false })));
+    patchPrefs(Object.fromEntries(Object.values(PERMISSION_ID_TO_SHARE_KEY).map(k => [k, false])));
+  }
+  function toggleMinimization() {
+    const next = !minimization;
+    setMinimization(next);
+    patchPrefs({ data_minimization_mode: next });
   }
 
   return (
@@ -230,7 +257,7 @@ export default function Permissions() {
               <p style={{ fontSize:11, color:c.textSec, margin:0 }}>Spirit selects the optimal sharing config</p>
             </div>
             <button
-              onClick={() => setMinimization(v => !v)}
+              onClick={toggleMinimization}
               style={{ width:44, height:24, borderRadius:12, background:minimization?'#1D9E75':'#ccc', border:'none', cursor:'pointer', position:'relative', transition:'background 0.2s' }}
             >
               <div style={{ position:'absolute', top:2, left:minimization?22:2, width:20, height:20, borderRadius:'50%', background:'#fff', transition:'left 0.2s' }}/>
@@ -238,8 +265,12 @@ export default function Permissions() {
           </div>
         </div>
 
+        {loading && (
+          <div style={{ textAlign:'center', color:c.textTer, padding:'24px 0', fontSize:13 }}>Loading your permissions…</div>
+        )}
+
         {/* Per-category cards */}
-        {perms.map(cat => {
+        {!loading && perms.map(cat => {
           const s = cat.shared ? SHARED : LOCKED;
           return (
             <div key={cat.id} style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:16, marginBottom:12, overflow:'hidden' }}>

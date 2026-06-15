@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
@@ -8,63 +8,17 @@ import { PavilionNav } from '@/components/pavilion/PavilionNav';
 const FILTERS = ['All', 'Live Now', 'Tonight', 'This Week', 'Free', 'Paid'] as const;
 type Filter = typeof FILTERS[number];
 
-const MOCK_EVENTS = [
-  {
-    id: 'e1',
-    title: 'Goal GPS Live Workshop',
-    host: 'spiritai',
-    type: 'webinar',
-    status: 'live' as const,
-    viewers: 312,
-    price: 0,
-    starts_at: null,
-    color: '#2952E8',
-  },
-  {
-    id: 'e2',
-    title: 'Village Beats — Friday Night',
-    host: 'dj_village',
-    type: 'concert',
-    status: 'live' as const,
-    viewers: 189,
-    price: 0,
-    starts_at: null,
-    color: '#BE185D',
-  },
-  {
-    id: 'e3',
-    title: 'Brand Identity Masterclass',
-    host: 'niajames',
-    type: 'webinar',
-    status: 'upcoming' as const,
-    viewers: 47,
-    price: 0,
-    starts_at: new Date(Date.now() + 86400000).toISOString(),
-    color: '#7C3AED',
-  },
-  {
-    id: 'e4',
-    title: 'Village Jazz Night',
-    host: 'jazzvillage',
-    type: 'concert',
-    status: 'upcoming' as const,
-    viewers: 128,
-    price: 25,
-    starts_at: new Date(Date.now() + 172800000).toISOString(),
-    color: '#059669',
-  },
-  {
-    id: 'e5',
-    title: 'Credit Repair Blueprint',
-    host: 'creditpro',
-    type: 'webinar',
-    status: 'upcoming' as const,
-    viewers: 203,
-    price: 0,
-    starts_at: new Date(Date.now() + 259200000).toISOString(),
-    color: '#E8770A',
-  },
-];
+type EventItem = {
+  id: string;
+  title: string;
+  host: string;
+  type: string;
+  status: 'live' | 'upcoming';
+  viewers: number;
+  price: number;
+  starts_at: string | null;
+  color: string;
+};
 
 function formatDate(iso: string) {
   const d = new Date(iso);
@@ -75,6 +29,8 @@ export default function LiveEventsPage() {
   const { theme } = useVillageTheme();
   const isNight = theme === 'night';
   const [activeFilter, setActiveFilter] = useState<Filter>('All');
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const bg       = isNight ? '#080E24' : '#F0EFF8';
   const cardBg   = isNight ? '#1A1830' : '#FFFFFF';
@@ -82,7 +38,14 @@ export default function LiveEventsPage() {
   const text     = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted    = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
 
-  const filtered = MOCK_EVENTS.filter(e => {
+  useEffect(() => {
+    fetch('/api/pavilion/live').then(r => r.json()).then(d => {
+      setEvents(d.events ?? []);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const filtered = events.filter(e => {
     if (activeFilter === 'All') return true;
     if (activeFilter === 'Live Now') return e.status === 'live';
     if (activeFilter === 'Tonight') return e.status === 'upcoming' && e.starts_at && new Date(e.starts_at).getTime() - Date.now() < 86400000;
@@ -134,7 +97,12 @@ export default function LiveEventsPage() {
         {filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '60px 20px', color: muted }}>
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" style={{ margin: '0 auto 12px', display: 'block' }}><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-            <p style={{ fontSize: 14 }}>No events match this filter</p>
+            <p style={{ fontSize: 14 }}>{loading ? 'Loading…' : events.length === 0 ? 'No live or upcoming events yet.' : 'No events match this filter'}</p>
+            {!loading && events.length === 0 && (
+              <Link href="/village/pavilion/host" style={{ display: 'inline-block', marginTop: 12, color: '#2952E8', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+                Host the first event →
+              </Link>
+            )}
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

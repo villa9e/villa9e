@@ -10,8 +10,7 @@ interface VillagerProfile {
   id: string;
   display_name: string;
   username: string;
-  role?: string;
-  company?: string;
+  occupation?: string;
   bio?: string;
   verified?: boolean;
   credentials?: string[];
@@ -20,21 +19,6 @@ interface VillagerProfile {
   store_rating?: number;
   avatar_url?: string;
 }
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_PROFILE: VillagerProfile = {
-  id: 'mock',
-  display_name: 'Marcus Brown',
-  username: 'marcusbrown',
-  role: 'Investor',
-  company: 'Meridian Capital',
-  bio: 'Impact investor focused on clean energy and underserved communities. LP in 14 funds across North America. Building toward a $250M climate portfolio by 2030.',
-  verified: true,
-  credentials: ['Accredited Investor', 'SEC Verified', 'Village Pro'],
-  tribe_size: 87,
-  deals_active: 3,
-  store_rating: 4.9,
-};
 
 // ── Color tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -95,7 +79,7 @@ export default function TribeProfilePage() {
       // Load profile
       const { data: prof } = await (supabase as any)
         .from('profiles')
-        .select('id,display_name,username,role,company,bio,verified,avatar_url')
+        .select('id,display_name,username,occupation,bio,is_verified,avatar_url')
         .eq('id', targetId)
         .single();
 
@@ -107,11 +91,11 @@ export default function TribeProfilePage() {
           .eq('user_id', targetId)
           .eq('status','active');
 
-        // Load tribe size (connections count)
+        // Load tribe size (connections count, either direction)
         const { count: tribeCount } = await (supabase as any)
           .from('connections')
           .select('id', { count:'exact', head:true })
-          .eq('from_user_id', targetId)
+          .or(`requester_id.eq.${targetId},addressee_id.eq.${targetId}`)
           .eq('pending', false);
 
         // Load store rating
@@ -123,10 +107,11 @@ export default function TribeProfilePage() {
 
         setProfile({
           ...prof,
+          verified: prof.is_verified,
           tribe_size:   tribeCount ?? 0,
           deals_active: dealCount ?? 0,
           store_rating: store?.rating ?? null,
-          credentials:  prof.verified ? ['Accredited Investor', 'Village Pro'] : [],
+          credentials:  prof.is_verified ? ['Verified'] : [],
         });
 
         // Check if already connected
@@ -134,14 +119,13 @@ export default function TribeProfilePage() {
           const { data: conn } = await (supabase as any)
             .from('connections')
             .select('id')
-            .or(`and(from_user_id.eq.${user.id},to_user_id.eq.${targetId}),and(from_user_id.eq.${targetId},to_user_id.eq.${user.id})`)
+            .or(`and(requester_id.eq.${user.id},addressee_id.eq.${targetId}),and(requester_id.eq.${targetId},addressee_id.eq.${user.id})`)
             .eq('pending', false)
             .single();
           if (conn) setConnected(true);
         }
       } else {
-        // Fall back to mock
-        setProfile(MOCK_PROFILE);
+        setProfile(null);
       }
 
       setLoading(false);
@@ -151,7 +135,7 @@ export default function TribeProfilePage() {
   async function handleConnect() {
     if (!currentUserId || connected || connecting) return;
     setConnecting(true);
-    await (supabase as any).from('connections').insert({ from_user_id: currentUserId, to_user_id: targetId, pending: true }).catch(()=>{});
+    await (supabase as any).from('connections').insert({ requester_id: currentUserId, addressee_id: targetId, pending: true }).catch(()=>{});
     setConnecting(false);
     setConnected(true);
   }
@@ -220,9 +204,11 @@ export default function TribeProfilePage() {
               <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="var(--v-brand)" strokeWidth={2} strokeLinecap="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
             )}
           </div>
-          <p style={{ fontSize:13, color:C.muted, margin:'0 0 4px' }}>
-            {profile.role}{profile.company ? ` · ${profile.company}` : ''}
-          </p>
+          {profile.occupation && (
+            <p style={{ fontSize:13, color:C.muted, margin:'0 0 4px' }}>
+              {profile.occupation}
+            </p>
+          )}
           <p style={{ fontSize:11, color:C.sub, margin:0 }}>@{profile.username}</p>
         </div>
 

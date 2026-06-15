@@ -26,18 +26,6 @@ function Avatar({ name, size=44 }: { name:string; size?:number }) {
   );
 }
 
-const MOCK_STORE = {
-  id:'s1', store_name:'The Growth Lab', tagline:'Business strategy and coaching for founders', about:'Maya Kim is a business strategist with 12 years helping founders scale from zero to Series A. Trained at Harvard Business School, worked with 200+ companies across tech, consumer, and impact sectors. Currently focused on emerging market founders and underrepresented entrepreneurs.', verified:true, rating:4.8, follower_count:142, product_count:7,
-  profiles:{ display_name:'Maya Kim', username:'growthlab' },
-  product_types:['coaching','courses'],
-};
-
-const MOCK_PRODUCTS = [
-  { id:'p1', product_type:'coaching', name:'Founder Strategy Session', description:'90-minute one-on-one strategy session covering growth roadmap, fundraising narrative, and team structure.', price:350, cover_url:null, purchase_count:87, rating:4.9, metadata:{ duration:'90 min', format:'Video call', sessions:1 } },
-  { id:'p2', product_type:'coaching', name:'Monthly Advisory Retainer', description:'Four sessions per month plus async Slack access and document reviews for your team.', price:1800, price_label:'per month', cover_url:null, purchase_count:34, rating:5.0, metadata:{ duration:'4 sessions/mo', format:'Video + async', sessions:4 } },
-  { id:'p3', product_type:'course',   name:'From 0 to Pitch-Ready', description:'12-module video course covering idea validation, MVP scoping, investor narrative, and pitch deck construction.', price:297, cover_url:null, purchase_count:412, rating:4.7, metadata:{ modules:12, hours:8, format:'Video on demand' } },
-];
-
 export default function EStorePage() {
   const supabase = createClient();
   const { storeId } = useParams<{ storeId: string }>();
@@ -47,20 +35,28 @@ export default function EStorePage() {
   const [booking, setBooking] = useState<any>(null);
   const [selectedTime, setTime] = useState('');
   const [booked, setBooked]   = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
-      if (storeId.startsWith('s')) { setStore(MOCK_STORE); setProducts(MOCK_PRODUCTS); return; }
       const [{ data: s }, { data: p }] = await Promise.all([
         (supabase as any).from('estores').select('*,profiles(username,display_name)').eq('id',storeId).single(),
         (supabase as any).from('estore_products').select('*').eq('store_id',storeId).eq('status','active').order('purchase_count',{ascending:false}),
       ]);
       if (s) setStore(s);
       if (p) setProducts(p);
+      setLoading(false);
     })();
   }, [storeId]);
 
-  if (!store) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'var(--v-bg)' }}><p style={{ color:'var(--v-text-muted)' }}>Loading…</p></div>;
+  if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'var(--v-bg)' }}><p style={{ color:'var(--v-text-muted)' }}>Loading…</p></div>;
+
+  if (!store) return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100vh', background:'var(--v-bg)', gap:12, padding:20 }}>
+      <p style={{ fontSize:15, fontWeight:800, color:'var(--v-text)' }}>This store isn't available.</p>
+      <Link href="/village/trading-post/market" style={{ color:'var(--v-gold)', fontWeight:700, fontSize:13, textDecoration:'none' }}>Back to Market</Link>
+    </div>
+  );
 
   const card  = 'var(--v-card-bg)';
   const border= 'var(--v-card-border)';
@@ -116,17 +112,14 @@ export default function EStorePage() {
       </div>
 
       {/* Credentials section */}
-      {store.verified && (
+      {store.verified && (store.credentials?.length ?? 0) > 0 && (
         <div style={{ padding: '0 16px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <p style={{ fontSize: 10, fontWeight: 900, color: '#0D9488', letterSpacing: '0.06em' }}>VERIFIED CREDENTIALS</p>
             <Link href="/village/hut/verifications" style={{ fontSize: 11, color: 'var(--v-text-muted)', fontWeight: 700, textDecoration: 'none' }}>View all →</Link>
           </div>
-          {[
-            { type: 'Business License', issuer: 'State of California', date: 'Mar 2023' },
-            { type: 'Professional Certificate', issuer: 'Harvard Business School Online', date: 'Nov 2022' },
-          ].map(cred => (
-            <div key={cred.type} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
+          {(store.credentials as { type: string; issuer: string; date: string }[]).map((cred, i) => (
+            <div key={`${cred.type}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(13,148,136,0.06)', border: '1px solid rgba(13,148,136,0.2)', borderRadius: 12, padding: '10px 14px', marginBottom: 8 }}>
               <div style={{ width: 28, height: 28, borderRadius: 14, background: 'rgba(13,148,136,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#0D9488" strokeWidth={2.5} strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
               </div>
@@ -141,6 +134,11 @@ export default function EStorePage() {
       )}
 
       {/* Products by type */}
+      {products.length === 0 && (
+        <div style={{ padding:'0 16px', marginBottom:20 }}>
+          <p style={{ fontSize:13, color:muted, textAlign:'center', padding:'24px 0' }}>This store hasn't listed any products yet.</p>
+        </div>
+      )}
       {Object.entries(byType).map(([type, prods]:any) => {
         const tc = TYPE_COLOR[type] ?? { bg:'var(--v-bg-2)', text:muted, label:type.toUpperCase() };
         return (

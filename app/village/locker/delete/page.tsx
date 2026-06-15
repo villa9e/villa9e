@@ -1,7 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { createClient } from '@/lib/supabase/client';
+import { PERMISSION_ID_TO_SHARE_KEY } from '@/lib/locker/constants';
 
 const L = {
   day:   { bg:'#F2FAF8', card:'#FFFFFF', border:'#D0EDE6', text:'#0A1F14', textSec:'#3A6A5A', textTer:'#7AA89A' },
@@ -60,11 +62,50 @@ export default function Delete() {
   const [confirmHandle, setConfirmHandle] = useState('');
   const [deleteAllModal, setDeleteAllModal] = useState(false);
   const [allConfirmHandle, setAllConfirmHandle] = useState('');
-  const MOCK_HANDLE = '@yourhandle';
+  const [handle, setHandle] = useState('@yourhandle');
+  const [submitting, setSubmitting] = useState(false);
+  const [reference, setReference] = useState<string | null>(null);
+  const [allReference, setAllReference] = useState<string | null>(null);
 
-  function handleCatDelete(id: string) {
-    setDeleteModal(null);
-    // In production: trigger deletion API
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return;
+      const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).maybeSingle();
+      if (profile?.username) setHandle(`@${profile.username}`);
+    });
+  }, []);
+
+  async function handleCatDelete(id: string) {
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/locker/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'category', category: PERMISSION_ID_TO_SHARE_KEY[id] }),
+      });
+      const data = await res.json();
+      if (data.request?.reference_number) setReference(data.request.reference_number);
+    } finally {
+      setSubmitting(false);
+      setDeleteModal(null);
+      setConfirmHandle('');
+    }
+  }
+
+  async function handleDeleteAll() {
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/locker/delete', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scope: 'full_account' }),
+      });
+      const data = await res.json();
+      if (data.request?.reference_number) setAllReference(data.request.reference_number);
+    } finally {
+      setSubmitting(false);
+      setDeleteAllModal(false);
+      setAllConfirmHandle('');
+    }
   }
 
   return (
@@ -176,7 +217,7 @@ export default function Delete() {
             <p style={{ fontSize:12, color:c.textSec, margin:'0 0 8px' }}>Type your @handle to confirm:</p>
             <input
               type="text"
-              placeholder={MOCK_HANDLE}
+              placeholder={handle}
               value={confirmHandle}
               onChange={e => setConfirmHandle(e.target.value)}
               style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:`1px solid ${c.border}`, background:isNight?'#060F0D':'#fff', color:c.text, fontSize:13, marginBottom:14, outline:'none', boxSizing:'border-box' }}
@@ -184,15 +225,33 @@ export default function Delete() {
             <div style={{ display:'flex', gap:10 }}>
               <button
                 onClick={() => handleCatDelete(deleteModal)}
-                disabled={confirmHandle !== MOCK_HANDLE}
-                style={{ flex:2, background:confirmHandle===MOCK_HANDLE?'#CC3333':'transparent', border:'1px solid #CC3333', color:confirmHandle===MOCK_HANDLE?'#fff':'#CC3333', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:confirmHandle===MOCK_HANDLE?'pointer':'not-allowed', opacity:confirmHandle===MOCK_HANDLE?1:0.5 }}
+                disabled={confirmHandle !== handle || submitting}
+                style={{ flex:2, background:confirmHandle===handle?'#CC3333':'transparent', border:'1px solid #CC3333', color:confirmHandle===handle?'#fff':'#CC3333', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:confirmHandle===handle&&!submitting?'pointer':'not-allowed', opacity:confirmHandle===handle?1:0.5 }}
               >
-                Confirm deletion
+                {submitting ? 'Submitting…' : 'Confirm deletion'}
               </button>
               <button onClick={() => setDeleteModal(null)} style={{ flex:1, background:'transparent', border:`1px solid ${c.border}`, color:c.textSec, borderRadius:10, padding:'12px 0', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Category deletion reference */}
+      {reference && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:100 }}>
+          <div style={{ background:isNight?'#0C1A17':'#fff', borderRadius:'20px 20px 0 0', padding:24, width:'100%', maxWidth:480 }}>
+            <p style={{ fontWeight:800, fontSize:16, color:c.text, margin:'0 0 10px' }}>Deletion request received</p>
+            <p style={{ fontSize:13, color:c.textSec, margin:'0 0 14px', lineHeight:1.6 }}>
+              Your category will be removed within 30 days under GDPR Article 17. Keep this reference number for your records:
+            </p>
+            <div style={{ background:isNight?'#0A1810':'#F0FAF6', border:`1px solid ${c.border}`, borderRadius:10, padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
+              <p style={{ fontSize:16, fontWeight:800, color:'#1D9E75', margin:0, letterSpacing:1 }}>{reference}</p>
+            </div>
+            <button onClick={() => setReference(null)} style={{ width:'100%', background:'#1D9E75', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+              Done
+            </button>
           </div>
         </div>
       )}
@@ -208,22 +267,41 @@ export default function Delete() {
             <p style={{ fontSize:12, color:c.textSec, margin:'0 0 8px' }}>Type your @handle to confirm:</p>
             <input
               type="text"
-              placeholder={MOCK_HANDLE}
+              placeholder={handle}
               value={allConfirmHandle}
               onChange={e => setAllConfirmHandle(e.target.value)}
               style={{ width:'100%', padding:'11px 14px', borderRadius:10, border:'1px solid #CC3333', background:isNight?'#060F0D':'#fff', color:c.text, fontSize:13, marginBottom:14, outline:'none', boxSizing:'border-box' }}
             />
             <div style={{ display:'flex', gap:10 }}>
               <button
-                disabled={allConfirmHandle !== MOCK_HANDLE}
-                style={{ flex:2, background:allConfirmHandle===MOCK_HANDLE?'#CC3333':'transparent', border:'1px solid #CC3333', color:allConfirmHandle===MOCK_HANDLE?'#fff':'#CC3333', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:allConfirmHandle===MOCK_HANDLE?'pointer':'not-allowed', opacity:allConfirmHandle===MOCK_HANDLE?1:0.5 }}
+                onClick={handleDeleteAll}
+                disabled={allConfirmHandle !== handle || submitting}
+                style={{ flex:2, background:allConfirmHandle===handle?'#CC3333':'transparent', border:'1px solid #CC3333', color:allConfirmHandle===handle?'#fff':'#CC3333', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:allConfirmHandle===handle&&!submitting?'pointer':'not-allowed', opacity:allConfirmHandle===handle?1:0.5 }}
               >
-                Delete everything
+                {submitting ? 'Submitting…' : 'Delete everything'}
               </button>
               <button onClick={() => setDeleteAllModal(false)} style={{ flex:1, background:'transparent', border:`1px solid ${c.border}`, color:c.textSec, borderRadius:10, padding:'12px 0', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                 Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full account deletion reference */}
+      {allReference && (
+        <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.7)', display:'flex', alignItems:'flex-end', justifyContent:'center', zIndex:100 }}>
+          <div style={{ background:isNight?'#0C1A17':'#fff', borderRadius:'20px 20px 0 0', padding:24, width:'100%', maxWidth:480 }}>
+            <p style={{ fontWeight:800, fontSize:16, color:c.text, margin:'0 0 10px' }}>Account deletion requested</p>
+            <p style={{ fontSize:13, color:c.textSec, margin:'0 0 14px', lineHeight:1.6 }}>
+              Your entire account and all data will be permanently deleted within 30 days under GDPR Article 17. Keep this reference number for your records:
+            </p>
+            <div style={{ background:isNight?'#0A1810':'#F0FAF6', border:`1px solid ${c.border}`, borderRadius:10, padding:'12px 14px', marginBottom:16, textAlign:'center' }}>
+              <p style={{ fontSize:16, fontWeight:800, color:'#CC3333', margin:0, letterSpacing:1 }}>{allReference}</p>
+            </div>
+            <button onClick={() => setAllReference(null)} style={{ width:'100%', background:'#CC3333', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+              Done
+            </button>
           </div>
         </div>
       )}

@@ -217,7 +217,13 @@ export default function MyData() {
               </button>
             ))}
           </div>
-          <button style={{ width:'100%', background:'#1D9E75', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          <button
+            onClick={() => {
+              if (format === 'pdf') window.open('/api/locker/export?format=html', '_blank');
+              else window.location.href = `/api/locker/export?format=${format}`;
+            }}
+            style={{ width:'100%', background:'#1D9E75', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}
+          >
             Download as {format.toUpperCase()}
           </button>
         </div>

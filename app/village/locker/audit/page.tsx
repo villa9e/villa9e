@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 
@@ -23,65 +23,18 @@ type AuditEntry = {
   id: string;
   accessor: string;
   accessorType: 'platform' | 'buyer';
-  categories: string[];
+  category: string;
   purpose: string;
   legalBasis: string;
-  date: string;
-  time: string;
+  accessedAt: string;
 };
 
-const AUDIT_LOG: AuditEntry[] = [
-  {
-    id:'a1',
-    accessor:'Village content recommendation algorithm',
-    accessorType:'platform',
-    categories:['Goal Content Interests'],
-    purpose:'Personalize Workshop feed and Skill Stream recommendations',
-    legalBasis:'Platform operation',
-    date:'Jun 3, 2026',
-    time:'09:14 AM',
-  },
-  {
-    id:'a2',
-    accessor:'Spirit AI personalization engine',
-    accessorType:'platform',
-    categories:['Behavioral Patterns'],
-    purpose:'Personalize DreamLine content order and timing',
-    legalBasis:'Platform operation',
-    date:'Jun 2, 2026',
-    time:'07:42 PM',
-  },
-  {
-    id:'a3',
-    accessor:'Approved buyer: productivity software company',
-    accessorType:'buyer',
-    categories:['GPS Goals', 'Content Engagement'],
-    purpose:'Monthly behavioral dataset for UX research',
-    legalBasis:'User consent (Jun 1, 2026)',
-    date:'Jun 1, 2026',
-    time:'11:59 PM',
-  },
-  {
-    id:'a4',
-    accessor:'Village advertising system',
-    accessorType:'platform',
-    categories:['Commerce Behavior'],
-    purpose:'Serve targeted advertisements in Trading Post',
-    legalBasis:'User consent (May 28, 2026)',
-    date:'May 28, 2026',
-    time:'03:22 PM',
-  },
-  {
-    id:'a5',
-    accessor:'Spirit AI',
-    accessorType:'platform',
-    categories:['Goal Content Interests'],
-    purpose:'Personalize Skill Stream content recommendations',
-    legalBasis:'Platform operation',
-    date:'May 25, 2026',
-    time:'10:08 AM',
-  },
-];
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
 
 export default function AuditLog() {
   const { theme } = useVillageTheme();
@@ -89,11 +42,16 @@ export default function AuditLog() {
   const c = isNight ? L.night : L.day;
   const [typeFilter, setTypeFilter] = useState<'all'|'platform'|'buyer'>('all');
   const [catFilter, setCatFilter] = useState('all');
+  const [auditLog, setAuditLog] = useState<AuditEntry[] | null>(null);
 
-  const allCats = ['all', ...Array.from(new Set(AUDIT_LOG.flatMap(e => e.categories)))];
-  const filtered = AUDIT_LOG.filter(e => {
+  useEffect(() => {
+    fetch('/api/locker/audit').then(r => r.json()).then(d => setAuditLog(d.entries ?? [])).catch(() => setAuditLog([]));
+  }, []);
+
+  const allCats = ['all', ...Array.from(new Set((auditLog ?? []).map(e => e.category)))];
+  const filtered = (auditLog ?? []).filter(e => {
     if (typeFilter !== 'all' && e.accessorType !== typeFilter) return false;
-    if (catFilter !== 'all' && !e.categories.includes(catFilter)) return false;
+    if (catFilter !== 'all' && e.category !== catFilter) return false;
     return true;
   });
 
@@ -164,12 +122,15 @@ export default function AuditLog() {
         </div>
 
         {/* Audit entries */}
-        {filtered.map((entry, i) => (
+        {auditLog === null && (
+          <div style={{ textAlign:'center', color:c.textTer, padding:'24px 0', fontSize:13 }}>Loading…</div>
+        )}
+        {auditLog !== null && filtered.map((entry, i) => (
           <div key={entry.id} style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:16, marginBottom:10 }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
               <div style={{ flex:1 }}>
                 <p style={{ fontSize:13, fontWeight:700, color:c.text, margin:'0 0 2px' }}>{entry.accessor}</p>
-                <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{entry.date} at {entry.time}</p>
+                <p style={{ fontSize:11, color:c.textTer, margin:0 }}>{formatDate(entry.accessedAt)} at {formatTime(entry.accessedAt)}</p>
               </div>
               <span style={{
                 fontSize:10, fontWeight:700, padding:'3px 10px', borderRadius:20, marginLeft:8, whiteSpace:'nowrap',
@@ -182,11 +143,9 @@ export default function AuditLog() {
             </div>
 
             <div style={{ display:'flex', flexWrap:'wrap', gap:5, marginBottom:8 }}>
-              {entry.categories.map(cat => (
-                <span key={cat} style={{ background:isNight?'#0F2820':'#E8F5F0', border:`1px solid ${c.border}`, borderRadius:20, padding:'2px 8px', fontSize:11, color:c.textSec, fontWeight:600 }}>
-                  {cat}
-                </span>
-              ))}
+              <span style={{ background:isNight?'#0F2820':'#E8F5F0', border:`1px solid ${c.border}`, borderRadius:20, padding:'2px 8px', fontSize:11, color:c.textSec, fontWeight:600 }}>
+                {entry.category}
+              </span>
             </div>
 
             <p style={{ fontSize:12, color:c.textSec, margin:'0 0 6px', lineHeight:1.5 }}>
@@ -198,16 +157,18 @@ export default function AuditLog() {
           </div>
         ))}
 
-        {filtered.length === 0 && (
-          <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:24, textAlign:'center' }}>
-            <p style={{ color:c.textTer, fontSize:13, margin:0 }}>No entries match your filters.</p>
+        {auditLog !== null && filtered.length === 0 && (
+          <div style={{ background:c.card, border:`1px solid ${c.border}`, borderRadius:14, padding:24, textAlign:'center', marginBottom:16 }}>
+            <p style={{ color:c.textTer, fontSize:13, margin:0 }}>
+              {auditLog.length === 0 ? 'No data accesses recorded yet.' : 'No entries match your filters.'}
+            </p>
           </div>
         )}
 
         {/* Export button */}
-        <button style={{ width:'100%', background:'transparent', border:`1px solid ${c.border}`, color:'#1D9E75', borderRadius:12, padding:'12px 0', fontSize:13, fontWeight:700, cursor:'pointer', marginTop:4, marginBottom:16 }}>
-          Export audit log as PDF
-        </button>
+        <a href="/api/locker/export?format=html" target="_blank" rel="noopener noreferrer" style={{ display:'block', width:'100%', boxSizing:'border-box', textAlign:'center', textDecoration:'none', background:'transparent', border:`1px solid ${c.border}`, color:'#1D9E75', borderRadius:12, padding:'12px 0', fontSize:13, fontWeight:700, marginTop:4, marginBottom:16 }}>
+          Open full data export (save as PDF)
+        </a>
 
         {/* Statement */}
         <div style={{ background:isNight?'#0A1810':'#F0FAF6', border:`1px solid ${c.border}`, borderRadius:14, padding:16, marginBottom:8 }}>

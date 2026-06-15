@@ -1,13 +1,27 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { ViCoNav } from '@/components/vico/ViCoNav';
-import { MOCK_PROPOSALS, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/vico/mockData';
+import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/vico/constants';
+
+type Proposal = {
+  id: string;
+  vip_number: number;
+  title: string;
+  category: string;
+  display_status: string;
+  votes_for: number;
+  votes_against: number;
+  votes_abstain: number;
+  voting_ends_at: string;
+  execution_tx_hash: string | null;
+};
 
 type TabFilter = 'Active' | 'Passed' | 'Rejected' | 'All';
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
+  discussion: { bg: '#FFF3DC', text: '#BA7517' },
   active:   { bg: '#E8F7F1', text: '#1D9E75' },
   passed:   { bg: '#EEF1FE', text: '#534AB7' },
   rejected: { bg: '#FEE8E8', text: '#C0392B' },
@@ -15,6 +29,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 };
 
 const STATUS_NIGHT: Record<string, { bg: string; text: string }> = {
+  discussion: { bg: 'rgba(186,117,23,0.18)', text: '#E0B05C' },
   active:   { bg: 'rgba(29,158,117,0.15)', text: '#4CD4A0' },
   passed:   { bg: 'rgba(127,119,221,0.2)', text: '#A9A3F0' },
   rejected: { bg: 'rgba(226,75,74,0.15)',  text: '#F08080' },
@@ -26,7 +41,7 @@ function statusLabel(status: string) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
-function votePct(proposal: typeof MOCK_PROPOSALS[0]) {
+function votePct(proposal: Proposal) {
   const total = proposal.votes_for + proposal.votes_against + proposal.votes_abstain;
   if (total === 0) return { forPct: 0, againstPct: 0, total };
   return {
@@ -44,6 +59,7 @@ function daysUntil(dateStr: string) {
 export default function ProposalsPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
   const [tab, setTab] = useState<TabFilter>('Active');
+  const [proposals, setProposals] = useState<Proposal[] | null>(null);
 
   const pageBg    = isNight ? '#100E1E' : '#F8F7FF';
   const heroBg    = isNight ? '#1A1640' : '#26215C';
@@ -53,11 +69,15 @@ export default function ProposalsPage() {
   const textMuted     = isNight ? '#6B6490' : '#7B78A8';
   const tabActiveBg   = isNight ? '#7F77DD' : '#534AB7';
 
-  const filtered = MOCK_PROPOSALS.filter(p => {
+  useEffect(() => {
+    fetch('/api/vico/proposals').then(r => r.json()).then(d => setProposals(d.proposals ?? []));
+  }, []);
+
+  const filtered = (proposals ?? []).filter(p => {
     if (tab === 'All') return true;
-    if (tab === 'Active') return p.status === 'active';
-    if (tab === 'Passed') return p.status === 'passed' || p.status === 'executed';
-    if (tab === 'Rejected') return p.status === 'rejected';
+    if (tab === 'Active') return p.display_status === 'active' || p.display_status === 'discussion';
+    if (tab === 'Passed') return p.display_status === 'passed' || p.display_status === 'executed';
+    if (tab === 'Rejected') return p.display_status === 'rejected';
     return true;
   });
 
@@ -111,7 +131,10 @@ export default function ProposalsPage() {
 
         {/* Proposal cards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {filtered.length === 0 && (
+          {proposals === null && (
+            <div style={{ textAlign: 'center', color: textMuted, padding: '40px 0', fontSize: 14 }}>Loading…</div>
+          )}
+          {proposals !== null && filtered.length === 0 && (
             <div style={{ textAlign: 'center', color: textMuted, padding: '40px 0', fontSize: 14 }}>
               No proposals in this category yet.
             </div>
@@ -121,9 +144,9 @@ export default function ProposalsPage() {
             const catColor = CATEGORY_COLORS[proposal.category] ?? { bg: '#F0F0F0', text: '#666' };
             const catColorNight = { bg: `${catColor.text}22`, text: catColor.text };
             const statusColor = isNight
-              ? (STATUS_NIGHT[proposal.status] ?? { bg: '#333', text: '#aaa' })
-              : (STATUS_COLORS[proposal.status] ?? { bg: '#eee', text: '#666' });
-            const isActive = proposal.status === 'active';
+              ? (STATUS_NIGHT[proposal.display_status] ?? { bg: '#333', text: '#aaa' })
+              : (STATUS_COLORS[proposal.display_status] ?? { bg: '#eee', text: '#666' });
+            const isActive = proposal.display_status === 'active';
 
             return (
               <Link
@@ -156,7 +179,7 @@ export default function ProposalsPage() {
                       padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
                       background: statusColor.bg, color: statusColor.text,
                     }}>
-                      {statusLabel(proposal.status)}
+                      {statusLabel(proposal.display_status)}
                     </span>
                   </div>
 
@@ -183,7 +206,12 @@ export default function ProposalsPage() {
                       Ends in {daysUntil(proposal.voting_ends_at)} days
                     </div>
                   )}
-                  {(proposal.status === 'passed' || proposal.status === 'executed') && (proposal as any).execution_tx_hash && (
+                  {proposal.display_status === 'discussion' && (
+                    <div style={{ fontSize: 11, color: textMuted, marginTop: 4 }}>
+                      Voting opens in {daysUntil(proposal.voting_ends_at) - 7 > 0 ? daysUntil(proposal.voting_ends_at) - 7 : 0} days
+                    </div>
+                  )}
+                  {(proposal.display_status === 'passed' || proposal.display_status === 'executed') && proposal.execution_tx_hash && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
                       <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />

@@ -42,7 +42,7 @@ export default function TradingPostHub() {
     (async () => {
       const [{ data: s }, { data: c }] = await Promise.all([
         (supabase as any).from('estores').select('id,store_name,tagline,product_types,user_id,profiles(username)').eq('status','active').order('follower_count',{ascending:false}).limit(3),
-        (supabase as any).from('connections').select('id,profiles!connections_to_user_id_fkey(username,display_name)').limit(8),
+        (supabase as any).from('connections').select('id,profiles!connections_addressee_id_fkey(username,display_name)').eq('pending', false).limit(8),
       ]);
       setStores(s ?? []);
       setConnections(c ?? []);

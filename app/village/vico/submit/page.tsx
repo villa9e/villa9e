@@ -1,12 +1,10 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { ViCoNav } from '@/components/vico/ViCoNav';
-
-const MOCK_USER_STAKED = 5000;
-const REQUIRED_STAKE   = 10000;
-const NEXT_VIP         = 'VIP-004';
+import { GOVERNANCE_RULES } from '@/lib/vico/constants';
 
 const CATEGORIES = [
   { value: 'earnings',       label: 'Earnings Rate' },
@@ -46,6 +44,7 @@ const CATEGORY_PLACEHOLDERS: Record<string, { desc: string; exec: string }> = {
 
 export default function SubmitProposalPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const router = useRouter();
 
   const pageBg    = isNight ? '#100E1E' : '#F8F7FF';
   const heroBg    = isNight ? '#1A1640' : '#26215C';
@@ -58,21 +57,46 @@ export default function SubmitProposalPage() {
   const inputBorder   = `1px solid ${isNight ? '#3C3870' : '#DDDAF8'}`;
   const btnBg         = isNight ? '#7F77DD' : '#534AB7';
 
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+  const [userStaked, setUserStaked] = useState(0);
+  const [nextVip, setNextVip] = useState<number | null>(null);
+
   const [category, setCategory] = useState('');
-  const [title, setTitle]       = useState(NEXT_VIP + ': ');
+  const [title, setTitle]       = useState('');
   const [description, setDesc]  = useState('');
   const [execPlan, setExecPlan] = useState('');
   const [url, setUrl]           = useState('');
   const [preview, setPreview]   = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const needsMoreStake = MOCK_USER_STAKED < REQUIRED_STAKE;
-  const stakeShortfall = REQUIRED_STAKE - MOCK_USER_STAKED;
+  useEffect(() => {
+    fetch('/api/vico/overview').then(r => r.json()).then(d => {
+      setSignedIn(!!d.governance);
+      setUserStaked(Number(d.governance?.staked_vico ?? 0));
+    });
+    fetch('/api/vico/proposals').then(r => r.json()).then(d => {
+      const max = (d.proposals ?? []).reduce((m: number, p: any) => Math.max(m, p.vip_number ?? 0), 0);
+      setNextVip(max + 1);
+    });
+  }, []);
+
+  const nextVipLabel = nextVip !== null ? `VIP-${String(nextVip).padStart(3, '0')}` : 'VIP-???';
+
+  useEffect(() => {
+    if (nextVip !== null && title === '') {
+      setTitle(`${nextVipLabel}: `);
+    }
+  }, [nextVip]);
+
+  const needsMoreStake = userStaked < GOVERNANCE_RULES.MIN_STAKE_TO_PROPOSE;
+  const stakeShortfall = GOVERNANCE_RULES.MIN_STAKE_TO_PROPOSE - userStaked;
 
   const placeholders = category ? CATEGORY_PLACEHOLDERS[category] : CATEGORY_PLACEHOLDERS.other;
   const descOk   = description.trim().length >= 100;
   const execOk   = execPlan.trim().length > 0;
   const formOk   = category && title.trim().length > 10 && descOk && execOk;
-  const canSubmit = formOk && !needsMoreStake;
+  const canSubmit = formOk && !needsMoreStake && signedIn;
 
   const inputStyle = {
     width: '100%', borderRadius: 8, border: inputBorder,
@@ -80,6 +104,35 @@ export default function SubmitProposalPage() {
     padding: '10px 12px', boxSizing: 'border-box' as const,
     fontFamily: 'inherit', outline: 'none',
   };
+
+  async function handleSubmit() {
+    if (!canSubmit || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await fetch('/api/vico/proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          category,
+          description: description.trim(),
+          execution_plan: execPlan.trim(),
+          supporting_url: url.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSubmitError(data.error || 'Failed to submit proposal');
+        return;
+      }
+      router.push(`/village/vico/proposals/${data.proposal.id}`);
+    } catch {
+      setSubmitError('Failed to submit proposal');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, paddingBottom: 80 }}>
@@ -98,51 +151,74 @@ export default function SubmitProposalPage() {
         </div>
         <div style={{ color: 'white', fontSize: 22, fontWeight: 800 }}>Submit a Proposal</div>
         <div style={{ color: 'rgba(196,192,255,0.7)', fontSize: 12, marginTop: 4 }}>
-          Next VIP number: <strong style={{ color: 'white' }}>{NEXT_VIP}</strong>
+          Next VIP number: <strong style={{ color: 'white' }}>{nextVipLabel}</strong>
         </div>
       </div>
 
       <div style={{ padding: '16px' }}>
         <ViCoNav />
 
+        {signedIn === false && (
+          <div style={{
+            background: isNight ? 'rgba(127,119,221,0.1)' : '#EEEDFE',
+            border: `1px solid ${isNight ? '#3C3470' : '#C8C3F4'}`,
+            borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: isNight ? '#C4C0FF' : '#3C3489', marginBottom: 4 }}>
+              Sign in to submit a proposal
+            </div>
+            <div style={{ fontSize: 11, color: textMuted, lineHeight: 1.5, marginBottom: 8 }}>
+              You need a Village account with {GOVERNANCE_RULES.MIN_STAKE_TO_PROPOSE.toLocaleString()}+ $VICO staked to submit a VIP.
+            </div>
+            <Link href="/login" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              fontSize: 11, fontWeight: 700, color: '#7F77DD', textDecoration: 'none',
+            }}>
+              Sign In →
+            </Link>
+          </div>
+        )}
+
         {/* Eligibility check */}
-        <div style={{
-          background: needsMoreStake
-            ? (isNight ? 'rgba(226,75,74,0.1)' : '#FEF0EE')
-            : (isNight ? 'rgba(29,158,117,0.12)' : '#E8F7F1'),
-          border: `1px solid ${needsMoreStake ? '#E24B4A44' : '#1D9E7544'}`,
-          borderRadius: 12, padding: '14px 16px', marginBottom: 16,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
-              stroke={needsMoreStake ? '#E24B4A' : '#1D9E75'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              {needsMoreStake
-                ? <><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></>
-                : <polyline points="20 6 9 17 4 12"/>
-              }
-            </svg>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: needsMoreStake ? '#E24B4A' : '#1D9E75', marginBottom: 2 }}>
-                {needsMoreStake ? 'Not yet eligible to submit' : 'Eligible to submit'}
-              </div>
-              <div style={{ fontSize: 11, color: textMuted, lineHeight: 1.5 }}>
-                Your stake: <strong>{MOCK_USER_STAKED.toLocaleString()} $VICO</strong>
+        {signedIn && (
+          <div style={{
+            background: needsMoreStake
+              ? (isNight ? 'rgba(226,75,74,0.1)' : '#FEF0EE')
+              : (isNight ? 'rgba(29,158,117,0.12)' : '#E8F7F1'),
+            border: `1px solid ${needsMoreStake ? '#E24B4A44' : '#1D9E7544'}`,
+            borderRadius: 12, padding: '14px 16px', marginBottom: 16,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <svg width={18} height={18} viewBox="0 0 24 24" fill="none"
+                stroke={needsMoreStake ? '#E24B4A' : '#1D9E75'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {needsMoreStake
-                  ? ` · Need ${stakeShortfall.toLocaleString()} more $VICO to reach 10,000 minimum`
-                  : ` · Meets 10,000 $VICO requirement`
+                  ? <><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></>
+                  : <polyline points="20 6 9 17 4 12"/>
                 }
+              </svg>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: needsMoreStake ? '#E24B4A' : '#1D9E75', marginBottom: 2 }}>
+                  {needsMoreStake ? 'Not yet eligible to submit' : 'Eligible to submit'}
+                </div>
+                <div style={{ fontSize: 11, color: textMuted, lineHeight: 1.5 }}>
+                  Your stake: <strong>{userStaked.toLocaleString()} $VICO</strong>
+                  {needsMoreStake
+                    ? ` · Need ${stakeShortfall.toLocaleString()} more $VICO to reach ${GOVERNANCE_RULES.MIN_STAKE_TO_PROPOSE.toLocaleString()} minimum`
+                    : ` · Meets ${GOVERNANCE_RULES.MIN_STAKE_TO_PROPOSE.toLocaleString()} $VICO requirement`
+                  }
+                </div>
               </div>
             </div>
+            {needsMoreStake && (
+              <Link href="/village/bank/blockchain" style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 10,
+                fontSize: 11, fontWeight: 700, color: '#E24B4A', textDecoration: 'none',
+              }}>
+                Stake more $VICO at the Bank →
+              </Link>
+            )}
           </div>
-          {needsMoreStake && (
-            <Link href="/village/bank/blockchain" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 10,
-              fontSize: 11, fontWeight: 700, color: '#E24B4A', textDecoration: 'none',
-            }}>
-              Stake more $VICO at the Bank →
-            </Link>
-          )}
-        </div>
+        )}
 
         {/* Form */}
         {!preview ? (
@@ -173,11 +249,11 @@ export default function SubmitProposalPage() {
                 type="text"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
-                placeholder={`${NEXT_VIP}: Your proposal title`}
+                placeholder={`${nextVipLabel}: Your proposal title`}
                 style={inputStyle}
               />
               <div style={{ fontSize: 10, color: textMuted, marginTop: 6 }}>
-                VIP number is auto-populated. Keep the title concise and descriptive.
+                VIP number is auto-assigned on submission. Keep the title concise and descriptive.
               </div>
             </div>
 
@@ -231,6 +307,10 @@ export default function SubmitProposalPage() {
               />
             </div>
 
+            {submitError && (
+              <div style={{ fontSize: 12, color: '#E24B4A', textAlign: 'center' }}>{submitError}</div>
+            )}
+
             {/* Actions */}
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -247,17 +327,21 @@ export default function SubmitProposalPage() {
                 Preview
               </button>
               <button
-                disabled={!canSubmit}
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting}
                 style={{
                   flex: 2, padding: '13px', borderRadius: 10, border: 'none',
                   background: canSubmit ? btnBg : (isNight ? '#2A2640' : '#D8D5F0'),
                   color: canSubmit ? 'white' : textMuted,
-                  fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed',
+                  fontSize: 13, fontWeight: 700, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
+                  opacity: submitting ? 0.7 : 1,
                 }}
               >
-                {needsMoreStake
-                  ? `Need ${stakeShortfall.toLocaleString()} more $VICO to submit`
-                  : 'Submit Proposal'
+                {submitting
+                  ? 'Submitting…'
+                  : needsMoreStake
+                    ? `Need ${stakeShortfall.toLocaleString()} more $VICO to submit`
+                    : 'Submit Proposal'
                 }
               </button>
             </div>
@@ -274,13 +358,17 @@ export default function SubmitProposalPage() {
             </div>
 
             <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px', marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: textSecondary, fontWeight: 700, marginBottom: 6 }}>{NEXT_VIP} · {category}</div>
+              <div style={{ fontSize: 11, color: textSecondary, fontWeight: 700, marginBottom: 6 }}>{nextVipLabel} · {category}</div>
               <div style={{ fontSize: 16, fontWeight: 800, color: textPrimary, marginBottom: 12 }}>{title}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: textSecondary, marginBottom: 6 }}>Description</div>
               <div style={{ fontSize: 13, color: textPrimary, lineHeight: 1.65, marginBottom: 14 }}>{description}</div>
               <div style={{ fontSize: 12, fontWeight: 700, color: textSecondary, marginBottom: 6 }}>Execution Plan</div>
               <div style={{ fontSize: 13, color: textPrimary, lineHeight: 1.65 }}>{execPlan}</div>
             </div>
+
+            {submitError && (
+              <div style={{ fontSize: 12, color: '#E24B4A', textAlign: 'center', marginBottom: 14 }}>{submitError}</div>
+            )}
 
             <div style={{ display: 'flex', gap: 10 }}>
               <button
@@ -295,17 +383,21 @@ export default function SubmitProposalPage() {
                 Edit
               </button>
               <button
-                disabled={!canSubmit}
+                onClick={handleSubmit}
+                disabled={!canSubmit || submitting}
                 style={{
                   flex: 2, padding: '13px', borderRadius: 10, border: 'none',
                   background: canSubmit ? btnBg : (isNight ? '#2A2640' : '#D8D5F0'),
                   color: canSubmit ? 'white' : textMuted,
-                  fontSize: 13, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed',
+                  fontSize: 13, fontWeight: 700, cursor: canSubmit && !submitting ? 'pointer' : 'not-allowed',
+                  opacity: submitting ? 0.7 : 1,
                 }}
               >
-                {needsMoreStake
-                  ? `Need ${stakeShortfall.toLocaleString()} more $VICO`
-                  : 'Submit Proposal'
+                {submitting
+                  ? 'Submitting…'
+                  : needsMoreStake
+                    ? `Need ${stakeShortfall.toLocaleString()} more $VICO`
+                    : 'Submit Proposal'
                 }
               </button>
             </div>

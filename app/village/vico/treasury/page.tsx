@@ -1,35 +1,63 @@
 'use client';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { ViCoNav } from '@/components/vico/ViCoNav';
-import { MOCK_TREASURY_TRANSACTIONS, MOCK_SUPPLY } from '@/lib/vico/mockData';
 
-const ALLOCATIONS = [
-  { label: 'Community Grants',      amount: 1200000, color: '#534AB7', pct: 55.9 },
-  { label: 'Staking Rewards Reserve', amount: 648320, color: '#1D9E75', pct: 30.2 },
-  { label: 'Liquidity',              amount: 300000,  color: '#BA7517', pct: 14.0 },
-];
-const TOTAL_TREASURY = 2148320;
+type Allocation = { label: string; amount: number; pct: number; color: string };
+type Transaction = {
+  id: string;
+  transaction_type: string;
+  description: string;
+  amount: number;
+  direction: 'in' | 'out';
+  created_at: string;
+};
+type TreasuryData = {
+  total_treasury: number;
+  total_treasury_usd: number;
+  allocations: Allocation[];
+  transactions: Transaction[];
+  supply: { total: number; circulating: number; burned: number; community_pool: number; price_usd: number };
+};
 
-function daysAgoLabel(days: number) {
-  if (days === 0) return 'Today';
+function timeAgo(dateStr: string) {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const hrs = Math.floor(ms / (1000 * 60 * 60));
+  if (hrs < 1) return 'Just now';
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hrs / 24);
   if (days === 1) return '1 day ago';
-  if (days === 7) return '1 week ago';
-  if (days === 14) return '2 weeks ago';
-  return `${days} days ago`;
+  if (days < 7) return `${days} days ago`;
+  const weeks = Math.floor(days / 7);
+  if (weeks === 1) return '1 week ago';
+  return `${weeks} weeks ago`;
 }
 
 export default function TreasuryPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
+  const [data, setData] = useState<TreasuryData | null>(null);
 
   const pageBg    = isNight ? '#100E1E' : '#F8F7FF';
   const heroBg    = '#085041'; // always deep teal
   const cardBg    = isNight ? '#1C1830' : '#FFFFFF';
   const cardBorder = isNight ? '0.5px solid #2E2A4A' : '0.5px solid #DDDAF8';
   const textPrimary   = isNight ? '#E8E4FF' : '#1A1640';
-  const textSecondary = isNight ? '#9B96C8' : '#534AB7';
   const textMuted     = isNight ? '#6B6490' : '#7B78A8';
-  const supply = MOCK_SUPPLY;
+
+  useEffect(() => {
+    fetch('/api/vico/treasury').then(r => r.json()).then(setData);
+  }, []);
+
+  if (!data) {
+    return (
+      <div style={{ minHeight: '100vh', background: pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: textMuted, fontSize: 13 }}>Loading treasury…</div>
+      </div>
+    );
+  }
+
+  const { total_treasury, allocations, transactions, supply } = data;
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, paddingBottom: 80 }}>
@@ -58,10 +86,10 @@ export default function TreasuryPage() {
             VICO TREASURY
           </span>
           <div style={{ color: 'white', fontSize: 30, fontWeight: 800, letterSpacing: -0.5 }}>
-            ${(TOTAL_TREASURY / 1e6).toFixed(3).replace(/\.?0+$/, '')}M
+            {(total_treasury / 1e6).toFixed(2)}M $VICO
           </div>
           <div style={{ color: 'rgba(180,230,210,0.8)', fontSize: 13, marginTop: 2 }}>
-            {TOTAL_TREASURY.toLocaleString()} $VICO · Updated 3 hrs ago
+            {total_treasury.toLocaleString()} $VICO · ${(data.total_treasury_usd / 1e6).toFixed(2)}M
           </div>
         </div>
       </div>
@@ -73,7 +101,7 @@ export default function TreasuryPage() {
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px', marginBottom: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary, marginBottom: 14 }}>Allocation</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {ALLOCATIONS.map(alloc => (
+            {allocations.map(alloc => (
               <div key={alloc.label}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -96,12 +124,15 @@ export default function TreasuryPage() {
         {/* Recent transactions */}
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px', marginBottom: 14 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary, marginBottom: 12 }}>Recent Transactions</div>
+          {transactions.length === 0 && (
+            <div style={{ textAlign: 'center', color: textMuted, fontSize: 12, padding: '12px 0' }}>No transactions yet.</div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {MOCK_TREASURY_TRANSACTIONS.map((txn, i) => (
+            {transactions.map((txn, i) => (
               <div key={txn.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '12px 0',
-                borderBottom: i < MOCK_TREASURY_TRANSACTIONS.length - 1
+                borderBottom: i < transactions.length - 1
                   ? (isNight ? '0.5px solid #2E2A4A' : '0.5px solid #EEEDFE')
                   : 'none',
               }}>
@@ -123,7 +154,7 @@ export default function TreasuryPage() {
                   </div>
                   <div>
                     <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary, lineHeight: 1.3 }}>{txn.description}</div>
-                    <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{daysAgoLabel(txn.days_ago)}</div>
+                    <div style={{ fontSize: 10, color: textMuted, marginTop: 2 }}>{timeAgo(txn.created_at)}</div>
                   </div>
                 </div>
                 <div style={{
@@ -131,7 +162,7 @@ export default function TreasuryPage() {
                   color: txn.direction === 'in' ? '#1D9E75' : '#E24B4A',
                   textAlign: 'right', flexShrink: 0,
                 }}>
-                  {txn.direction === 'in' ? '+' : '-'}{txn.amount.toLocaleString()}
+                  {txn.direction === 'in' ? '+' : '-'}{Number(txn.amount).toLocaleString()}
                 </div>
               </div>
             ))}
@@ -144,9 +175,9 @@ export default function TreasuryPage() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             {[
               { label: 'Total Supply',      value: `${(supply.total / 1e6).toFixed(0)}M $VICO`,       color: textPrimary },
-              { label: 'Circulating',       value: `${(supply.circulating / 1e6).toFixed(1)}M $VICO`, color: '#7F77DD'   },
-              { label: 'Burned',            value: `${(supply.burned / 1e6).toFixed(1)}M $VICO`,      color: '#E24B4A'   },
-              { label: 'Community Pool',    value: `${(supply.community_pool / 1e6).toFixed(1)}M $VICO`, color: '#1D9E75' },
+              { label: 'Circulating',       value: `${(supply.circulating / 1e6).toFixed(2)}M $VICO`, color: '#7F77DD'   },
+              { label: 'Burned',            value: `${(supply.burned / 1e6).toFixed(2)}M $VICO`,      color: '#E24B4A'   },
+              { label: 'Community Pool',    value: `${(supply.community_pool / 1e6).toFixed(2)}M $VICO`, color: '#1D9E75' },
             ].map(item => (
               <div key={item.label} style={{
                 background: isNight ? 'rgba(255,255,255,0.04)' : '#F8F7FF',
@@ -159,7 +190,7 @@ export default function TreasuryPage() {
           </div>
           <div style={{ marginTop: 12, padding: '10px 12px', borderRadius: 8, background: isNight ? 'rgba(127,119,221,0.1)' : '#EEEDFE' }}>
             <div style={{ fontSize: 11, color: isNight ? '#9B96C8' : '#534AB7', lineHeight: 1.55 }}>
-              10% of weekly ad revenue is burned. Staking rewards draw from the reserve. Community pool distributes over Year 2–4.
+              $VICO mints automatically as members earn $VLG. Burns shrink total supply; community grants draw down the Community Pool.
             </div>
           </div>
         </div>

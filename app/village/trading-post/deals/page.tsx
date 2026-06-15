@@ -21,18 +21,6 @@ interface Deal {
   profiles?: { username: string; display_name: string };
 }
 
-// ── Mock deals for when DB is empty ──────────────────────────────────────────
-const MOCK_DEALS: Deal[] = [
-  { id: 'm1', name: 'Meridian Solar Grid', hook: 'First solar microgrid network serving underbanked rural communities — 10,000 homes, 12% projected IRR.', industry: 'Energy', deal_type: 'Equity', seeking: 'LP', raise_amount: 2500000, deal_length: '7 years', elevator_pitch: 'We deploy modular solar microgrids in rural markets where utility infrastructure is absent or unreliable. Each grid serves 200–400 homes, operates on a subscription model, and is managed by local co-op operators we train and certify. We have 3 operating sites with 18-month positive cash flow history.', view_count: 312, match_count: 14, profiles: { username: 'solargrid', display_name: 'Marcus B.' } },
-  { id: 'm2', name: 'Nara Health Platform', hook: 'AI-powered preventive care for underserved communities. $4B TAM, 22% month-over-month growth.', industry: 'Healthcare', deal_type: 'Convertible Note', seeking: 'Accredited', raise_amount: 750000, deal_length: '18 months', elevator_pitch: 'Nara pairs community health workers with an AI triage platform to catch chronic disease early in communities that rarely see a primary care physician. We reduce ER visits by 38% per enrolled member and generate $280 PMPM in value-based care contracts.', view_count: 188, match_count: 9, profiles: { username: 'narahealth', display_name: 'Dr. Aisha T.' } },
-  { id: 'm3', name: 'FleetOps Logistics', hook: 'SaaS for independent truckers — $40B fragmented market, $180 MRR per truck, 94% retention.', industry: 'Technology', deal_type: 'Revenue Share', seeking: 'Family Office', raise_amount: 1200000, deal_length: '5 years', elevator_pitch: 'FleetOps gives independent owner-operators the dispatch, compliance, and invoicing tools that used to require a fleet manager. 2,200 active trucks. We take 2.5% of invoiced revenue. Net revenue retention is 118%.', view_count: 241, match_count: 6, profiles: { username: 'fleetops', display_name: 'Jordan C.' } },
-];
-
-const MOCK_MY_DEALS: Deal[] = [
-  { id: 'my1', name: 'Meridian Solar Grid', hook: 'First solar microgrid network.', industry: 'Energy', deal_type: 'Equity', seeking: 'LP', raise_amount: 2500000, deal_length: '7 years', elevator_pitch: '', view_count: 312, match_count: 14 },
-  { id: 'my2', name: 'BlockTrust Protocol', hook: 'Decentralized escrow for real estate.', industry: 'FinTech', deal_type: 'SAFE', seeking: 'Accredited', raise_amount: 500000, deal_length: '24 months', elevator_pitch: '', view_count: 97, match_count: 3 },
-];
-
 // ── Color tokens ──────────────────────────────────────────────────────────────
 const C = {
   bg:     'var(--v-bg)',
@@ -280,15 +268,14 @@ function MyDealsTab({ userId }: { userId: string }) {
       if (userId) {
         const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: Deal[] | null }> } } })
           .from('investor_deals').select('*').eq('user_id', userId);
-        if (data && data.length > 0) setMyDeals(data);
-        else setMyDeals(MOCK_MY_DEALS);
+        setMyDeals(data ?? []);
 
         const { data: swipes } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => Promise<{ data: { direction: string }[] | null }> } } })
           .from('deal_swipes').select('direction').eq('direction', 'pass');
-        setTotalPasses(swipes?.length ?? 5);
+        setTotalPasses(swipes?.length ?? 0);
       } else {
-        setMyDeals(MOCK_MY_DEALS);
-        setTotalPasses(5);
+        setMyDeals([]);
+        setTotalPasses(0);
       }
     })();
   }, [userId]);
@@ -397,8 +384,7 @@ export default function DealsPage() {
 
       const { data } = await (supabase as unknown as { from: (t: string) => { select: (c: string) => { eq: (k: string, v: string) => { order: (k: string, o: object) => { limit: (n: number) => Promise<{ data: Deal[] | null }> } } } } })
         .from('investor_deals').select('*,profiles(username,display_name)').eq('status','active').order('created_at',{ascending:false}).limit(20);
-      if (data && data.length > 0) setDeals(data);
-      else setDeals(MOCK_DEALS);
+      setDeals(data ?? []);
     })();
   }, []);
 
@@ -421,7 +407,7 @@ export default function DealsPage() {
 
     if (dir === 'match') {
       setMatched(deal);
-      if (userId && !deal.id.startsWith('m')) {
+      if (userId) {
         await (supabase as unknown as { from: (t: string) => { insert: (d: unknown) => Promise<unknown> } }).from('deal_swipes').insert({ deal_id: deal.id, investor_id: userId, direction: 'match' }).catch(() => {});
       }
       setTimeout(() => setMatched(null), 2000);
@@ -488,10 +474,10 @@ export default function DealsPage() {
               <div style={{ textAlign: 'center', padding: '60px 20px', color: C.muted }}>
                 <p style={{ fontSize: 40, marginBottom: 12 }}>🎯</p>
                 <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 8 }}>
-                  {hasActiveFilters ? 'No deals match your filters' : 'You reviewed all current deals'}
+                  {hasActiveFilters ? 'No deals match your filters' : deals.length === 0 ? 'No deals yet' : 'You reviewed all current deals'}
                 </p>
                 <p style={{ fontSize: 12, lineHeight: 1.6, marginBottom: 20 }}>
-                  {hasActiveFilters ? 'Try adjusting your filters to see more deals.' : 'Check back soon — new deals are added daily.'}
+                  {hasActiveFilters ? 'Try adjusting your filters to see more deals.' : deals.length === 0 ? 'Be the first to list an investment opportunity in the Village.' : 'Check back soon — new deals are added daily.'}
                 </p>
                 {hasActiveFilters ? (
                   <button onClick={() => { setFilters({ industry:'All', dealType:'All', minInvestment:'Any', geography:'All' }); setCurrentIdx(0); setEmpty(false); }}

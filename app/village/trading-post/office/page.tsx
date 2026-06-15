@@ -14,16 +14,7 @@ function Avatar({ name, size=36 }: { name:string; size?:number }) {
   );
 }
 
-const MOCK_MEETINGS = [
-  { id:'m1', title:'Strategy Session — Meridian Solar', scheduled_at: new Date(Date.now()+2*3600000).toISOString(), duration_min:45, status:'scheduled', attendee_names:['Marcus B.'] },
-  { id:'m2', title:'Growth Lab Coaching Call', scheduled_at: new Date(Date.now()+26*3600000).toISOString(), duration_min:60, status:'scheduled', attendee_names:['Maya Kim'] },
-];
-
-const MOCK_THREADS = [
-  { id:'t1', name:'Marcus Brown', preview:'Looking forward to the session tomorrow...', ts: new Date(Date.now()-1800000).toISOString(), unread:2, context:'Matched on Meridian Solar' },
-  { id:'t2', name:'Dr. Aisha Thompson', preview:'I sent over the pitch deck revision', ts: new Date(Date.now()-3*3600000).toISOString(), unread:0, context:'Nara Health deal' },
-  { id:'t3', name:'Maya Kim', preview:'Your session notes are ready in Spaces', ts: new Date(Date.now()-24*3600000).toISOString(), unread:0, context:'Growth Lab coaching' },
-];
+const DURATIONS = [15, 30, 45, 60, 90];
 
 function fmtTime(iso:string) {
   const d = new Date(iso);
@@ -44,13 +35,21 @@ function fmtAgo(iso:string) {
 
 export default function OfficePage() {
   const supabase = createClient();
-  const [meetings, setMeetings]   = useState<any[]>(MOCK_MEETINGS);
-  const [threads, setThreads]     = useState<any[]>(MOCK_THREADS);
+  const [meetings, setMeetings]   = useState<any[]>([]);
+  const [threads, setThreads]     = useState<any[]>([]);
   const [activeThread, setThread] = useState<any>(null);
   const [messages, setMessages]   = useState<{role:'me'|'them';text:string;ts:string}[]>([]);
   const [input, setInput]         = useState('');
   const [showNewMtg, setNewMtg]   = useState(false);
-  const [syncItems, setSyncItems] = useState(3);
+  const [userId, setUserId]       = useState('');
+  const [loaded, setLoaded]       = useState(false);
+
+  // New meeting form
+  const [mtgTitle, setMtgTitle]       = useState('');
+  const [mtgWhen, setMtgWhen]         = useState('');
+  const [mtgDuration, setMtgDuration] = useState(30);
+  const [creating, setCreating]       = useState(false);
+
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const bg    = 'var(--v-bg)';
@@ -60,23 +59,48 @@ export default function OfficePage() {
   const muted = 'var(--v-text-muted)';
   const sub   = 'var(--v-text-sub)';
 
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+
+      const [mtgRes, threadsRes] = await Promise.all([
+        user
+          ? (supabase as any).from('office_meetings').select('*')
+              .eq('creator_id', user.id)
+              .eq('status', 'scheduled')
+              .gte('scheduled_at', new Date().toISOString())
+              .order('scheduled_at', { ascending: true })
+              .limit(10)
+          : Promise.resolve({ data: [] }),
+        fetch('/api/office/threads').then(r => r.ok ? r.json() : { threads: [] }).catch(() => ({ threads: [] })),
+      ]);
+
+      setMeetings(mtgRes.data ?? []);
+      setThreads(threadsRes.threads ?? []);
+      setLoaded(true);
+    })();
+  }, []);
+
   async function openThread(t:any) {
-    const label = t.context_label ?? t.context ?? null;
-    setThread({ ...t, context_label: label });
-    // Load real messages from API
+    const other = t.participants?.[0];
+    const name = other?.display_name ?? other?.username ?? 'Villager';
+    setThread({ ...t, name });
     try {
       const res = await fetch(`/api/office/messages?thread_id=${t.id}`);
       if (res.ok) {
         const data = await res.json();
         const msgs = (data.messages ?? []).map((m: any) => ({
-          role: m.sender_id === t._currentUserId ? 'me' : 'them' as 'me'|'them',
+          role: m.sender_id === userId ? 'me' as const : 'them' as const,
           text: m.content,
           ts: m.created_at,
         }));
-        setMessages(msgs.length > 0 ? msgs : [{ role: 'them' as const, text: t.last_message_preview ?? t.preview ?? 'Start a conversation', ts: t.last_message_at ?? new Date().toISOString() }]);
+        setMessages(msgs);
+      } else {
+        setMessages([]);
       }
     } catch {
-      setMessages([{ role: 'them' as const, text: t.last_message_preview ?? t.preview ?? '', ts: new Date().toISOString() }]);
+      setMessages([]);
     }
   }
 
@@ -86,11 +110,28 @@ export default function OfficePage() {
     setInput('');
     setMessages(m => [...m, { role:'me' as const, text, ts: new Date().toISOString() }]);
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior:'smooth' }), 50);
-    // Persist to DB
     fetch('/api/office/messages', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ thread_id: activeThread.id, content: text }),
     }).catch(() => {});
+  }
+
+  async function createMeeting() {
+    if (!mtgTitle.trim() || !mtgWhen || !userId || creating) return;
+    setCreating(true);
+    const { data } = await (supabase as any).from('office_meetings').insert({
+      creator_id: userId,
+      title: mtgTitle.trim(),
+      scheduled_at: new Date(mtgWhen).toISOString(),
+      duration_min: mtgDuration,
+      status: 'scheduled',
+    }).select().single();
+    if (data) {
+      setMeetings(ms => [...ms, data].sort((a,b) => new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()));
+    }
+    setCreating(false);
+    setNewMtg(false);
+    setMtgTitle(''); setMtgWhen(''); setMtgDuration(30);
   }
 
   if (activeThread) {
@@ -105,9 +146,6 @@ export default function OfficePage() {
           <div style={{ flex:1 }}>
             <p style={{ fontSize:14, fontWeight:700, color:text, margin:0 }}>{activeThread.name}</p>
           </div>
-          <button style={{ background:'none', border:'none', cursor:'pointer', color:muted }}>
-            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          </button>
         </div>
 
         {/* Context pill */}
@@ -124,6 +162,9 @@ export default function OfficePage() {
 
         {/* Messages */}
         <div style={{ flex:1, overflowY:'auto', padding:'16px', display:'flex', flexDirection:'column', gap:10 }}>
+          {messages.length === 0 && (
+            <p style={{ fontSize:12, color:sub, textAlign:'center', marginTop:40 }}>No messages yet. Say hello!</p>
+          )}
           {messages.map((m,i)=>(
             <div key={i} style={{ display:'flex', justifyContent:m.role==='me'?'flex-end':'flex-start' }}>
               <div style={{ maxWidth:'80%', padding:'10px 14px', borderRadius: m.role==='me'?'16px 4px 16px 16px':'4px 16px 16px 16px', background: m.role==='me'?'var(--v-brand-light)':'var(--v-bg-2)', border:`1px solid ${m.role==='me'?'var(--v-brand)':border}` }}>
@@ -161,47 +202,25 @@ export default function OfficePage() {
       </div>
 
       <div style={{ padding:'16px' }}>
-        {/* Sync to Spaces card */}
-        {syncItems > 0 && (
-          <div style={{ background:'var(--v-gold-light)', border:'1px solid var(--v-gold)', borderRadius:14, padding:'14px', marginBottom:20 }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:6 }}>
-              <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="var(--v-gold)" strokeWidth={2} strokeLinecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              <span style={{ fontSize:10, fontWeight:900, color:'var(--v-gold)', letterSpacing:'0.06em' }}>SEND TO SPACES</span>
-            </div>
-            <p style={{ fontSize:13, fontWeight:700, color:'var(--v-text)', margin:'0 0 4px' }}>{syncItems} items ready to sync</p>
-            <p style={{ fontSize:11, color:'var(--v-text-muted)', margin:0 }}>2 meetings · 1 project plan · action items</p>
-            <button onClick={()=>setSyncItems(0)} style={{ marginTop:10, background:'var(--v-gold)', color:'#fff', border:'none', borderRadius:20, padding:'8px 18px', fontSize:12, fontWeight:900, cursor:'pointer' }}>
-              Sync Now
-            </button>
-          </div>
-        )}
-
         {/* Upcoming meetings */}
         <p style={{ fontSize:10, fontWeight:900, color:sub, letterSpacing:'0.06em', marginBottom:10 }}>UPCOMING MEETINGS</p>
+        {loaded && meetings.length === 0 && (
+          <p style={{ fontSize:12, color:muted, marginBottom:14 }}>No upcoming meetings.</p>
+        )}
         {meetings.map(m => {
           const soon = new Date(m.scheduled_at).getTime() - Date.now() < 3600000;
           return (
             <div key={m.id} style={{ background:card, border:`1px solid ${soon?'var(--v-brand)':border}`, borderRadius:14, padding:'14px', marginBottom:10 }}>
-              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between', marginBottom:8 }}>
+              <div style={{ display:'flex', alignItems:'flex-start', justifyContent:'space-between' }}>
                 <div>
                   <p style={{ fontSize:15, fontWeight:900, color:text, margin:'0 0 2px' }}>{fmtTime(m.scheduled_at)}</p>
                   <p style={{ fontSize:13, fontWeight:700, color:text, margin:0 }}>{m.title}</p>
                   <p style={{ fontSize:10, color:muted, margin:'2px 0 0' }}>{m.duration_min} min · Video</p>
                 </div>
-                <Link href="/village/trading-post/office/meeting" style={{ background:'var(--v-brand)', color:'#fff', borderRadius:20, padding:'8px 16px', fontSize:12, fontWeight:900, textDecoration:'none' }}>
+                <Link href={`/village/trading-post/office/meeting?id=${m.id}`} style={{ background:'var(--v-brand)', color:'#fff', borderRadius:20, padding:'8px 16px', fontSize:12, fontWeight:900, textDecoration:'none' }}>
                   Join
                 </Link>
               </div>
-              {m.attendee_names?.length > 0 && (
-                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
-                  {m.attendee_names.map((n:string)=>(
-                    <div key={n} style={{ display:'flex', alignItems:'center', gap:5 }}>
-                      <Avatar name={n} size={20} />
-                      <span style={{ fontSize:11, color:muted }}>{n}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           );
         })}
@@ -212,22 +231,29 @@ export default function OfficePage() {
 
         {/* DMs */}
         <p style={{ fontSize:10, fontWeight:900, color:sub, letterSpacing:'0.06em', marginBottom:10 }}>DIRECT MESSAGES</p>
-        <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, overflow:'hidden', marginBottom:20 }}>
-          {threads.map((t,i)=>(
-            <button key={t.id} onClick={()=>openThread(t)}
-              style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom:i<threads.length-1?`1px solid ${border}`:'none', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
-              <Avatar name={t.name} />
-              <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{t.name}</p>
-                <p style={{ fontSize:11, color:muted, margin:0, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{t.preview}</p>
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
-                <span style={{ fontSize:10, color:sub }}>{fmtAgo(t.ts)}</span>
-                {t.unread > 0 && <span style={{ width:18, height:18, borderRadius:9, background:'var(--v-gold)', color:'#fff', fontSize:9, fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>{t.unread}</span>}
-              </div>
-            </button>
-          ))}
-        </div>
+        {loaded && threads.length === 0 ? (
+          <p style={{ fontSize:12, color:muted, marginBottom:20 }}>No messages yet. Connect with someone in your Tribe to start a conversation.</p>
+        ) : (
+          <div style={{ background:card, border:`1px solid ${border}`, borderRadius:14, overflow:'hidden', marginBottom:20 }}>
+            {threads.map((t,i)=>{
+              const other = t.participants?.[0];
+              const name = other?.display_name ?? other?.username ?? 'Villager';
+              return (
+                <button key={t.id} onClick={()=>openThread(t)}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:12, padding:'12px 14px', borderBottom:i<threads.length-1?`1px solid ${border}`:'none', background:'transparent', border:'none', cursor:'pointer', textAlign:'left' }}>
+                  <Avatar name={name} />
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ fontSize:13, fontWeight:700, color:text, margin:'0 0 2px' }}>{name}</p>
+                    <p style={{ fontSize:11, color:muted, margin:0, overflow:'hidden', whiteSpace:'nowrap', textOverflow:'ellipsis' }}>{t.last_message_preview ?? 'Start a conversation'}</p>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:4, flexShrink:0 }}>
+                    <span style={{ fontSize:10, color:sub }}>{fmtAgo(t.last_message_at)}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Start a meeting */}
         <button onClick={()=>setNewMtg(true)} style={{ width:'100%', padding:'14px', background:'var(--v-brand)', color:'#fff', border:'none', borderRadius:14, fontSize:14, fontWeight:900, cursor:'pointer' }}>
@@ -245,24 +271,30 @@ export default function OfficePage() {
                 <p style={{ fontSize:16, fontWeight:900, color:text, margin:0 }}>Schedule a meeting</p>
                 <button onClick={()=>setNewMtg(false)} style={{ color:muted, background:'none', border:'none', fontSize:22, cursor:'pointer', lineHeight:1 }}>×</button>
               </div>
-              {[
-                { label:'Title', placeholder:'e.g. Strategy call' },
-                { label:'Date & time', placeholder:'e.g. Tomorrow 2pm' },
-                { label:'Attendees', placeholder:'Search tribe members...' },
-              ].map(f=>(
-                <div key={f.label} style={{ marginBottom:12 }}>
-                  <p style={{ fontSize:11, color:muted, fontWeight:700, marginBottom:4 }}>{f.label}</p>
-                  <input placeholder={f.placeholder} style={{ width:'100%', background:'var(--v-bg-2)', border:`1px solid ${border}`, borderRadius:12, padding:'10px 14px', fontSize:13, color:text, outline:'none', boxSizing:'border-box' }} />
-                </div>
-              ))}
+
+              <div style={{ marginBottom:12 }}>
+                <p style={{ fontSize:11, color:muted, fontWeight:700, marginBottom:4 }}>Title</p>
+                <input value={mtgTitle} onChange={e=>setMtgTitle(e.target.value)} placeholder="e.g. Strategy call"
+                  style={{ width:'100%', background:'var(--v-bg-2)', border:`1px solid ${border}`, borderRadius:12, padding:'10px 14px', fontSize:13, color:text, outline:'none', boxSizing:'border-box' }} />
+              </div>
+
+              <div style={{ marginBottom:12 }}>
+                <p style={{ fontSize:11, color:muted, fontWeight:700, marginBottom:4 }}>Date & time</p>
+                <input type="datetime-local" value={mtgWhen} onChange={e=>setMtgWhen(e.target.value)}
+                  style={{ width:'100%', background:'var(--v-bg-2)', border:`1px solid ${border}`, borderRadius:12, padding:'10px 14px', fontSize:13, color:text, outline:'none', boxSizing:'border-box' }} />
+              </div>
+
+              <p style={{ fontSize:11, color:muted, fontWeight:700, marginBottom:4 }}>Duration</p>
               <div style={{ display:'flex', gap:8, marginTop:8 }}>
-                {['15m','30m','45m','60m','90m'].map(d=>(
-                  <button key={d} style={{ flex:1, padding:'8px 0', borderRadius:10, border:`1px solid ${border}`, background:'transparent', color:muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>{d}</button>
+                {DURATIONS.map(d=>(
+                  <button key={d} onClick={()=>setMtgDuration(d)}
+                    style={{ flex:1, padding:'8px 0', borderRadius:10, border:`1px solid ${mtgDuration===d?'var(--v-brand)':border}`, background:mtgDuration===d?'var(--v-brand-light)':'transparent', color:mtgDuration===d?'var(--v-brand-deep)':muted, fontSize:12, fontWeight:700, cursor:'pointer' }}>{d}m</button>
                 ))}
               </div>
-              <button onClick={()=>{ setMeetings(ms=>[...ms,{id:'new'+Date.now(),title:'New Meeting',scheduled_at:new Date(Date.now()+3600000).toISOString(),duration_min:30,status:'scheduled',attendee_names:[]}]); setNewMtg(false); }}
-                style={{ width:'100%', marginTop:20, padding:'14px', background:'var(--v-brand)', color:'#fff', border:'none', borderRadius:14, fontSize:14, fontWeight:900, cursor:'pointer' }}>
-                Create Meeting
+
+              <button onClick={createMeeting} disabled={!mtgTitle.trim() || !mtgWhen || creating}
+                style={{ width:'100%', marginTop:20, padding:'14px', background: (!mtgTitle.trim() || !mtgWhen || creating) ? 'var(--v-bg-3)' : 'var(--v-brand)', color:'#fff', border:'none', borderRadius:14, fontSize:14, fontWeight:900, cursor: (!mtgTitle.trim() || !mtgWhen || creating) ? 'not-allowed' : 'pointer' }}>
+                {creating ? 'Creating…' : 'Create Meeting'}
               </button>
             </motion.div>
           </div>

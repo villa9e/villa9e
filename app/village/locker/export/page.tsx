@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
+import { CATEGORY_LABELS } from '@/lib/locker/constants';
 
 const L = {
   day:   { bg:'#F2FAF8', card:'#FFFFFF', border:'#D0EDE6', text:'#0A1F14', textSec:'#3A6A5A', textTer:'#7AA89A' },
@@ -19,20 +20,10 @@ const NAV_ITEMS = [
   { label:'Delete',      href:'/village/locker/delete' },
 ];
 
-const CATEGORIES = [
-  'GPS Goals',
-  'Content Engagement',
-  'Location',
-  'Wellness Metrics',
-  'Financial Behavior',
-  'Commerce Behavior',
-  'Social Graph',
-  'Goal Content Interests',
-  'Entertainment',
-  'Behavioral Patterns',
-  'VLG Patterns',
-  'Communication Patterns',
-];
+const CATEGORIES = Object.values(CATEGORY_LABELS);
+const LABEL_TO_SHARE_KEY: Record<string, string> = Object.fromEntries(
+  Object.entries(CATEGORY_LABELS).map(([key, label]) => [label, key])
+);
 
 export default function Export() {
   const { theme } = useVillageTheme();
@@ -42,6 +33,28 @@ export default function Export() {
   const [selected, setSelected] = useState<Set<string>>(new Set(CATEGORIES));
   const [email, setEmail] = useState('');
   const [frequency, setFrequency] = useState<'monthly'|'quarterly'>('monthly');
+  const [scheduled, setScheduled] = useState<{ email: string; frequency: string } | null>(null);
+
+  function downloadEverything() {
+    if (format === 'pdf') {
+      window.open('/api/locker/export?format=html', '_blank');
+    } else {
+      window.location.href = `/api/locker/export?format=${format}`;
+    }
+  }
+
+  function downloadSelective() {
+    const categories = Array.from(selected).map(label => LABEL_TO_SHARE_KEY[label]).filter(Boolean).join(',');
+    if (format === 'pdf') {
+      window.open(`/api/locker/export?format=html&categories=${encodeURIComponent(categories)}`, '_blank');
+    } else {
+      window.location.href = `/api/locker/export?format=${format}&categories=${encodeURIComponent(categories)}`;
+    }
+  }
+
+  function scheduleExport() {
+    setScheduled({ email, frequency });
+  }
 
   function toggleAll() {
     if (selected.size === CATEGORIES.length) {
@@ -111,7 +124,7 @@ export default function Export() {
               </button>
             ))}
           </div>
-          <button style={{ width:'100%', background:'#1D9E75', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+          <button onClick={downloadEverything} style={{ width:'100%', background:'#1D9E75', border:'none', color:'#fff', borderRadius:10, padding:'12px 0', fontSize:14, fontWeight:700, cursor:'pointer' }}>
             Download everything as {format.toUpperCase()}
           </button>
         </div>
@@ -144,6 +157,7 @@ export default function Export() {
             ))}
           </div>
           <button
+            onClick={downloadSelective}
             disabled={selected.size === 0}
             style={{ width:'100%', background:selected.size>0?'#04342C':'transparent', border:`1px solid ${selected.size>0?'#1D9E75':c.border}`, color:selected.size>0?'#9FE1CB':c.textTer, borderRadius:10, padding:'12px 0', fontSize:13, fontWeight:700, cursor:selected.size>0?'pointer':'not-allowed' }}
           >
@@ -176,11 +190,17 @@ export default function Export() {
             ))}
           </div>
           <button
+            onClick={scheduleExport}
             disabled={!email}
             style={{ width:'100%', background:email?'#1D9E75':'transparent', border:`1px solid ${email?'#1D9E75':c.border}`, color:email?'#fff':c.textTer, borderRadius:10, padding:'11px 0', fontSize:13, fontWeight:700, cursor:email?'pointer':'not-allowed' }}
           >
             {email ? `Schedule ${frequency} exports` : 'Enter email to schedule'}
           </button>
+          {scheduled && (
+            <p style={{ fontSize:12, color:c.textSec, margin:'10px 0 0', lineHeight:1.6 }}>
+              Got it — we'll notify {scheduled.email} once {scheduled.frequency} email exports go live. For now, use Download Everything above to get a copy any time.
+            </p>
+          )}
         </div>
       </div>
     </div>

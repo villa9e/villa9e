@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
@@ -24,36 +24,16 @@ interface Show {
   created_at:    string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const LIVE_SHOWS: Show[] = [
-  { id:'l1', title:'Goal GPS Live Workshop', description:'Build your 12-week sprint plan in real time with Spirit AI.', creator_id:'', creator_name:'spiritai', type:'webinar', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:312, created_at:'' },
-  { id:'l2', title:'Village Beats — Friday Night', description:'Live DJ set from the village music community.', creator_id:'', creator_name:'dj_village', type:'concert', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:189, created_at:'' },
-  { id:'l3', title:'Black Founders Q&A', description:'Founders share how they raised pre-seed without Silicon Valley.', creator_id:'', creator_name:'founders_club', type:'presentation', status:'live', ticket_price:0, stream_url:null, thumbnail:null, starts_at:null, attendee_count:94, created_at:'' },
-];
+type ContentItem = {
+  id: string;
+  title: string;
+  creator: string;
+  duration: string;
+  category: string;
+  thumbnail_color: string;
+};
 
-const UPCOMING_EVENTS: Show[] = [
-  { id:'u1', title:'Brand Identity Masterclass', description:'Build a brand that moves people. Led by award-winning designer Nia James.', creator_id:'', creator_name:'niajames', type:'webinar', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+86400000).toISOString(), attendee_count:47, created_at:'' },
-  { id:'u2', title:'Village Jazz Night', description:'An intimate virtual jazz performance from our Village musicians.', creator_id:'', creator_name:'jazzvillage', type:'concert', status:'upcoming', ticket_price:25, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+172800000).toISOString(), attendee_count:128, created_at:'' },
-  { id:'u3', title:'Credit Repair Blueprint', description:'Step-by-step guide to rebuilding your credit score in 90 days.', creator_id:'', creator_name:'creditpro', type:'webinar', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+259200000).toISOString(), attendee_count:203, created_at:'' },
-  { id:'u4', title:'Short Film Premiere: The Village', description:'An 18-minute short film about community, purpose, and building something real.', creator_id:'', creator_name:'cinema_v', type:'film', status:'upcoming', ticket_price:10, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+345600000).toISOString(), attendee_count:76, created_at:'' },
-  { id:'u5', title:'Crypto for Builders', description:'DeFi fundamentals and how to use VLG tokens in the real economy.', creator_id:'', creator_name:'web3village', type:'presentation', status:'upcoming', ticket_price:0, stream_url:null, thumbnail:null, starts_at:new Date(Date.now()+432000000).toISOString(), attendee_count:155, created_at:'' },
-];
-
-const COURSES = [
-  { id:'c1', title:'Goal GPS: 12-Week Sprint System', instructor:'Spirit AI', modules:8, rating:4.9, price:0, enrolled:true, progress:65, category:'Personal' },
-  { id:'c2', title:'Credit & Financial Foundation', instructor:'Marcus Thompson', modules:12, rating:4.8, price:49, enrolled:true, progress:20, category:'Finance' },
-  { id:'c3', title:'Full-Stack Next.js Bootcamp', instructor:'Kwame A.', modules:24, rating:4.7, price:99, enrolled:false, progress:0, category:'Tech' },
-  { id:'c4', title:'Launch Your Brand in 30 Days', instructor:'Nia James', modules:10, rating:4.6, price:79, enrolled:false, progress:0, category:'Business' },
-];
-
-const CREATORS = [
-  { id:'cr1', name:'Spirit AI', handle:'spiritai', followers:12400, verified:true },
-  { id:'cr2', name:'Nia James', handle:'niajames', followers:3280, verified:true },
-  { id:'cr3', name:'Marcus T.', handle:'marcust', followers:1870, verified:false },
-  { id:'cr4', name:'DJ Village', handle:'dj_village', followers:940, verified:false },
-  { id:'cr5', name:'Kwame A.', handle:'devpath', followers:4120, verified:true },
-  { id:'cr6', name:'Priya S.', handle:'priyas', followers:2650, verified:false },
-];
+type Creator = { id: string; name: string; handle: string; posts: number; views: number; color: string };
 
 const TYPE_COLOR: Record<string, string> = {
   webinar:'#2952E8', concert:'#BE185D', film:'#7C3AED', presentation:'#059669', show:'#E8770A',
@@ -161,42 +141,29 @@ function EventCard({ show, isNight }: { show: Show; isNight: boolean }) {
   );
 }
 
-// ─── Course Card ──────────────────────────────────────────────────────────────
-function CourseCard({ course, isNight }: { course: typeof COURSES[0]; isNight: boolean }) {
+// ─── Content Card (Learning) ───────────────────────────────────────────────────
+function ContentCard({ item, isNight }: { item: ContentItem; isNight: boolean }) {
   const cardBg = isNight ? '#1A2448' : '#FFFFFF';
   const border = isNight ? '#1E2448' : '#C5CAE9';
   const text = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
   return (
-    <div style={{ flexShrink: 0, width: 200, borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}>
-      <div style={{ height: 90, background: isNight ? 'rgba(41,82,232,0.15)' : 'rgba(41,82,232,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2952E8" strokeWidth={1.5} strokeLinecap="round"><path d="M12 14l9-5-9-5-9 5 9 5zM12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z"/></svg>
+    <Link href={`/village/pavilion/watch/${item.id}`} style={{ textDecoration: 'none' }}>
+      <div style={{ flexShrink: 0, width: 200, borderRadius: 16, overflow: 'hidden', background: cardBg, border: `1px solid ${border}` }}>
+        <div style={{ height: 90, background: `linear-gradient(135deg, ${item.thumbnail_color}30, ${item.thumbnail_color}12)`, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={item.thumbnail_color} strokeWidth={1.5} strokeLinecap="round"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16"/></svg>
+          {item.duration && (
+            <div style={{ position: 'absolute', bottom: 6, right: 8, background: 'rgba(0,0,0,0.55)', borderRadius: 8, padding: '2px 7px' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{item.duration}</span>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: '10px 12px' }}>
+          <p style={{ fontWeight: 800, fontSize: 12, color: text, marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.title}</p>
+          <p style={{ fontSize: 10, color: muted }}>@{item.creator} · {item.category}</p>
+        </div>
       </div>
-      <div style={{ padding: '10px 12px' }}>
-        <p style={{ fontWeight: 800, fontSize: 12, color: text, marginBottom: 4, lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{course.title}</p>
-        <p style={{ fontSize: 10, color: muted, marginBottom: 6 }}>{course.instructor} · {course.modules} modules</p>
-        {course.enrolled && course.progress > 0 ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-              <span style={{ fontSize: 10, color: '#2952E8', fontWeight: 700 }}>{course.progress}%</span>
-              <span style={{ fontSize: 10, color: muted }}>In Progress</span>
-            </div>
-            <div style={{ height: 4, borderRadius: 2, background: isNight ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }}>
-              <div style={{ height: '100%', width: `${course.progress}%`, borderRadius: 2, background: '#2952E8' }} />
-            </div>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 2 }}>
-              {[1,2,3,4,5].map(s => (
-                <svg key={s} width="10" height="10" viewBox="0 0 24 24" fill={s <= Math.round(course.rating) ? '#F59E0B' : 'none'} stroke="#F59E0B" strokeWidth={2}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-              ))}
-            </div>
-            <span style={{ fontSize: 11, fontWeight: 800, color: course.price === 0 ? '#059669' : text }}>{course.price === 0 ? 'Free' : `$${course.price}`}</span>
-          </div>
-        )}
-      </div>
-    </div>
+    </Link>
   );
 }
 
@@ -206,14 +173,15 @@ export default function PavilionPage() {
   const isNight = theme === 'night';
   const supabase = createClient();
 
-  const [liveShows, setLiveShows]     = useState<Show[]>(LIVE_SHOWS);
-  const [upcoming, setUpcoming]       = useState<Show[]>(UPCOMING_EVENTS);
-  const [featured, setFeatured]       = useState<Show>(LIVE_SHOWS[0]);
+  const [liveShows, setLiveShows]     = useState<Show[]>([]);
+  const [upcoming, setUpcoming]       = useState<Show[]>([]);
+  const [featured, setFeatured]       = useState<Show | null>(null);
+  const [content, setContent]         = useState<ContentItem[]>([]);
+  const [creators, setCreators]       = useState<Creator[]>([]);
 
   const bg = isNight ? '#080E24' : '#F5F6FF';
   const text = isNight ? '#E8E3F8' : '#1E1B4B';
   const muted = isNight ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)';
-  const sectionBg = isNight ? 'rgba(255,255,255,0.03)' : 'transparent';
 
   useEffect(() => {
     (supabase as any).from('pavilion_shows')
@@ -226,13 +194,16 @@ export default function PavilionPage() {
           const normalized = data.map((s: any) => ({ ...s, creator_name: s.profiles?.username, status: s.status === 'scheduled' ? 'upcoming' : s.status }));
           const live = normalized.filter((s: Show) => s.status === 'live');
           const up = normalized.filter((s: Show) => s.status === 'upcoming');
-          if (live.length) setLiveShows(live);
-          if (up.length) setUpcoming(up);
+          setLiveShows(live);
+          setUpcoming(up);
           if (live.length) setFeatured(live[0]);
           else if (up.length) setFeatured(up[0]);
         }
       })
       .catch(() => {});
+
+    fetch('/api/pavilion/content').then(r => r.json()).then(d => setContent((d.items ?? []).slice(0, 8))).catch(() => {});
+    fetch('/api/pavilion/creators').then(r => r.json()).then(d => setCreators((d.creators ?? []).slice(0, 8))).catch(() => {});
   }, []);
 
   return (
@@ -243,80 +214,97 @@ export default function PavilionPage() {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M15 18l-6-6 6-6"/></svg>
         </Link>
         <h1 style={{ flex: 1, fontSize: 18, fontWeight: 900, color: text, margin: 0 }}>Pavilion</h1>
-        <button style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
+        <Link href="/village/pavilion/browse" style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        </button>
-        <button style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
+        </Link>
+        <Link href="/village/pavilion/subscriptions" style={{ width: 36, height: 36, borderRadius: '50%', border: `1px solid ${isNight ? '#1E2448' : '#C5CAE9'}`, background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: text }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
-        </button>
+        </Link>
       </div>
 
       {/* ── Featured Banner ── */}
-      <div style={{ paddingTop: 16 }}>
-        <FeaturedBanner show={featured} isNight={isNight} />
-      </div>
+      {featured && (
+        <div style={{ paddingTop: 16 }}>
+          <FeaturedBanner show={featured} isNight={isNight} />
+        </div>
+      )}
 
       {/* ── Live Now ── */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ background: '#D63B3B', borderRadius: 20, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
-              <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
-              <span style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>LIVE NOW</span>
+      {liveShows.length > 0 && (
+        <div style={{ marginBottom: 24, marginTop: featured ? 0 : 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ background: '#D63B3B', borderRadius: 20, padding: '3px 10px', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <motion.div animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 1.2, repeat: Infinity }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />
+                <span style={{ fontSize: 11, fontWeight: 900, color: '#fff' }}>LIVE NOW</span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: text }}>{liveShows.length} streams</span>
             </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: text }}>{liveShows.length} streams</span>
+            <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>See all</Link>
           </div>
-          <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>See all</Link>
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+            {liveShows.map(s => <LiveCard key={s.id} show={s} isNight={isNight} />)}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
-          {liveShows.map(s => <LiveCard key={s.id} show={s} isNight={isNight} />)}
-        </div>
-      </div>
+      )}
 
       {/* ── Upcoming Events ── */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 24, marginTop: (!featured && liveShows.length === 0) ? 16 : 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
           <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Upcoming Events</h2>
           <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>See all</Link>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px' }}>
-          {upcoming.slice(0, 4).map(s => <EventCard key={s.id} show={s} isNight={isNight} />)}
-        </div>
+        {upcoming.length === 0 ? (
+          <div style={{ padding: '0 16px' }}>
+            <Link href="/village/pavilion/host" style={{ display: 'block', textAlign: 'center', padding: '20px 0', borderRadius: 16, border: `1px dashed ${isNight ? '#1E2448' : '#C5CAE9'}`, color: '#2952E8', fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>
+              No upcoming events yet. Host one →
+            </Link>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, padding: '0 16px' }}>
+            {upcoming.slice(0, 4).map(s => <EventCard key={s.id} show={s} isNight={isNight} />)}
+          </div>
+        )}
       </div>
 
       {/* ── Learning ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Learning</h2>
-          <Link href="/village/pavilion/learn" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Browse all</Link>
+          <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Pavilion Content</h2>
+          <Link href="/village/pavilion/browse" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Browse all</Link>
         </div>
-        <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
-          {COURSES.map(c => <CourseCard key={c.id} course={c} isNight={isNight} />)}
-        </div>
+        {content.length === 0 ? (
+          <div style={{ padding: '0 16px' }}>
+            <p style={{ fontSize: 12, color: muted, margin: 0 }}>No content yet. Check back soon.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 12, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+            {content.map(c => <ContentCard key={c.id} item={c} isNight={isNight} />)}
+          </div>
+        )}
       </div>
 
       {/* ── Village Creators ── */}
       <div style={{ marginBottom: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px 12px' }}>
           <h2 style={{ fontSize: 15, fontWeight: 900, color: text, margin: 0 }}>Village Creators</h2>
-          <Link href="/village/pavilion/live" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Explore</Link>
+          <Link href="/village/pavilion/creators" style={{ fontSize: 12, fontWeight: 700, color: '#2952E8', textDecoration: 'none' }}>Explore</Link>
         </div>
-        <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
-          {CREATORS.map(cr => (
-            <div key={cr.id} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 64 }}>
-              <div style={{ position: 'relative' }}>
+        {creators.length === 0 ? (
+          <div style={{ padding: '0 16px' }}>
+            <p style={{ fontSize: 12, color: muted, margin: 0 }}>No creators yet. Be the first to publish in Pavilion.</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 16, overflowX: 'auto', padding: '0 16px', scrollbarWidth: 'none' }}>
+            {creators.map(cr => (
+              <Link key={cr.id} href={`/village/pavilion/creators/${cr.handle}`} style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 64, textDecoration: 'none' }}>
                 <CreatorInitials name={cr.name} size={52} />
-                {cr.verified && (
-                  <div style={{ position: 'absolute', bottom: 0, right: -2, width: 16, height: 16, borderRadius: '50%', background: '#2952E8', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `2px solid ${bg}` }}>
-                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={3} strokeLinecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-                  </div>
-                )}
-              </div>
-              <p style={{ fontSize: 11, fontWeight: 700, color: text, textAlign: 'center', lineHeight: 1.2, margin: 0 }}>{cr.name}</p>
-              <p style={{ fontSize: 10, color: muted, margin: 0 }}>{formatFollowers(cr.followers)}</p>
-            </div>
-          ))}
-        </div>
+                <p style={{ fontSize: 11, fontWeight: 700, color: text, textAlign: 'center', lineHeight: 1.2, margin: 0 }}>{cr.name}</p>
+                <p style={{ fontSize: 10, color: muted, margin: 0 }}>{formatFollowers(cr.views)} views</p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       <PavilionNav active="home" />

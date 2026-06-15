@@ -1,13 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { EARNINGS_RATES } from '@/lib/locker/constants';
 export const dynamic = 'force-dynamic';
-
-const EARNINGS_RATES: Record<string, number> = {
-  share_gps_goals: 2.40, share_content_engagement: 1.80, share_location: 0.80,
-  share_wellness_metrics: 8.50, share_financial_behavior: 3.20, share_commerce_behavior: 1.60,
-  share_social_graph: 1.40, share_goal_content_interests: 0.80, share_entertainment: 0.70,
-  share_behavioral_patterns: 0.60, share_vlg_patterns: 0.90, share_communication_patterns: 0.50,
-};
 
 export async function GET() {
   const supabase = createServerClient() as any;

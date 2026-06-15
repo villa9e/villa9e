@@ -1,17 +1,32 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
 import { ViCoNav } from '@/components/vico/ViCoNav';
-import { MOCK_ELDERS, TIER_BREAKDOWN } from '@/lib/vico/mockData';
+import { createClient } from '@/lib/supabase/client';
+import { GOVERNANCE_RULES } from '@/lib/vico/constants';
 
 type SortKey = 'staked' | 'proposals' | 'participation';
 
-const CURRENT_USER_ID = 'none'; // mock: current user is not in Elder list
+type Elder = {
+  id: string;
+  username: string;
+  initials: string;
+  staked: number;
+  cap_applied: boolean;
+  proposals: number;
+  participation: number;
+};
+
+type TierRow = { label: string; key: string; range: string; color: string; users: number };
 
 export default function EldersPage() {
   const isNight = useVillageTheme(s => s.theme) === 'night';
   const [sortKey, setSortKey] = useState<SortKey>('staked');
+  const [elders, setElders] = useState<Elder[] | null>(null);
+  const [tierBreakdown, setTierBreakdown] = useState<TierRow[]>([]);
+  const [elderCount, setElderCount] = useState(0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const pageBg    = isNight ? '#100E1E' : '#F8F7FF';
   const heroBg    = isNight ? '#1A1640' : '#26215C';
@@ -21,7 +36,17 @@ export default function EldersPage() {
   const textSecondary = isNight ? '#9B96C8' : '#534AB7';
   const textMuted     = isNight ? '#6B6490' : '#7B78A8';
 
-  const sorted = [...MOCK_ELDERS].sort((a, b) => {
+  useEffect(() => {
+    fetch('/api/vico/elders').then(r => r.json()).then(d => setElders(d.elders ?? []));
+    fetch('/api/vico/overview').then(r => r.json()).then(d => {
+      setTierBreakdown(d.tier_breakdown ?? []);
+      setElderCount(d.stats?.village_elders ?? 0);
+    });
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => setCurrentUserId(user?.id ?? null));
+  }, []);
+
+  const sorted = [...(elders ?? [])].sort((a, b) => {
     if (sortKey === 'staked')        return b.staked - a.staked;
     if (sortKey === 'proposals')     return b.proposals - a.proposals;
     if (sortKey === 'participation') return b.participation - a.participation;
@@ -39,6 +64,8 @@ export default function EldersPage() {
     if (pct >= 60) return '#BA7517';
     return '#E24B4A';
   }
+
+  const maxTierUsers = Math.max(1, ...tierBreakdown.map(t => t.users));
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, paddingBottom: 80 }}>
@@ -59,7 +86,7 @@ export default function EldersPage() {
         </div>
         <div style={{ color: 'white', fontSize: 22, fontWeight: 800 }}>Village Elders</div>
         <div style={{ color: 'rgba(196,192,255,0.7)', fontSize: 12, marginTop: 6, lineHeight: 1.6 }}>
-          847 active Elders · 2,000+ $VICO staked · Max 5% voting power per wallet
+          {elderCount.toLocaleString()} active Elders · {GOVERNANCE_RULES.ELDER_STAKE.toLocaleString()}+ $VICO staked · Voting power capped per wallet
         </div>
       </div>
 
@@ -90,8 +117,16 @@ export default function EldersPage() {
 
         {/* Leaderboard */}
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, marginBottom: 14, overflow: 'hidden' }}>
+          {elders === null && (
+            <div style={{ padding: '24px', textAlign: 'center', color: textMuted, fontSize: 13 }}>Loading…</div>
+          )}
+          {elders !== null && sorted.length === 0 && (
+            <div style={{ padding: '24px', textAlign: 'center', color: textMuted, fontSize: 13 }}>
+              No Village Elders yet — stake {GOVERNANCE_RULES.ELDER_STAKE.toLocaleString()}+ $VICO to be the first.
+            </div>
+          )}
           {sorted.map((elder, index) => {
-            const isCurrentUser = elder.id === CURRENT_USER_ID;
+            const isCurrentUser = elder.id === currentUserId;
             return (
               <div
                 key={elder.id}
@@ -153,7 +188,7 @@ export default function EldersPage() {
                         padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 600,
                         background: isNight ? 'rgba(226,75,74,0.15)' : '#FEF0EE',
                         color: '#E24B4A',
-                      }}>5% cap</span>
+                      }}>cap</span>
                     )}
                     <span style={{ fontSize: 10, color: textMuted }}>{elder.proposals}p</span>
                   </div>
@@ -184,9 +219,8 @@ export default function EldersPage() {
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: textPrimary, marginBottom: 12 }}>Tier Breakdown</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {TIER_BREAKDOWN.map(tier => {
-              const maxUsers = 12847; // Settler count for bar scale
-              const barWidth = Math.round((tier.users / maxUsers) * 100);
+            {tierBreakdown.map(tier => {
+              const barWidth = Math.round((tier.users / maxTierUsers) * 100);
               return (
                 <div key={tier.label}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
@@ -208,7 +242,7 @@ export default function EldersPage() {
           </div>
           <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 8, background: isNight ? 'rgba(127,119,221,0.1)' : '#EEEDFE' }}>
             <div style={{ fontSize: 11, color: isNight ? '#9B96C8' : '#534AB7', lineHeight: 1.55 }}>
-              Become a Village Elder by staking 10,000+ $VICO. Elders can submit proposals, post in governance discussions, and join the grant committee.
+              Become a Village Elder by staking {GOVERNANCE_RULES.ELDER_STAKE.toLocaleString()}+ $VICO. Elders can submit proposals, post in governance discussions, and join the grant committee.
             </div>
             <Link href="/village/bank/blockchain" style={{
               display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8,

@@ -1,14 +1,42 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useVillageTheme } from '@/lib/theme/useVillageTheme';
-import { MOCK_PROPOSALS, MOCK_COMMENTS, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/vico/mockData';
+import { CATEGORY_LABELS, CATEGORY_COLORS, GOVERNANCE_RULES } from '@/lib/vico/constants';
 
-const MOCK_USER_TIER: string = 'pioneer'; // mock: pioneer can vote (2k+), cannot comment (not elder)
-const MOCK_USER_STAKED = 5000;
+type Comment = {
+  id: string;
+  content: string;
+  oowop_count: number;
+  created_at: string;
+  user_id: string;
+  profiles?: { username?: string; display_name?: string; avatar_url?: string } | null;
+};
 
-function votePct(p: typeof MOCK_PROPOSALS[0]) {
+type ProposalDetail = {
+  id: string;
+  vip_number: number;
+  title: string;
+  category: string;
+  description: string;
+  execution_plan: string;
+  execution_tx_hash: string | null;
+  status: string;
+  display_status: string;
+  votes_for: number;
+  votes_against: number;
+  votes_abstain: number;
+  voting_ends_at: string;
+  comments: Comment[];
+  user_vote: 'for' | 'against' | 'abstain' | null;
+  user_staked: number;
+  can_vote: boolean;
+  can_comment: boolean;
+  oowoped_comment_ids: string[];
+};
+
+function votePct(p: ProposalDetail) {
   const total = p.votes_for + p.votes_against + p.votes_abstain;
   if (total === 0) return { forPct: 0, againstPct: 0, abstainPct: 0, total };
   return {
@@ -23,6 +51,15 @@ function formatDate(str: string) {
   return new Date(str).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function initialsFor(c: Comment) {
+  const name = c.profiles?.display_name || c.profiles?.username || '?';
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function usernameFor(c: Comment) {
+  return c.profiles?.username || c.profiles?.display_name || 'villager';
+}
+
 export default function ProposalDetailPage() {
   const params = useParams();
   const id = params?.id as string;
@@ -35,19 +72,36 @@ export default function ProposalDetailPage() {
   const textSecondary = isNight ? '#9B96C8' : '#534AB7';
   const textMuted     = isNight ? '#6B6490' : '#7B78A8';
 
-  const proposal = MOCK_PROPOSALS.find(p => p.id === id);
-
-  const [userVote, setUserVote] = useState<'for' | 'against' | 'abstain' | null>(null);
+  const [proposal, setProposal] = useState<ProposalDetail | null | 'not-found'>(null);
   const [showConfirm, setShowConfirm] = useState<'for' | 'against' | 'abstain' | null>(null);
-  const [comments, setComments] = useState(
-    (MOCK_COMMENTS[id as keyof typeof MOCK_COMMENTS] ?? [])
-      .slice()
-      .sort((a, b) => b.oowop_count - a.oowop_count)
-  );
+  const [voting, setVoting] = useState(false);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const [oowopedIds, setOowopedIds] = useState<Set<string>>(new Set());
   const [commentText, setCommentText] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
 
-  if (!proposal) {
+  function load() {
+    fetch(`/api/vico/proposals/${id}`)
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .then((d: ProposalDetail) => {
+        setProposal(d);
+        setOowopedIds(new Set(d.oowoped_comment_ids ?? []));
+      })
+      .catch(() => setProposal('not-found'));
+  }
+
+  useEffect(() => { if (id) load(); }, [id]);
+
+  if (proposal === null) {
+    return (
+      <div style={{ minHeight: '100vh', background: pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: textMuted, fontSize: 13 }}>Loading proposal…</div>
+      </div>
+    );
+  }
+
+  if (proposal === 'not-found') {
     return (
       <div style={{ minHeight: '100vh', background: pageBg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center', color: textMuted }}>
@@ -62,33 +116,82 @@ export default function ProposalDetailPage() {
 
   const { forPct, againstPct, abstainPct, total } = votePct(proposal);
   const catColor = CATEGORY_COLORS[proposal.category] ?? { bg: '#F0F0F0', text: '#666' };
-  const isActive = proposal.status === 'active';
-  const canVote = MOCK_USER_STAKED >= 2000 && isActive && !userVote;
-  const isElder = MOCK_USER_TIER === 'elder';
+  const isActive = proposal.display_status === 'active';
 
-  function confirmVote(v: 'for' | 'against' | 'abstain') {
-    setShowConfirm(v);
-  }
-  function submitVote() {
-    if (showConfirm) {
-      setUserVote(showConfirm);
+  async function submitVote() {
+    if (!showConfirm) return;
+    setVoting(true);
+    setVoteError(null);
+    try {
+      const res = await fetch(`/api/vico/proposals/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vote: showConfirm }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setVoteError(data.error || 'Failed to submit vote');
+        setShowConfirm(null);
+        return;
+      }
       setShowConfirm(null);
+      load();
+    } catch {
+      setVoteError('Failed to submit vote');
+      setShowConfirm(null);
+    } finally {
+      setVoting(false);
     }
   }
-  function toggleOowop(commentId: string) {
+
+  async function toggleOowop(commentId: string) {
+    const wasOowoped = oowopedIds.has(commentId);
     setOowopedIds(prev => {
       const next = new Set(prev);
-      if (next.has(commentId)) {
-        next.delete(commentId);
-        setComments(cs => cs.map(c => c.id === commentId ? { ...c, oowop_count: c.oowop_count - 1 } : c));
-      } else {
-        next.add(commentId);
-        setComments(cs => cs.map(c => c.id === commentId ? { ...c, oowop_count: c.oowop_count + 1 } : c)
-          .slice().sort((a, b) => b.oowop_count - a.oowop_count));
-      }
+      if (next.has(commentId)) next.delete(commentId); else next.add(commentId);
       return next;
     });
+    setProposal(p => {
+      if (!p || p === 'not-found') return p;
+      return {
+        ...p,
+        comments: p.comments.map(c => c.id === commentId
+          ? { ...c, oowop_count: c.oowop_count + (wasOowoped ? -1 : 1) }
+          : c),
+      };
+    });
+    try {
+      await fetch(`/api/vico/comments/${commentId}/oowop`, { method: 'POST' });
+    } catch {
+      // best-effort; reload will reconcile on next visit
+    }
   }
+
+  async function postComment() {
+    if (!commentText.trim()) return;
+    setPosting(true);
+    setCommentError(null);
+    try {
+      const res = await fetch('/api/vico/comments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ proposalId: id, content: commentText.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setCommentError(data.error || 'Failed to post comment');
+        return;
+      }
+      setCommentText('');
+      load();
+    } catch {
+      setCommentError('Failed to post comment');
+    } finally {
+      setPosting(false);
+    }
+  }
+
+  const sortedComments = [...proposal.comments].sort((a, b) => b.oowop_count - a.oowop_count);
 
   return (
     <div style={{ minHeight: '100vh', background: pageBg, paddingBottom: 80 }}>
@@ -119,18 +222,30 @@ export default function ProposalDetailPage() {
               background: 'rgba(29,158,117,0.2)', color: '#4CD4A0',
             }}>Active</span>
           )}
-          {(proposal.status === 'passed' || proposal.status === 'executed') && (
+          {proposal.display_status === 'discussion' && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+              background: 'rgba(186,117,23,0.2)', color: '#E0B05C',
+            }}>Discussion</span>
+          )}
+          {(proposal.display_status === 'passed' || proposal.display_status === 'executed') && (
             <span style={{
               padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
               background: 'rgba(127,119,221,0.2)', color: '#A9A3F0',
             }}>Passed</span>
+          )}
+          {proposal.display_status === 'rejected' && (
+            <span style={{
+              padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700,
+              background: 'rgba(226,75,74,0.15)', color: '#F08080',
+            }}>Rejected</span>
           )}
         </div>
         <div style={{ color: 'white', fontSize: 18, fontWeight: 800, lineHeight: 1.4 }}>
           {proposal.title}
         </div>
         <div style={{ color: 'rgba(196,192,255,0.6)', fontSize: 11, marginTop: 6 }}>
-          Voting {isActive ? `ends ${formatDate(proposal.voting_ends_at)}` : `ended ${formatDate(proposal.voting_ends_at)}`}
+          Voting {isActive ? `ends ${formatDate(proposal.voting_ends_at)}` : `${proposal.display_status === 'discussion' ? 'starts soon' : 'ended ' + formatDate(proposal.voting_ends_at)}`}
         </div>
       </div>
 
@@ -165,21 +280,21 @@ export default function ProposalDetailPage() {
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             padding: '8px 10px', borderRadius: 8,
-            background: forPct >= 60
+            background: forPct >= GOVERNANCE_RULES.PASS_THRESHOLD_PCT
               ? (isNight ? 'rgba(29,158,117,0.12)' : '#E8F7F1')
               : (isNight ? 'rgba(226,75,74,0.1)' : '#FEF0EE'),
           }}>
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-              stroke={forPct >= 60 ? '#1D9E75' : '#E24B4A'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              {forPct >= 60
+              stroke={forPct >= GOVERNANCE_RULES.PASS_THRESHOLD_PCT ? '#1D9E75' : '#E24B4A'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {forPct >= GOVERNANCE_RULES.PASS_THRESHOLD_PCT
                 ? <polyline points="20 6 9 17 4 12" />
                 : <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>
               }
             </svg>
-            <span style={{ fontSize: 11, fontWeight: 600, color: forPct >= 60 ? '#1D9E75' : '#E24B4A' }}>
-              {forPct >= 60
-                ? `Passing — ${forPct}% exceeds 60% threshold`
-                : `${60 - forPct}% more needed to pass 60% threshold`
+            <span style={{ fontSize: 11, fontWeight: 600, color: forPct >= GOVERNANCE_RULES.PASS_THRESHOLD_PCT ? '#1D9E75' : '#E24B4A' }}>
+              {forPct >= GOVERNANCE_RULES.PASS_THRESHOLD_PCT
+                ? `Passing — ${forPct}% exceeds ${GOVERNANCE_RULES.PASS_THRESHOLD_PCT}% threshold`
+                : `${GOVERNANCE_RULES.PASS_THRESHOLD_PCT - forPct}% more needed to pass ${GOVERNANCE_RULES.PASS_THRESHOLD_PCT}% threshold`
               }
             </span>
           </div>
@@ -189,10 +304,10 @@ export default function ProposalDetailPage() {
           </div>
         </div>
 
-        {/* Vote buttons (active proposals only) */}
-        {isActive && (
+        {/* Vote buttons */}
+        {(isActive || proposal.display_status === 'discussion') && (
           <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '14px', marginBottom: 14 }}>
-            {userVote ? (
+            {proposal.user_vote ? (
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 8, padding: '10px',
                 background: isNight ? 'rgba(29,158,117,0.12)' : '#E8F7F1', borderRadius: 8,
@@ -201,50 +316,68 @@ export default function ProposalDetailPage() {
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#1D9E75' }}>
-                  You voted: <strong style={{ textTransform: 'capitalize' }}>{userVote}</strong>
+                  You voted: <strong style={{ textTransform: 'capitalize' }}>{proposal.user_vote}</strong>
                 </span>
+              </div>
+            ) : !isActive ? (
+              <div style={{ fontSize: 12, color: textMuted, textAlign: 'center' }}>
+                Voting opens once the discussion period ends.
+              </div>
+            ) : !proposal.can_vote ? (
+              <div style={{
+                background: isNight ? 'rgba(127,119,221,0.1)' : '#EEEDFE',
+                border: `1px solid ${isNight ? '#3C3470' : '#C8C3F4'}`,
+                borderRadius: 10, padding: '12px 14px',
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: isNight ? '#C4C0FF' : '#3C3489', marginBottom: 4 }}>
+                  Stake $VICO to vote
+                </div>
+                <div style={{ fontSize: 12, color: isNight ? '#9B96C8' : '#5C58A8', lineHeight: 1.5, marginBottom: 8 }}>
+                  You need {GOVERNANCE_RULES.MIN_STAKE_TO_VOTE.toLocaleString()}+ $VICO staked to vote. Your current stake: {proposal.user_staked.toLocaleString()} $VICO.
+                </div>
+                <Link href="/village/bank/blockchain" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 700, color: '#7F77DD', textDecoration: 'none',
+                }}>
+                  Stake $VICO →
+                </Link>
               </div>
             ) : (
               <>
                 <div style={{ fontSize: 12, fontWeight: 700, color: textSecondary, marginBottom: 10 }}>Cast Your Vote</div>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                   <button
-                    onClick={() => confirmVote('for')}
-                    disabled={!canVote}
+                    onClick={() => setShowConfirm('for')}
                     style={{
-                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: canVote ? 'pointer' : 'not-allowed',
-                      background: canVote ? '#1D9E75' : (isNight ? '#2A2640' : '#E0DDF8'), fontWeight: 700, fontSize: 13,
-                      color: canVote ? 'white' : textMuted,
+                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: '#1D9E75', fontWeight: 700, fontSize: 13, color: 'white',
                     }}
                   >For</button>
                   <button
-                    onClick={() => confirmVote('against')}
-                    disabled={!canVote}
+                    onClick={() => setShowConfirm('against')}
                     style={{
-                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: canVote ? 'pointer' : 'not-allowed',
-                      background: canVote ? '#E24B4A' : (isNight ? '#2A2640' : '#E0DDF8'), fontWeight: 700, fontSize: 13,
-                      color: canVote ? 'white' : textMuted,
+                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: '#E24B4A', fontWeight: 700, fontSize: 13, color: 'white',
                     }}
                   >Against</button>
                   <button
-                    onClick={() => confirmVote('abstain')}
-                    disabled={!canVote}
+                    onClick={() => setShowConfirm('abstain')}
                     style={{
-                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: canVote ? 'pointer' : 'not-allowed',
-                      background: canVote ? (isNight ? '#4A4670' : '#8E8AB0') : (isNight ? '#2A2640' : '#E0DDF8'),
-                      fontWeight: 700, fontSize: 13, color: canVote ? 'white' : textMuted,
+                      flex: 1, padding: '11px 0', borderRadius: 8, border: 'none', cursor: 'pointer',
+                      background: isNight ? '#4A4670' : '#8E8AB0', fontWeight: 700, fontSize: 13, color: 'white',
                     }}
                   >Abstain</button>
                 </div>
                 <div style={{ fontSize: 11, color: textMuted, textAlign: 'center' }}>
-                  Your voting power: <strong style={{ color: textSecondary }}>5,000 $VICO</strong> · On-chain finality · Cannot change after submission
+                  Your voting power: <strong style={{ color: textSecondary }}>{proposal.user_staked.toLocaleString()} $VICO</strong> · Cannot change after submission
                 </div>
               </>
             )}
+            {voteError && (
+              <div style={{ fontSize: 11, color: '#E24B4A', marginTop: 8, textAlign: 'center' }}>{voteError}</div>
+            )}
           </div>
         )}
-
-        {/* Non-elder lock for voting if below 2k staked — mock shows eligible */}
 
         {/* Proposal description */}
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px', marginBottom: 14 }}>
@@ -256,13 +389,13 @@ export default function ProposalDetailPage() {
         <div style={{ background: cardBg, border: cardBorder, borderRadius: 12, padding: '16px', marginBottom: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: textSecondary, marginBottom: 8 }}>Execution Plan</div>
           <div style={{ fontSize: 13, color: textPrimary, lineHeight: 1.65 }}>{proposal.execution_plan}</div>
-          {(proposal as any).execution_tx_hash && (
+          {proposal.execution_tx_hash && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10 }}>
               <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#1D9E75" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
               <span style={{ fontSize: 11, color: '#1D9E75', fontWeight: 600 }}>
-                Executed · tx: {(proposal as any).execution_tx_hash}
+                Executed · tx: {proposal.execution_tx_hash}
               </span>
             </div>
           )}
@@ -274,8 +407,12 @@ export default function ProposalDetailPage() {
             Discussion <span style={{ color: textMuted, fontWeight: 400 }}>· sorted by OoWop</span>
           </div>
 
+          {sortedComments.length === 0 && (
+            <div style={{ fontSize: 12, color: textMuted, padding: '8px 0' }}>No comments yet.</div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {comments.map(comment => (
+            {sortedComments.map(comment => (
               <div key={comment.id}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
                   {/* Avatar */}
@@ -285,17 +422,15 @@ export default function ProposalDetailPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: 'white', fontSize: 11, fontWeight: 700, flexShrink: 0,
                   }}>
-                    {comment.user.initials}
+                    {initialsFor(comment)}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: textPrimary }}>@{comment.user.username}</span>
-                      {comment.user.tier === 'elder' && (
-                        <span style={{
-                          padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700,
-                          background: isNight ? '#3C3489' : '#EEEDFE', color: isNight ? '#A9A3F0' : '#3C3489',
-                        }}>Village Elder</span>
-                      )}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: textPrimary }}>@{usernameFor(comment)}</span>
+                      <span style={{
+                        padding: '1px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700,
+                        background: isNight ? '#3C3489' : '#EEEDFE', color: isNight ? '#A9A3F0' : '#3C3489',
+                      }}>Village Elder</span>
                     </div>
                     <div style={{ fontSize: 12, color: textPrimary, lineHeight: 1.55, marginBottom: 8 }}>
                       {comment.content}
@@ -328,7 +463,7 @@ export default function ProposalDetailPage() {
 
           {/* Comment input area */}
           <div style={{ marginTop: 16, borderTop: cardBorder, paddingTop: 14 }}>
-            {isElder ? (
+            {proposal.can_comment ? (
               <>
                 <textarea
                   value={commentText}
@@ -344,12 +479,20 @@ export default function ProposalDetailPage() {
                     fontFamily: 'inherit',
                   }}
                 />
-                <button style={{
-                  padding: '9px 18px', background: isNight ? '#7F77DD' : '#534AB7',
-                  border: 'none', borderRadius: 8, color: 'white', fontSize: 12, fontWeight: 600, cursor: 'pointer',
-                }}>
-                  Post Comment
+                <button
+                  onClick={postComment}
+                  disabled={posting || !commentText.trim()}
+                  style={{
+                    padding: '9px 18px', background: isNight ? '#7F77DD' : '#534AB7',
+                    border: 'none', borderRadius: 8, color: 'white', fontSize: 12, fontWeight: 600,
+                    cursor: posting || !commentText.trim() ? 'not-allowed' : 'pointer',
+                    opacity: posting || !commentText.trim() ? 0.6 : 1,
+                  }}>
+                  {posting ? 'Posting…' : 'Post Comment'}
                 </button>
+                {commentError && (
+                  <div style={{ fontSize: 11, color: '#E24B4A', marginTop: 8 }}>{commentError}</div>
+                )}
               </>
             ) : (
               /* Non-Elder lock card */
@@ -367,7 +510,7 @@ export default function ProposalDetailPage() {
                       Village Elder commenting
                     </div>
                     <div style={{ fontSize: 12, color: isNight ? '#9B96C8' : '#5C58A8', lineHeight: 1.5, marginBottom: 8 }}>
-                      Elders (10,000+ staked $VICO) can post in governance discussions. You can OoWop any comment now. Stake more to reach Elder tier.
+                      Elders ({GOVERNANCE_RULES.ELDER_STAKE.toLocaleString()}+ staked $VICO) can post in governance discussions. You can OoWop any comment now. Stake more to reach Elder tier.
                     </div>
                     <Link href="/village/bank/blockchain" style={{
                       display: 'inline-flex', alignItems: 'center', gap: 4,
@@ -388,7 +531,7 @@ export default function ProposalDetailPage() {
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
           display: 'flex', alignItems: 'flex-end', zIndex: 200,
-        }} onClick={() => setShowConfirm(null)}>
+        }} onClick={() => !voting && setShowConfirm(null)}>
           <div
             onClick={e => e.stopPropagation()}
             style={{
@@ -411,20 +554,21 @@ export default function ProposalDetailPage() {
               border: `1px solid ${isNight ? '#3C3870' : '#F0E6D3'}`,
               fontSize: 12, color: textMuted, marginBottom: 20, lineHeight: 1.5,
             }}>
-              This vote is final and will be recorded on-chain. You cannot change your vote after submission.
+              This vote is final and cannot be changed after submission.
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
-              <button onClick={() => setShowConfirm(null)} style={{
+              <button onClick={() => setShowConfirm(null)} disabled={voting} style={{
                 flex: 1, padding: '12px', borderRadius: 10,
                 border: `1px solid ${isNight ? '#3C3870' : '#DDDAF8'}`,
                 background: 'transparent', color: textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer',
               }}>Cancel</button>
-              <button onClick={submitVote} style={{
+              <button onClick={submitVote} disabled={voting} style={{
                 flex: 2, padding: '12px', borderRadius: 10, border: 'none',
                 background: showConfirm === 'for' ? '#1D9E75' : showConfirm === 'against' ? '#E24B4A' : '#8E8AB0',
-                color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize',
+                color: 'white', fontSize: 13, fontWeight: 700, cursor: voting ? 'not-allowed' : 'pointer', textTransform: 'capitalize',
+                opacity: voting ? 0.7 : 1,
               }}>
-                Vote {showConfirm}
+                {voting ? 'Submitting…' : `Vote ${showConfirm}`}
               </button>
             </div>
           </div>
