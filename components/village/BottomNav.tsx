@@ -326,12 +326,12 @@ function BottomNavInner() {
           transition={{ duration: 0.12 }}
           style={{
             width: 56, height: 56, borderRadius: 28,
-            background: open ? '#26215C' : '#0033CC',
-            border: '1.5px solid rgba(255,255,255,0.15)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.55)',
+            background: open ? 'rgba(38,33,92,0.85)' : 'transparent',
+            border: open ? '1.5px solid rgba(255,255,255,0.15)' : 'none',
+            boxShadow: open ? '0 4px 20px rgba(0,0,0,0.55)' : '0 4px 20px rgba(0,0,0,0.4)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer',
-            transition: 'background 0.2s',
+            transition: 'background 0.2s, border 0.2s',
           }}
           aria-label="Open navigation"
         >
@@ -342,7 +342,7 @@ function BottomNavInner() {
               </motion.div>
             ) : (
               <motion.div key="logo" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
-                <Image src="/village-icon-white.png" alt="villa9e" width={34} height={34} style={{ objectFit: 'contain' }} priority />
+                <Image src="/favicon.png" alt="villa9e" width={52} height={52} style={{ objectFit: 'contain', borderRadius: 26 }} priority />
               </motion.div>
             )}
           </AnimatePresence>
