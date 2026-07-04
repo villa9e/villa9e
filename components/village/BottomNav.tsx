@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState, useRef, Suspense, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -102,14 +103,6 @@ function CloseIcon({ size = 28 }: { size?: number }) {
   );
 }
 
-// 7 items fanned across a 180° crescent above the trigger button.
-const ARC_RADIUS = 110;
-function radialOffset(i: number, total: number) {
-  const angle = Math.PI * (total - 1 - i) / (total - 1);
-  return { x: ARC_RADIUS * Math.cos(angle), y: ARC_RADIUS * Math.sin(angle) };
-}
-// Trigger button center sits this far above the safe-area bottom edge.
-const BUTTON_CENTER_OFFSET = 6 + 28;
 
 // ── Search Drawer ─────────────────────────────────────────────────────────────
 function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -186,51 +179,72 @@ function SearchDrawer({ open, onClose }: { open: boolean; onClose: () => void })
   );
 }
 
-// ── Radial Menu ────────────────────────────────────────────────────────────────
-// 7 items fanned across a 180° crescent arc above the teepee button (WORKSHOP_SPEC §2).
+// ── Straight-line Menu ─────────────────────────────────────────────────────────
+// 7 items in a horizontal row, sliding up from above the trigger button.
 function RadialMenu({ open, onClose, avatarUrl }: { open: boolean; onClose: () => void; avatarUrl: string | null }) {
   return (
     <AnimatePresence>
       {open && (
         <>
           {/* Backdrop */}
-          <motion.div key="rm-bg" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          <motion.div
+            key="rm-bg"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
-            style={{ position: 'fixed', inset: 0, zIndex: 48, background: 'rgba(0,0,0,0.4)' }} />
+            style={{ position: 'fixed', inset: 0, zIndex: 48, background: 'rgba(0,0,0,0.5)' }}
+          />
 
-          {/* Arc items */}
-          {ITEMS.map((item, i) => {
-            const { x, y } = radialOffset(i, ITEMS.length);
-            return (
+          {/* Horizontal pill row above the trigger */}
+          <motion.div
+            key="rm-row"
+            initial={{ opacity: 0, y: 16, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 16, scale: 0.96 }}
+            transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+            style={{
+              position: 'fixed',
+              bottom: 'calc(env(safe-area-inset-bottom, 0px) + 76px)',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 52,
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'flex-end',
+              gap: 6,
+              padding: '12px 14px',
+              background: 'rgba(8,10,24,0.88)',
+              borderRadius: 28,
+              border: '1px solid rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(24px)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+            }}
+          >
+            {ITEMS.map((item, i) => (
               <motion.div
                 key={item.label}
-                initial={{ opacity: 0, scale: 0.3 }}
+                initial={{ opacity: 0, scale: 0.5 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.3 }}
-                transition={{ type: 'spring', stiffness: 300, damping: 20, delay: i * 0.04 }}
-                style={{
-                  position: 'fixed',
-                  left: `calc(50% + ${x}px)`,
-                  bottom: `calc(env(safe-area-inset-bottom, 0px) + ${BUTTON_CENTER_OFFSET + y - 24}px)`,
-                  transform: 'translateX(-50%)',
-                  zIndex: 52,
-                }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 22, delay: i * 0.035 }}
               >
                 <Link href={item.href} onClick={onClose}
-                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, textDecoration: 'none' }}>
                   <div style={{
-                    width: 48, height: 48, borderRadius: 24,
-                    background: 'rgba(0,0,0,0.75)', border: '1px solid rgba(255,255,255,0.12)',
+                    width: 44, height: 44, borderRadius: 22,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.12)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     overflow: item.icon === 'profile' ? 'hidden' : 'visible',
                   }}>
                     <RadialIcon icon={item.icon} avatarUrl={avatarUrl} />
                   </div>
-                  <span style={{ background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 800, letterSpacing: '0.02em', padding: '3px 8px', borderRadius: 10, whiteSpace: 'nowrap' }}>{item.label}</span>
+                  <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: 800, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                    {item.label}
+                  </span>
                 </Link>
               </motion.div>
-            );
-          })}
+            ))}
+          </motion.div>
         </>
       )}
     </AnimatePresence>
@@ -327,8 +341,8 @@ function BottomNavInner() {
                 <CloseIcon size={28} />
               </motion.div>
             ) : (
-              <motion.div key="teepee" initial={{ rotate: 90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: -90, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
-                <TeepeeIcon size={28} />
+              <motion.div key="logo" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.8, opacity: 0 }} transition={{ type: 'spring', stiffness: 380, damping: 24 }}>
+                <Image src="/village-icon-white.png" alt="villa9e" width={34} height={34} style={{ objectFit: 'contain' }} priority />
               </motion.div>
             )}
           </AnimatePresence>
