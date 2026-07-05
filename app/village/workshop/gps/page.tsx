@@ -18,12 +18,20 @@ export default function GpsIndexPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.replace('/sign-in'); return; }
 
-      const { data } = await (supabase as any)
-        .from('goals').select('id, gps_stage').eq('user_id', user.id)
+      // Prefer GPS-activated goals (have sprints); fall back to any active goal
+      const { data: activeGps } = await (supabase as any)
+        .from('goals').select('id').eq('user_id', user.id)
+        .eq('status', 'active').eq('gps_stage', 'active')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+
+      const { data: anyActive } = activeGps?.id ? { data: null } : await (supabase as any)
+        .from('goals').select('id').eq('user_id', user.id)
         .eq('status', 'active').order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-      if (data?.id) {
-        router.replace(`/village/workshop/gps/${data.id}`);
+      const goalId = activeGps?.id ?? anyActive?.id ?? null;
+
+      if (goalId) {
+        router.replace(`/village/workshop/gps/${goalId}`);
       } else {
         setNoGoal(true);
         setReady(true);
