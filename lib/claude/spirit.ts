@@ -637,7 +637,7 @@ async function extractAndStoreLearnings(userId: string, userMessage: string, spi
     const facts: string[] = JSON.parse(raw.replace(/```json|```/g, '').trim());
     await Promise.all(
       facts.slice(0, 3).map(fact =>
-        storeMemory(userId, 'learned', fact, { source: 'conversation' }, 7)
+        storeMemory(userId, 'conversation', fact, { source: 'learning' }, 7)
       )
     );
   } catch {
