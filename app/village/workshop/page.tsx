@@ -13,7 +13,7 @@ import WorkshopTabBar from '@/components/village/WorkshopTabBar';
 type CardType = 'template' | 'video' | 'tiktok' | 'sprint' | 'achievement' | 'goal' | 'guide';
 interface ActionContext {
   goalId: string; sprintNumber: number; sprintTitle: string;
-  actionTitle: string; actionDescription?: string;
+  actionTitle: string; actionDescription?: string; actionId?: string;
 }
 interface FeedCard {
   id: string; type: CardType; title: string; subtitle: string; content: string;
@@ -575,57 +575,206 @@ function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, on
 }
 
 // ── Goal Popup ────────────────────────────────────────────────────────────────
-function GoalPopup({ open, onClose, activeGoal, isGeneral }: {
-  open: boolean; onClose: () => void;
-  activeGoal?: { id: string; title: string; probability_score?: number } | null;
-  isGeneral: boolean;
+function ActionSelectorSheet({ open, onClose, onSelect }: {
+  open: boolean;
+  onClose: () => void;
+  onSelect: (ctx: ActionContext) => void;
 }) {
+  const supabase = createClient();
+  const [step, setStep] = useState<'goal' | 'sprint' | 'action'>('goal');
+  const [goals, setGoals] = useState<any[]>([]);
+  const [sprints, setSprints] = useState<any[]>([]);
+  const [actions, setActions] = useState<any[]>([]);
+  const [selGoal, setSelGoal] = useState<any>(null);
+  const [selSprint, setSelSprint] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep('goal'); setSelGoal(null); setSelSprint(null);
+    setLoading(true);
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      const { data } = await (supabase as any)
+        .from('goals')
+        .select('id, title, gps_stage, probability_score, sprints(id)')
+        .eq('user_id', user.id).eq('status', 'active')
+        .order('created_at', { ascending: false }).limit(10);
+      setGoals(data ?? []);
+      setLoading(false);
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  async function selectGoal(goal: any) {
+    setSelGoal(goal); setLoading(true);
+    const { data } = await (supabase as any)
+      .from('sprints')
+      .select('id, title, status, sprint_actions(id, title, description, completed, order_index)')
+      .eq('goal_id', goal.id)
+      .order('created_at', { ascending: true });
+    setSprints(data ?? []);
+    setStep('sprint'); setLoading(false);
+  }
+
+  function selectSprint(sprint: any) {
+    setSelSprint(sprint);
+    const sorted = [...(sprint.sprint_actions ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+    setActions(sorted);
+    setStep('action');
+  }
+
+  function selectAction(action: any) {
+    const sprintIdx = sprints.findIndex((s: any) => s.id === selSprint?.id);
+    onSelect({
+      goalId: selGoal.id, sprintNumber: sprintIdx + 1,
+      sprintTitle: selSprint.title, actionId: action.id,
+      actionTitle: action.title, actionDescription: action.description,
+    });
+    onClose();
+  }
+
+  const headerLabel = step === 'goal'
+    ? 'WORKSHOP CONTENT FOR'
+    : step === 'sprint'
+      ? (selGoal?.title ?? '').slice(0, 32) + ((selGoal?.title ?? '').length > 32 ? '…' : '')
+      : `Sprint ${sprints.findIndex((s: any) => s.id === selSprint?.id) + 1} · ${(selSprint?.title ?? '').slice(0, 24)}`;
+
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.88, y: -8 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.88, y: -8 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-          style={{
-            position: 'fixed', top: 'max(80px, calc(env(safe-area-inset-top, 48px) + 56px))', left: 12, zIndex: 50,
-            background: 'rgba(8,10,28,0.96)', backdropFilter: 'blur(24px)',
-            borderRadius: 16, padding: '14px 16px', width: 220,
-            border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 8px 32px rgba(0,0,0,0.7)',
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-            <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.38)', letterSpacing: '0.08em', margin: 0 }}>
-              {activeGoal ? 'ACTIVE GOAL' : 'CONTENT CATEGORY'}
-            </p>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: 16, lineHeight: 1, padding: 0 }}>×</button>
-          </div>
+        <>
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)', zIndex: 100 }}
+          />
+          <motion.div
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+            transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+            style={{
+              position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 101,
+              background: 'rgba(10,14,36,0.98)', backdropFilter: 'blur(28px)',
+              borderRadius: '20px 20px 0 0', paddingBottom: 'max(env(safe-area-inset-bottom, 20px), 20px)',
+              border: '1px solid rgba(255,255,255,0.07)', maxHeight: '75dvh', display: 'flex', flexDirection: 'column',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* drag handle */}
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '12px 0 0' }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }} />
+            </div>
 
-          {activeGoal ? (
-            <>
-              <Link href={`/village/workshop/gps/${activeGoal.id}`} onClick={onClose}
-                style={{ color: '#fff', fontWeight: 800, fontSize: 13, textDecoration: 'none', display: 'block', lineHeight: 1.4, marginBottom: 8 }}>
-                {activeGoal.title} <span style={{ color: '#4D72FF' }}>→</span>
-              </Link>
-              {(activeGoal.probability_score ?? 0) > 0 && (
-                <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.38)', margin: '0 0 10px' }}>
-                  {activeGoal.probability_score}% GPS probability
-                </p>
+            {/* header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px 8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                {step !== 'goal' && (
+                  <button onClick={() => setStep(step === 'action' ? 'sprint' : 'goal')}
+                    style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', fontSize: 22, lineHeight: 1, cursor: 'pointer', padding: 0, flexShrink: 0 }}>
+                    ←
+                  </button>
+                )}
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 9, fontWeight: 900, color: 'rgba(255,255,255,0.32)', letterSpacing: '0.1em', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {headerLabel}
+                  </p>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>
+                    {step === 'goal' ? 'Which goal?' : step === 'sprint' ? 'Which sprint?' : 'Which action?'}
+                  </p>
+                </div>
+              </div>
+              <button onClick={onClose}
+                style={{ background: 'rgba(255,255,255,0.07)', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', width: 28, height: 28, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 17, flexShrink: 0, marginLeft: 8 }}>
+                ×
+              </button>
+            </div>
+
+            {/* list */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '4px 0 8px' }}>
+              {loading && (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
+                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                    style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.08)', borderTopColor: '#4D72FF' }} />
+                </div>
               )}
-            </>
-          ) : (
-            <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.65)', margin: '0 0 10px', lineHeight: 1.5 }}>
-              Showing motivational, spiritual, wealth & coaching content.
-            </p>
-          )}
 
-          <Link href="/village/workshop/chat" onClick={onClose}
-            style={{ display: 'block', background: '#4D72FF', color: '#fff', borderRadius: 10, padding: '9px 12px', fontSize: 12, fontWeight: 900, textDecoration: 'none', textAlign: 'center' }}>
-            + New Goal
-          </Link>
-        </motion.div>
+              {/* Goal list */}
+              {step === 'goal' && !loading && goals.map(g => (
+                <button key={g.id} onClick={() => selectGoal(g)}
+                  style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '11px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.title}</p>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {g.gps_stage === 'active' ? (
+                        <span style={{ fontSize: 10, fontWeight: 700, color: '#6EE7B7', background: 'rgba(16,185,129,0.12)', padding: '2px 8px', borderRadius: 20, border: '1px solid rgba(16,185,129,0.25)' }}>GPS Active</span>
+                      ) : (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.05)', padding: '2px 8px', borderRadius: 20 }}>No GPS yet</span>
+                      )}
+                      {(g.sprints?.length ?? 0) > 0 && (
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>{g.sprints.length} sprint{g.sprints.length !== 1 ? 's' : ''}</span>
+                      )}
+                    </div>
+                  </div>
+                  <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={2.2} strokeLinecap="round" style={{ flexShrink: 0, marginLeft: 8 }}><path d="M9 18l6-6-6-6"/></svg>
+                </button>
+              ))}
+
+              {/* Sprint list */}
+              {step === 'sprint' && !loading && sprints.map((s: any, i: number) => {
+                const sprintActions = s.sprint_actions ?? [];
+                const done = sprintActions.filter((a: any) => a.completed).length;
+                const isComplete = s.status === 'complete';
+                const isActive = s.status === 'active';
+                const isLocked = !isComplete && !isActive;
+                return (
+                  <button key={s.id} onClick={() => !isLocked && selectSprint(s)} disabled={isLocked}
+                    style={{ width: '100%', background: 'none', border: 'none', cursor: isLocked ? 'default' : 'pointer', padding: '11px 20px', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', opacity: isLocked ? 0.35 : 1, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    {isComplete
+                      ? <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink: 0 }}><polyline points="20 6 9 17 4 12"/></svg>
+                      : isActive
+                        ? <svg width={16} height={16} viewBox="0 0 24 24" fill="#4D72FF" stroke="none" style={{ flexShrink: 0 }}><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        : <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={1.8} style={{ flexShrink: 0 }}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 14, fontWeight: 700, color: '#fff', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Sprint {i + 1} · {s.title}</p>
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.38)', margin: 0 }}>{done}/{sprintActions.length} actions complete</p>
+                    </div>
+                    {!isLocked && <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={2.2} strokeLinecap="round" style={{ flexShrink: 0 }}><path d="M9 18l6-6-6-6"/></svg>}
+                  </button>
+                );
+              })}
+
+              {/* Action list */}
+              {step === 'action' && !loading && actions.map((a: any) => (
+                <button key={a.id} onClick={() => selectAction(a)}
+                  style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '11px 20px', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                  {a.completed
+                    ? <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" strokeWidth={2.5} strokeLinecap="round" style={{ flexShrink: 0 }}><polyline points="20 6 9 17 4 12"/></svg>
+                    : <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth={2} style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9"/></svg>
+                  }
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 2px', color: a.completed ? 'rgba(255,255,255,0.4)' : '#fff', textDecoration: a.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
+                    {a.description && !a.completed && (
+                      <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.32)', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.description}</p>
+                    )}
+                  </div>
+                  <span style={{ fontSize: 9, fontWeight: 900, color: '#4D72FF', background: 'rgba(77,114,255,0.13)', padding: '3px 9px', borderRadius: 12, flexShrink: 0, border: '1px solid rgba(77,114,255,0.22)' }}>VIEW</span>
+                </button>
+              ))}
+
+              {/* new goal CTA (goal step only) */}
+              {step === 'goal' && !loading && (
+                <div style={{ padding: '16px 20px 0' }}>
+                  <Link href="/village/workshop/chat" onClick={onClose}
+                    style={{ display: 'block', background: 'rgba(77,114,255,0.15)', color: '#AFC0FF', borderRadius: 12, padding: '12px 14px', fontSize: 13, fontWeight: 700, textDecoration: 'none', textAlign: 'center', border: '1px solid rgba(77,114,255,0.22)' }}>
+                    + New Goal
+                  </Link>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
@@ -659,21 +808,24 @@ export default function WorkshopPage() {
   const { speak } = useSpiritVoice();
 
   const tab = 'Workshop' as const;
-  const [cards,         setCards]         = useState<FeedCard[]>([]);
-  const [current,       setCurrent]       = useState(0);
-  const [owopped,       setOwopped]       = useState<Set<string>>(new Set());
-  const [saved,         setSaved]         = useState<Set<string>>(new Set());
-  const [showFist,      setShowFist]      = useState(false);
-  const [loading,       setLoading]       = useState(true);
-  const [activeGoals,   setActiveGoals]   = useState<any[]>([]);
-  const [activeSprints, setActiveSprints] = useState<any[]>([]);
-  const [uiVisible,     setUiVisible]     = useState(true);
-  const [isPaused,      setIsPaused]      = useState(false);
-  const [showPauseInd,  setShowPauseInd]  = useState(false);
-  const [showComments,  setShowComments]  = useState(false);
-  const [showMore,      setShowMore]      = useState(false);
-  const [showGoalPopup, setShowGoalPopup] = useState(false);
-  const [missionScores, setMissionScores] = useState<Record<string, { score: number; label: 'green' | 'amber' | null }>>({});
+  const [cards,           setCards]           = useState<FeedCard[]>([]);
+  const [current,         setCurrent]         = useState(0);
+  const [owopped,         setOwopped]         = useState<Set<string>>(new Set());
+  const [saved,           setSaved]           = useState<Set<string>>(new Set());
+  const [showFist,        setShowFist]        = useState(false);
+  const [loading,         setLoading]         = useState(true);
+  const [activeGoals,     setActiveGoals]     = useState<any[]>([]);
+  const [activeSprints,   setActiveSprints]   = useState<any[]>([]);
+  const [uiVisible,       setUiVisible]       = useState(true);
+  const [isPaused,        setIsPaused]        = useState(false);
+  const [showPauseInd,    setShowPauseInd]    = useState(false);
+  const [showComments,    setShowComments]    = useState(false);
+  const [showMore,        setShowMore]        = useState(false);
+  const [showSelector,    setShowSelector]    = useState(false);
+  const [selectedContext, setSelectedContext] = useState<ActionContext | null>(null);
+  const [feedKey,         setFeedKey]         = useState(0);
+  const [missionScores,   setMissionScores]   = useState<Record<string, { score: number; label: 'green' | 'amber' | null }>>({});
+  const selectedContextRef = useRef<ActionContext | null>(null);
 
   const iframeRef  = useRef<HTMLIFrameElement>(null);
   const uiTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -686,12 +838,10 @@ export default function WorkshopPage() {
 
   const hasGoals = activeGoals.length > 0;
   const card = cards[current];
-  const isGoalAligned = !!card?.actionContext;
+  const isGoalAligned = !!(card?.actionContext || selectedContext);
   const gpsActiveGoal = activeGoals.find((g: any) => g.gps_stage === 'active');
-  const gpsHref = card?.actionContext
-    ? `/village/workshop/gps/${card.actionContext.goalId}`
-    : gpsActiveGoal ? `/village/workshop/gps/${gpsActiveGoal.id}`
-    : activeGoals[0] ? `/village/workshop/gps/${activeGoals[0].id}` : '/village/workshop/gps';
+  const effectiveGoalId = selectedContext?.goalId ?? card?.actionContext?.goalId ?? gpsActiveGoal?.id ?? activeGoals[0]?.id;
+  const gpsHref = effectiveGoalId ? `/village/workshop/gps/${effectiveGoalId}` : '/village/workshop/gps';
 
   // Auto-hide UI after 3s on card change
   useEffect(() => {
@@ -789,7 +939,8 @@ export default function WorkshopPage() {
     }, 80);
   }
 
-  useEffect(() => { loadFeed(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { loadFeed(); }, [feedKey]);
 
   // Mission score: lazily score the current video card against the user's
   // GPS action (cached server-side, so repeat views are free).
@@ -821,13 +972,14 @@ export default function WorkshopPage() {
 
   async function loadFeed() {
     setLoading(true);
+    const overrideCtx = selectedContextRef.current;
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
       // ── Goals first (newest-active = "primary"), so the rest of the feed
       // can be built around the sprint/action the user is currently on ──
       let goals: any[] = [];
-      let actionContext: ActionContext | null = null;
+      let actionContext: ActionContext | null = overrideCtx ?? null;
       let skipCounts: Map<string, number> = new Map();
       if (user) {
         const { data: skips } = await (supabase as any)
@@ -845,41 +997,43 @@ export default function WorkshopPage() {
           .then((r: any) => r).catch(() => ({ data: [] }));
         goals = data ?? [];
 
-        // Prefer GPS-activated goals for action context and swipe target
-        const primaryGoal = goals.find((g: any) => g.gps_stage === 'active') ?? goals[0];
-        if (primaryGoal) {
-          const { data: sp } = await (supabase as any)
-            .from('sprints')
-            .select('id, title, sprint_actions(id, title, description, completed, order_index)')
-            .eq('goal_id', primaryGoal.id)
-            .order('created_at', { ascending: true })
-            .then((r: any) => r).catch(() => ({ data: [] }));
-
-          let current: { sprintNumber: number; sprintTitle: string; title: string; description?: string } | null = null;
-          (sp ?? []).forEach((s: any, i: number) => {
-            if (current) return;
-            const action = (s.sprint_actions ?? [])
-              .slice().sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
-              .find((a: any) => !a.completed);
-            if (action) current = { sprintNumber: i + 1, sprintTitle: s.title, title: action.title, description: action.description };
-          });
-
-          // Fallback: derive from goal_steps if no sprints exist yet
-          if (!current) {
-            const { data: steps } = await (supabase as any)
-              .from('goal_steps')
-              .select('title, status, step_number, week_number, description')
-              .eq('goal_id', primaryGoal.id).order('step_number', { ascending: true })
+        if (!overrideCtx) {
+          // Prefer GPS-activated goals for action context and swipe target
+          const primaryGoal = goals.find((g: any) => g.gps_stage === 'active') ?? goals[0];
+          if (primaryGoal) {
+            const { data: sp } = await (supabase as any)
+              .from('sprints')
+              .select('id, title, sprint_actions(id, title, description, completed, order_index)')
+              .eq('goal_id', primaryGoal.id)
+              .order('created_at', { ascending: true })
               .then((r: any) => r).catch(() => ({ data: [] }));
-            const action = (steps ?? []).find((st: any) => st.status !== 'completed');
-            if (action) current = { sprintNumber: action.week_number ?? 1, sprintTitle: `Sprint ${action.week_number ?? 1}`, title: action.title, description: action.description };
-          }
 
-          if (current) {
-            actionContext = {
-              goalId: primaryGoal.id, sprintNumber: current.sprintNumber, sprintTitle: current.sprintTitle,
-              actionTitle: current.title, actionDescription: current.description,
-            };
+            let cur: { sprintNumber: number; sprintTitle: string; title: string; description?: string } | null = null;
+            (sp ?? []).forEach((s: any, i: number) => {
+              if (cur) return;
+              const action = (s.sprint_actions ?? [])
+                .slice().sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0))
+                .find((a: any) => !a.completed);
+              if (action) cur = { sprintNumber: i + 1, sprintTitle: s.title, title: action.title, description: action.description };
+            });
+
+            // Fallback: derive from goal_steps if no sprints exist yet
+            if (!cur) {
+              const { data: steps } = await (supabase as any)
+                .from('goal_steps')
+                .select('title, status, step_number, week_number, description')
+                .eq('goal_id', primaryGoal.id).order('step_number', { ascending: true })
+                .then((r: any) => r).catch(() => ({ data: [] }));
+              const action = (steps ?? []).find((st: any) => st.status !== 'completed');
+              if (action) cur = { sprintNumber: action.week_number ?? 1, sprintTitle: `Sprint ${action.week_number ?? 1}`, title: action.title, description: action.description };
+            }
+
+            if (cur) {
+              actionContext = {
+                goalId: primaryGoal.id, sprintNumber: cur.sprintNumber, sprintTitle: cur.sprintTitle,
+                actionTitle: cur.title, actionDescription: cur.description,
+              };
+            }
           }
         }
       }
@@ -1057,26 +1211,31 @@ export default function WorkshopPage() {
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 30, background: 'transparent' }}>
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: `calc(${safeTop} + 6px) 12px 4px`,
-          opacity: !uiVisible && !showGoalPopup ? 0 : 1,
-          pointerEvents: !uiVisible && !showGoalPopup ? 'none' : 'auto',
+          opacity: !uiVisible && !showSelector ? 0 : 1,
+          pointerEvents: !uiVisible && !showSelector ? 'none' : 'auto',
           transition: 'opacity 0.5s ease',
         }}>
-          {/* Dual-function target button (content type / goal alignment) */}
-          <div style={{ position: 'relative' }}>
-            <motion.button
-              onClick={() => setShowGoalPopup(p => !p)}
-              animate={isGoalAligned ? { scale: [1, 1.18, 1] } : {}}
-              transition={isGoalAligned ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } : {}}
-              style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: isGoalAligned ? '1.5px solid rgba(77,114,255,0.7)' : '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            >
-              <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.2} strokeLinecap="round">
-                <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="white" stroke="none"/>
-              </svg>
-            </motion.button>
-            <GoalPopup open={showGoalPopup} onClose={() => setShowGoalPopup(false)}
-              activeGoal={activeGoals[0] ? { id: activeGoals[0].id, title: activeGoals[0].title, probability_score: activeGoals[0].probability_score } : null}
-              isGeneral={!hasGoals} />
-          </div>
+          {/* Target button — opens goal/sprint/action selector */}
+          <motion.button
+            onClick={() => setShowSelector(true)}
+            animate={isGoalAligned ? { scale: [1, 1.18, 1] } : {}}
+            transition={isGoalAligned ? { repeat: Infinity, duration: 1.8, ease: 'easeInOut' } : {}}
+            style={{ width: 34, height: 34, borderRadius: 10, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: isGoalAligned ? '1.5px solid rgba(77,114,255,0.7)' : '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          >
+            <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.2} strokeLinecap="round">
+              <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2" fill="white" stroke="none"/>
+            </svg>
+          </motion.button>
+          <ActionSelectorSheet
+            open={showSelector}
+            onClose={() => setShowSelector(false)}
+            onSelect={ctx => {
+              selectedContextRef.current = ctx;
+              setSelectedContext(ctx);
+              setCurrent(0);
+              setFeedKey(k => k + 1);
+            }}
+          />
 
           {/* Notification bell */}
           <Link href="/village/notifications"
@@ -1124,16 +1283,18 @@ export default function WorkshopPage() {
               {/* Bottom text info (video + tiktok, auto-hides) — active card only */}
               {i === current && (c.type === 'video' || c.type === 'tiktok') && (
                 <div style={{ position: 'absolute', bottom: 0, left: 0, right: 72, padding: '0 16px 110px', zIndex: 10, opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: 'none' }}>
-                  {/* Action context banner — links back to the GPS sprint/action this content was matched to */}
-                  {c.actionContext && (
-                    <Link href={`/village/workshop/gps/${c.actionContext.goalId}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: 'rgba(77,114,255,0.22)', color: '#AFC0FF', border: '1px solid rgba(77,114,255,0.5)', pointerEvents: 'auto', width: 'fit-content', textDecoration: 'none' }}>
-                      <span>🎯</span>
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
-                        Sprint {c.actionContext.sprintNumber} · {c.actionContext.actionTitle}
-                      </span>
-                    </Link>
-                  )}
+                  {/* Action context banner — card's own context, or manually selected context */}
+                  {(c.actionContext || selectedContext) && (() => {
+                    const ctx = c.actionContext ?? selectedContext!;
+                    return (
+                      <Link href={`/village/workshop/gps/${ctx.goalId}`}
+                        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 20, fontSize: 10, fontWeight: 900, marginBottom: 6, background: selectedContext && !c.actionContext ? 'rgba(239,159,39,0.22)' : 'rgba(77,114,255,0.22)', color: selectedContext && !c.actionContext ? '#FCD34D' : '#AFC0FF', border: `1px solid ${selectedContext && !c.actionContext ? 'rgba(239,159,39,0.5)' : 'rgba(77,114,255,0.5)'}`, pointerEvents: 'auto', width: 'fit-content', textDecoration: 'none' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 220 }}>
+                          Sprint {ctx.sprintNumber} · {ctx.actionTitle}
+                        </span>
+                      </Link>
+                    );
+                  })()}
                   {/* Mission score pill — how well this video matches the current action (Claude-scored, cached) */}
                   {missionScores[c.id]?.label && (
                     <span style={{
