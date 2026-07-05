@@ -635,9 +635,11 @@ async function extractAndStoreLearnings(userId: string, userMessage: string, spi
     });
     const raw = (extraction.content[0] as any)?.text ?? '[]';
     const facts: string[] = JSON.parse(raw.replace(/```json|```/g, '').trim());
-    for (const fact of facts.slice(0, 3)) {
-      storeMemory(userId, 'learned', fact, { source: 'conversation' }, 7).catch(() => {});
-    }
+    await Promise.all(
+      facts.slice(0, 3).map(fact =>
+        storeMemory(userId, 'learned', fact, { source: 'conversation' }, 7)
+      )
+    );
   } catch {
     // Silent — memory extraction is best-effort
   }
