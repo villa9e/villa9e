@@ -26,9 +26,15 @@ const ITEMS: { href: string; label: string; icon: RadialIconKey }[] = [
 // Radial icons — 20px, white stroke (villa9e icon rules: white on dark, no color variety).
 function RadialIcon({ icon, avatarUrl }: { icon: RadialIconKey; avatarUrl: string | null }) {
   if (icon === 'profile') {
-    return (
+    if (avatarUrl) {
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={avatarUrl || '/default-avatar.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+      return <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+    }
+    // No avatar set — show person icon in blue so it's visible against the white circle
+    return (
+      <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="#1877F2" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+      </svg>
     );
   }
   const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: '#1877F2', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
@@ -283,12 +289,14 @@ function BottomNavInner() {
         avatarUrl={avatarUrl}
       />
 
-      {/* Search — top-left, mirrors the notification bell */}
-      <button onClick={() => setSearchOpen(true)}
-        style={{ position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', left: 16, zIndex: 47, width: 36, height: 36, borderRadius: 18, background: 'rgba(10,10,18,0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-        aria-label="Search">
-        <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      </button>
+      {/* Search — top-left, hidden on Workshop pages which have their own header controls */}
+      {!path.startsWith('/village/workshop') && (
+        <button onClick={() => setSearchOpen(true)}
+          style={{ position: 'fixed', top: 'calc(48px + env(safe-area-inset-top, 0px))', left: 16, zIndex: 47, width: 36, height: 36, borderRadius: 18, background: 'rgba(10,10,18,0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          aria-label="Search">
+          <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+      )}
 
       {/* Notification bell — hidden on workshop (it has its own) */}
       {path !== '/village/workshop' && (

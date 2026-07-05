@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 export type WorkshopTab = 'Goals' | 'Workshop' | 'GPS';
 
@@ -41,6 +41,23 @@ export function useWorkshopSwipeNav(active: WorkshopTab, gpsHref?: string) {
     if (dx > 0 && activeIdx < TAB_ORDER.length - 1) router.push(hrefFor(activeIdx + 1));
     else if (dx < 0 && activeIdx > 0) router.push(hrefFor(activeIdx - 1));
   }
+
+  // Desktop: → or L → right tab; ← or H → left tab
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if ((e.key === 'ArrowRight' || e.key === 'l') && activeIdx < TAB_ORDER.length - 1) {
+        e.preventDefault(); router.push(hrefFor(activeIdx + 1));
+      } else if ((e.key === 'ArrowLeft' || e.key === 'h') && activeIdx > 0) {
+        e.preventDefault(); router.push(hrefFor(activeIdx - 1));
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIdx, gpsHref]);
+
   return { onTouchStart, onTouchEnd };
 }
 

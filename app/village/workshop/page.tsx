@@ -939,6 +939,40 @@ export default function WorkshopPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadFeed(); }, [feedKey]);
 
+  // Desktop keyboard navigation:
+  //   ↑ / ↓  — scroll cards (vertical feed)
+  //   → / L  — go to GPS (right tab)
+  //   ← / H  — go to Goals (left tab)
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      // Don't steal keys while the user is typing in an input / textarea
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+
+      const el = feedRef.current;
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault();
+        if (el && current < cards.length - 1) {
+          el.scrollTo({ top: (current + 1) * el.clientHeight, behavior: 'smooth' });
+        }
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault();
+        if (el && current > 0) {
+          el.scrollTo({ top: (current - 1) * el.clientHeight, behavior: 'smooth' });
+        }
+      } else if (e.key === 'ArrowRight' || e.key === 'l') {
+        e.preventDefault();
+        router.push(gpsHref);
+      } else if (e.key === 'ArrowLeft' || e.key === 'h') {
+        e.preventDefault();
+        router.push('/village/workshop/chat');
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, cards.length, gpsHref]);
+
   // Mission score: lazily score the current video card against the user's
   // GPS action (cached server-side, so repeat views are free).
   useEffect(() => {
@@ -1363,18 +1397,6 @@ export default function WorkshopPage() {
           )}
         </div>
       )}
-
-      {/* Search — floating bottom-right, above tab bar */}
-      <motion.button
-        onClick={() => {/* search sheet — future */ }}
-        initial={false}
-        animate={{ opacity: uiVisible ? 1 : 0 }}
-        style={{ position: 'fixed', bottom: 'calc(max(env(safe-area-inset-bottom, 16px), 16px) + 56px)', right: 16, zIndex: 25, width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', pointerEvents: uiVisible ? 'auto' : 'none' }}
-      >
-        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-      </motion.button>
 
       {/* Drawers */}
       {card && <CommentsDrawer open={showComments} onClose={() => setShowComments(false)} card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}
