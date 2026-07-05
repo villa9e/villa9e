@@ -31,7 +31,7 @@ function RadialIcon({ icon, avatarUrl }: { icon: RadialIconKey; avatarUrl: strin
       <img src={avatarUrl || '/default-avatar.png'} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
     );
   }
-  const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: '#ffffff', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const common = { width: 20, height: 20, viewBox: '0 0 24 24', fill: 'none', stroke: '#1877F2', strokeWidth: 1.8, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   switch (icon) {
     case 'workshop':
       return (
@@ -60,9 +60,9 @@ function RadialIcon({ icon, avatarUrl }: { icon: RadialIconKey; avatarUrl: strin
       return (
         <svg {...common}>
           <path d="M3 12h18" />
-          <circle cx="6" cy="12" r="1.6" fill="#ffffff" stroke="none" />
-          <circle cx="12" cy="12" r="1.6" fill="#ffffff" stroke="none" />
-          <circle cx="18" cy="12" r="1.6" fill="#ffffff" stroke="none" />
+          <circle cx="6" cy="12" r="1.6" fill="#1877F2" stroke="none" />
+          <circle cx="12" cy="12" r="1.6" fill="#1877F2" stroke="none" />
+          <circle cx="18" cy="12" r="1.6" fill="#1877F2" stroke="none" />
         </svg>
       );
     case 'trading-post':
@@ -194,7 +194,7 @@ function RadialMenu({ open, onClose, avatarUrl }: { open: boolean; onClose: () =
             style={{ position: 'fixed', inset: 0, zIndex: 48, background: 'rgba(0,0,0,0.5)' }}
           />
 
-          {/* Horizontal pill row above the trigger */}
+          {/* Horizontal row — no background, centered over trigger */}
           <motion.div
             key="rm-row"
             initial={{ opacity: 0, y: 16, scale: 0.96 }}
@@ -210,13 +210,7 @@ function RadialMenu({ open, onClose, avatarUrl }: { open: boolean; onClose: () =
               display: 'flex',
               flexDirection: 'row',
               alignItems: 'flex-end',
-              gap: 6,
-              padding: '12px 14px',
-              background: 'rgba(8,10,24,0.88)',
-              borderRadius: 28,
-              border: '1px solid rgba(255,255,255,0.1)',
-              backdropFilter: 'blur(24px)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+              gap: 8,
             }}
           >
             {ITEMS.map((item, i) => (
@@ -231,14 +225,14 @@ function RadialMenu({ open, onClose, avatarUrl }: { open: boolean; onClose: () =
                   style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, textDecoration: 'none' }}>
                   <div style={{
                     width: 44, height: 44, borderRadius: 22,
-                    background: 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.12)',
+                    background: '#FFFFFF',
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.35)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     overflow: item.icon === 'profile' ? 'hidden' : 'visible',
                   }}>
                     <RadialIcon icon={item.icon} avatarUrl={avatarUrl} />
                   </div>
-                  <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 9, fontWeight: 800, letterSpacing: '0.03em', whiteSpace: 'nowrap' }}>
+                  <span style={{ color: '#FFFFFF', fontSize: 9, fontWeight: 800, letterSpacing: '0.03em', whiteSpace: 'nowrap', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                     {item.label}
                   </span>
                 </Link>
