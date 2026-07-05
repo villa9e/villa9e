@@ -263,11 +263,24 @@ function BottomNavInner() {
 
   useEffect(() => {
     const supabase = createClient();
+
+    async function loadAvatar(userId: string) {
+      const { data } = await (supabase as any)
+        .from('profiles').select('avatar_url').eq('id', userId).single();
+      if (data?.avatar_url) setAvatarUrl(data.avatar_url);
+    }
+
+    // Load immediately for the current session
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return;
-      (supabase as any).from('profiles').select('avatar_url').eq('id', user.id).single()
-        .then(({ data }: any) => { if (data?.avatar_url) setAvatarUrl(data.avatar_url); });
+      if (user) loadAvatar(user.id);
     });
+
+    // Also reload when auth state changes (e.g. after sign-in or profile update)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) loadAvatar(session.user.id);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => { setOpen(false); }, [path]);

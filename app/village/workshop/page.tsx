@@ -17,7 +17,7 @@ interface ActionContext {
 }
 interface FeedCard {
   id: string; type: CardType; title: string; subtitle: string; content: string;
-  author: { username: string; avatar?: string; avatar_url?: string; score_tier?: string };
+  author: { username: string; avatar?: string; avatar_url?: string; score_tier?: string; profileLink?: string };
   media?: { videoId?: string; thumbnail?: string; url?: string; embedHtml?: string };
   color: string; accent: string; data?: any; oowops?: number;
   actionContext?: ActionContext;
@@ -500,16 +500,23 @@ function SideActions({ card, onOoWop, owopped, oowopCount, onComment, onMore, on
       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, zIndex: 20,
       opacity: uiVisible ? 1 : 0, transition: 'opacity 0.5s ease', pointerEvents: uiVisible ? 'auto' : 'none',
     }}>
-      {/* Creator avatar */}
-      <div style={{ position: 'relative', marginBottom: 2 }}>
+      {/* Creator avatar — tapping links to their profile if they're an app user */}
+      <Link
+        href={card.author.profileLink ?? '#'}
+        onClick={e => { if (!card.author.profileLink) e.preventDefault(); }}
+        style={{ position: 'relative', marginBottom: 2, display: 'block', textDecoration: 'none' }}
+      >
         <div style={{ width: 38, height: 38, borderRadius: 19, overflow: 'hidden', border: '2px solid rgba(255,255,255,0.8)', flexShrink: 0 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={card.author.avatar_url || card.author.avatar || '/default-avatar.png'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={card.author.avatar_url || card.author.avatar || '/default-avatar.png'} alt={card.author.username}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
-        <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 16, height: 16, borderRadius: 8, background: '#4D72FF', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-          <svg width={7} height={7} viewBox="0 0 24 24" fill="white"><path d="M12 5v14M5 12h14"/></svg>
-        </div>
-      </div>
+        {card.author.profileLink && (
+          <div style={{ position: 'absolute', bottom: -5, left: '50%', transform: 'translateX(-50%)', width: 16, height: 16, borderRadius: 8, background: '#4D72FF', border: '2px solid #000', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width={7} height={7} viewBox="0 0 24 24" fill="white"><path d="M9 18l6-6-6-6"/></svg>
+          </div>
+        )}
+      </Link>
 
       {/* OoWop (fist) */}
       <motion.button whileTap={{ scale: 0.82 }} onClick={onOoWop}
@@ -1081,7 +1088,7 @@ export default function WorkshopPage() {
       // relevant to that action/category; otherwise show top-watched.
       const actionLevel = goals[0]?.action_level ?? 1;
       let studioQuery = (supabase as any).from('studio_videos')
-        .select('id, title, description, category, video_url, thumbnail_url, duration_seconds, profiles!creator_id(username)')
+        .select('id, title, description, category, video_url, thumbnail_url, duration_seconds, profiles!creator_id(username, avatar_url)')
         .eq('is_published', true);
       if (actionContext) {
         const kw = sanitizeForOr(actionContext.actionTitle.split(' ')[0]);
@@ -1129,9 +1136,15 @@ export default function WorkshopPage() {
       }));
       const studioCards: FeedCard[] = videos.filter((v: any) => v.video_url || v.thumbnail_url).map((v: any) => {
         const rawId = v.video_url?.includes('v=') ? v.video_url.split('v=')[1]?.split('&')[0] : undefined;
+        const creatorUsername = v.profiles?.username;
         return {
           id: v.id, type: 'video', title: v.title, subtitle: v.category ?? 'Training', content: v.description ?? '',
-          author: { username: v.profiles?.username ?? 'creator' }, media: { videoId: rawId, thumbnail: v.thumbnail_url },
+          author: {
+            username: creatorUsername ?? 'creator',
+            avatar_url: v.profiles?.avatar_url ?? undefined,
+            profileLink: creatorUsername ? `/village/${creatorUsername}` : undefined,
+          },
+          media: { videoId: rawId, thumbnail: v.thumbnail_url },
           color: '#FF6B2B', accent: '#FF6B2B',
           ...(actionContext ? { actionContext } : {}),
         };
