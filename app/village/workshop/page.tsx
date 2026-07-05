@@ -279,10 +279,7 @@ function MoreDrawer({ open, onClose, card, onSkip }: { open: boolean; onClose: (
             {/* Handle + header row */}
             <div style={{ flexShrink: 0, padding: '10px 16px 10px' }}>
               <div style={{ width: 36, height: 4, background: 'rgba(255,255,255,0.18)', borderRadius: 2, margin: '0 auto 10px' }} />
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <button style={{ background: 'rgba(255,255,255,0.07)', border: 'none', borderRadius: 10, width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                  <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
                 <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.08)', border: 'none', borderRadius: '50%', width: 32, height: 32, color: '#fff', fontSize: 18, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
               </div>
             </div>
@@ -1366,6 +1363,18 @@ export default function WorkshopPage() {
           )}
         </div>
       )}
+
+      {/* Search — floating bottom-right, above tab bar */}
+      <motion.button
+        onClick={() => {/* search sheet — future */ }}
+        initial={false}
+        animate={{ opacity: uiVisible ? 1 : 0 }}
+        style={{ position: 'fixed', bottom: 'calc(max(env(safe-area-inset-bottom, 16px), 16px) + 56px)', right: 16, zIndex: 25, width: 40, height: 40, borderRadius: 20, background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', pointerEvents: uiVisible ? 'auto' : 'none' }}
+      >
+        <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2} strokeLinecap="round">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </motion.button>
 
       {/* Drawers */}
       {card && <CommentsDrawer open={showComments} onClose={() => setShowComments(false)} card={card} onOoWop={() => handleOoWop(card.id)} owopped={owopped.has(card.id)} />}

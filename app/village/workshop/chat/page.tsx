@@ -773,7 +773,7 @@ export default function GoalChatPage() {
       // Load profile + existing goals + saved threads in parallel
       Promise.all([
         supabase.from('profiles').select('display_name, username, avatar_config').eq('id', user.id).single(),
-        supabase.from('goals').select('id, title').eq('user_id', user.id).eq('status', 'active').limit(10),
+        supabase.from('goals').select('id, title, gps_stage').eq('user_id', user.id).eq('status', 'active').order('created_at', { ascending: false }).limit(10),
         (supabase as any).from('spirit_chat_threads')
           .select('id, title, goal_id, last_message_at')
           .eq('user_id', user.id).order('last_message_at', { ascending: false }).limit(40)
@@ -786,7 +786,11 @@ export default function GoalChatPage() {
         if (variant) setSpiritVariant(variant);
 
         if (goalsRes.data) {
-          setExistingGoals((goalsRes.data as any[]).map((g: any) => ({ id: g.id, title: g.title })));
+          // Sort GPS-activated goals first so gpsHref always points to the right map
+          const sorted = [...(goalsRes.data as any[])].sort((a, b) =>
+            (b.gps_stage === 'active' ? 1 : 0) - (a.gps_stage === 'active' ? 1 : 0)
+          );
+          setExistingGoals(sorted.map((g: any) => ({ id: g.id, title: g.title })));
         }
 
         if (threadsRes?.data) setThreads(threadsRes.data as ThreadSummary[]);
