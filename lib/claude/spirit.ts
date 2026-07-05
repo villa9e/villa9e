@@ -748,8 +748,11 @@ export async function callSpirit(
   const replyText = (() => { try { return JSON.parse(text)?.response ?? JSON.parse(text)?.reply ?? JSON.parse(text)?.text ?? text; } catch { return text; } })();
   await saveMessage(resolvedThreadId, userId, 'spirit', replyText);
 
-  // Extract learnings about the user — non-blocking
-  extractAndStoreLearnings(userId, userMessage, replyText).catch(() => {});
+  // Extract learnings — awaited with a 6s timeout so serverless doesn't kill it
+  await Promise.race([
+    extractAndStoreLearnings(userId, userMessage, replyText),
+    new Promise<void>(res => setTimeout(res, 6000)),
+  ]).catch(() => {});
 
   const actions = pendingActions.length ? pendingActions : undefined;
   try {
