@@ -584,17 +584,94 @@ async function critiqueAgainstCommandments(draft: string, userMessage: string): 
 // CALL SPIRIT — Fully personalized response
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// THREAD HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getOrCreateThread(userId: string, threadId?: string): Promise<string> {
+  const admin = createAdminClient();
+  if (threadId) return threadId;
+  const { data } = await (admin as any)
+    .from('spirit_threads')
+    .insert({ user_id: userId, title: null })
+    .select('id')
+    .single();
+  return data?.id as string;
+}
+
+export async function loadThreadHistory(threadId: string, limit = 30): Promise<{ role: 'user' | 'assistant'; content: string }[]> {
+  const admin = createAdminClient();
+  const { data } = await (admin as any)
+    .from('spirit_messages')
+    .select('role, content')
+    .eq('thread_id', threadId)
+    .order('created_at', { ascending: true })
+    .limit(limit);
+  return (data ?? []).map((m: any) => ({
+    role: m.role === 'spirit' ? 'assistant' : 'user',
+    content: m.content,
+  }));
+}
+
+async function saveMessage(threadId: string, userId: string, role: 'user' | 'spirit', content: string, metadata: Record<string, any> = {}) {
+  const admin = createAdminClient();
+  await (admin as any).from('spirit_messages').insert({ thread_id: threadId, user_id: userId, role, content, metadata });
+}
+
+async function setThreadTitle(threadId: string, firstMessage: string) {
+  const admin = createAdminClient();
+  const title = firstMessage.length > 60 ? firstMessage.slice(0, 57) + '…' : firstMessage;
+  await (admin as any).from('spirit_threads').update({ title }).eq('id', threadId).is('title', null);
+}
+
+// Extract learnings about the user from the conversation and store as memories.
+async function extractAndStoreLearnings(userId: string, userMessage: string, spiritReply: string) {
+  try {
+    const extraction = await claude.messages.create({
+      model: CLAUDE_MODEL,
+      max_tokens: 400,
+      system: `Extract 0–3 specific facts about this person from the conversation — personality, values, struggles, preferences, relationships, goals, habits. Only extract facts clearly stated or strongly implied. Skip generic info. Return JSON array of strings, each under 100 chars. Return [] if nothing worth storing.`,
+      messages: [{ role: 'user', content: `User said: "${userMessage}"\nSpirit replied: "${spiritReply.slice(0, 300)}"` }],
+    });
+    const raw = (extraction.content[0] as any)?.text ?? '[]';
+    const facts: string[] = JSON.parse(raw.replace(/```json|```/g, '').trim());
+    for (const fact of facts.slice(0, 3)) {
+      storeMemory(userId, 'learned', fact, { source: 'conversation' }, 7).catch(() => {});
+    }
+  } catch {
+    // Silent — memory extraction is best-effort
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CALL SPIRIT — Full intelligence with thread persistence
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function callSpirit(
   userId: string,
   userMessage: string,
-  additionalContext?: Partial<SpiritUserContext>
-): Promise<{ text: string; raw: any; actions?: { tool: string; tier: number; input: any }[] }> {
-  const ctx           = await fetchSpiritContext(userId, userMessage);
-  const merged        = { ...ctx, ...additionalContext };
-  const systemPrompt  = buildSpiritSystemPrompt(merged);
-  const admin         = createAdminClient();
+  additionalContext?: Partial<SpiritUserContext>,
+  threadId?: string
+): Promise<{ text: string; raw: any; threadId: string; actions?: { tool: string; tier: number; input: any }[] }> {
+  const admin = createAdminClient();
 
-  const messages: any[] = [{ role: 'user', content: userMessage }];
+  // Get or create thread, load its history
+  const resolvedThreadId = await getOrCreateThread(userId, threadId);
+  const history = await loadThreadHistory(resolvedThreadId);
+
+  // Save the user message immediately
+  await saveMessage(resolvedThreadId, userId, 'user', userMessage);
+  setThreadTitle(resolvedThreadId, userMessage).catch(() => {});
+
+  const ctx          = await fetchSpiritContext(userId, userMessage);
+  const merged       = { ...ctx, ...additionalContext };
+  const systemPrompt = buildSpiritSystemPrompt(merged);
+
+  // Build full conversation — history + new user turn
+  const messages: any[] = [
+    ...history,
+    { role: 'user', content: userMessage },
+  ];
   const pendingActions: { tool: string; tier: number; input: any }[] = [];
 
   let message = await claude.messages.create({
@@ -607,8 +684,7 @@ export async function callSpirit(
 
   // Tool-use loop (Spirit OS Phase 2 — Unified API Fabric). Tier 0/1 tools
   // execute immediately and feed their result back to Spirit. Tier 2 tools
-  // are never executed here — they're queued in spirit_actions for the user
-  // to confirm, and Spirit is told so it can ask for the go-ahead.
+  // are queued in spirit_actions for user confirmation.
   let rounds = 0;
   while (message.stop_reason === 'tool_use' && rounds < 4) {
     rounds++;
@@ -662,24 +738,24 @@ export async function callSpirit(
 
   let text = (message.content.find((b: any) => b.type === 'text') as any)?.text ?? '{}';
 
-  // Run the commandment self-critique check — non-blocking on failure
+  // Commandment self-critique — non-blocking on failure
   try {
     const critique = await critiqueAgainstCommandments(text, userMessage);
-    if (!critique.aligned && critique.revised) {
-      text = critique.revised;
-    }
-  } catch {
-    // Critique errored — draft passes through unchanged
-  }
+    if (!critique.aligned && critique.revised) text = critique.revised;
+  } catch {}
 
-  // Store this conversation as a memory (non-blocking)
-  storeMemory(userId, 'conversation', `Spirit conversation: ${userMessage.slice(0, 120)}`).catch(() => {});
+  // Save Spirit's reply to the thread
+  const replyText = (() => { try { return JSON.parse(text)?.response ?? JSON.parse(text)?.reply ?? JSON.parse(text)?.text ?? text; } catch { return text; } })();
+  await saveMessage(resolvedThreadId, userId, 'spirit', replyText);
+
+  // Extract learnings about the user — non-blocking
+  extractAndStoreLearnings(userId, userMessage, replyText).catch(() => {});
 
   const actions = pendingActions.length ? pendingActions : undefined;
   try {
-    return { text, raw: JSON.parse(text), actions };
+    return { text, raw: JSON.parse(text), threadId: resolvedThreadId, actions };
   } catch {
-    return { text, raw: { text }, actions };
+    return { text, raw: { text }, threadId: resolvedThreadId, actions };
   }
 }
 

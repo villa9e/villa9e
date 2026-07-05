@@ -20,13 +20,13 @@ export async function POST(req: NextRequest) {
   const { user, supabase } = await getUser(req);
 
   const body = await req.json();
-  const { type, mood, mood_score, energy_level, focus_area, message: chatMessage } = body;
+  const { type, mood, mood_score, energy_level, focus_area, message: chatMessage, thread_id } = body;
 
   // If called with a direct chat message, use full Spirit intelligence
   if (chatMessage) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    const { raw } = await callSpirit(user.id, chatMessage);
-    return NextResponse.json(raw);
+    const { raw, threadId } = await callSpirit(user.id, chatMessage, undefined, thread_id);
+    return NextResponse.json({ ...raw, thread_id: threadId });
   }
 
   // Morning/Evening check-in — also personalized when user is logged in

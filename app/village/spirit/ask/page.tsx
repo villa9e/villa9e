@@ -31,6 +31,7 @@ function AskSpiritInner() {
   const [input, setInput]       = useState(seedQuestion);
   const [loading, setLoading]   = useState(false);
   const [token, setToken]       = useState<string | null>(null);
+  const [threadId, setThreadId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,8 +47,7 @@ function AskSpiritInner() {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
     setInput('');
-    const userMsg: Msg = { role: 'user', content: msg };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages(prev => [...prev, { role: 'user', content: msg }]);
     setLoading(true);
     try {
       const history = messages.map(m => ({ role: m.role === 'spirit' ? 'assistant' : 'user', content: m.content }));
@@ -57,9 +57,10 @@ function AskSpiritInner() {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: msg, history }),
+        body: JSON.stringify({ message: msg, history, thread_id: threadId }),
       });
       const data = await res.json();
+      if (data.thread_id && !threadId) setThreadId(data.thread_id);
       setMessages(prev => [...prev, {
         role:           'spirit',
         content:        data.reply ?? 'Spirit is here. Keep going.',

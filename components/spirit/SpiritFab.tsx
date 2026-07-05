@@ -6,8 +6,6 @@ import { SHOW_PREFIXES, HIDE_EXACT } from '@/components/village/BottomNav';
 
 interface ChatMsg { role: 'user' | 'spirit'; text: string }
 
-// Pull a human-readable reply out of whatever shape Spirit's JSON came back
-// in — chat replies aren't pinned to one schema.
 function extractReply(raw: any, fallbackText: string): string {
   const stripped = fallbackText.replace(/```json|```/g, '').trim();
   if (raw && typeof raw === 'object') {
@@ -29,25 +27,60 @@ export default function SpiritFab() {
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [threadId, setThreadId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => setAuthed(!!user));
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setAuthed(!!session?.user);
+      setToken(session?.access_token ?? null);
+    });
   }, []);
 
+  // Load pending Spirit actions count
   useEffect(() => {
-    if (!authed) return;
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const res = await fetch('/api/spirit/actions', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setPendingCount((data.pending ?? []).length);
-    })();
-  }, [authed]);
+    if (!authed || !token) return;
+    fetch('/api/spirit/actions', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setPendingCount((d.pending ?? []).length); })
+      .catch(() => {});
+  }, [authed, token]);
+
+  // When opened, load the most recent thread (or create one on first send)
+  useEffect(() => {
+    if (!open || !authed || !token) return;
+    if (messages.length > 0) return; // Already loaded
+
+    setLoadingHistory(true);
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) { setLoadingHistory(false); return; }
+      const { data: threads } = await (supabase as any)
+        .from('spirit_threads')
+        .select('id, title, updated_at')
+        .eq('user_id', session.user.id)
+        .order('updated_at', { ascending: false })
+        .limit(1);
+
+      if (!threads || threads.length === 0) { setLoadingHistory(false); return; }
+
+      const latest = threads[0];
+      setThreadId(latest.id);
+
+      const { data: msgs } = await (supabase as any)
+        .from('spirit_messages')
+        .select('role, content')
+        .eq('thread_id', latest.id)
+        .order('created_at', { ascending: true })
+        .limit(40);
+
+      if (msgs && msgs.length > 0) {
+        setMessages(msgs.map((m: any) => ({ role: m.role as 'user' | 'spirit', text: m.content })));
+      }
+      setLoadingHistory(false);
+    });
+  }, [open, authed, token]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -69,22 +102,30 @@ export default function SpiritFab() {
     setSending(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/claude/spirit-response', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: text, thread_id: threadId }),
       });
       const data = await res.json();
+
+      // Persist the thread ID returned by the server
+      if (data.thread_id && !threadId) setThreadId(data.thread_id);
+
       setMessages(m => [...m, { role: 'spirit', text: extractReply(data, data?.text ?? '') }]);
     } catch {
       setMessages(m => [...m, { role: 'spirit', text: "I'm having trouble connecting right now — try again in a bit." }]);
     } finally {
       setSending(false);
     }
+  }
+
+  function startNewThread() {
+    setThreadId(null);
+    setMessages([]);
   }
 
   return (
@@ -120,14 +161,11 @@ export default function SpiritFab() {
       {/* Chat drawer */}
       {open && (
         <div
-          style={{
-            position: 'fixed', inset: 0, zIndex: 69,
-            background: 'rgba(0,0,0,0.45)',
-          }}
+          style={{ position: 'fixed', inset: 0, zIndex: 69, background: 'rgba(0,0,0,0.45)' }}
           onClick={() => setOpen(false)}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
             style={{
               position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)',
               width: '100%', maxWidth: 480, maxHeight: '70vh',
@@ -136,13 +174,27 @@ export default function SpiritFab() {
               display: 'flex', flexDirection: 'column', overflow: 'hidden',
             }}
           >
+            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
               <span style={{ fontSize: 14, fontWeight: 900, color: '#F0EBE0' }}>Spirit</span>
-              <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(240,235,224,0.5)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <button
+                  onClick={startNewThread}
+                  title="New conversation"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 8, padding: '4px 10px', color: 'rgba(240,235,224,0.7)', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  + New
+                </button>
+                <button onClick={() => setOpen(false)} style={{ background: 'none', border: 'none', color: 'rgba(240,235,224,0.5)', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+              </div>
             </div>
 
+            {/* Messages */}
             <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {messages.length === 0 && (
+              {loadingHistory && (
+                <p style={{ fontSize: 12, color: 'rgba(240,235,224,0.35)', textAlign: 'center', marginTop: 16 }}>Loading your conversation…</p>
+              )}
+              {!loadingHistory && messages.length === 0 && (
                 <p style={{ fontSize: 13, color: 'rgba(240,235,224,0.45)', textAlign: 'center', marginTop: 24 }}>
                   Ask Spirit anything — your goals, your day, what's next.
                 </p>
@@ -163,11 +215,12 @@ export default function SpiritFab() {
               )}
             </div>
 
+            {/* Input */}
             <div style={{ display: 'flex', gap: 8, padding: '10px 16px 16px' }}>
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') send(); }}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') send(); }}
                 placeholder="Message Spirit…"
                 style={{
                   flex: 1, background: '#0A0B12', border: '1px solid #1E2240', borderRadius: 999,
