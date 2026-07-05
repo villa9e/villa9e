@@ -209,6 +209,16 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
   const [pendingVerification, setPendingVerification] = useState<{ postId: string; message: string } | null>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Tier 2 proof-test challenge ────────────────────────────────────────────
+  const [proofTestChallenge, setProofTestChallenge] = useState<{
+    verificationId: string; type: 'text' | 'image'; prompt: string; actionId: string;
+  } | null>(null);
+  const [testTextResponse, setTestTextResponse] = useState('');
+  const [testImageFile, setTestImageFile] = useState<File | null>(null);
+  const [testImagePreview, setTestImagePreview] = useState<string | null>(null);
+  const [submittingTest, setSubmittingTest] = useState(false);
+  const testInputRef = useRef<HTMLInputElement>(null);
+
   const routeRef = useRef<SVGPathElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pinchRef = useRef<{ active: boolean; dist: number; mid: { x: number; y: number }; cam: Camera } | null>(null);
@@ -564,8 +574,9 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       actions: s.actions.map(a => a.id === action.id ? { ...a, completed: true } : a),
     })));
     setMining(false);
-    setToast('+25 $VLG mined · Growth Receipt written on-chain');
-    speak('Verified. Twenty five V L G mined.', 'casual');
+    const vlgAmt = goal?.vlg_per_action ?? 25;
+    setToast(`+${vlgAmt} $VLG mined · Growth Receipt written on-chain`);
+    speak(`Verified. ${vlgAmt} V L G mined.`, 'casual');
     setTimeout(() => setToast(null), 3200);
   }
 
@@ -631,6 +642,14 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
         setToast(`+${data.vlgEarned} $VLG mined · Growth Receipt written on-chain`);
         speak(`Verified. ${data.vlgEarned} V L G mined.`, 'casual');
         setTimeout(() => setToast(null), 3200);
+      } else if (data.status === 'proof_test_required') {
+        setProofTestChallenge({
+          verificationId: data.verificationId,
+          type:           data.proofTest.type,
+          prompt:         data.proofTest.prompt,
+          actionId:       selectedAction.id,
+        });
+        speak('Spirit has a challenge to verify your action. Complete it to mine your V L G.', 'serious');
       } else {
         setPendingVerification({ postId: data.dreamlinePostId, message: data.message });
         setToast(data.message ?? 'Shared to your DreamLine for verification.');
@@ -644,6 +663,52 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
       setSubmittingProof(false);
       setProofFile(null);
       setProofPreview(null);
+    }
+  }
+
+  async function submitTest() {
+    const challenge = proofTestChallenge;
+    if (!challenge || submittingTest) return;
+    if (challenge.type === 'text' && !testTextResponse.trim()) return;
+    if (challenge.type === 'image' && !testImageFile) return;
+    setSubmittingTest(true);
+    try {
+      const form = new FormData();
+      form.append('verificationId', challenge.verificationId);
+      if (challenge.type === 'text') {
+        form.append('text_response', testTextResponse.trim());
+      } else {
+        form.append('proof', testImageFile!);
+      }
+      const res  = await fetch(`/api/actions/${challenge.actionId}/submit-test`, { method: 'POST', body: form });
+      const data = await res.json();
+      setProofTestChallenge(null);
+      setTestTextResponse('');
+      setTestImageFile(null);
+      setTestImagePreview(null);
+      if (data.status === 'verified') {
+        setMining(true);
+        speak('Challenge passed. Spirit verified your action.', 'serious');
+        await new Promise(r => setTimeout(r, 3600));
+        setSprints(prev => prev.map(s => ({
+          ...s,
+          actions: s.actions.map(a => a.id === challenge.actionId ? { ...a, completed: true } : a),
+        })));
+        setMining(false);
+        setToast(`+${data.vlgEarned} $VLG mined · Growth Receipt written on-chain`);
+        speak(`Verified. ${data.vlgEarned} V L G mined.`, 'casual');
+        setTimeout(() => setToast(null), 3200);
+      } else {
+        setPendingVerification({ postId: data.dreamlinePostId, message: data.message });
+        setToast(data.message ?? 'Shared to your DreamLine for verification.');
+        speak('Challenge inconclusive. Shared to your dream line.', 'casual');
+        setTimeout(() => setToast(null), 4000);
+      }
+    } catch {
+      setToast('Could not submit challenge response.');
+      setTimeout(() => setToast(null), 3200);
+    } finally {
+      setSubmittingTest(false);
     }
   }
 
@@ -1061,7 +1126,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
 
             {/* Mining chips */}
             <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-              <span style={{ fontSize: 10, color: C.amberText, background: C.amberBg, borderRadius: 12, padding: '2px 8px' }}>⛏ {doneActions * 25} $VLG mined</span>
+              <span style={{ fontSize: 10, color: C.amberText, background: C.amberBg, borderRadius: 12, padding: '2px 8px' }}>⛏ {doneActions * (goal?.vlg_per_action ?? 25)} $VLG mined</span>
               <span style={{ fontSize: 10, color: C.arrow, background: C.completeBg, borderRadius: 12, padding: '2px 8px' }}>{Math.round(progress * 100)}% complete</span>
             </div>
 
@@ -1126,7 +1191,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
             {/* Verify button */}
             <button onClick={openVerifyFlow} disabled={!selectedAction || mining}
               style={{ width: '100%', background: mining ? C.wpDone : C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: selectedAction && !mining ? 'pointer' : 'default', opacity: !selectedAction ? 0.4 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              {mining ? 'Mining…' : selectedAction ? '⛏ Verify action · mine $VLG' : '✓ All actions complete'}
+              {mining ? 'Mining…' : selectedAction ? `⛏ Verify action · mine ${goal?.vlg_per_action ?? 25} $VLG` : '✓ All actions complete'}
             </button>
 
             {/* Pending DreamLine co-sign — proof shared, waiting on 3 villagers */}
@@ -1274,7 +1339,7 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
               ) : (
                 <button onClick={() => proofInputRef.current?.click()}
                   style={{ width: '100%', border: `1px dashed ${C.borderDim}`, borderRadius: 10, padding: '24px 10px', background: 'none', color: C.textMute, fontSize: 12, cursor: 'pointer', marginBottom: 10 }}>
-                  📷 Tap to add a photo or video as proof
+                  Tap to add a photo or video as proof
                 </button>
               )}
               {proofPreview && (
@@ -1295,6 +1360,82 @@ export default function GpsMapPage({ params }: { params: { id: string } }) {
               <button onClick={submitProof} disabled={!proofFile || submittingProof}
                 style={{ width: '100%', background: C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE', fontSize: 13, fontWeight: 500, cursor: proofFile && !submittingProof ? 'pointer' : 'default', opacity: !proofFile ? 0.4 : 1 }}>
                 {submittingProof ? 'Submitting…' : 'Submit proof'}
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Tier 2 proof-test challenge sheet ────────────────────────────────── */}
+      <AnimatePresence>
+        {proofTestChallenge && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              style={{ position: 'absolute', inset: 0, zIndex: 11, background: 'rgba(5,9,18,0.75)' }} />
+            <motion.div
+              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 26, stiffness: 260 }}
+              style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 12, maxHeight: '85%',
+                background: '#0e1828', borderTop: `1px solid ${C.active}55`, borderRadius: '18px 18px 0 0',
+                padding: '8px 16px calc(28px + env(safe-area-inset-bottom))', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '4px 0 12px' }}>
+                <div style={{ width: 34, height: 4, borderRadius: 2, background: C.borderDim }} />
+              </div>
+              <p style={{ fontSize: 10, color: C.arrow, letterSpacing: '0.4px', textTransform: 'uppercase', margin: '0 0 6px' }}>
+                Spirit Verification Challenge
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: C.textHi, margin: '0 0 4px', lineHeight: 1.45 }}>
+                Spirit couldn&apos;t confirm your proof directly.
+              </p>
+              <p style={{ fontSize: 12, color: C.textBody, margin: '0 0 16px', lineHeight: 1.6 }}>
+                {proofTestChallenge.prompt}
+              </p>
+
+              {proofTestChallenge.type === 'text' ? (
+                <textarea
+                  value={testTextResponse}
+                  onChange={e => setTestTextResponse(e.target.value)}
+                  placeholder="Describe your demonstration…"
+                  rows={4}
+                  style={{ width: '100%', resize: 'none', borderRadius: 10, border: `1px solid ${C.borderDim}`,
+                    background: 'transparent', color: C.textBody, fontSize: 13, padding: 10, marginBottom: 12, fontFamily: 'inherit' }}
+                />
+              ) : (
+                <>
+                  {testImagePreview ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={testImagePreview} alt="test proof" style={{ width: '100%', maxHeight: 200, objectFit: 'cover', borderRadius: 10, marginBottom: 10 }} />
+                  ) : (
+                    <button onClick={() => testInputRef.current?.click()}
+                      style={{ width: '100%', border: `1px dashed ${C.borderDim}`, borderRadius: 10, padding: '20px 10px', background: 'none', color: C.textMute, fontSize: 12, cursor: 'pointer', marginBottom: 10 }}>
+                      Tap to take or upload the verification photo
+                    </button>
+                  )}
+                  {testImagePreview && (
+                    <button onClick={() => testInputRef.current?.click()}
+                      style={{ width: '100%', border: `1px solid ${C.borderDim}`, borderRadius: 8, padding: 8, background: 'none', color: C.textBody, fontSize: 11, cursor: 'pointer', marginBottom: 10 }}>
+                      Choose a different photo
+                    </button>
+                  )}
+                  <input ref={testInputRef} type="file" accept="image/*" onChange={e => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    setTestImageFile(f);
+                    setTestImagePreview(URL.createObjectURL(f));
+                  }} style={{ display: 'none' }} />
+                </>
+              )}
+
+              <button
+                onClick={submitTest}
+                disabled={submittingTest || (proofTestChallenge.type === 'text' ? !testTextResponse.trim() : !testImageFile)}
+                style={{ width: '100%', background: C.active, border: 'none', borderRadius: 10, padding: 11, color: '#EEEDFE',
+                  fontSize: 13, fontWeight: 600, cursor: 'pointer', opacity: submittingTest ? 0.6 : 1, marginBottom: 8 }}>
+                {submittingTest ? 'Spirit is reviewing…' : 'Submit verification'}
+              </button>
+              <button onClick={() => setProofTestChallenge(null)} disabled={submittingTest}
+                style={{ width: '100%', background: 'none', border: 'none', color: C.textMute, fontSize: 12, padding: 6, cursor: 'pointer' }}>
+                Cancel
               </button>
             </motion.div>
           </>

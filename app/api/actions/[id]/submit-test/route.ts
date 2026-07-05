@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
+import { awardVlg } from '@/lib/vlg/award';
 
 const TEST_PASS_THRESHOLD = 70;
-const VLG_AMOUNT = 10;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Grade a text answer against the proof test prompt
-// ─────────────────────────────────────────────────────────────────────────────
 async function gradeTextResponse(
   actionTitle: string,
   testPrompt: string,
@@ -35,9 +32,6 @@ async function gradeTextResponse(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Grade a follow-up image demonstration against the proof test instruction
-// ─────────────────────────────────────────────────────────────────────────────
 async function gradeImageResponse(
   actionTitle: string,
   testPrompt: string,
@@ -72,9 +66,6 @@ async function gradeImageResponse(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Escalate a failed/unresolvable test to DreamLine (Tier 3 fallback)
-// ─────────────────────────────────────────────────────────────────────────────
 async function escalateToDreamLine(
   admin: any,
   verification: any,
@@ -102,9 +93,6 @@ async function escalateToDreamLine(
   return { dreamlinePostId: post?.id ?? '' };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Complete the action + sprint if this was the last action
-// ─────────────────────────────────────────────────────────────────────────────
 async function completeAction(admin: any, action: any, actionId: string): Promise<boolean> {
   await admin.from('sprint_actions').update({
     completed: true, completed_at: new Date().toISOString(),
@@ -124,27 +112,7 @@ async function completeAction(admin: any, action: any, actionId: string): Promis
   return sprintCompleted;
 }
 
-async function awardVlg(admin: any, req: NextRequest, userId: string, sourceId: string, amount: number) {
-  await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/api/vlg/earn`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
-    body:    JSON.stringify({ reason: 'action_verified', amount, source_id: sourceId }),
-  }).catch(() => {});
-
-  try {
-    const { data: profile } = await admin.from('profiles').select('vlg_balance').eq('id', userId).maybeSingle();
-    const current = parseFloat(profile?.vlg_balance ?? '0') || 0;
-    await admin.from('profiles').update({ vlg_balance: current + amount }).eq('id', userId);
-    await admin.from('vlg_transactions').insert({
-      user_id: userId, amount, reason: 'action_verified_test', source_id: sourceId,
-    }).catch(() => {});
-  } catch { /* silent */ }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/actions/[id]/submit-test
-// Body (multipart): verificationId + either text_response OR proof (image file)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── POST /api/actions/[id]/submit-test ───────────────────────────────────────
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -157,10 +125,9 @@ export async function POST(
 
   const action_id = params.id;
 
-  // Load the action and its pending verification
   const { data: action } = await admin
     .from('sprint_actions')
-    .select('*, sprints(id, goal_id, user_id)')
+    .select('*, sprints(id, goal_id, user_id, goals(vlg_per_action))')
     .eq('id', action_id)
     .maybeSingle();
 
@@ -168,16 +135,16 @@ export async function POST(
     return NextResponse.json({ error: 'Action not found' }, { status: 404 });
   }
 
-  const formData         = await req.formData();
-  const verificationId   = formData.get('verificationId') as string | null;
-  const textResponse     = formData.get('text_response')  as string | null;
-  const imageFile        = formData.get('proof')          as File | null;
+  const VLG_AMOUNT: number = action.sprints?.goals?.vlg_per_action ?? 10;
+  const goalId = action.sprints?.goal_id ?? null;
 
-  if (!verificationId) {
-    return NextResponse.json({ error: 'verificationId required' }, { status: 400 });
-  }
+  const formData       = await req.formData();
+  const verificationId = formData.get('verificationId') as string | null;
+  const textResponse   = formData.get('text_response')  as string | null;
+  const imageFile      = formData.get('proof')          as File | null;
 
-  // Fetch the verification row
+  if (!verificationId) return NextResponse.json({ error: 'verificationId required' }, { status: 400 });
+
   const { data: verification } = await admin
     .from('action_verifications')
     .select('*')
@@ -194,13 +161,11 @@ export async function POST(
   const testPrompt = verification.proof_test_prompt as string;
   const testType   = verification.proof_test_type   as 'text' | 'image';
 
-  // ── Grade the test response ───────────────────────────────────────────────
   let grade: { passed: boolean; confidence: number; message: string };
 
   if (testType === 'text') {
-    if (!textResponse?.trim()) {
-      return NextResponse.json({ error: 'Text response required for this test' }, { status: 400 });
-    }
+    if (!textResponse?.trim()) return NextResponse.json({ error: 'Text response required' }, { status: 400 });
+
     grade = await gradeTextResponse(action.title, testPrompt, textResponse.trim());
 
     await admin.from('action_verifications').update({
@@ -211,7 +176,6 @@ export async function POST(
     }).eq('id', verificationId);
 
   } else {
-    // image test — requires a follow-up photo
     if (!imageFile || !imageFile.type.startsWith('image/')) {
       return NextResponse.json({ error: 'Photo required for this test' }, { status: 400 });
     }
@@ -219,7 +183,6 @@ export async function POST(
     const base64    = Buffer.from(bytes).toString('base64');
     const mediaType = imageFile.type || 'image/jpeg';
 
-    // Upload the test photo
     const ext  = (imageFile.name.split('.').pop() ?? 'jpg').toLowerCase();
     const path = `${user.id}/${action_id}-test-${Date.now()}.${ext}`;
     await admin.storage.from('action-proofs').upload(path, bytes, { contentType: imageFile.type, upsert: true });
@@ -235,14 +198,23 @@ export async function POST(
     }).eq('id', verificationId);
   }
 
-  // ── Tier 2 PASS: action complete + mine VLG ───────────────────────────────
+  // ── PASS ─────────────────────────────────────────────────────────────────
   if (grade.passed && grade.confidence >= TEST_PASS_THRESHOLD) {
     const sprintCompleted = await completeAction(admin, action, action_id);
-    await awardVlg(admin, req, user.id, action_id, VLG_AMOUNT);
+    await awardVlg(user.id, VLG_AMOUNT, 'action_verified', action_id);
 
     await admin.from('action_verifications').update({
       status: 'verified', resolved_at: new Date().toISOString(),
     }).eq('id', verificationId);
+
+    // Celebrate on DreamLine
+    await admin.from('dream_line_posts').insert({
+      user_id:        user.id,
+      goal_id:        goalId,
+      content:        `Challenge passed: "${action.title}" — verified by Spirit. +${VLG_AMOUNT} $VLG mined.`,
+      is_milestone:   true,
+      milestone_type: 'step_completed',
+    }).catch(() => {});
 
     return NextResponse.json({
       status: 'verified',
@@ -255,10 +227,8 @@ export async function POST(
     });
   }
 
-  // ── Tier 2 FAIL: escalate to DreamLine (Tier 3) ───────────────────────────
-  const { dreamlinePostId } = await escalateToDreamLine(
-    admin, verification, user.id, action, grade.message
-  );
+  // ── FAIL → escalate to DreamLine ─────────────────────────────────────────
+  const { dreamlinePostId } = await escalateToDreamLine(admin, verification, user.id, action, grade.message);
 
   return NextResponse.json({
     status: 'pending',

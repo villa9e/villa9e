@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
+import { awardVlg } from '@/lib/vlg/award';
+import { storeMemory } from '@/lib/claude/spirit';
 
 const VOTER_VLG_REWARD = 1;
-const OWNER_VLG_REWARD = 10;
 
 export async function POST(
   req: NextRequest,
@@ -27,7 +28,7 @@ export async function POST(
     return NextResponse.json({ error: 'You cannot verify your own proof' }, { status: 403 });
   }
   if (verification.status !== 'pending') {
-    return NextResponse.json({ error: 'This verification has already been resolved', status: verification.status }, { status: 409 });
+    return NextResponse.json({ error: 'Already resolved', status: verification.status }, { status: 409 });
   }
 
   const { error: voteErr } = await admin.from('action_verification_votes').insert({
@@ -40,8 +41,8 @@ export async function POST(
     return NextResponse.json({ error: 'Could not record vote' }, { status: 500 });
   }
 
-  const votesConfirm = verification.votes_confirm + (vote === 'confirm' ? 1 : 0);
-  const votesReject  = verification.votes_reject  + (vote === 'reject'  ? 1 : 0);
+  const votesConfirm  = verification.votes_confirm + (vote === 'confirm' ? 1 : 0);
+  const votesReject   = verification.votes_reject  + (vote === 'reject'  ? 1 : 0);
   const votesRequired = verification.votes_required ?? 3;
 
   let status = verification.status;
@@ -49,51 +50,67 @@ export async function POST(
   let resolvedAt: string | null = null;
 
   if (votesConfirm >= votesRequired) {
-    status = 'verified';
+    status     = 'verified';
     resolvedAt = new Date().toISOString();
+
+    // Load the action for sprint + goal info
+    const { data: action } = await admin
+      .from('sprint_actions')
+      .select('id, title, sprint_id, sprints(id, goal_id, goals(vlg_per_action, title))')
+      .eq('id', verification.action_id)
+      .maybeSingle();
+
+    const ownerVlgReward: number = action?.sprints?.goals?.vlg_per_action ?? 10;
 
     await admin.from('sprint_actions').update({
       completed: true, completed_at: resolvedAt,
     }).eq('id', verification.action_id);
 
-    const { data: action } = await admin.from('sprint_actions').select('sprint_id').eq('id', verification.action_id).maybeSingle();
     if (action?.sprint_id) {
       const { data: allActions } = await admin
         .from('sprint_actions').select('id, completed').eq('sprint_id', action.sprint_id);
-      const updated = (allActions ?? []).map((a: any) => a.id === verification.action_id ? { ...a, completed: true } : a);
+      const updated = (allActions ?? []).map((a: any) =>
+        a.id === verification.action_id ? { ...a, completed: true } : a
+      );
       sprintCompleted = updated.every((a: any) => a.completed === true);
       if (sprintCompleted) {
-        await admin.from('sprints').update({ status: 'complete', completed_at: resolvedAt }).eq('id', action.sprint_id);
+        await admin.from('sprints').update({
+          status: 'complete', completed_at: resolvedAt,
+        }).eq('id', action.sprint_id);
       }
     }
 
-    await awardVlg(admin, verification.user_id, verification.action_id, OWNER_VLG_REWARD, 'action_verified');
+    // Award owner
+    await awardVlg(verification.user_id, ownerVlgReward, 'action_verified', verification.action_id);
+
+    // Spirit closes the loop — store a celebration memory for the owner
+    const actionTitle = action?.title ?? 'your action';
+    const goalTitle   = action?.sprints?.goals?.title;
+    storeMemory(
+      verification.user_id,
+      'celebration',
+      `Your DreamLine community just verified "${actionTitle}"${goalTitle ? ` (goal: ${goalTitle})` : ''}! You earned ${ownerVlgReward} $VLG. The village saw your work and confirmed it.`,
+      { action_id: verification.action_id, goal_id: action?.sprints?.goal_id ?? null, vlg_earned: ownerVlgReward },
+      8
+    ).catch(() => {});
+
   } else if (votesReject >= votesRequired) {
-    status = 'rejected';
+    status     = 'rejected';
     resolvedAt = new Date().toISOString();
   }
 
   await admin.from('action_verifications').update({
-    votes_confirm: votesConfirm, votes_reject: votesReject, status,
+    votes_confirm: votesConfirm,
+    votes_reject:  votesReject,
+    status,
     ...(resolvedAt ? { resolved_at: resolvedAt } : {}),
   }).eq('id', params.id);
 
-  // Thank-you $VLG to the voter for helping verify
-  await awardVlg(admin, user.id, params.id, VOTER_VLG_REWARD, 'verification_vote');
+  // Thank-you VLG to voter
+  await awardVlg(user.id, VOTER_VLG_REWARD, 'verification_vote', params.id);
 
   return NextResponse.json({
     status, votesConfirm, votesReject, votesRequired, sprintCompleted,
     resolved: status !== 'pending',
   });
-}
-
-async function awardVlg(admin: any, userId: string, sourceId: string, amount: number, reason: string) {
-  try {
-    const { data: profile } = await admin.from('profiles').select('vlg_balance').eq('id', userId).maybeSingle();
-    const current = parseFloat(profile?.vlg_balance ?? '0') || 0;
-    await admin.from('profiles').update({ vlg_balance: current + amount }).eq('id', userId);
-    try {
-      await admin.from('vlg_transactions').insert({ user_id: userId, amount, reason, source_id: sourceId });
-    } catch { /* non-blocking */ }
-  } catch { /* silent */ }
 }

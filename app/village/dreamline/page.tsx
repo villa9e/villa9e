@@ -379,7 +379,11 @@ function VerificationRequestCard({ post, currentUserId, isNight }: {
   const [copied, setCopied] = useState(false);
   const supabase = createClient();
 
+  // Extract the action title from post.content — format: `…"ACTION TITLE"`
+  const actionTitle = post.content?.match(/"([^"]+)"\s*$/)?.[1] ?? null;
+
   useEffect(() => {
+    let channel: any;
     async function load() {
       const { data: v } = await (supabase as any)
         .from('action_verifications').select('*').eq('dreamline_post_id', post.id).maybeSingle();
@@ -389,9 +393,29 @@ function VerificationRequestCard({ post, currentUserId, isNight }: {
           .from('action_verification_votes').select('vote')
           .eq('verification_id', v.id).eq('voter_id', currentUserId).maybeSingle();
         setMyVote(myv?.vote ?? null);
+
+        // Live vote count — Realtime subscription on this verification row
+        channel = (supabase as any)
+          .channel(`verification-${v.id}`)
+          .on('postgres_changes', {
+            event:  'UPDATE',
+            schema: 'public',
+            table:  'action_verifications',
+            filter: `id=eq.${v.id}`,
+          }, (payload: any) => {
+            const row = payload.new;
+            setVerification((prev: any) => ({
+              ...prev,
+              votes_confirm: row.votes_confirm,
+              votes_reject:  row.votes_reject,
+              status:        row.status,
+            }));
+          })
+          .subscribe();
       }
     }
     load();
+    return () => { if (channel) supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id, currentUserId]);
 
@@ -434,10 +458,15 @@ function VerificationRequestCard({ post, currentUserId, isNight }: {
       border: '1px solid rgba(245,158,11,0.3)',
       background: isNight ? 'rgba(245,158,11,0.06)' : 'rgba(245,158,11,0.05)',
     }}>
-      <div style={{ padding: '10px 14px 6px' }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+      <div style={{ padding: '10px 14px 8px' }}>
+        <span style={{ fontSize: 10, fontWeight: 800, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 4 }}>
           Verify this proof
         </span>
+        {actionTitle && (
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: text, lineHeight: 1.3 }}>
+            {actionTitle}
+          </p>
+        )}
       </div>
       {proofUrl && proofType === 'image' && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -463,7 +492,7 @@ function VerificationRequestCard({ post, currentUserId, isNight }: {
             </div>
             {isOwner ? (
               <button onClick={share} style={{ width: '100%', background: '#F59E0B', border: 'none', borderRadius: 10, padding: 10, color: '#1E1B4B', fontSize: 13, fontWeight: 800, cursor: 'pointer' }}>
-                {copied ? 'Link copied!' : '📤 Share & invite friends to verify'}
+                {copied ? 'Link copied!' : 'Share & invite friends to verify'}
               </button>
             ) : myVote ? (
               <span style={{ fontSize: 12, color: muted, fontWeight: 600 }}>
@@ -473,17 +502,17 @@ function VerificationRequestCard({ post, currentUserId, isNight }: {
               <div style={{ display: 'flex', gap: 8 }}>
                 <button onClick={() => castVote('confirm')} disabled={voting}
                   style={{ flex: 1, background: '#10B981', border: 'none', borderRadius: 10, padding: 10, color: '#fff', fontSize: 13, fontWeight: 800, cursor: 'pointer', opacity: voting ? 0.6 : 1 }}>
-                  ✓ Confirm
+                  Confirm
                 </button>
                 <button onClick={() => castVote('reject')} disabled={voting}
                   style={{ flex: 1, background: 'transparent', border: `1px solid ${muted}`, borderRadius: 10, padding: 10, color: text, fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: voting ? 0.6 : 1 }}>
-                  ✕ Not yet
+                  Not yet
                 </button>
               </div>
             )}
           </>
         ) : verification.status === 'verified' ? (
-          <span style={{ fontSize: 12, color: '#10B981', fontWeight: 800 }}>✓ Verified by the village · action complete</span>
+          <span style={{ fontSize: 12, color: '#10B981', fontWeight: 800 }}>Verified by the village · action complete</span>
         ) : (
           <span style={{ fontSize: 12, color: muted, fontWeight: 700 }}>This proof wasn&apos;t confirmed — try submitting new proof.</span>
         )}

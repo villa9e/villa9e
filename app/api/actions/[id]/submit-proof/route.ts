@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, createAdminClient } from '@/lib/supabase/server';
 import { claude, CLAUDE_MODEL } from '@/lib/claude/client';
+import { awardVlg } from '@/lib/vlg/award';
 
-const DIRECT_VERIFY_THRESHOLD = 75;  // confidence % for Tier 1 auto-pass
-const VLG_AMOUNT = 10;
+const DIRECT_VERIFY_THRESHOLD = 75;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER 1: Ask Claude vision to directly verify the proof
-// ─────────────────────────────────────────────────────────────────────────────
+// ── TIER 1: Direct Claude vision ─────────────────────────────────────────────
 async function directVerify(
   actionTitle: string,
   actionDescription: string | null,
@@ -43,10 +41,7 @@ async function directVerify(
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER 2: Ask Claude to design a proof test Spirit can grade
-// Returns null if no testable challenge is possible (→ fall through to Tier 3)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── TIER 2: Spirit designs a scientific proof test ────────────────────────────
 async function designProofTest(
   actionTitle: string,
   actionDescription: string | null,
@@ -79,14 +74,13 @@ Bad test types (do NOT use):
 - Essay questions ("Describe what you learned")
 - Anything that a non-doer could answer by guessing or Googling
 
-Prefer image tests — they produce richer evidence. Use text only if a physical demonstration is truly not possible for this action type.
+Prefer image tests — they produce richer evidence. Use text only if a physical demonstration is truly not possible.
 
 If no meaningful scientific demonstration is possible, return can_test: false.
-
 Respond ONLY with valid JSON.`,
       messages: [{
         role: 'user',
-        content: `Action: "${actionTitle}"${actionDescription ? `\nDetails: ${actionDescription}` : ''}\nProof type submitted: ${proofType}\nAI review note: ${aiMessage}\n\nDesign the verification experiment. Respond: {"can_test": boolean, "test_type": "text" | "image", "test_prompt": string, "rationale": string}\n- If can_test is false, test_prompt and test_type can be empty strings`,
+        content: `Action: "${actionTitle}"${actionDescription ? `\nDetails: ${actionDescription}` : ''}\nProof type submitted: ${proofType}\nAI review note: ${aiMessage}\n\nDesign the verification experiment. Respond: {"can_test": boolean, "test_type": "text" | "image", "test_prompt": string, "rationale": string}`,
       }],
     });
     const raw = (msg.content[0] as any).text ?? '{}';
@@ -99,9 +93,7 @@ Respond ONLY with valid JSON.`,
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TIER 3: Post to DreamLine for community co-sign (3 confirms)
-// ─────────────────────────────────────────────────────────────────────────────
+// ── TIER 3: Post to DreamLine for community co-sign ───────────────────────────
 async function postToDreamLine(
   admin: any,
   userId: string,
@@ -140,29 +132,27 @@ async function postToDreamLine(
   return { verificationId: verification?.id ?? '', dreamlinePostId: post?.id ?? '' };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Award VLG to the user
-// ─────────────────────────────────────────────────────────────────────────────
-async function awardVlg(admin: any, req: NextRequest, userId: string, sourceId: string, amount: number) {
-  await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/api/vlg/earn`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', Cookie: req.headers.get('cookie') ?? '' },
-    body:    JSON.stringify({ reason: 'action_verified', amount, source_id: sourceId }),
+// ── Post DreamLine celebration after Spirit-verified action ───────────────────
+async function postVerifiedCelebration(
+  admin: any,
+  userId: string,
+  goalId: string | null,
+  actionTitle: string,
+  proofUrl: string,
+  vlgEarned: number
+) {
+  await admin.from('dream_line_posts').insert({
+    user_id:        userId,
+    goal_id:        goalId,
+    content:        `Just verified: "${actionTitle}" — Spirit confirmed it. +${vlgEarned} $VLG mined.`,
+    media_urls:     proofUrl ? [proofUrl] : [],
+    media_types:    proofUrl ? ['image'] : [],
+    is_milestone:   true,
+    milestone_type: 'step_completed',
   }).catch(() => {});
-
-  try {
-    const { data: profile } = await admin.from('profiles').select('vlg_balance').eq('id', userId).maybeSingle();
-    const current = parseFloat(profile?.vlg_balance ?? '0') || 0;
-    await admin.from('profiles').update({ vlg_balance: current + amount }).eq('id', userId);
-    await admin.from('vlg_transactions').insert({
-      user_id: userId, amount, reason: 'action_verified', source_id: sourceId,
-    }).catch(() => {});
-  } catch { /* silent */ }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Mark action + possibly sprint as complete
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Mark action + sprint complete ─────────────────────────────────────────────
 async function completeAction(admin: any, action: any, actionId: string): Promise<boolean> {
   await admin.from('sprint_actions').update({
     completed: true, completed_at: new Date().toISOString(),
@@ -182,9 +172,7 @@ async function completeAction(admin: any, action: any, actionId: string): Promis
   return sprintCompleted;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST /api/actions/[id]/submit-proof
-// ─────────────────────────────────────────────────────────────────────────────
+// ── POST /api/actions/[id]/submit-proof ───────────────────────────────────────
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -199,16 +187,15 @@ export async function POST(
 
   const { data: action, error: actionErr } = await admin
     .from('sprint_actions')
-    .select('*, sprints(id, goal_id, user_id)')
+    .select('*, sprints(id, goal_id, user_id, goals(vlg_per_action))')
     .eq('id', action_id)
     .maybeSingle();
 
-  if (actionErr || !action) {
-    return NextResponse.json({ error: 'Action not found' }, { status: 404 });
-  }
-  if (action.sprints?.user_id !== user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  if (actionErr || !action) return NextResponse.json({ error: 'Action not found' }, { status: 404 });
+  if (action.sprints?.user_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  const VLG_AMOUNT: number = action.sprints?.goals?.vlg_per_action ?? 10;
+  const goalId = action.sprints?.goal_id ?? null;
 
   const formData = await req.formData();
   const file = formData.get('proof') as File | null;
@@ -218,43 +205,38 @@ export async function POST(
 
   const isImage = file.type.startsWith('image/');
   const isVideo = file.type.startsWith('video/');
-  if (!isImage && !isVideo) {
-    return NextResponse.json({ error: 'Proof must be a photo or video' }, { status: 400 });
-  }
-  const maxSize = isVideo ? 30 * 1024 * 1024 : 8 * 1024 * 1024;
-  if (file.size > maxSize) {
-    return NextResponse.json({ error: `File must be under ${maxSize / (1024 * 1024)}MB` }, { status: 400 });
-  }
+  if (!isImage && !isVideo) return NextResponse.json({ error: 'Proof must be a photo or video' }, { status: 400 });
 
-  // Upload proof to storage
+  const maxSize = isVideo ? 30 * 1024 * 1024 : 8 * 1024 * 1024;
+  if (file.size > maxSize) return NextResponse.json({ error: `File must be under ${maxSize / (1024 * 1024)}MB` }, { status: 400 });
+
   const ext  = (file.name.split('.').pop() ?? (isImage ? 'jpg' : 'mp4')).toLowerCase();
   const path = `${user.id}/${action_id}-${Date.now()}.${ext}`;
   const bytes = await file.arrayBuffer();
+
   const { error: uploadErr } = await admin.storage
     .from('action-proofs')
     .upload(path, bytes, { contentType: file.type, upsert: true });
 
-  if (uploadErr) {
-    return NextResponse.json({ error: 'Upload failed — please try again' }, { status: 500 });
-  }
+  if (uploadErr) return NextResponse.json({ error: 'Upload failed — please try again' }, { status: 500 });
+
   const { data: { publicUrl } } = admin.storage.from('action-proofs').getPublicUrl(path);
   const proofType: 'image' | 'video' = isImage ? 'image' : 'video';
-  const goalId = action.sprints?.goal_id ?? null;
 
   // ── TIER 1: Direct AI vision (images only) ────────────────────────────────
   let directResult = { verified: false, confidence: 0, message: '' };
 
   if (isImage) {
-    const base64    = Buffer.from(bytes).toString('base64');
-    const mediaType = file.type || 'image/jpeg';
-    directResult    = await directVerify(action.title, action.description ?? null, note, base64, mediaType);
+    const base64 = Buffer.from(bytes).toString('base64');
+    directResult = await directVerify(action.title, action.description ?? null, note, base64, file.type || 'image/jpeg');
   } else {
     directResult.message = 'Video proof received.';
   }
 
   if (isImage && directResult.verified && directResult.confidence >= DIRECT_VERIFY_THRESHOLD) {
     const sprintCompleted = await completeAction(admin, action, action_id);
-    await awardVlg(admin, req, user.id, action_id, VLG_AMOUNT);
+    await awardVlg(user.id, VLG_AMOUNT, 'action_verified', action_id);
+    await postVerifiedCelebration(admin, user.id, goalId, action.title, publicUrl, VLG_AMOUNT);
     return NextResponse.json({
       status: 'verified',
       tier: 1,
@@ -269,14 +251,10 @@ export async function POST(
 
   // ── TIER 2: Spirit designs a proof test ──────────────────────────────────
   const proofTest = await designProofTest(
-    action.title,
-    action.description ?? null,
-    proofType,
-    directResult.message
+    action.title, action.description ?? null, proofType, directResult.message
   );
 
   if (proofTest) {
-    // Save verification row in 'proof_test_required' state
     const { data: verification } = await admin.from('action_verifications').insert({
       action_id,
       user_id:            user.id,
@@ -298,14 +276,11 @@ export async function POST(
       message: directResult.message,
       proofUrl: publicUrl,
       verificationId: verification?.id ?? null,
-      proofTest: {
-        type:   proofTest.test_type,
-        prompt: proofTest.test_prompt,
-      },
+      proofTest: { type: proofTest.test_type, prompt: proofTest.test_prompt },
     });
   }
 
-  // ── TIER 3: DreamLine community co-sign (last resort) ────────────────────
+  // ── TIER 3: DreamLine community co-sign ──────────────────────────────────
   const { verificationId, dreamlinePostId } = await postToDreamLine(
     admin, user.id, goalId, action.title, note,
     publicUrl, proofType, action_id,
