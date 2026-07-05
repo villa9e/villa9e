@@ -36,8 +36,10 @@ export function useWorkshopSwipeNav(active: WorkshopTab, gpsHref?: string) {
     const dx = e.changedTouches[0].clientX - start.current.x;
     const dy = e.changedTouches[0].clientY - start.current.y;
     if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    if (dx < 0 && activeIdx < TAB_ORDER.length - 1) router.push(hrefFor(activeIdx + 1));
-    else if (dx > 0 && activeIdx > 0) router.push(hrefFor(activeIdx - 1));
+    // dx > 0 = swipe right → go to the tab on the right (higher index)
+    // dx < 0 = swipe left  → go to the tab on the left  (lower index)
+    if (dx > 0 && activeIdx < TAB_ORDER.length - 1) router.push(hrefFor(activeIdx + 1));
+    else if (dx < 0 && activeIdx > 0) router.push(hrefFor(activeIdx - 1));
   }
   return { onTouchStart, onTouchEnd };
 }

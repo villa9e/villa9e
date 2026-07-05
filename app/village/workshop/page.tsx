@@ -900,8 +900,8 @@ export default function WorkshopPage() {
 
     // Horizontal swipe → Goals / GPS navigation
     if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 55) {
-      if (dx > 0) router.push('/village/workshop/chat'); // swipe right → Goals
-      else router.push(gpsHref); // swipe left → GPS
+      if (dx > 0) router.push(gpsHref);                  // swipe right → GPS
+      else router.push('/village/workshop/chat');          // swipe left  → Goals
       triggerUIShow();
     }
     // Vertical card-to-card navigation is handled natively by CSS scroll-snap.
