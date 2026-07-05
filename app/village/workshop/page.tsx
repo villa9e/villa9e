@@ -687,8 +687,10 @@ export default function WorkshopPage() {
   const hasGoals = activeGoals.length > 0;
   const card = cards[current];
   const isGoalAligned = !!card?.actionContext;
+  const gpsActiveGoal = activeGoals.find((g: any) => g.gps_stage === 'active');
   const gpsHref = card?.actionContext
     ? `/village/workshop/gps/${card.actionContext.goalId}`
+    : gpsActiveGoal ? `/village/workshop/gps/${gpsActiveGoal.id}`
     : activeGoals[0] ? `/village/workshop/gps/${activeGoals[0].id}` : '/village/workshop/gps';
 
   // Auto-hide UI after 3s on card change
@@ -837,13 +839,14 @@ export default function WorkshopPage() {
 
         const { data } = await (supabase as any)
           .from('goals')
-          .select('id, title, description, category, progress_percentage, probability_score, action_level, goal_steps(status)')
+          .select('id, title, description, category, progress_percentage, probability_score, action_level, gps_stage, goal_steps(status)')
           .eq('user_id', user.id).eq('status', 'active')
           .order('created_at', { ascending: false }).limit(5)
           .then((r: any) => r).catch(() => ({ data: [] }));
         goals = data ?? [];
 
-        const primaryGoal = goals[0];
+        // Prefer GPS-activated goals for action context and swipe target
+        const primaryGoal = goals.find((g: any) => g.gps_stage === 'active') ?? goals[0];
         if (primaryGoal) {
           const { data: sp } = await (supabase as any)
             .from('sprints')
